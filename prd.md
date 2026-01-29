@@ -99,6 +99,7 @@ end
 subgraph RHIVOS["RHIVOS"]
 	subgraph QM["QM Partition"]
 		Adaptor["PARKING_OPERATOR_ADAPTOR(container)"]
+        MQTT[MQTT Client]
 	end
 	
 	Databroker["Kuksa.val Databroker(VSS hub)Isolation Layer"]
@@ -122,6 +123,7 @@ LockingService -->|publishes lock/unlock<br/>events| Databroker
 Databroker -->|VSS signals| Adaptor
 Adaptor -->|queries| Databroker
 CompanionApp --> |lock/unlock| CloudGateway
+CloudGateway --> MQTT --> CloudGateway
 ```
 
 ### VSS Signals used
