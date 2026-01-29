@@ -106,11 +106,10 @@ subgraph RHIVOS["RHIVOS"]
 	subgraph Safety["Safety Partition (ASIL-B)"]
 		LockingService["LOCKING_SERVICE"]
 		ProtocolAdapters["Protocol Adapters(SOME/IP, CAN, etc.)"]
-        CloudGateway["CLOUD_GATEWAY"]
 	end
 end
 
-subgraph Android["Android"]
+subgraph MobileAndroid["Android"]
 	CompanionApp["COMPANION_APP"]
 end
 
