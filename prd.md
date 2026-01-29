@@ -106,14 +106,23 @@ subgraph RHIVOS["RHIVOS"]
 	subgraph Safety["Safety Partition (ASIL-B)"]
 		LockingService["LOCKING_SERVICE"]
 		ProtocolAdapters["Protocol Adapters(SOME/IP, CAN, etc.)"]
+        CloudGateway["CLOUD_GATEWAY"]
 	end
-	
+end
+
+subgraph Android["Android"]
+	CompanionApp["COMPANION_APP"]
+end
+
+subgraph Cloud["CLOUD"]
+    CloudGateway["CLOUD_GATEWAY"]
 end
 
 KuksaClient -->|Some/IP| Databroker
 LockingService -->|publishes lock/unlock<br/>events| Databroker
 Databroker -->|VSS signals| Adaptor
 Adaptor -->|queries| Databroker
+CompanionApp --> |lock/unlock| CloudGateway
 ```
 
 ### VSS Signals used
