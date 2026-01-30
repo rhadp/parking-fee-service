@@ -37,17 +37,6 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 6. Session End: User unlocks the vehicle upon return, automatically stopping the parking session. Payment is processed seamlessly based on actual duration.
 7. Resource Management: If the adapter remains unused for 24 hours (vehicle hasn't returned to that parking zone), it's automatically offloaded to optimize storage and system resources.
 
-# What We'll Demonstrate
-
-- **Cross-domain communication**: Android IVI app ↔ ASIL-B door locking service (RHIVOS)
-- **Feature-on-demand**: Container-based parking adapters download based on GPS location, offload when unused
-- **Multi-domain architecture**:
-    - Android Automotive and "normal" Android for user interfaces
-    - RHIVOS QM partition for operator adapters
-    - RHIVOS non-QM for safety services
-    - OpenShift for cloud orchestration
-- **Unified development**: Single toolchain (RH Automotive Suite) across Android/IVI, RHIVOS, and cloud components
-
 
 # Architecture Overview
 
@@ -155,13 +144,7 @@ Adaptor -->|"start/stop parking"| PARKING_OPERATOR["PARKING_OPERATOR"]
 - Implements a common interface towards the PARKING_APP
 - Implements a proprietary interface towards its PARKING_OPERATOR
 
-### CLOUD_GATEWAY_CLIENT
-TBD
-
 ### UPDATE_SERVICE
-TBD
-
-### DATA_BROKER
 TBD
 
 ### Safety-Partition
@@ -172,6 +155,16 @@ TBD
 - Validates safety constraints (e.g., vehicle velocity, door ajar status) before executing lock/unlock commands
 - Note: For this demo, focuses on stationary vehicle scenarios where velocity checks are trivial
 
+### DATA_BROKER
+TBD
+
+### CLOUD_GATEWAY_CLIENT
+- Maintains secure connection to CloudGateway (MQTT/WebSocket over TLS)
+- Receives authenticated lock/unlock commands from CompanionApp via cloud
+- Validates command structure and authentication tokens
+- Forwards validated commands to LOCKING_SERVICE
+- Publishes vehicle telemetry (location, door status, parking state) to cloud
+- Subscribes to DATA_BROKER for current vehicle state
 
 ## Backend Services
 
