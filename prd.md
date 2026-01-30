@@ -102,6 +102,7 @@ subgraph RHIVOS["RHIVOS"]
 	subgraph QM["QM Partition"]
 		Adaptor["PARKING_OPERATOR_ADAPTOR"]
     CloudConnector["CLOUD_CONNECTOR"]
+    FOD["UPDATE_SERVICE"]
     DataBroker["Kuksa"]
 	end
 	
@@ -125,6 +126,10 @@ DataBroker --> |subscribe| LockingService
 DataBroker --> |subscribe| ParkingApp
 
 ParkingApp --> |lookup| ParkingFeeService
+ParkingApp --> |request| FOD
+
+FOD --> |pull| Registry
+FOD --> |install| Adaptor
 
 Registry --> |download| Adaptor
 
