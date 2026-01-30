@@ -119,10 +119,12 @@ end
 CompanionApp --> |lock/unlock| CloudGateway
 
 CloudConnector --> |pub| CloudGateway --> |sub| CloudConnector
-CloudConnector --> |forward| Kuksa --> |sub| CloudConnector
+CloudConnector --> |forward| DataBroker --> |sub| CloudConnector
 
 DataBroker --> |subscribe| LockingService
 DataBroker --> |subscribe| ParkingApp
+
+ParkingApp --> |lookup| ParkingFeeService
 
 Registry --> |download| Adaptor
 
