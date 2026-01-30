@@ -82,10 +82,7 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 - Bare-minimum UIX for the Android apps
 
 ## Communication
-- **Android IVI** layer with the PARKING_APP connecting to Kuksa Client
-- **RHIVOS** system containing two partitions:
-    - **QM Partition** with the Kuksa Databroker and Adaptor
-    - **Safety Partition (ASIL-B)** with the Locking Service and Protocol Adapters
+
 
 
 ```mermaid
@@ -98,17 +95,15 @@ subgraph Android["Android App"]
 	CompanionApp["COMPANION_APP"]
 end
 
-subgraph RHIVOS["RHIVOS"]
-	subgraph QM["QM Partition"]
-		Adaptor["PARKING_OPERATOR_ADAPTOR"]
-    CloudConnector["CLOUD_CONNECTOR"]
-    FOD["UPDATE_SERVICE"]
-    DataBroker["Kuksa"]
-	end
-	
-	subgraph Safety["Safety Partition (ASIL-B)"]
-		LockingService["LOCKING_SERVICE"]
-	end
+subgraph RHIVOS_Safety["RHIVOS Safety Partition (ASIL-B)"]
+  LockingService["LOCKING_SERVICE"]
+  DataBroker["DATA_BROKER"]
+end
+
+subgraph RHIVOS_QM["RHIVOS QM Partition"]
+  Adaptor["PARKING_OPERATOR_ADAPTOR"]
+  CloudConnector["CLOUD_CONNECTOR"]
+  UpdateService["UPDATE_SERVICE"]
 end
 
 subgraph Cloud["Backend Services"]
@@ -122,17 +117,17 @@ CompanionApp --> |"lock/unlock"| CloudGateway
 CloudConnector --> |pub| CloudGateway --> |sub| CloudConnector
 CloudConnector --> |forward| DataBroker --> |sub| CloudConnector
 
-DataBroker --> |"lock/unlock request"| LockingService
-DataBroker --> |"lock/unlock signal"| ParkingApp
+DataBroker -->|"read-only interface"| ParkingApp
+DataBroker -->|"read-only interface"| Adaptor
 
-LockingService --> |"lock/unlock signal"| DataBroker
+LockingService -->|"write: lock/unlock events"| DataBroker
 
 ParkingApp --> |"Vehicle.CurrentLocation"| DataBroker
 ParkingApp --> |"lookup PARKING_OPERATOR"| ParkingFeeService
-ParkingApp --> |request| FOD
+ParkingApp --> |request| UpdateService
 
-FOD --> |pull container| Registry
-FOD --> |install| Adaptor
+UpdateService --> |pull container| Registry
+UpdateService --> |install| Adaptor
 
 Registry --> |download| Adaptor
 
@@ -140,27 +135,7 @@ Adaptor --> |"start/stop parking"| PARKING_OPERATOR
 
 ```
 
-[Mobile App] 
-  ↓ HTTPS/MQTT
-[Cloud Backend]
-  - Authenticates user
-  - Validates device ownership
-  - Signs unlock command
-  ↓ TLS
-[Vehicle Cloud Gateway - QM Partition]
-  - Verifies signature from cloud
-  - Checks vehicle state (ignition off, etc.)
-  - Enforces security policies
-  ↓ Controlled IPC/Shared Memory
-[Body Control Module Interface - Safety/QM boundary]
-  - Validates command format
-  - Rate limiting
-  - Logs audit trail
-  ↓ CAN/SOME/IP
-[Body Control Module - ASIL-B typically]
-  - Final authorization check
-  - Executes physical lock/unlock
-  - Provides feedback
+
 
   
 ### VSS Signals used
@@ -172,23 +147,34 @@ Adaptor --> |"start/stop parking"| PARKING_OPERATOR
 
 # Components
 
-#### PARKING_APP
-- Android Automotive OS application running in the vehicle's IVI
-- Provides user interface for parking sessions
-- Queries PARKING_FEE_SERVICE for available operators
-- Triggers adapter downloads
-- Displays session status to the driver
+## RHIVOS
+
+### QM-Partition
 
 #### PARKING_OPERATOR_ADAPTOR
 - Containerized application running in the RHIVOS QM partition
 - Implements a common interface towards the PARKING_APP
 - Implements a proprietary interface towards its PARKING_OPERATOR
 
+### CLOUD_CONNECTOR
+TBD
+
+### UPDATE_SERVICE
+TBD
+
+### DATA_BROKER
+TBD
+
+### Safety-Partition
+
 #### LOCKING_SERVICE
 - Runs in the RHIVOS safety-partition
 - Interacts with actors that can initiate locking/unlocking of the car (e.g., key fob, COMPANION_APP)
 - Validates safety constraints (e.g., vehicle velocity, door ajar status) before executing lock/unlock commands
 - Note: For this demo, focuses on stationary vehicle scenarios where velocity checks are trivial
+
+
+## Backend Services
 
 #### PARKING_FEE_SERVICE
 - Cloud-based service providing:
@@ -197,6 +183,22 @@ Adaptor --> |"start/stop parking"| PARKING_OPERATOR
     - Operator validation and approval workflow (out-of-scope)
 - REGISTRY
 	- Container registry managed by the PARKING_FEE_SERVICE operator
+
+### CLOUD_GATEWAY
+TBD
+
+
+## AAOS
+
+#### PARKING_APP
+- Android Automotive OS application running in the vehicle's IVI
+- Provides user interface for parking sessions
+- Queries PARKING_FEE_SERVICE for available operators
+- Triggers adapter downloads
+- Displays session status to the driver
+
+
+## Android
 
 #### COMPANION_APP
 - Mobile app (Android, iOS)
