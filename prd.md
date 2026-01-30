@@ -98,11 +98,11 @@ end
 subgraph RHIVOS_Safety["RHIVOS Safety Partition (ASIL-B)"]
   LockingService["LOCKING_SERVICE"]
   DataBroker["DATA_BROKER"]
+  CloudGatewayClient["CLOUD_GATEWAY_CLIENT"]
 end
 
 subgraph RHIVOS_QM["RHIVOS QM Partition"]
   Adaptor["PARKING_OPERATOR_ADAPTOR"]
-  CloudConnector["CLOUD_CONNECTOR"]
   UpdateService["UPDATE_SERVICE"]
 end
 
@@ -112,26 +112,25 @@ subgraph Cloud["Backend Services"]
   CloudGateway["CLOUD_GATEWAY"]
 end
 
-CompanionApp --> |"lock/unlock"| CloudGateway
+CompanionApp -->|"lock/unlock command"| CloudGateway
+CloudGateway -->|"via Secure Gateway ECU"| CloudGatewayClient
 
-CloudConnector --> |pub| CloudGateway --> |sub| CloudConnector
-CloudConnector --> |forward| DataBroker --> |sub| CloudConnector
+CloudGatewayClient -->|"validated command"| LockingService
+CloudGatewayClient -->|"telemetry publish"| CloudGateway
+CloudGatewayClient -.->|"read: vehicle state"| DataBroker
+
+LockingService -->|"write: lock/unlock events"| DataBroker
 
 DataBroker -->|"read-only interface"| ParkingApp
 DataBroker -->|"read-only interface"| Adaptor
 
-LockingService -->|"write: lock/unlock events"| DataBroker
+ParkingApp -->|"lookup PARKING_OPERATOR"| ParkingFeeService
+ParkingApp -->|"request adapter install"| UpdateService
 
-ParkingApp --> |"Vehicle.CurrentLocation"| DataBroker
-ParkingApp --> |"lookup PARKING_OPERATOR"| ParkingFeeService
-ParkingApp --> |request| UpdateService
+UpdateService -->|"pull container"| Registry
+UpdateService -->|"install/manage"| Adaptor
 
-UpdateService --> |pull container| Registry
-UpdateService --> |install| Adaptor
-
-Registry --> |download| Adaptor
-
-Adaptor --> |"start/stop parking"| PARKING_OPERATOR
+Adaptor -->|"start/stop parking"| PARKING_OPERATOR["PARKING_OPERATOR"]
 
 ```
 
@@ -156,7 +155,7 @@ Adaptor --> |"start/stop parking"| PARKING_OPERATOR
 - Implements a common interface towards the PARKING_APP
 - Implements a proprietary interface towards its PARKING_OPERATOR
 
-### CLOUD_CONNECTOR
+### CLOUD_GATEWAY_CLIENT
 TBD
 
 ### UPDATE_SERVICE
@@ -204,3 +203,7 @@ TBD
 - Mobile app (Android, iOS)
 - Allows querying the car's state
 - Issues commands to the car remotely (e.g., locking/unlocking)
+
+**Note**: In production deployments, cloud connectivity typically resides in a separate TCU or QM partition. 
+For this demo, we consolidate CloudGatewayClient into the safety partition to simplify the command path and focus on 
+mixed-criticality application development rather than network architecture.
