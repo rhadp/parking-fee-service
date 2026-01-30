@@ -122,16 +122,20 @@ CompanionApp --> |lock/unlock| CloudGateway
 CloudConnector --> |pub| CloudGateway --> |sub| CloudConnector
 CloudConnector --> |forward| DataBroker --> |sub| CloudConnector
 
-DataBroker --> |subscribe| LockingService
-DataBroker --> |subscribe| ParkingApp
+DataBroker --> |lock/unlock request| LockingService
+DataBroker --> |lock/unlock signal| ParkingApp
 
-ParkingApp --> |lookup| ParkingFeeService
+LockingService --> |lock/unlock signal| DataBroker
+
+ParkingApp --> |lookup adaptor| ParkingFeeService
 ParkingApp --> |request| FOD
 
-FOD --> |pull| Registry
+FOD --> |pull container| Registry
 FOD --> |install| Adaptor
 
 Registry --> |download| Adaptor
+
+Adaptor --> |start/stop parking| PARKING_OPERATOR
 
 ```
 
