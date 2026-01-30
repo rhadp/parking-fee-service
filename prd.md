@@ -100,12 +100,10 @@ end
 
 subgraph RHIVOS["RHIVOS"]
 	subgraph QM["QM Partition"]
-		Adaptor["PARKING_OPERATOR_ADAPTOR(container)"]
-    CloudConnector["Cloud Connector"]
+		Adaptor["PARKING_OPERATOR_ADAPTOR"]
+    CloudConnector["CLOUD_CONNECTOR"]
     Kuksa["Kuksa Databroker"]
 	end
-	
-	Databroker["Kuksa.val Databroker(VSS hub)Isolation Layer"]
 	
 	subgraph Safety["Safety Partition (ASIL-B)"]
 		LockingService["LOCKING_SERVICE"]
@@ -120,7 +118,13 @@ end
 
 CompanionApp --> |lock/unlock| CloudGateway
 
-CloudConnector --> |pub/sub| CloudGateway --> CloudConnector
+CloudConnector --> |pub| CloudGateway --> |sub| CloudConnector
+CloudConnector --> |forward| Kuksa --> |sub| CloudConnector
+
+DataBroker --> |subscribe| LockingService
+DataBroker --> |subscribe| ParkingApp
+
+REGISTRY --> |download| Adaptor
 
 ```
 
