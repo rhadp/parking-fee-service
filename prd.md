@@ -117,18 +117,18 @@ subgraph Cloud["Backend Services"]
   CloudGateway["CLOUD_GATEWAY"]
 end
 
-CompanionApp --> |lock/unlock| CloudGateway
+CompanionApp --> |"lock/unlock"| CloudGateway
 
 CloudConnector --> |pub| CloudGateway --> |sub| CloudConnector
 CloudConnector --> |forward| DataBroker --> |sub| CloudConnector
 
-DataBroker --> |lock/unlock request| LockingService
-DataBroker --> |lock/unlock signal| ParkingApp
+DataBroker --> |"lock/unlock request"| LockingService
+DataBroker --> |"lock/unlock signal"| ParkingApp
 
-LockingService --> |lock/unlock signal| DataBroker
+LockingService --> |"lock/unlock signal"| DataBroker
 
-ParkingApp --> |Vehicle.CurrentLocation| --> DataBroker
-ParkingApp --> |lookup PARKING_OPERATOR| ParkingFeeService
+ParkingApp --> |"Vehicle.CurrentLocation"| --> DataBroker
+ParkingApp --> |"lookup PARKING_OPERATOR"| ParkingFeeService
 ParkingApp --> |request| FOD
 
 FOD --> |pull container| Registry
@@ -136,7 +136,7 @@ FOD --> |install| Adaptor
 
 Registry --> |download| Adaptor
 
-Adaptor --> |start/stop parking| PARKING_OPERATOR
+Adaptor --> |"start/stop parking"| PARKING_OPERATOR
 
 ```
 
