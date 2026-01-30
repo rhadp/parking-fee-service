@@ -127,7 +127,7 @@ DataBroker --> |"lock/unlock signal"| ParkingApp
 
 LockingService --> |"lock/unlock signal"| DataBroker
 
-ParkingApp --> |"Vehicle.CurrentLocation"| --> DataBroker
+ParkingApp --> |"Vehicle.CurrentLocation"| DataBroker
 ParkingApp --> |"lookup PARKING_OPERATOR"| ParkingFeeService
 ParkingApp --> |request| FOD
 
