@@ -1,12 +1,12 @@
 # Abstract
 
-Modern vehicles require communication between safety-critical systems and non-critical applications. This demo shows a working implementation where an Android-based parking payment service communicates with an ASIL-B door locking service running on RHIVOS. The scenario is realistic: automatic parking fee payment starts when the vehicle locks and stops when it unlocks, requiring cross-domain communication between a QM-level Android app and a safety-relevant locking system.
+Modern vehicles require communication between safety-critical systems and non-critical applications. This demo shows a working implementation where an On-board parking payment service (Android Automotive OS App) communicates with an ASIL-B door locking service running on Red Hat In-Vehicle OS (RHIVOS). The scenario is realistic: automatic parking fee payment starts when the vehicle locks and stops when it unlocks, requiring cross-domain communication between a QM-level Android application and a safety-relevant locking system.
 
-The demo addresses another challenge: how to dynamically provision location-specific services without preloading every possible integration. Parking operators vary by location (city, country), making static deployment impractical. Our implementation uses containerized adapters that download on-demand based on vehicle location, run during the parking session, and offload when unused for 24 hours. This "feature-on-demand" pattern demonstrates how OEMs can enable new services post-production and create additional revenue opportunities through software monetization.
+The architecture spans multiple domains: Android IVI for user interaction, RHIVOS safety partition for door locking (ASIL-B), RHIVOS QM partition for cloud connectivity and access to backend-services deployed in Google Cloud. Development uses Red Hat OpenShift for Cloud Development Environments (CDE) and CI/CD pipelines (also deployed on Google Cloud).
 
-The architecture spans multiple domains: Android IVI for user interaction, RHIVOS safety partition for door locking (ASIL-B), RHIVOS QM partition for operator adapters and cloud infrastructure for adapter distribution and management. Development uses Red Hat OpenShift for cloud-side services and CI/CD pipelines. RHIVOS uses Podman for local container execution, with lifecycle managed by Blue-chi/systemd. OpenShift builds and distributes OCI images; vehicles pull and run them using native RHIVOS tooling.
+The demo addresses another challenge: how to dynamically provision location-specific services without preloading every possible integration. Parking operators vary by location (city, country), making static deployment impractical. Our implementation uses containerized adapters that download on-demand based on vehicle location, run during the parking session, and offload when unused for some time. This "feature-on-demand" pattern demonstrates how OEMs can enable new services post-production and create additional revenue opportunities through software monetization.
 
-Attendees will see functioning code demonstrating practical mixed-criticality integration patterns, container deployment to vehicles, and cloud-native SDV development workflows.
+Attendees will see functioning code demonstrating practical mixed-criticality integration patterns, container deployment to vehicles, and cloud-native SDV development workflows across multiple domains (Android Automotive, Safe Linux/RHIVOS, Cloud-native services).
 
 
 # Problem Statement
@@ -90,42 +90,63 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 
 ```mermaid
 flowchart TD
-subgraph Android["Android IVI (AAOS)"]
+subgraph AAOS["Android Automotive OS"]
 	ParkingApp["PARKING_APP"]
-	KuksaClient["Kuksa Client"]
-	ParkingApp --> KuksaClient
+end
+
+subgraph Android["Android App"]
+	CompanionApp["COMPANION_APP"]
 end
 
 subgraph RHIVOS["RHIVOS"]
 	subgraph QM["QM Partition"]
 		Adaptor["PARKING_OPERATOR_ADAPTOR(container)"]
-        MQTT[MQTT Client]
+    CloudConnector["Cloud Connector"]
+    Kuksa["Kuksa Databroker"]
 	end
 	
 	Databroker["Kuksa.val Databroker(VSS hub)Isolation Layer"]
 	
 	subgraph Safety["Safety Partition (ASIL-B)"]
 		LockingService["LOCKING_SERVICE"]
-		ProtocolAdapters["Protocol Adapters(SOME/IP, CAN, etc.)"]
 	end
 end
 
-subgraph MobileAndroid["Android"]
-	CompanionApp["COMPANION_APP"]
+subgraph Cloud["Backend Services"]
+  ParkingFeeService["PARKING_FEE_SERVICE"]
+  Registry["REGISTRY"]
+  CloudGateway["CLOUD_GATEWAY"]
 end
 
-subgraph Cloud["CLOUD"]
-    CloudGateway["CLOUD_GATEWAY"]
-end
-
-KuksaClient -->|Some/IP| Databroker
-LockingService -->|publishes lock/unlock<br/>events| Databroker
-Databroker -->|VSS signals| Adaptor
-Adaptor -->|queries| Databroker
 CompanionApp --> |lock/unlock| CloudGateway
-CloudGateway --> MQTT --> CloudGateway
+
+CloudConnector --> |pub/sub| CloudGateway --> CloudConnector
+
 ```
 
+[Mobile App] 
+  ↓ HTTPS/MQTT
+[Cloud Backend]
+  - Authenticates user
+  - Validates device ownership
+  - Signs unlock command
+  ↓ TLS
+[Vehicle Cloud Gateway - QM Partition]
+  - Verifies signature from cloud
+  - Checks vehicle state (ignition off, etc.)
+  - Enforces security policies
+  ↓ Controlled IPC/Shared Memory
+[Body Control Module Interface - Safety/QM boundary]
+  - Validates command format
+  - Rate limiting
+  - Logs audit trail
+  ↓ CAN/SOME/IP
+[Body Control Module - ASIL-B typically]
+  - Final authorization check
+  - Executes physical lock/unlock
+  - Provides feedback
+
+  
 ### VSS Signals used
 - Vehicle.Cabin.Door.Row1.DriverSide.IsLocked (bool) - lock/unlock events 
 - Vehicle.CurrentLocation.Latitude (double) - for zone detection 
