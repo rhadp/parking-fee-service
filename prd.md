@@ -102,7 +102,7 @@ subgraph RHIVOS["RHIVOS"]
 	subgraph QM["QM Partition"]
 		Adaptor["PARKING_OPERATOR_ADAPTOR"]
     CloudConnector["CLOUD_CONNECTOR"]
-    Kuksa["Kuksa Databroker"]
+    DataBroker["Kuksa"]
 	end
 	
 	subgraph Safety["Safety Partition (ASIL-B)"]
@@ -124,7 +124,7 @@ CloudConnector --> |forward| Kuksa --> |sub| CloudConnector
 DataBroker --> |subscribe| LockingService
 DataBroker --> |subscribe| ParkingApp
 
-REGISTRY --> |download| Adaptor
+Registry --> |download| Adaptor
 
 ```
 
