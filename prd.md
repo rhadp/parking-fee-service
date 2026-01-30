@@ -127,7 +127,8 @@ DataBroker --> |lock/unlock signal| ParkingApp
 
 LockingService --> |lock/unlock signal| DataBroker
 
-ParkingApp --> |lookup adaptor| ParkingFeeService
+ParkingApp --> |Vehicle.CurrentLocation| --> DataBroker
+ParkingApp --> |lookup PARKING_OPERATOR| ParkingFeeService
 ParkingApp --> |request| FOD
 
 FOD --> |pull container| Registry
