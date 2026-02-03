@@ -142,15 +142,13 @@ DoorSensor --> |"mock: open/closed"| DataBroker
 | LOCKING_SERVICE          | DATA_BROKER         | gRPC           | Read/Write         |
 | CLOUD_GATEWAY_CLIENT     | DATA_BROKER         | gRPC           | Read-only          |
 | PARKING_APP              | PARKING_FEE_SERVICE | HTTPS/REST     | Request/Response   |
-| PARKING_APP              | UPDATE_SERVICE      | gRPC           | Request/Response** |
+| PARKING_APP              | UPDATE_SERVICE      | gRPC           | Request/Response |
 | UPDATE_SERVICE           | REGISTRY            | HTTPS/OCI      | Pull only          |
 | PARKING_OPERATOR_ADAPTOR | PARKING_OPERATOR    | HTTPS/REST     | Request/Response   |
 | COMPANION_APP            | CLOUD_GATEWAY       | MQTT/WebSocket | Bidirectional      |
 | CLOUD_GATEWAY_CLIENT     | CLOUD_GATEWAY       | MQTT over TLS  | Bidirectional      |
 
-**Note:** All gRPC services use Unix Domain Sockets for local communication and HTTP/2 over TLS for network communication.
-
-#### gRPC Benefits for This Architecture
+**Note:** All gRPC services use Unix Domain Sockets for local communication and HTTP/2 over TLS for network communication. gRPC Benefits for this architecture:
 
 1. **Consistency**: All local IPC uses gRPC (DATA_BROKER, UPDATE_SERVICE)
 2. **Language Agnostic**: Kotlin (AAOS) ↔ Rust (RHIVOS) seamlessly
@@ -196,6 +194,101 @@ Uses Covesa VSS, version 5.1.
 6. DATA_BROKER → PARKING_APP (gRPC subscription stream)
    SubscribeResponse(SessionActive = true)
 ```
+
+### Flow 2: Remote Unlock via Companion App
+
+```
+1. COMPANION_APP → CLOUD_GATEWAY (MQTT)
+   PUBLISH vehicles/VIN12345/commands
+   {type: "unlock", doors: ["driver"]}
+
+2. CLOUD_GATEWAY → CLOUD_GATEWAY_CLIENT (MQTT)
+   Message delivery
+
+3. CLOUD_GATEWAY_CLIENT validates command signature/token
+
+4. CLOUD_GATEWAY_CLIENT → LOCKING_SERVICE
+   (Internal function call in RHIVOS)
+   ExecuteUnlock(door=driver)
+
+5. LOCKING_SERVICE → DATA_BROKER (gRPC)
+   SetRequest(IsLocked = false)
+
+6. CLOUD_GATEWAY_CLIENT → CLOUD_GATEWAY (MQTT)
+   PUBLISH vehicles/VIN12345/command_responses
+   {command_id, status: "success"}
+
+7. CLOUD_GATEWAY → COMPANION_APP (MQTT)
+   Delivery notification
+```
+
+### Flow 3: Adapter Download & Installation
+
+```
+1. PARKING_APP → UPDATE_SERVICE (gRPC)
+   InstallAdapter(image_ref, checksum)
+   → Returns InstallAdapterResponse{job_id, adapter_id, state=DOWNLOADING}
+
+2. PARKING_APP starts watching adapter states (gRPC stream)
+   WatchAdapterStates() → stream of AdapterStateEvent
+
+3. UPDATE_SERVICE → REGISTRY (HTTPS/OCI)
+   GET /v2/adapters/demo-operator/manifests/v1.0
+   → Returns manifest
+
+4. UPDATE_SERVICE → REGISTRY (HTTPS/OCI)
+   GET /v2/adapters/demo-operator/blobs/{digest}
+   → Returns container layers (streaming)
+
+5. UPDATE_SERVICE verifies checksum
+   → State: DOWNLOADING → INSTALLING
+
+6. UPDATE_SERVICE extracts container to /var/lib/containers/adapters/
+
+7. UPDATE_SERVICE starts container via podman/crun
+   → State: INSTALLING → RUNNING
+
+8. UPDATE_SERVICE → PARKING_APP (gRPC stream)
+   AdapterStateEvent{
+     adapter_id, 
+     old_state=INSTALLING, 
+     new_state=RUNNING
+   }
+
+9. PARKING_OPERATOR_ADAPTOR initializes
+   - Subscribes to DATA_BROKER for lock events (gRPC)
+   - Reads current location from DATA_BROKER (gRPC)
+   - Ready for parking sessions
+```
+
+## Error Handling
+
+### gRPC Error Response Format
+
+```
+// Standard gRPC status codes used:
+// - OK (0): Success
+// - CANCELLED (1): Operation cancelled
+// - UNKNOWN (2): Unknown error
+// - INVALID_ARGUMENT (3): Invalid request
+// - DEADLINE_EXCEEDED (4): Timeout
+// - NOT_FOUND (5): Adapter/resource not found
+// - ALREADY_EXISTS (6): Adapter already installed
+// - PERMISSION_DENIED (7): Insufficient permissions
+// - RESOURCE_EXHAUSTED (8): Out of storage/memory
+// - FAILED_PRECONDITION (9): System not ready
+// - UNAVAILABLE (14): Service temporarily unavailable
+// - INTERNAL (13): Internal server error
+
+// Example error details in response metadata:
+message ErrorDetails {
+  string code = 1;          // "ADAPTER_DOWNLOAD_FAILED"
+  string message = 2;       // "Failed to pull container image"
+  map<string, string> details = 3;  // Additional context
+  int64 timestamp = 4;      // Unix timestamp
+}
+```
+
 
 # Components
 
