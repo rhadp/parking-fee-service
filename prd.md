@@ -73,7 +73,6 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 ## Communication
 
 
-
 ```mermaid
 flowchart TD
 subgraph AAOS["Android Automotive OS"]
@@ -101,6 +100,12 @@ subgraph Cloud["Backend Services"]
   CloudGateway["CLOUD_GATEWAY"]
 end
 
+subgraph MockServices["Mock Services"]
+  LocationSensor["LOCATION_SENSOR"]
+  SpeedSensor[”SPEED_SENSOR”]
+  DoorSensor["DOOR_SENSOR"]
+end
+
 CompanionApp -->|"lock/unlock command"| CloudGateway
 CloudGateway -->|"via Secure Gateway ECU"| CloudGatewayClient
 
@@ -110,8 +115,8 @@ CloudGatewayClient -.->|"read: vehicle state"| DataBroker
 
 LockingService -->|"write: lock/unlock events"| DataBroker
 
-DataBroker -->|"read-only interface"| ParkingApp
-DataBroker -->|"read-only interface"| Adaptor
+DataBroker -->|"read-only: lock/unlock events"| ParkingApp
+DataBroker -->|"read-only: lock/unlock events"| Adaptor
 
 ParkingApp -->|"lookup PARKING_OPERATOR"| ParkingFeeService
 ParkingApp -->|"request adapter install"| UpdateService
@@ -121,16 +126,22 @@ UpdateService -->|"install/manage"| Adaptor
 
 Adaptor -->|"start/stop parking"| PARKING_OPERATOR["PARKING_OPERATOR"]
 
+SpeedSensor --> |"mock: speed"| DataBroker
+LocationSensor --> |"mock: lat/long"| DataBroker
+DoorSensor --> |"mock: open/closed"| DataBroker
+
 ```
-
-
-
   
 ### VSS Signals used
-- Vehicle.Cabin.Door.Row1.DriverSide.IsLocked (bool) - lock/unlock events 
+
+Uses Covesa VSS, version 5.x.
+
+- Vehicle.Cabin.Door.Row1.DriverSide.IsLocked (bool) - lock/unlock events
+- Vehicle.Cabin.Door.Row1.DriverSide.IsOpen (bool) - to detect if door is ajar
 - Vehicle.CurrentLocation.Latitude (double) - for zone detection 
-- Vehicle.CurrentLocation.Longitude (double) - for zone detection 
-- Custom: Vehicle.Parking.SessionActive (bool) - adapter-managed state
+- Vehicle.CurrentLocation.Longitude (double) - for zone detection
+- Vehicle.Speed (float) - For safety validation (optional) 
+- Custom: Vehicle.Parking.SessionActive (bool) - Adapter-managed parking state
 
 
 # Components
@@ -155,10 +166,10 @@ TBD
 - Validates safety constraints (e.g., vehicle velocity, door ajar status) before executing lock/unlock commands
 - Note: For this demo, focuses on stationary vehicle scenarios where velocity checks are trivial
 
-### DATA_BROKER
+#### DATA_BROKER
 TBD
 
-### CLOUD_GATEWAY_CLIENT
+#### CLOUD_GATEWAY_CLIENT
 - Maintains secure connection to CloudGateway (MQTT/WebSocket over TLS)
 - Receives authenticated lock/unlock commands from CompanionApp via cloud
 - Validates command structure and authentication tokens
@@ -176,7 +187,7 @@ TBD
 - REGISTRY
 	- Container registry managed by the PARKING_FEE_SERVICE operator
 
-### CLOUD_GATEWAY
+#### CLOUD_GATEWAY
 TBD
 
 
@@ -200,3 +211,22 @@ TBD
 **Note**: In production deployments, cloud connectivity typically resides in a separate TCU or QM partition. 
 For this demo, we consolidate CloudGatewayClient into the safety partition to simplify the command path and focus on 
 mixed-criticality application development rather than network architecture.
+
+## Mock-Service
+
+#### LOCATION_SENSOR
+- sends mock location data
+- VSS Vehicle.CurrentLocation.Latitude
+- VSS Vehicle.CurrentLocation.Longitude
+
+#### SPEED_SENSOR
+- sends mock velocity data
+- VSS Vehicle.Speed
+
+#### DOOR_SENSOR
+- sends mock door openclosed data
+- VSS Vehicle.Cabin.Door.Row1.DriverSide.IsOpen
+
+#### PARKING_OPERATOR
+- receives start/stop parking event from PARKING_OPERATOR_ADAPTOR
+
