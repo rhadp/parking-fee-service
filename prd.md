@@ -102,7 +102,7 @@ end
 
 subgraph MockServices["Mock Services"]
   LocationSensor["LOCATION_SENSOR"]
-  SpeedSensor[”SPEED_SENSOR”]
+  SpeedSensor["SPEED_SENSOR"]
   DoorSensor["DOOR_SENSOR"]
 end
 
