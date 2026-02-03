@@ -141,9 +141,9 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 #### PARKING_FEE_SERVICE
 
 - Cloud-based service providing:
-    - REST API for parking session management
-    - Manages/owns the OCI Container Registry (REGISTRY) for validated PARKING_OPERATOR_ADAPTORs
-    - Operator validation and approval workflow (out-of-scope)
+  - REST API for parking session management
+  - Manages/owns the OCI Container Registry (REGISTRY) for validated PARKING_OPERATOR_ADAPTORs
+  - Operator validation and approval workflow (out-of-scope)
 
 #### REGISTRY
 
@@ -212,11 +212,17 @@ flowchart TD
 subgraph Cloud["Google Cloud"]
 
   subgraph BareMetal["ARM bare-metal node"]
-    subgraph AAOS["Android Automotive OS"]
+    subgraph AAOS["AAOS VM (Cuttlefish)"]
       ParkingApp["PARKING_APP"]
     end
 
-
+    subgraph RHIVOS["RHIVOS VM (Qemu)"]
+      LockingService["LOCKING_SERVICE"]
+      DataBroker["DATA_BROKER"]
+      CloudGatewayClient["CLOUD_GATEWAY_CLIENT"]
+      Adaptor["PARKING_OPERATOR_ADAPTOR"]
+      UpdateService["UPDATE_SERVICE"]
+    end
   end
 
   subgraph Backend["Red Hat OpenShift"]
@@ -226,15 +232,16 @@ subgraph Cloud["Google Cloud"]
   end
 
   subgraph CloudServices["GCP Services"]
-    
+    MQTT["MQTT"]
+    Registry["REGISTRY"]
   end
 end
 
 subgraph Mobile["Android Emulator"]
+  CompanionApp["COMPANION_APP"]
 end
 
 ```
-
 
 ## Communication
 
