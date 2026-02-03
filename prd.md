@@ -227,7 +227,6 @@ subgraph Cloud["Google Cloud"]
 
   subgraph Backend["Red Hat OpenShift"]
     ParkingFeeService["PARKING_FEE_SERVICE"]
-    Registry["REGISTRY"]
     CloudGateway["CLOUD_GATEWAY"]
   end
 
@@ -472,3 +471,7 @@ In order to keep the scope of the demo in check, the following aspects are out-o
 - Edge cases (e.g., network failures during parking session)
 - Production-grade security/encryption
 - Real GPS or other hardware integration
+
+## References
+
+- [Standalone MQTT broker architecture on Google Cloud](https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture)
