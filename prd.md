@@ -72,6 +72,7 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 
 ## Communication
 
+### Component Architecture
 
 ```mermaid
 flowchart TD
@@ -100,7 +101,7 @@ subgraph Cloud["Backend Services"]
   CloudGateway["CLOUD_GATEWAY"]
 end
 
-subgraph MockServices["Mock Services"]
+subgraph MockServices["Demo Mock Services"]
   LocationSensor["LOCATION_SENSOR"]
   SpeedSensor["SPEED_SENSOR"]
   DoorSensor["DOOR_SENSOR"]
@@ -131,10 +132,38 @@ LocationSensor --> |"mock: lat/long"| DataBroker
 DoorSensor --> |"mock: open/closed"| DataBroker
 
 ```
-  
+
+### Communication Protocols
+
+| Source Component         | Target Component    | Protocol       | Direction          |
+| ------------------------ | ------------------- | -------------- | ------------------ |
+| PARKING_APP              | DATA_BROKER         | gRPC           | Bidirectional      |
+| PARKING_OPERATOR_ADAPTOR | DATA_BROKER         | gRPC           | Bidirectional      |
+| LOCKING_SERVICE          | DATA_BROKER         | gRPC           | Read/Write         |
+| CLOUD_GATEWAY_CLIENT     | DATA_BROKER         | gRPC           | Read-only          |
+| PARKING_APP              | PARKING_FEE_SERVICE | HTTPS/REST     | Request/Response   |
+| PARKING_APP              | UPDATE_SERVICE      | gRPC           | Request/Response** |
+| UPDATE_SERVICE           | REGISTRY            | HTTPS/OCI      | Pull only          |
+| PARKING_OPERATOR_ADAPTOR | PARKING_OPERATOR    | HTTPS/REST     | Request/Response   |
+| COMPANION_APP            | CLOUD_GATEWAY       | MQTT/WebSocket | Bidirectional      |
+| CLOUD_GATEWAY_CLIENT     | CLOUD_GATEWAY       | MQTT over TLS  | Bidirectional      |
+
+**Note:** All gRPC services use Unix Domain Sockets for local communication and HTTP/2 over TLS for network communication.
+
+#### gRPC Benefits for This Architecture
+
+1. **Consistency**: All local IPC uses gRPC (DATA_BROKER, UPDATE_SERVICE)
+2. **Language Agnostic**: Kotlin (AAOS) ↔ Rust (RHIVOS) seamlessly
+3. **Type Safety**: Protocol buffers provide strong typing
+4. **Streaming**: Native support for watching adapter state changes
+5. **Performance**: Binary protocol, efficient serialization
+6. **Tooling**: Excellent debugging tools (`grpcurl`, Postman, Wireshark)
+7. **Modern**: Industry-standard, well-documented, actively maintained
+
+
 ### VSS Signals used
 
-Uses Covesa VSS, version 5.x.
+Uses Covesa VSS, version 5.1.
 
 - Vehicle.Cabin.Door.Row1.DriverSide.IsLocked (bool) - lock/unlock events
 - Vehicle.Cabin.Door.Row1.DriverSide.IsOpen (bool) - to detect if door is ajar
@@ -143,6 +172,30 @@ Uses Covesa VSS, version 5.x.
 - Vehicle.Speed (float) - For safety validation (optional) 
 - Custom: Vehicle.Parking.SessionActive (bool) - Adapter-managed parking state
 
+## Message Flows
+
+### Flow 1: Parking Session Start
+
+```
+1. LOCKING_SERVICE → DATA_BROKER (gRPC)
+   SetRequest(Vehicle.Cabin.Door.Row1.DriverSide.IsLocked = true)
+
+2. DATA_BROKER → PARKING_OPERATOR_ADAPTOR (gRPC subscription stream)
+   SubscribeResponse(IsLocked = true, timestamp = T)
+
+3. PARKING_OPERATOR_ADAPTOR → PARKING_OPERATOR (REST)
+   POST /parking/start
+   {vehicle_id, zone_id, timestamp}
+
+4. PARKING_OPERATOR → PARKING_OPERATOR_ADAPTOR (REST)
+   200 OK {session_id, status}
+
+5. PARKING_OPERATOR_ADAPTOR → DATA_BROKER (gRPC)
+   SetRequest(Vehicle.Parking.SessionActive = true)
+
+6. DATA_BROKER → PARKING_APP (gRPC subscription stream)
+   SubscribeResponse(SessionActive = true)
+```
 
 # Components
 
@@ -186,7 +239,7 @@ Uses Covesa VSS, version 5.x.
 #### PARKING_FEE_SERVICE
 - Cloud-based service providing:
     - REST API for parking session management
-    - OCI Container Registry (REGISTRY) for validated PARKING_OPERATOR_ADAPTORs
+    - Manages/owns the OCI Container Registry (REGISTRY) for validated PARKING_OPERATOR_ADAPTORs
     - Operator validation and approval workflow (out-of-scope)
 
 #### REGISTRY
@@ -239,4 +292,16 @@ mixed-criticality application development rather than network architecture.
 
 #### PARKING_OPERATOR
 - receives start/stop parking event from PARKING_OPERATOR_ADAPTOR
+
+
+# Out-of-Scope
+
+In order to keep the scope of the demo in check, the following aspects are out-of-scope:
+
+- Real payment processing
+- Authentication/authorization beyond basic tokens
+- Multi-user scenarios
+- Edge cases (e.g., network failures during parking session)
+- Production-grade security/encryption
+- Real GPS or other hardware integration
 
