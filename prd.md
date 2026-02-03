@@ -156,7 +156,9 @@ Uses Covesa VSS, version 5.x.
 - Implements a proprietary interface towards its PARKING_OPERATOR
 
 ### UPDATE_SERVICE
-TBD
+- Manages containerized adapter lifecycle in RHIVOS QM partition
+- Pulls containers from REGISTRY on demand
+- Handles installation, updates, and automatic offloading of unused adapters
 
 ### Safety-Partition
 
@@ -167,7 +169,9 @@ TBD
 - Note: For this demo, focuses on stationary vehicle scenarios where velocity checks are trivial
 
 #### DATA_BROKER
-TBD
+- Eclipse Kuksa Databroker running in RHIVOS safety partition
+- VSS-compliant gRPC pub/sub interface for vehicle signals
+- Manages signal state and enforces read/write access control
 
 #### CLOUD_GATEWAY_CLIENT
 - Maintains secure connection to CloudGateway (MQTT/WebSocket over TLS)
@@ -184,11 +188,17 @@ TBD
     - REST API for parking session management
     - OCI Container Registry (REGISTRY) for validated PARKING_OPERATOR_ADAPTORs
     - Operator validation and approval workflow (out-of-scope)
-- REGISTRY
-	- Container registry managed by the PARKING_FEE_SERVICE operator
+
+#### REGISTRY
+- OCI Container Registry managed by PARKING_FEE_SERVICE operator
+- Stores validated and signed PARKING_OPERATOR_ADAPTORs
 
 #### CLOUD_GATEWAY
-TBD
+- Cloud-based MQTT broker for vehicle-to-cloud connectivity
+- Authenticates vehicles and COMPANION_APPs
+- Routes commands between mobile apps and vehicles
+- Aggregates telemetry for fleet operations (optional, later phase)
+- Deployed on Google Cloud infrastructure
 
 
 ## AAOS
