@@ -493,7 +493,7 @@ At this point, local and cloud-based development shoult be interchangeable.
 
 - Iterate over PRD.md (this document) and translate the "products requirements" into a requirements document.
 - Decompose the requirements document into a design document.
-- Create steering documents foragents based on the design.
+- Create steering documents for agents based on the design.
 - Create a task list of atomic implementation steps.
 
 ##### Phase 1.2: Setup
@@ -501,7 +501,7 @@ At this point, local and cloud-based development shoult be interchangeable.
 - Setup the code repo, with dedicated sub-folders for each type of code:
   - RHIVOS services: Rust
   - Android Automotive OS app: Kotlin
-  - Android app: Flutter/Dart
+  - Android app: Flutter, Dart
   - Backend-services: Golang
 - Create skeleton implementations for each component
 - Create local build capabilities for each toolchain using make/cmake etc
