@@ -209,6 +209,11 @@ Request:
   "auth_token": "demo-token-123"
 }
 
+Note: For demo scope, only "driver" and "all" door values are supported.
+While LOCKING_SERVICE and CLOUD_GATEWAY_CLIENT support all door values
+(driver, passenger, rear_left, rear_right, all), the CLOUD_GATEWAY REST API
+validates only "driver" and "all" to simplify the demo flow.
+
 Response 200:
 {
   "command_id": "cmd-abc123",
@@ -313,6 +318,47 @@ Response 503:
   "mqtt_connected": false
 }
 ```
+
+#### Parking Session Endpoint
+
+The CLOUD_GATEWAY provides a parking session endpoint that proxies requests to PARKING_FEE_SERVICE.
+This allows COMPANION_APP to get detailed parking session information when `parking_session_active`
+is true in vehicle telemetry.
+
+```
+GET /api/v1/vehicles/{vin}/parking-session
+
+Response 200 (active session):
+{
+  "session_id": "session-123",
+  "zone_name": "Demo Zone",
+  "hourly_rate": 2.50,
+  "currency": "EUR",
+  "duration_seconds": 3600,
+  "current_cost": 2.50,
+  "timestamp": "2024-01-15T10:30:00Z",
+  "request_id": "req-xyz789"
+}
+
+Response 404 (no active session):
+{
+  "error_code": "NO_ACTIVE_SESSION",
+  "message": "No active parking session for this vehicle",
+  "request_id": "req-xyz789"
+}
+
+Response 404 (vehicle not found):
+{
+  "error_code": "VEHICLE_NOT_FOUND",
+  "message": "Vehicle not found: UNKNOWN_VIN",
+  "request_id": "req-xyz789"
+}
+```
+
+Note: Vehicle telemetry only includes `parking_session_active` as a boolean.
+COMPANION_APP should call this endpoint when `parking_session_active` is true
+to get detailed session information. The CLOUD_GATEWAY proxies this request
+to PARKING_FEE_SERVICE.
 
 ### Southbound Interface (MQTT)
 

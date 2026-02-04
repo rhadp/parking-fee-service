@@ -278,11 +278,45 @@ sealed class InstallationProgress {
     data class Failed(val error: String) : InstallationProgress()
 }
 
+/**
+ * Adapter status aligned with UPDATE_SERVICE proto AdapterState enum.
+ * Maps UPDATE_SERVICE states to PARKING_APP display states.
+ */
 enum class AdapterStatus {
-    NOT_INSTALLED,
+    /** Maps from ADAPTER_STATE_UNKNOWN - adapter state is unknown */
+    UNKNOWN,
+    /** Maps from ADAPTER_STATE_DOWNLOADING - image being downloaded from registry */
+    DOWNLOADING,
+    /** Maps from ADAPTER_STATE_INSTALLING - container being installed */
     INSTALLING,
-    INSTALLED,
-    ERROR
+    /** Maps from ADAPTER_STATE_RUNNING - container is running and ready */
+    RUNNING,
+    /** Maps from ADAPTER_STATE_STOPPED - container is stopped */
+    STOPPED,
+    /** Maps from ADAPTER_STATE_ERROR - error occurred during lifecycle */
+    ERROR;
+    
+    companion object {
+        /**
+         * Maps UPDATE_SERVICE proto AdapterState to PARKING_APP AdapterStatus.
+         * Handles the prefix stripping from proto enum values.
+         */
+        fun fromProto(protoState: AdapterStateProto): AdapterStatus = when (protoState) {
+            AdapterStateProto.ADAPTER_STATE_UNKNOWN -> UNKNOWN
+            AdapterStateProto.ADAPTER_STATE_DOWNLOADING -> DOWNLOADING
+            AdapterStateProto.ADAPTER_STATE_INSTALLING -> INSTALLING
+            AdapterStateProto.ADAPTER_STATE_RUNNING -> RUNNING
+            AdapterStateProto.ADAPTER_STATE_STOPPED -> STOPPED
+            AdapterStateProto.ADAPTER_STATE_ERROR -> ERROR
+            AdapterStateProto.UNRECOGNIZED -> UNKNOWN
+        }
+    }
+    
+    /** Returns true if the adapter is ready to handle parking operations */
+    fun isReady(): Boolean = this == RUNNING
+    
+    /** Returns true if the adapter is in a transitional state */
+    fun isInProgress(): Boolean = this == DOWNLOADING || this == INSTALLING
 }
 ```
 
@@ -526,7 +560,7 @@ data class ParkingUiState(
     val isLoading: Boolean = false,
     val location: LocationUpdate? = null,
     val zone: ZoneInfo? = null,
-    val adapterStatus: AdapterStatus = AdapterStatus.NOT_INSTALLED,
+    val adapterStatus: AdapterStatus = AdapterStatus.UNKNOWN,
     val installProgress: Int = 0,
     val session: SessionStatus? = null,
     val finalSession: FinalSessionInfo? = null,
@@ -715,13 +749,15 @@ data class AppConfig(
     val parkingAdaptorUseTls: Boolean = true,
     
     // PARKING_FEE_SERVICE connection
-    val parkingFeeServiceBaseUrl: String = "https://parking-fee-service.example.com",
+    val parkingFeeServiceBaseUrl: String = "https://parking-fee-service.example.com/api/v1",
     
     // Retry configuration
     val maxReconnectAttempts: Int = 5,
     val reconnectBaseDelayMs: Long = 1000,
+    val reconnectMaxDelayMs: Long = 30000,  // Standardized max delay (30 seconds)
     val maxZoneLookupRetries: Int = 3,
     val zoneLookupBaseDelayMs: Long = 1000,
+    val zoneLookupMaxDelayMs: Long = 30000,  // Standardized max delay (30 seconds)
     
     // Polling configuration
     // UI update rate: minimum 10 updates/second (100ms interval)

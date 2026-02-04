@@ -72,11 +72,13 @@ flowchart TB
 1. **Signal Reception**: Signal Subscriber receives IsLocked=true from DATA_BROKER
 2. **State Check**: Session Manager verifies no active session exists
 3. **Location Read**: Location Reader fetches current latitude/longitude from DATA_BROKER
-4. **Zone Lookup**: PARKING_APP queries PARKING_FEE_SERVICE for Zone_ID based on location
-5. **API Call**: Operator API Client calls POST /parking/start with zone_id from PARKING_APP
+4. **Zone Lookup**: For automatic lock events, PARKING_OPERATOR_ADAPTOR calls PARKING_FEE_SERVICE directly to obtain Zone_ID based on location (since PARKING_APP is not involved in automatic flow)
+5. **API Call**: Operator API Client calls POST /parking/start with zone_id
 6. **Session Creation**: Session Manager creates session with Session_ID from response
 7. **State Publication**: State Publisher writes SessionActive=true to DATA_BROKER
 8. **Persistence**: Session Store persists session state
+
+**Note:** For automatic lock events, the PARKING_OPERATOR_ADAPTOR performs zone lookup directly via PARKING_FEE_SERVICE REST API. For manual session starts via gRPC, the zone_id is provided by PARKING_APP in the StartSessionRequest.
 
 ### Request Flow: Manual Session Start (gRPC)
 
@@ -259,6 +261,7 @@ Manages session lifecycle and state transitions.
 pub struct SessionManager {
     current_session: RwLock<Option<Session>>,
     location_reader: LocationReader,
+    zone_lookup_client: ZoneLookupClient,  // For automatic lock events
     operator_client: OperatorApiClient,
     state_publisher: StatePublisher,
     session_store: SessionStore,
@@ -266,9 +269,14 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    /// Starts a new parking session
+    /// Starts a new parking session with provided zone_id (manual start via gRPC)
     /// Returns error if session already active or starting
-    pub async fn start_session(&self) -> Result<Session, SessionError>;
+    pub async fn start_session(&self, zone_id: &str) -> Result<Session, SessionError>;
+    
+    /// Starts a new parking session with automatic zone lookup (lock event)
+    /// Calls PARKING_FEE_SERVICE to determine zone_id from location
+    /// Returns error if session already active, starting, or no zone found
+    pub async fn start_session_auto(&self) -> Result<Session, SessionError>;
     
     /// Stops the current parking session
     /// Returns error if no active session or already stopping
@@ -339,6 +347,45 @@ impl OperatorApiClient {
     ) -> Result<StatusResponse, ApiError>;
 }
 ```
+
+#### ZoneLookupClient
+
+Communicates with PARKING_FEE_SERVICE for zone lookup during automatic lock events.
+
+```rust
+pub struct ZoneLookupClient {
+    http_client: reqwest::Client,
+    base_url: String,
+    max_retries: u32,
+    base_delay: Duration,
+    request_timeout: Duration,
+}
+
+impl ZoneLookupClient {
+    /// Looks up parking zone by coordinates
+    /// Used for automatic lock events when PARKING_APP is not involved
+    /// @param latitude Location latitude
+    /// @param longitude Location longitude
+    /// @return Zone information or None if not in a parking zone
+    pub async fn lookup_zone(
+        &self,
+        latitude: f64,
+        longitude: f64,
+    ) -> Result<Option<ZoneInfo>, ApiError>;
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ZoneInfo {
+    pub zone_id: String,
+    pub operator_name: String,
+    pub hourly_rate: f64,
+    pub currency: String,
+    pub adapter_image_ref: String,
+    pub adapter_checksum: String,
+}
+```
+
+**Note:** The ZoneLookupClient is used for automatic lock events where the PARKING_APP is not involved in the flow. For manual session starts via gRPC, the zone_id is provided by PARKING_APP in the StartSessionRequest.
 
 #### StatePublisher
 
@@ -465,6 +512,8 @@ pub struct ServiceConfig {
     pub data_broker_socket: String,
     /// PARKING_OPERATOR base URL
     pub operator_base_url: String,
+    /// PARKING_FEE_SERVICE base URL (for automatic zone lookup during lock events)
+    pub parking_fee_service_url: String,
     /// Vehicle identifier
     pub vehicle_id: String,
     /// Configurable hourly rate (demo)
@@ -473,12 +522,16 @@ pub struct ServiceConfig {
     pub api_max_retries: u32,
     /// Base delay for exponential backoff (ms)
     pub api_base_delay_ms: u64,
+    /// Maximum delay for exponential backoff (ms) - standardized to 30 seconds
+    pub api_max_delay_ms: u64,
     /// API request timeout (ms)
     pub api_timeout_ms: u64,
     /// DATA_BROKER reconnect attempts
     pub reconnect_max_attempts: u32,
     /// DATA_BROKER reconnect base delay (ms)
     pub reconnect_base_delay_ms: u64,
+    /// Maximum reconnect delay (ms) - standardized to 30 seconds
+    pub reconnect_max_delay_ms: u64,
     /// Status poll interval (seconds)
     pub poll_interval_seconds: u64,
     /// Session storage path
@@ -493,13 +546,16 @@ impl Default for ServiceConfig {
             tls_key_path: "/etc/rhivos/certs/parking-adaptor.key".to_string(),
             data_broker_socket: "/run/kuksa/databroker.sock".to_string(),
             operator_base_url: "http://localhost:8080/api/v1".to_string(),
+            parking_fee_service_url: "https://parking-fee-service.example.com/api/v1".to_string(),
             vehicle_id: "demo-vehicle-001".to_string(),
             hourly_rate: 2.50,
             api_max_retries: 3,
             api_base_delay_ms: 1000,
+            api_max_delay_ms: 30000,  // Standardized max delay
             api_timeout_ms: 10000,
             reconnect_max_attempts: 5,
             reconnect_base_delay_ms: 1000,
+            reconnect_max_delay_ms: 30000,  // Standardized max delay
             poll_interval_seconds: 60,
             storage_path: "/var/lib/parking-adaptor/session.json".to_string(),
         }

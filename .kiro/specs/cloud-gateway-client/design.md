@@ -160,9 +160,12 @@ sequenceDiagram
   "command_id": "uuid-string",
   "type": "lock | unlock",
   "doors": ["driver", "passenger", "rear_left", "rear_right", "all"],
-  "auth_token": "token-string"
+  "auth_token": "token-string",
+  "timestamp": "ISO8601-datetime"
 }
 ```
+
+**Note:** The `timestamp` field is included by CLOUD_GATEWAY when publishing commands. CLOUD_GATEWAY_CLIENT should accept and log this field for audit purposes.
 
 ### Response Message Format (JSON)
 
@@ -171,24 +174,27 @@ sequenceDiagram
   "command_id": "uuid-string",
   "status": "success | failed",
   "error_code": "optional-error-code",
-  "error_message": "optional-error-description"
+  "error_message": "optional-error-description",
+  "timestamp": "ISO8601-datetime"
 }
 ```
+
+**Note:** The `timestamp` field is required in all responses for audit/logging purposes in CLOUD_GATEWAY.
 
 ### Telemetry Message Format (JSON)
 
 ```json
 {
   "timestamp": "ISO8601-datetime",
-  "location": {
-    "latitude": 0.0,
-    "longitude": 0.0
-  },
+  "latitude": 0.0,
+  "longitude": 0.0,
   "door_locked": true,
   "door_open": false,
   "parking_session_active": false
 }
 ```
+
+**Note:** Location fields are flat (not nested) to align with CLOUD_GATEWAY's expected format.
 
 ### Internal Components
 
@@ -518,6 +524,7 @@ pub struct CommandResponse {
     pub error_code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
+    pub timestamp: String,  // ISO8601 format - required for CLOUD_GATEWAY audit logging
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -534,18 +541,15 @@ pub enum ResponseStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Telemetry {
     pub timestamp: String,  // ISO8601 format
-    pub location: Location,
+    pub latitude: f64,      // Flat structure for CLOUD_GATEWAY compatibility
+    pub longitude: f64,
     pub door_locked: bool,
     pub door_open: bool,
     pub parking_session_active: bool,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Location {
-    pub latitude: f64,
-    pub longitude: f64,
-}
 ```
+
+**Note:** Location fields are flat (not nested in a `location` object) to align with CLOUD_GATEWAY's expected telemetry format.
 
 ### Configuration
 
@@ -840,7 +844,7 @@ Based on the prework analysis, the following properties can be verified through 
 
 ### Property 13: Telemetry Contains All Required Fields
 
-*For any* published telemetry message, the JSON payload SHALL contain timestamp (ISO8601 format), location.latitude, location.longitude, door_locked, door_open, and parking_session_active fields.
+*For any* published telemetry message, the JSON payload SHALL contain timestamp (ISO8601 format), latitude, longitude (flat structure, not nested), door_locked, door_open, and parking_session_active fields.
 
 **Validates: Requirements 7.2**
 

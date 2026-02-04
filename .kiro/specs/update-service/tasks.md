@@ -4,7 +4,7 @@
 
 This implementation plan covers the UPDATE_SERVICE component for the SDV Parking Demo System. The service is implemented in Rust, runs in the RHIVOS QM partition, and manages containerized parking operator adapter lifecycle via gRPC over TCP/TLS.
 
-Tasks are organized to build incrementally: project setup, core data models, registry authentication, image downloading, attestation validation, container management, state tracking, watcher streaming, gRPC server, offload scheduling, operation logging, and integration testing.
+Tasks are organized to build incrementally: project setup, core data models, operation logging, registry authentication, image downloading, attestation validation, container management, state tracking, watcher streaming, gRPC service, offload scheduling, and integration testing.
 
 ## Tasks
 
@@ -39,8 +39,8 @@ Tasks are organized to build incrementally: project setup, core data models, reg
 
   - [ ] 2.3 Implement error types
     - Create `rhivos/update-service/src/error.rs`
-    - Implement UpdateError enum with all variants from design (including AuthenticationFailed, TokenEndpointUnreachable, InvalidCredentials)
-    - Implement From<UpdateError> for tonic::Status with proper gRPC status codes
+    - Implement UpdateError enum with all variants from design (DownloadError, ValidationError, ContainerError, AdapterNotFound, AdapterAlreadyExists, RegistryUnavailable, InvalidRegistryUrl, AttestationDigestMismatch, InvalidAttestationSignature, MissingAttestationField, AttestationNotFound, AuthenticationFailed, TokenEndpointUnreachable, InvalidCredentials)
+    - Implement From<UpdateError> for tonic::Status with proper gRPC status codes per design
     - _Requirements: 1.5, 2.5, 3.2, 3.4, 4.6, 8.4, 11.6_
 
 - [ ] 3. Checkpoint - Verify data models compile
@@ -56,7 +56,7 @@ Tasks are organized to build incrementally: project setup, core data models, reg
     - Implement log_state_transition() for state changes with previous/new state and reason
     - Implement log_container_operation() for container ops (pull, install, start, stop, remove) with outcome
     - Implement log_auth_event() for authentication events
-    - Define ContainerOperation, OperationOutcome, AuthEvent, and LogEntry structs
+    - Define ContainerOperation, OperationOutcome, AuthEvent, and LogEntry structs per design
     - Configure tracing subscriber for structured JSON output
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
@@ -112,26 +112,25 @@ Tasks are organized to build incrementally: project setup, core data models, reg
   - Ensure logger and authenticator work correctly
   - Ask the user if questions arise
 
-
 - [ ] 7. Implement image downloading
   - [ ] 7.1 Implement ImageDownloader struct
     - Create `rhivos/update-service/src/downloader.rs`
     - Implement ImageDownloader with http_client, authenticator, max_retries, base_delay, logger
     - Implement download() method with OCI registry protocol support
     - Implement authenticated_request() to handle 401 challenges via authenticator
-    - Implement exponential backoff retry logic
+    - Implement exponential backoff retry logic (max 3 retries, base delay from config, max delay 30s)
     - Return DownloadedImage with manifest_path, layers_dir, config_path
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
   - [ ] 7.2 Write property test for download retry behavior
     - **Property 5: Download Retry and Failure Handling**
-    - Inject network failures and verify retry count and final ERROR state
+    - Inject network failures and verify retry count (up to 3) and final ERROR state with failure message
     - **Validates: Requirements 2.4, 2.5**
 
 - [ ] 8. Implement attestation validation
   - [ ] 8.1 Implement AttestationValidator struct
     - Create `rhivos/update-service/src/attestation.rs`
-    - Implement Attestation, AttestationPayload, AttestationSubject, AttestationSignature structs
+    - Implement Attestation, AttestationPayload, AttestationSubject, AttestationSignature structs per design
     - Implement AttestationValidator with http_client and authenticator
     - Implement fetch_attestation() to retrieve attestation from registry for image digest
     - Implement validate() to verify attestation signature and subject digest matches image
@@ -145,13 +144,13 @@ Tasks are organized to build incrementally: project setup, core data models, reg
 
   - [ ] 8.3 Write property test for attestation structure validation
     - **Property 8: Attestation Structure Validation**
-    - Generate attestations with missing fields and verify ERROR state
+    - Generate attestations with missing fields and verify ERROR state with message indicating missing field
     - **Validates: Requirements 3.3, 3.4**
 
 - [ ] 9. Implement container management
   - [ ] 9.1 Implement ContainerManager struct
     - Create `rhivos/update-service/src/container.rs`
-    - Implement ContainerManager with storage_path and data_broker_socket
+    - Implement ContainerManager with storage_path (/var/lib/containers/adapters/) and data_broker_socket
     - Implement install() to load image into podman
     - Implement start() to run container with network access to DATA_BROKER
     - Implement stop() to stop running container
@@ -174,20 +173,20 @@ Tasks are organized to build incrementally: project setup, core data models, reg
     - Create `rhivos/update-service/src/tracker.rs`
     - Implement StateTracker with adapters HashMap and watcher_manager reference
     - Implement get_state() to retrieve current adapter state
-    - Implement transition() to change state and notify watchers
+    - Implement transition() to change state, update timestamp, and notify watchers
     - Implement list_all() to return all adapter info
     - Implement remove() to delete adapter from tracking
-    - Implement restore_from_containers() to recover state on startup
+    - Implement restore_from_containers() to recover state on startup by querying podman
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 7.1, 7.2, 7.3_
 
   - [ ] 11.2 Write property test for state timestamp updates
     - **Property 10: State Timestamp Updates**
-    - Verify last_updated is updated on every state change
+    - Verify last_updated is updated on every state change with adapter_id, current_state, error_message, and last_updated
     - **Validates: Requirements 5.2, 5.3**
 
   - [ ] 11.3 Write property test for list adapters completeness
     - **Property 14: List Adapters Returns Complete Info**
-    - Install multiple adapters and verify list contains all with complete fields
+    - Install multiple adapters and verify list contains all with adapter_id, state, error_message, and last_updated fields
     - **Validates: Requirements 7.1, 7.2**
 
 - [ ] 12. Implement watcher management
@@ -195,37 +194,37 @@ Tasks are organized to build incrementally: project setup, core data models, reg
     - Create `rhivos/update-service/src/watcher.rs`
     - Implement WatcherManager with watchers Vec of mpsc::Sender
     - Implement register() to add new watcher and return receiver
-    - Implement broadcast() to send event to all active watchers
+    - Implement broadcast() to send AdapterStateEvent to all active watchers
     - Implement cleanup_disconnected() to remove closed channels
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
   - [ ] 12.2 Write property test for watcher event reception
     - **Property 11: Watcher Receives State Events**
-    - Register watcher, trigger state change, verify event received with all fields
+    - Register watcher, trigger state change, verify event received with adapter_id, previous_state, new_state, timestamp, and error_message
     - **Validates: Requirements 6.1, 6.2, 6.3**
 
   - [ ] 12.3 Write property test for watcher cleanup
     - **Property 12: Watcher Cleanup on Disconnect**
-    - Disconnect one watcher, verify others still receive events
+    - Disconnect one watcher, verify others still receive events without interruption
     - **Validates: Requirements 6.4**
 
   - [ ] 12.4 Write property test for initial state emission
     - **Property 13: New Watcher Receives Initial State**
-    - Install adapters, connect new watcher, verify initial state events received
+    - Install adapters, connect new watcher, verify initial state events received for all tracked adapters
     - **Validates: Requirements 6.5**
 
 - [ ] 13. Implement gRPC service
   - [ ] 13.1 Implement UpdateServiceImpl struct
     - Create `rhivos/update-service/src/service.rs`
-    - Implement UpdateServiceImpl with all components wired together
-    - Implement generate_correlation_id() helper for request tracing
+    - Implement UpdateServiceImpl with all components wired together (state_tracker, image_downloader, attestation_validator, container_manager, watcher_manager, config, logger)
+    - Implement generate_correlation_id() helper for request tracing using UUID
     - Implement helper methods for install workflow orchestration
     - _Requirements: 1.1, 1.2, 10.1, 10.2, 10.3, 10.4, 12.4_
 
   - [ ] 13.2 Implement InstallAdapter RPC handler
     - Generate correlation ID and log request
-    - Check for existing adapter (idempotence for RUNNING/in-progress)
-    - Validate registry_url format
+    - Check for existing adapter (return success for RUNNING, return current state for DOWNLOADING/INSTALLING)
+    - Validate registry_url format (return error for malformed URLs)
     - Initialize state as DOWNLOADING with state transition logging
     - Spawn async task for download → validate attestation → install → start workflow
     - Log all container operations with outcomes
@@ -234,61 +233,62 @@ Tasks are organized to build incrementally: project setup, core data models, reg
 
   - [ ] 13.3 Write property test for install state initialization
     - **Property 1: Install Initiates Download State**
-    - Verify valid install request returns DOWNLOADING state
+    - Verify valid install request returns DOWNLOADING state and adapter is tracked
     - **Validates: Requirements 1.1, 1.2**
 
   - [ ] 13.4 Write property test for install idempotence (running)
     - **Property 2: Install Idempotence for Running Adapters**
-    - Install already-running adapter, verify no re-download
+    - Install already-running adapter, verify success returned without re-download, state remains RUNNING
     - **Validates: Requirements 1.3**
 
   - [ ] 13.5 Write property test for install idempotence (in-progress)
     - **Property 3: Install Idempotence for In-Progress Adapters**
-    - Install while DOWNLOADING/INSTALLING, verify current state returned
+    - Install while DOWNLOADING/INSTALLING, verify current state returned without duplicate installation
     - **Validates: Requirements 1.4**
 
   - [ ] 13.6 Write property test for invalid registry URL
     - **Property 4: Invalid Registry URL Returns Error**
-    - Provide malformed URLs and verify error response
+    - Provide malformed URLs and verify error response, no adapter entry created
     - **Validates: Requirements 1.5**
 
-  - [ ] 13.7 Implement UninstallAdapter RPC handler
+  - [ ] 13.7 Write property test for state progression
+    - **Property 6: State Progression Through Installation**
+    - Verify DOWNLOADING → INSTALLING → RUNNING progression with each transition recorded
+    - **Validates: Requirements 2.3, 4.2, 4.3**
+
+  - [ ] 13.8 Implement UninstallAdapter RPC handler
     - Generate correlation ID and log request
-    - Check adapter exists
+    - Check adapter exists (return NOT_FOUND error if not)
     - Stop container if running, log operation
     - Remove container and storage, log operation
     - Remove from state tracker with state transition logging
-    - Emit state change event
+    - Emit state change event to all watchers
     - Return UninstallAdapterResponse
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 12.1, 12.2, 12.3_
 
-  - [ ] 13.8 Write property test for uninstall completeness
+  - [ ] 13.9 Write property test for uninstall completeness
     - **Property 15: Uninstall Removes Adapter Completely**
-    - Verify container stopped, removed, state cleared, event emitted
+    - Verify container stopped, removed, state cleared, event emitted to watchers
     - **Validates: Requirements 8.1, 8.2, 8.3, 8.5**
 
-  - [ ] 13.9 Write property test for uninstall non-existent
+  - [ ] 13.10 Write property test for uninstall non-existent
     - **Property 16: Uninstall Non-Existent Returns Error**
-    - Uninstall unknown adapter_id, verify NOT_FOUND error
+    - Uninstall unknown adapter_id, verify NOT_FOUND error returned
     - **Validates: Requirements 8.4**
 
-  - [ ] 13.10 Implement ListAdapters RPC handler
+  - [ ] 13.11 Implement ListAdapters RPC handler
     - Generate correlation ID and log request
-    - Return all adapters from state tracker with complete info
+    - Return all adapters from state tracker with adapter_id, state, error_message, and last_updated
+    - Return empty list when no adapters installed
     - _Requirements: 7.1, 7.2, 7.3, 12.1_
 
-  - [ ] 13.11 Implement WatchAdapterStates RPC handler
+  - [ ] 13.12 Implement WatchAdapterStates RPC handler
     - Generate correlation ID and log request
     - Register watcher with WatcherManager
-    - Emit initial state for all adapters
-    - Stream AdapterStateEvent messages
-    - Handle client disconnect gracefully
+    - Emit initial state for all adapters as AdapterStateEvent messages
+    - Stream AdapterStateEvent messages on state changes
+    - Handle client disconnect gracefully with cleanup
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 12.1_
-
-  - [ ] 13.12 Write property test for state progression
-    - **Property 6: State Progression Through Installation**
-    - Verify DOWNLOADING → INSTALLING → RUNNING progression
-    - **Validates: Requirements 2.3, 4.2, 4.3**
 
 - [ ] 14. Checkpoint - Verify gRPC service
   - Run `cargo test` for all tests
@@ -299,26 +299,27 @@ Tasks are organized to build incrementally: project setup, core data models, reg
   - [ ] 15.1 Implement TLS server listener
     - Update `rhivos/update-service/src/main.rs`
     - Load TLS certificate and key from configured paths
-    - Create TCP listener on configured address
+    - Create TCP listener on configured address (default 0.0.0.0:50052)
     - Initialize all components (authenticator, downloader, attestation_validator, container_manager, state_tracker, watcher_manager, logger)
-    - Restore state from running containers on startup
+    - Restore state from running containers on startup via restore_from_containers()
     - Start tonic gRPC server with TLS and UpdateServiceImpl
     - Handle graceful shutdown on SIGTERM
-    - _Requirements: 5.4, 10.5_
+    - _Requirements: 5.4, 10.5, 10.6_
 
 - [ ] 16. Implement offload scheduler
   - [ ] 16.1 Implement OffloadScheduler struct
     - Create `rhivos/update-service/src/offload.rs`
-    - Implement OffloadScheduler with state_tracker, container_manager, offload_threshold, check_interval, logger
+    - Implement OffloadScheduler with state_tracker, container_manager, offload_threshold (24 hours), check_interval (1 hour), logger
     - Implement start() to spawn background task
-    - Implement check_and_offload() to find and remove inactive adapters
+    - Implement check_and_offload() to find adapters in STOPPED state for more than 24 hours and remove them
     - Track last_activity timestamp for each adapter
+    - Emit state change event indicating automatic removal
     - Log offload operations
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 12.3_
 
   - [ ] 16.2 Write property test for automatic offload
     - **Property 17: Automatic Offload After Inactivity**
-    - Simulate 24+ hours of STOPPED state, verify automatic uninstall and event
+    - Simulate 24+ hours of STOPPED state, verify automatic uninstall and state change event emitted
     - **Validates: Requirements 9.1, 9.2, 9.3**
 
 - [ ] 17. Checkpoint - Verify complete service
@@ -359,10 +360,10 @@ Tasks are organized to build incrementally: project setup, core data models, reg
 
 ## Notes
 
-- All tasks including property tests are required for comprehensive implementation
+- All tasks are required for comprehensive implementation per steering rules
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation
-- Property tests validate universal correctness properties from the design document
+- Property tests validate universal correctness properties from the design document (24 total)
 - The service uses `proptest` crate for property-based testing with minimum 100 iterations per test
 - TLS certificates should be generated for development using `infra/certs/` tooling
 - Test organization follows design document structure:

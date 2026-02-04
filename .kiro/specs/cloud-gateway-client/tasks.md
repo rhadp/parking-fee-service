@@ -28,7 +28,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement Command struct with command_id, command_type, doors, auth_token
     - Implement CommandType enum (Lock, Unlock) with serde rename
     - Implement Door enum with serde rename
-    - Implement CommandResponse struct with status, error_code, error_message
+    - Implement CommandResponse struct with status, error_code, error_message, timestamp
     - Implement ResponseStatus enum (Success, Failed)
     - _Requirements: 2.2, 5.2, 5.3_
 
@@ -39,8 +39,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
 
   - [ ] 2.3 Implement Telemetry struct
     - Create `rhivos/cloud-gateway-client/src/telemetry.rs`
-    - Implement Telemetry struct with timestamp, location, door_locked, door_open, parking_session_active
-    - Implement Location struct with latitude, longitude
+    - Implement Telemetry struct with timestamp, latitude, longitude (flat structure), door_locked, door_open, parking_session_active
     - Implement TelemetryState for internal state tracking
     - _Requirements: 7.2_
 
@@ -54,7 +53,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
 
   - [ ] 2.5 Write property test for configuration validation
     - **Property 15: Configuration Validation**
-    - Generate invalid configurations and verify validation fails with descriptive errors
+    - Generate invalid configurations (empty VIN, invalid broker URL, non-existent cert paths) and verify validation fails with descriptive errors
     - **Validates: Requirements 8.3**
 
   - [ ] 2.6 Implement error types
@@ -65,6 +64,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement MqttError enum (ConnectionFailed, TlsError, SubscribeFailed, PublishFailed)
     - Implement CertWatcherError enum (WatcherInitFailed, WatchPathFailed)
     - Implement CertLoadError enum (FileNotFound, PermissionDenied, InvalidFormat, ParseFailed)
+    - Implement TelemetryError enum
     - Implement From<ValidationError> for CommandResponse
     - Implement From<ForwardError> for CommandResponse
     - _Requirements: 2.3, 2.4, 3.2, 3.3, 3.4, 4.5, 5.4, 1.7_
@@ -164,12 +164,13 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 7.2 Implement exponential backoff reconnection
     - Implement reconnect_with_backoff() in MqttClient
     - Calculate delay as min(initial_delay * 2^attempt, max_delay)
+    - Initial delay: 1 second, max delay: 60 seconds
     - Resubscribe to all topics after successful reconnection
     - _Requirements: 1.3, 1.4_
 
   - [ ] 7.3 Write property test for exponential backoff calculation
     - **Property 1: Exponential Backoff Calculation**
-    - Generate attempt numbers and verify delay calculation matches formula
+    - Generate attempt numbers and verify delay calculation matches formula min(1s * 2^N, 60s)
     - **Validates: Requirements 1.3**
 
 - [ ] 8. Checkpoint - Verify MQTT client and certificate watcher
@@ -181,8 +182,8 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 9.1 Implement CommandForwarder struct
     - Create `rhivos/cloud-gateway-client/src/forwarder.rs`
     - Implement CommandForwarder with LockingServiceClient and timeout
-    - Implement forward_lock() that calls LOCKING_SERVICE Lock RPC
-    - Implement forward_unlock() that calls LOCKING_SERVICE Unlock RPC
+    - Implement forward_lock() that calls LOCKING_SERVICE Lock RPC via gRPC over UDS
+    - Implement forward_unlock() that calls LOCKING_SERVICE Unlock RPC via gRPC over UDS
     - Handle gRPC errors and map to ForwardError
     - Implement timeout handling with tokio::time::timeout
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
@@ -201,8 +202,8 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 10.1 Implement ResponsePublisher struct
     - Create `rhivos/cloud-gateway-client/src/response.rs`
     - Implement ResponsePublisher with mqtt_client and vin
-    - Implement publish_success() that publishes success response
-    - Implement publish_failure() that publishes failure response with error details
+    - Implement publish_success() that publishes success response with timestamp
+    - Implement publish_failure() that publishes failure response with error details and timestamp
     - Serialize CommandResponse to JSON and publish to vehicles/{VIN}/command_responses
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
@@ -214,20 +215,22 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 10.3 Write property test for response structure completeness
     - **Property 11: Response Structure Completeness**
     - Generate success/failure responses and verify required fields present
+    - For failed responses, verify error_code and error_message are present and non-empty
     - **Validates: Requirements 5.3, 5.4**
 
 - [ ] 11. Implement command handler
   - [ ] 11.1 Implement CommandHandler struct
     - Create `rhivos/cloud-gateway-client/src/handler.rs`
-    - Implement CommandHandler with validator, forwarder, response_publisher
+    - Implement CommandHandler with validator, forwarder, response_publisher, logger
     - Implement handle_message() that orchestrates command processing
     - Parse topic to extract VIN, validate command, forward to LOCKING_SERVICE, publish response
     - Implement overall command timeout (5 seconds)
-    - _Requirements: 2.1, 2.2, 3.1, 4.1, 4.2, 5.1, 5.5_
+    - Log every received command with timestamp, command_id, command type, source topic
+    - _Requirements: 2.1, 2.2, 3.1, 4.1, 4.2, 5.1, 5.5, 10.1_
 
   - [ ] 11.2 Write property test for command timeout enforcement
     - **Property 12: Command Timeout Enforcement**
-    - Simulate slow LOCKING_SERVICE and verify timeout response published
+    - Simulate slow LOCKING_SERVICE and verify timeout response published within 5 seconds
     - **Validates: Requirements 5.5**
 
 - [ ] 12. Checkpoint - Verify command processing
@@ -263,14 +266,19 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
 
   - [ ] 13.5 Write property test for chronological publishing
     - **Property 22: Buffered Message Chronological Publishing**
-    - Generate buffered messages and verify drain returns them in chronological order
+    - Generate buffered messages and verify drain returns them in chronological order (oldest first)
     - **Validates: Requirements 7.8**
 
 - [ ] 14. Implement telemetry subscription and publishing
   - [ ] 14.1 Implement SignalSubscriber struct
     - Create `rhivos/cloud-gateway-client/src/subscriber.rs`
     - Implement SignalSubscriber with DataBrokerClient and signal channel
-    - Implement subscribe_all() that subscribes to all required VSS signals
+    - Implement subscribe_all() that subscribes to all required VSS signals:
+      - Vehicle.CurrentLocation.Latitude
+      - Vehicle.CurrentLocation.Longitude
+      - Vehicle.Cabin.Door.Row1.DriverSide.IsLocked
+      - Vehicle.Cabin.Door.Row1.DriverSide.IsOpen
+      - Vehicle.Parking.SessionActive
     - Implement run() that receives signal updates and sends to channel
     - Handle DATA_BROKER disconnection gracefully
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
@@ -278,7 +286,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 14.2 Implement TelemetryPublisher struct with offline buffering
     - Update `rhivos/cloud-gateway-client/src/telemetry.rs`
     - Implement TelemetryPublisher with mqtt_client, vin, signal_rx, current_state, offline_buffer
-    - Implement run() that batches signal updates and publishes at configured interval
+    - Implement run() that batches signal updates and publishes at most once per second
     - Implement publish_or_buffer() that publishes if connected, buffers if offline
     - Implement drain_offline_buffer() that publishes buffered messages in chronological order
     - Stop publishing when DATA_BROKER disconnected, resume when reconnected
@@ -286,12 +294,12 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
 
   - [ ] 14.3 Write property test for telemetry field completeness
     - **Property 13: Telemetry Contains All Required Fields**
-    - Generate telemetry messages and verify all required fields present
+    - Generate telemetry messages and verify all required fields present (timestamp, latitude, longitude flat, door_locked, door_open, parking_session_active)
     - **Validates: Requirements 7.2**
 
   - [ ] 14.4 Write property test for telemetry rate limiting
     - **Property 14: Telemetry Rate Limiting**
-    - Simulate rapid signal updates and verify publish rate is bounded
+    - Simulate rapid signal updates and verify publish rate is bounded to at most ceil(T/1s) messages
     - **Validates: Requirements 7.3**
 
 - [ ] 15. Checkpoint - Verify telemetry with offline buffering
@@ -303,18 +311,26 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 16.1 Implement structured logging
     - Create `rhivos/cloud-gateway-client/src/logging.rs`
     - Implement LogEntry struct with timestamp, level, command_id, correlation_id, event_type, details
-    - Implement EventType enum for all loggable events including CertReloadSuccess, CertReloadFailed, TelemetryBuffered, TelemetryBufferDrained
+    - Implement EventType enum for all loggable events:
+      - MqttConnected, MqttDisconnected, MqttReconnecting
+      - CommandReceived, CommandValidated, CommandForwarded, CommandCompleted
+      - ResponsePublished
+      - TelemetryPublished, TelemetryBuffered, TelemetryBufferDrained
+      - DataBrokerConnected, DataBrokerDisconnected, SignalReceived
+      - CertReloadSuccess, CertReloadFailed
+      - ShutdownInitiated, ShutdownCompleted
     - Configure tracing subscriber for structured JSON output
+    - Include correlation identifiers for end-to-end tracing
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 1.8_
 
 - [ ] 17. Implement main service and graceful shutdown
   - [ ] 17.1 Implement service startup and main loop
     - Update `rhivos/cloud-gateway-client/src/main.rs`
-    - Load configuration from environment
+    - Load configuration from environment and validate on startup
     - Initialize MQTT client with CertificateWatcher and connect with TLS
-    - Initialize LOCKING_SERVICE gRPC client
-    - Initialize DATA_BROKER gRPC client
-    - Subscribe to command topic
+    - Initialize LOCKING_SERVICE gRPC client via UDS
+    - Initialize DATA_BROKER gRPC client via UDS
+    - Subscribe to command topic vehicles/{VIN}/commands
     - Spawn command handler task
     - Spawn telemetry publisher task with offline buffer
     - _Requirements: 1.1, 1.6, 2.1, 6.1, 8.1, 8.3_
@@ -324,6 +340,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Track in-flight command count
     - Wait for in-flight operations to complete (up to 10 seconds)
     - Disconnect MQTT cleanly
+    - Log shutdown initiated and completed events
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
   - [ ] 17.3 Write property test for shutdown timeout enforcement
@@ -359,14 +376,14 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
 
   - [ ] 19.4 Write integration tests for command flow
     - Test complete flow: MQTT receive → validate → forward → respond
-    - Test validation error responses
+    - Test validation error responses (malformed JSON, missing fields, invalid auth, invalid type, invalid door)
     - Test LOCKING_SERVICE error propagation
     - Test timeout handling
     - _Requirements: 2.1-2.4, 3.1-3.4, 4.1-4.5, 5.1-5.5_
 
   - [ ] 19.5 Write integration tests for telemetry flow with offline buffering
     - Test signal subscription and telemetry publishing
-    - Test rate limiting behavior
+    - Test rate limiting behavior (at most once per second)
     - Test DATA_BROKER disconnection handling
     - Test offline buffering when MQTT disconnected
     - Test buffer draining on MQTT reconnection
@@ -376,24 +393,33 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - [ ] 19.6 Write integration tests for certificate hot-reload
     - Test certificate reload on file change
     - Test continued operation with invalid certificate update
-    - Test logging of reload events
+    - Test logging of reload events with timestamp, status, path, expiry date
     - _Requirements: 1.6, 1.7, 1.8_
+
+  - [ ] 19.7 Write integration tests for MQTT reconnection
+    - Test exponential backoff on connection loss
+    - Test resubscription to topics after reconnection
+    - Test keepalive/heartbeat behavior
+    - _Requirements: 1.3, 1.4, 1.5_
 
 - [ ] 20. Final checkpoint - Verify complete implementation
   - Run `cargo test` for all unit and property tests
   - Run `cargo clippy` for linting
-  - Ensure all 22 properties pass
+  - Ensure all 22 properties pass with minimum 100 iterations each
+  - Verify all 10 requirements are covered
   - Ask the user if questions arise
 
 ## Notes
 
-- All tasks including property tests are required for comprehensive implementation
+- All tasks are required for comprehensive implementation per workspace rules
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation
-- Property tests validate universal correctness properties from the design document
+- Property tests validate universal correctness properties from the design document (22 total)
 - The service uses `proptest` crate for property-based testing with minimum 100 iterations per test
 - MQTT client uses `rumqttc` crate with TLS support
 - gRPC clients use `tonic` crate with UDS transport
 - Certificate watching uses `notify` crate for file system notifications
 - Certificate parsing uses `x509-parser` crate for expiry date extraction
 - Offline buffer uses `VecDeque` for efficient FIFO operations
+- Telemetry location fields are flat (latitude, longitude) not nested, per CLOUD_GATEWAY format
+- Response messages include timestamp field for CLOUD_GATEWAY audit logging

@@ -50,8 +50,9 @@ The application serves as the mobile companion to the in-vehicle PARKING_APP, en
 2. WHEN telemetry is received, THE COMPANION_APP SHALL display the vehicle's current location (latitude, longitude)
 3. WHEN telemetry is received, THE COMPANION_APP SHALL display the door lock status (locked/unlocked)
 4. WHEN telemetry is received, THE COMPANION_APP SHALL display the parking session status (active/inactive)
-5. IF a parking session is active, THEN THE COMPANION_APP SHALL display the session duration and current cost
-6. THE COMPANION_APP SHALL refresh telemetry automatically every 10 seconds while on the vehicle status screen
+5. IF `parking_session_active` is true in telemetry, THEN THE COMPANION_APP SHALL query the CLOUD_GATEWAY parking session endpoint for detailed session information (zone name, duration, cost)
+6. IF a parking session is active and details are available, THEN THE COMPANION_APP SHALL display the session duration and current cost
+7. THE COMPANION_APP SHALL refresh telemetry automatically every 10 seconds while on the vehicle status screen
 
 ### Requirement 4: Remote Lock Command
 

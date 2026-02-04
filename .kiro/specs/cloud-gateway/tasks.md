@@ -2,7 +2,7 @@
 
 ## Overview
 
-This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: REST API (Northbound) for COMPANION_APP and MQTT (Southbound) for vehicle communication. The service translates REST commands to MQTT messages and exports telemetry to OpenTelemetry collector. Implementation uses paho.mqtt.golang for MQTT, gorilla/mux for routing, and gopter for property-based testing.
+This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: REST API (Northbound) for COMPANION_APP and MQTT (Southbound) for vehicle communication. The service translates REST commands to MQTT messages, proxies parking session queries to PARKING_FEE_SERVICE, and exports telemetry to OpenTelemetry collector. Implementation uses paho.mqtt.golang for MQTT, gorilla/mux for routing, and gopter for property-based testing.
 
 ## Tasks
 
@@ -15,7 +15,7 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
 
 - [ ] 2. Implement configuration management
   - [ ] 2.1 Create config struct with environment variable loading
-    - Define Config struct with all fields (Port, MQTT settings, VIN, timeouts, OTLP endpoint)
+    - Define Config struct with all fields (Port, MQTT settings, VIN, timeouts, OTLP endpoint, PARKING_FEE_SERVICE URL)
     - Implement LoadConfig() with environment variable parsing
     - Add validation for required fields (MQTT_BROKER_URL, CONFIGURED_VIN)
     - Implement sensible defaults for optional fields (OTLP endpoint optional)
@@ -32,11 +32,12 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
   - [ ] 3.1 Create model package with all data structures
     - Define Command struct with all fields
     - Define Telemetry struct with all fields
-    - Define request/response models (SubmitCommandRequest, CommandStatusResponse, etc.)
+    - Define ParkingSession struct for session data
+    - Define request/response models (SubmitCommandRequest, CommandStatusResponse, ParkingSessionResponse, etc.)
     - Define MQTT message models (MQTTCommandMessage, MQTTCommandResponse, MQTTTelemetryMessage)
     - Define audit event models (CommandSubmissionEvent, CommandStatusChangeEvent, etc.)
     - Define error codes as constants
-    - _Requirements: 2.2, 3.2, 6.2, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7_
+    - _Requirements: 2.2, 3.2, 6.2, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 16.2_
 
 - [ ] 4. Implement middleware
   - [ ] 4.1 Create request ID middleware
@@ -170,64 +171,86 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - **Property 10: Telemetry Not Exposed via REST**
     - **Validates: Requirements 6.5, 15.6**
 
-- [ ] 12. Checkpoint - Ensure all tests pass
+- [ ] 12. Implement parking session service
+  - [ ] 12.1 Create ParkingSessionService with proxy logic
+    - Implement GetParkingSession (proxy to PARKING_FEE_SERVICE)
+    - Implement response caching with 5-second TTL
+    - Handle PARKING_FEE_SERVICE unavailability gracefully
+    - _Requirements: 16.1, 16.2, 16.3, 16.5_
+  
+  - [ ] 12.2 Write unit tests for parking session proxy
+    - Test successful session retrieval
+    - Test no active session (404 response)
+    - Test VIN validation
+    - Test cache behavior (5-second TTL)
+    - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
+
+- [ ] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 13. Implement REST API handlers (Northbound interface)
-  - [ ] 13.1 Implement CommandHandler
+- [ ] 14. Implement REST API handlers (Northbound interface)
+  - [ ] 14.1 Implement CommandHandler
     - HandleSubmitCommand: validate request, call service, return response
     - HandleGetCommandStatus: validate VIN, call service, return response
     - Implement input validation (command_type, auth_token, doors)
     - Integrate audit logging for submissions and auth attempts
     - _Requirements: 2.1, 2.2, 2.6, 2.7, 2.8, 3.1, 3.5, 3.6, 14.1, 14.3, 14.7, 15.1, 15.3_
   
-  - [ ] 13.2 Write property tests for command validation
+  - [ ] 14.2 Write property tests for command validation
     - **Property 3: Command Type Validation**
     - **Property 4: Auth Token Validation**
     - **Validates: Requirements 2.6, 2.7**
   
-  - [ ] 13.3 Write property test for command status response completeness
+  - [ ] 14.3 Write property test for command status response completeness
     - **Property 5: Command Status Response Completeness**
     - **Validates: Requirements 3.2, 3.3, 3.4**
   
-  - [ ] 13.4 Write property test for command not found
+  - [ ] 14.4 Write property test for command not found
     - **Property 6: Command Not Found**
     - **Validates: Requirements 3.5**
   
-  - [ ] 13.5 Implement HealthHandler
+  - [ ] 14.5 Implement HealthHandler
     - HandleHealth: return healthy status with service name and timestamp
     - HandleReady: check MQTT connection (Southbound), return ready/not ready with mqtt_connected field
     - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2, 8.3, 8.4, 15.8_
+  
+  - [ ] 14.6 Implement ParkingSessionHandler
+    - HandleGetParkingSession: validate VIN, call service, return response
+    - Return 404 with NO_ACTIVE_SESSION when no session exists
+    - Return 404 with VEHICLE_NOT_FOUND for invalid VIN
+    - _Requirements: 16.1, 16.2, 16.3, 16.4_
 
-- [ ] 14. Implement error handling
-  - [ ] 14.1 Create error response helpers
+- [ ] 15. Implement error handling
+  - [ ] 15.1 Create error response helpers
     - Implement WriteError, WriteValidationError, WriteNotFound
     - Ensure consistent JSON format with error_code, message, request_id
     - Integrate audit logging for validation failures
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 14.7_
   
-  - [ ] 14.2 Write property test for VIN validation across endpoints
+  - [ ] 15.2 Write property test for VIN validation across endpoints
     - **Property 1: VIN Validation Across Endpoints**
-    - **Validates: Requirements 2.8, 3.6**
+    - **Validates: Requirements 2.8, 3.6, 16.4**
   
-  - [ ] 14.3 Write property test for error response format
+  - [ ] 15.3 Write property test for error response format
     - **Property 11: Error Response Format Consistency**
     - **Validates: Requirements 11.1, 11.2, 11.3**
   
-  - [ ] 14.4 Write property test for interface independence
+  - [ ] 15.4 Write property test for interface independence
     - **Property 18: Interface Independence**
     - **Validates: Requirements 15.7, 15.8**
 
-- [ ] 15. Wire components together
-  - [ ] 15.1 Create router and register routes
+- [ ] 16. Wire components together
+  - [ ] 16.1 Create router and register routes
     - Set up gorilla/mux router
     - Register command endpoints: POST/GET /api/v1/vehicles/{vin}/commands
+    - Register command status endpoint: GET /api/v1/vehicles/{vin}/commands/{command_id}
+    - Register parking session endpoint: GET /api/v1/vehicles/{vin}/parking-session
     - Register health endpoints: GET /health, GET /ready
     - Apply middleware chain (RequestID, Logging)
     - Note: NO telemetry REST endpoint (telemetry exported to OTel only)
-    - _Requirements: 2.1, 3.1, 7.1, 8.1, 15.1, 15.3_
+    - _Requirements: 2.1, 3.1, 7.1, 8.1, 15.1, 15.3, 16.1_
   
-  - [ ] 15.2 Implement main.go with full initialization
+  - [ ] 16.2 Implement main.go with full initialization
     - Load configuration
     - Initialize stores, services, handlers, audit logger
     - Initialize OpenTelemetry exporter (if OTLP endpoint configured)
@@ -237,7 +260,7 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Log configuration values (except secrets) on startup
     - _Requirements: 1.1, 1.2, 1.3, 9.5, 9.6, 15.1, 15.2_
   
-  - [ ] 15.3 Implement graceful shutdown
+  - [ ] 16.3 Implement graceful shutdown
     - Handle SIGTERM signal
     - Stop accepting new HTTP requests
     - Complete in-flight requests (10s timeout)
@@ -246,28 +269,29 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Complete shutdown within 15 seconds
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 16. Final checkpoint - Ensure all tests pass
+- [ ] 17. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 17. Create Containerfile and deployment config
-  - [ ] 17.1 Create Containerfile for cloud-gateway
+- [ ] 18. Create Containerfile and deployment config
+  - [ ] 18.1 Create Containerfile for cloud-gateway
     - Multi-stage build for minimal image size
     - Copy binary and set entrypoint
     - Place in `containers/backend/cloud-gateway/Containerfile`
   
-  - [ ] 17.2 Add cloud-gateway to infra compose
+  - [ ] 18.2 Add cloud-gateway to infra compose
     - Add service definition to compose file
-    - Configure environment variables (including OTLP_ENDPOINT)
-    - Set up network connectivity with Mosquitto and OTel collector
+    - Configure environment variables (including OTLP_ENDPOINT, PARKING_FEE_SERVICE_URL)
+    - Set up network connectivity with Mosquitto, OTel collector, and PARKING_FEE_SERVICE
 
 ## Notes
 
-- Tasks marked with `*` are optional and can be skipped for faster MVP
+- All tasks are required by default per workspace rules
 - Each task references specific requirements for traceability
 - Property tests validate universal correctness properties (20 total)
 - Unit tests validate specific examples and edge cases
 - The service uses paho.mqtt.golang for MQTT connectivity (Southbound)
 - gopter is used for property-based testing in Go
 - Telemetry is exported to OpenTelemetry collector, NOT exposed via REST API
+- Parking session queries are proxied to PARKING_FEE_SERVICE with 5-second caching
 - Audit logging covers all security-relevant operations per Requirement 14
 - Dual interface architecture separates Northbound (REST) and Southbound (MQTT) concerns

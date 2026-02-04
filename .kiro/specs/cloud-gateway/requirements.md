@@ -37,12 +37,24 @@ The service translates REST API requests from the COMPANION_APP into MQTT messag
 
 1. THE CLOUD_GATEWAY SHALL expose a REST API interface (Northbound) for COMPANION_APP communication over HTTPS
 2. THE CLOUD_GATEWAY SHALL maintain an MQTT client connection (Southbound) to communicate with vehicles via Eclipse_Mosquitto broker
-3. THE REST API interface SHALL support command submission and command status queries
+3. THE REST API interface SHALL support command submission, command status queries, and parking session queries
 4. THE MQTT interface SHALL support publishing commands to vehicles and subscribing to command responses and telemetry
 5. THE CLOUD_GATEWAY SHALL translate REST API command requests into MQTT messages for vehicle delivery
 6. THE CLOUD_GATEWAY SHALL export MQTT telemetry messages to OpenTelemetry collector (telemetry is NOT exposed via REST API)
 7. THE two interfaces SHALL operate independently such that REST API availability is not affected by temporary MQTT disconnections (cached command data remains queryable)
 8. THE CLOUD_GATEWAY SHALL report interface health separately in readiness checks (mqtt_connected status)
+
+### Requirement 16: Parking Session Query API (Northbound Interface)
+
+**User Story:** As a COMPANION_APP user, I want to get detailed parking session information, so that I can see the zone, duration, and cost of my active parking session.
+
+#### Acceptance Criteria
+
+1. WHEN the CLOUD_GATEWAY receives a GET /api/v1/vehicles/{vin}/parking-session request from COMPANION_APP THEN it SHALL proxy the request to PARKING_FEE_SERVICE
+2. WHEN an active parking session exists THEN the response SHALL include session_id, zone_name, hourly_rate, currency, duration_seconds, current_cost, and timestamp
+3. WHEN no active parking session exists THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error code "NO_ACTIVE_SESSION"
+4. IF the VIN does not match the configured vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
+5. THE CLOUD_GATEWAY SHALL cache parking session data for up to 5 seconds to reduce load on PARKING_FEE_SERVICE
 
 ### Requirement 1: MQTT Broker Integration (Southbound Interface)
 

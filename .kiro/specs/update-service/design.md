@@ -586,6 +586,8 @@ pub struct ServiceConfig {
     pub download_max_retries: u32,
     /// Base delay for exponential backoff (ms)
     pub download_base_delay_ms: u64,
+    /// Maximum delay for exponential backoff (ms) - standardized to 30 seconds
+    pub download_max_delay_ms: u64,
     /// Offload threshold (hours)
     pub offload_threshold_hours: u64,
     /// Offload check interval (minutes)
@@ -610,6 +612,7 @@ impl Default for ServiceConfig {
             data_broker_socket: "/run/kuksa/databroker.sock".to_string(),
             download_max_retries: 3,
             download_base_delay_ms: 1000,
+            download_max_delay_ms: 30000,  // Standardized max delay
             offload_threshold_hours: 24,
             offload_check_interval_minutes: 60,
             registry_username: std::env::var("REGISTRY_USERNAME").ok(),

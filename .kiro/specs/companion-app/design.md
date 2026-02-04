@@ -201,10 +201,15 @@ class VehicleTelemetry {
   final double longitude;
   final bool isLocked;
   final bool isDoorOpen;
-  final ParkingSession? activeSession;
+  final bool parkingSessionActive;  // Boolean from vehicle telemetry
+  final ParkingSession? activeSession;  // Detailed session info from CLOUD_GATEWAY (if available)
   final DateTime timestamp;
 }
 
+/// Parking session details obtained from CLOUD_GATEWAY parking endpoint.
+/// Note: Vehicle telemetry only provides `parking_session_active` boolean.
+/// Full session details must be fetched separately from CLOUD_GATEWAY
+/// when `parking_session_active` is true.
 class ParkingSession {
   final String sessionId;
   final String zoneName;
@@ -498,6 +503,11 @@ class AppConfig {
   // Polling
   final Duration telemetryPollInterval;
   
+  // Retry configuration
+  final int maxRetryAttempts;
+  final Duration retryBaseDelay;
+  final Duration retryMaxDelay;  // Standardized max delay (30 seconds)
+  
   // Demo mode
   final bool demoModeEnabled;
   final Duration demoCommandDelay;
@@ -512,6 +522,9 @@ class AppConfig {
       receiveTimeout: const Duration(seconds: 30),
       commandTimeout: const Duration(seconds: 60),
       telemetryPollInterval: const Duration(seconds: 10),
+      maxRetryAttempts: 3,
+      retryBaseDelay: const Duration(seconds: 1),
+      retryMaxDelay: const Duration(seconds: 30),  // Standardized max delay
       demoModeEnabled: const bool.fromEnvironment('DEMO_MODE'),
       demoCommandDelay: const Duration(seconds: 2),
     );
@@ -642,16 +655,35 @@ Response (200):
   "longitude": -122.4194,
   "is_locked": true,
   "is_door_open": false,
-  "parking_session": {
-    "session_id": "session-123",
-    "zone_name": "Demo Zone",
-    "hourly_rate": 2.50,
-    "currency": "EUR",
-    "duration_seconds": 3600,
-    "current_cost": 2.50
-  },
+  "parking_session_active": true,
   "timestamp": "2024-01-15T10:30:00Z"
 }
+
+Note: The telemetry endpoint returns `parking_session_active` as a boolean.
+To get detailed parking session information, use the parking session endpoint below.
+
+GET /vehicles/{vin}/parking-session
+Headers: Authorization: Bearer {token}
+Response (200) - when session is active:
+{
+  "session_id": "session-123",
+  "zone_name": "Demo Zone",
+  "hourly_rate": 2.50,
+  "currency": "EUR",
+  "duration_seconds": 3600,
+  "current_cost": 2.50,
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+Response (404) - when no active session:
+{
+  "error": "no_active_session",
+  "message": "No active parking session for this vehicle"
+}
+
+Note: COMPANION_APP should call this endpoint when `parking_session_active` is true
+in telemetry to get detailed session information. The vehicle only publishes a boolean
+`parking_session_active` flag in telemetry; full session details are proxied through
+CLOUD_GATEWAY from PARKING_FEE_SERVICE.
 ```
 
 
