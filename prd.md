@@ -58,12 +58,6 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 3. All apps and services are developed on OpenShift Dev Spaces or in local IDE
 4. All build processes use OpenShift pipelines
 
-### Implementation
-
-- RHIVOS services: Rust
-- Android apps: Kotlin
-- Backend-services: Golang
-
 ### Simplified Implementation (Demo Scope)
 
 - Mock payment processing (no real transactions)
@@ -72,7 +66,7 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 - Pre-signed adapters (simplified trust chain)
 - Bare-minimum UIX for the Android apps
 
-## Demo Walkthrough Scenarios
+## Demo Scenarios
 
 ### Scenario 1: Happy Path (5 minutes)
 
@@ -284,15 +278,17 @@ CloudGateway -->|"via Secure Gateway ECU"| CloudGatewayClient
 
 CloudGatewayClient -->|"validated command"| LockingService
 CloudGatewayClient -->|"telemetry publish"| CloudGateway
-CloudGatewayClient -.->|"read: vehicle state"| DataBroker
+CloudGatewayClient -->|"read: vehicle state"| DataBroker
 
 LockingService -->|"write: lock/unlock events"| DataBroker
 
-DataBroker -->|"read-only: lock/unlock events"| ParkingApp
-DataBroker -->|"read-only: lock/unlock events"| Adaptor
+DataBroker -->|"read: vehicle state"| ParkingApp
+DataBroker -->|"read: lock/unlock events"| ParkingApp
+DataBroker -->|"read: lock/unlock events"| Adaptor
 
 ParkingApp -->|"lookup PARKING_OPERATOR"| ParkingFeeService
 ParkingApp -->|"request adapter install"| UpdateService
+ParkingApp -->|"start/stop parking"| Adaptor
 
 UpdateService -->|"pull container"| Registry
 UpdateService -->|"install/manage"| Adaptor
@@ -309,12 +305,11 @@ DoorSensor --> |"mock: open/closed"| DataBroker
 
 | Source Component         | Target Component    | Protocol       | Direction          |
 | ------------------------ | ------------------- | -------------- | ------------------ |
-| PARKING_APP              | DATA_BROKER         | Network gRPC   | Bidirectional      |
-| PARKING_OPERATOR_ADAPTOR | DATA_BROKER         | Network gRPC   | Bidirectional      |
+| PARKING_OPERATOR_ADAPTOR | DATA_BROKER         | Network gRPC   | Read               |
 | LOCKING_SERVICE          | DATA_BROKER         | gRPC           | Read/Write         |
-| CLOUD_GATEWAY_CLIENT     | DATA_BROKER         | gRPC           | Read-only          |
+| CLOUD_GATEWAY_CLIENT     | DATA_BROKER         | gRPC           | Write              |
 | PARKING_APP              | PARKING_FEE_SERVICE | HTTPS/REST     | Request/Response   |
-| PARKING_APP              | UPDATE_SERVICE      | Network gRPC   | Request/Response |
+| PARKING_APP              | UPDATE_SERVICE      | Network gRPC   | Request/Response   |
 | UPDATE_SERVICE           | REGISTRY            | HTTPS/OCI      | Pull only          |
 | PARKING_OPERATOR_ADAPTOR | PARKING_OPERATOR    | HTTPS/REST     | Request/Response   |
 | COMPANION_APP            | CLOUD_GATEWAY       | MQTT/WebSocket | Bidirectional      |
@@ -461,6 +456,105 @@ message ErrorDetails {
 }
 ```
 
+## Development Plan
+
+The following tech stacks are used to develop the various components.
+
+### Implementation
+
+- RHIVOS services: Rust
+- Android Automotive OS app: Kotlin
+- Android app: Flutter/Dart
+- Backend-services: Golang
+
+### Infrastructure and Tooling
+
+- Local development: VS Code based IDE (e.g Cursor), with Android and Flutter extensions installed.
+- Local infrastructure: Podman to build and serve containers, containerized MQTT broker (e.g. Eclipse Mosquitto) to simulate the MQTT communication.
+- Cloud Development: OpenShift Dev Spaces, with Android and Flutter extensions installed in the Dev Spaces container.
+- OpenShift Automotive Suite (RHAS): OpenShift cluster on Google Cloud, with Jumpstarter and Builder operator installed to build and validate RHIVOS images.
+- Google Compute Engine: ARM bare-metal instance to run Red Hat Jumpstarter exporters and Android Cuttlefish.
+- Google Artifact Registry: OCI compliant container registry to store the PARKING_OPERATOR_ADAPTOR container images.
+
+### Code Repositories
+
+- [rhadp/parking-fee-service](https://github.com/rhadp/parking-fee-service): The monorepo used for all components.
+
+### Development Phases
+
+Developing the demo happens in multiple phases. The first iterations SHOULD happen locally, until a first MVP state is reached.
+Once sufficient functionallity is in place, create end-to-end pipelines for e.g. nightly builds and continuous deployment. 
+At this point, local and cloud-based development shoult be interchangeable.
+
+#### Phase 0: Requirements Engineering
+
+- Iterate over PRD.md (this document) and translate the "products requirements" into a requirements document.
+- Decompose the requirements document into a design document.
+- Create steering documents foragents based on the design.
+- Create a task list of atomic implementation steps.
+
+#### Phase 1: Setup
+
+- Setup the code repo, with dedicated sub-folders for each type of code:
+  - RHIVOS services: Rust
+  - Android Automotive OS app: Kotlin
+  - Android app: Flutter/Dart
+  - Backend-services: Golang
+- Create skeleton implementations for each component
+- Create local build capabilities for each toolchain using make/cmake etc
+- Setup local infrastructure, used for local unit and integration testing
+- Setup local unit and integration testing capabilites
+
+#### Phase 2: RHIVOS Safety Partition
+
+- Implementation of the ASIL-B services:
+  - CLOUD_GATEWAY_CLIENT
+  - LOCKING_SERVICE
+  - DATA_BROKER
+  - Demo Mock Services to test the above services
+
+#### Phase 3: Vehicle-to-Cloud Connectivity
+
+- Implementation of the V2X connectivity:
+  - CLOUD_GATEWAY
+  - Mock COMPANION_APP service to test the CLOUD_GATEWAY without the COMPANION_APP
+  - Integration test of bi-directional CLOUD_GATEWAY - CLOUD_GATEWAY_CLIENT communication
+
+#### Phase 4: RHIVOS QM Partition
+
+- Implementation of the RHIVOS QM services
+  - generic PARKING_OPERATOR_ADAPTOR
+  - UPDATE_SERVICE
+  - Mock PARKING_OPERATOR to test the PARKING_OPERATOR_ADAPTOR
+  - Mock PARKING_APP to test the UPDATE_SERVICE without the PARKING_APP
+  - Integration test of DATA_BROKER to PARKING_OPERATOR_ADAPTOR communication
+
+#### Phase 5: Parking app
+
+- Implementation of the PARKING_FEE_SERVICE
+- Implementation of the PARKING_APP app
+- Integration test of PARKING_APP, PARKING_FEE_SERVICE, UPDATE_SERVICE communication
+- Integration test of PARKING_APP, PARKING_OPERATOR_ADAPTOR communication
+
+#### Phase 6: Cloud CI/CD setup
+
+- Create CI/CD pipelines for a cloud-based (on OpenShift) build of all components, including the Android apps
+- Dploymentment of all non-Android components to OpenShift, for end-to-end integration testing (Software-in-the-loop testing)
+
+#### Phase 7: Virtual validation
+
+- Create CI/CD pipelines for RHIVOS image builds
+- Deployment of RHIVOS image to a "virtual device" (Qemu VM)
+- Deploment of the PARKING_APP to a "virtual device" (Cuttlefish)
+
+#### Phase 8: Companion App
+
+- Implementation of the COMPANION_APP app
+
+#### Phase 9: Final Demo Scenario Validation
+
+- Verify that all three demo scenarios work end-to-end
+
 ## Out-of-Scope
 
 In order to keep the scope of the demo in check, the following aspects are out-of-scope:
@@ -475,3 +569,4 @@ In order to keep the scope of the demo in check, the following aspects are out-o
 ## References
 
 - [Standalone MQTT broker architecture on Google Cloud](https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture)
+- [Eclipse Mosquitto](https://mosquitto.org)
