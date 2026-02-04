@@ -302,17 +302,19 @@ DoorSensor --> |"mock: open/closed"| DataBroker
 
 ### Communication Protocols
 
-| Source Component         | Target Component    | Protocol       | Direction          |
-| ------------------------ | ------------------- | -------------- | ------------------ |
-| PARKING_OPERATOR_ADAPTOR | DATA_BROKER         | Network gRPC   | Read               |
-| LOCKING_SERVICE          | DATA_BROKER         | gRPC           | Read/Write         |
-| CLOUD_GATEWAY_CLIENT     | DATA_BROKER         | gRPC           | Write              |
-| PARKING_APP              | PARKING_FEE_SERVICE | HTTPS/REST     | Request/Response   |
-| PARKING_APP              | UPDATE_SERVICE      | Network gRPC   | Request/Response   |
-| UPDATE_SERVICE           | REGISTRY            | HTTPS/OCI      | Pull only          |
-| PARKING_OPERATOR_ADAPTOR | PARKING_OPERATOR    | HTTPS/REST     | Request/Response   |
-| COMPANION_APP            | CLOUD_GATEWAY       | MQTT/WebSocket | Bidirectional      |
-| CLOUD_GATEWAY_CLIENT     | CLOUD_GATEWAY       | MQTT over TLS  | Bidirectional      |
+| Source Component         | Target Component         | Protocol       | Direction          |
+| ------------------------ | -------------------------| -------------- | ------------------ |
+| LOCKING_SERVICE          | DATA_BROKER              | gRPC           | Write              |
+| LOCKING_SERVICE          | CLOUD_GATEWAY_CLIENT     | gRPC           | Read               |
+| PARKING_APP              | DATA_BROKER              | Network gRPC   | Read               |
+| PARKING_APP              | UPDATE_SERVICE           | Network gRPC   | Request/Response   |
+| PARKING_APP              | PARKING_OPERATOR_ADAPTOR | Network gRPC   | Request/Response   |
+| PARKING_APP              | PARKING_FEE_SERVICE      | HTTPS/REST     | Request/Response   |
+| UPDATE_SERVICE           | REGISTRY                 | HTTPS/OCI      | Pull only          |
+| PARKING_OPERATOR_ADAPTOR | DATA_BROKER              | Network gRPC   | Read               |
+| PARKING_OPERATOR_ADAPTOR | PARKING_OPERATOR         | HTTPS/REST     | Request/Response   |
+| COMPANION_APP            | CLOUD_GATEWAY            | HTTPS/REST     | Request/Response   |
+| CLOUD_GATEWAY_CLIENT     | CLOUD_GATEWAY            | MQTT over TLS  | Bidirectional      |
 
 **Note:** All gRPC services use Unix Domain Sockets for local communication and TCP/IP, HTTP/2 over TLS for network communication,
  if components communicate across doamins (e.g. AAOS to RHIVOS). gRPC Benefits for this architecture:
