@@ -4,10 +4,10 @@
 
 The CLOUD_GATEWAY is a Go backend service deployed on OpenShift that acts as a bridge for vehicle-to-cloud communication. It provides two distinct interfaces:
 
-1. **REST API Interface (Northbound)**: Serves the COMPANION_APP for remote vehicle control and status queries via HTTPS/REST
+1. **REST API Interface (Northbound)**: Serves the COMPANION_APP for remote vehicle control and command status queries via HTTPS/REST
 2. **MQTT Interface (Southbound)**: Communicates with vehicles via the CLOUD_GATEWAY_CLIENT through an Eclipse Mosquitto MQTT broker
 
-The service translates REST API requests from the COMPANION_APP into MQTT messages for vehicles, and routes MQTT telemetry/responses from vehicles back to REST API consumers. Commands and telemetry are stored in-memory for the demo scope.
+The service translates REST API requests from the COMPANION_APP into MQTT messages for vehicles, and routes MQTT command responses from vehicles back to REST API consumers. Vehicle telemetry received via MQTT is exported to an OpenTelemetry collector for observability (not exposed via REST API). Commands are stored in-memory for the demo scope.
 
 ## Architecture
 
@@ -22,14 +22,16 @@ flowchart TB
     subgraph Cloud["Cloud (OpenShift)"]
         CG[CLOUD_GATEWAY]
         MQ[Eclipse Mosquitto<br/>MQTT Broker]
+        OTEL[OpenTelemetry<br/>Collector]
     end
     
     subgraph Vehicle["Vehicle (RHIVOS)"]
         CGC[CLOUD_GATEWAY_CLIENT]
     end
     
-    CA -->|"HTTPS/REST<br/>(Northbound)<br/>commands, telemetry queries"| CG
+    CA -->|"HTTPS/REST<br/>(Northbound)<br/>commands, status"| CG
     CG <-->|"MQTT over TLS<br/>(Southbound)<br/>pub/sub"| MQ
+    CG -->|"OTLP<br/>telemetry metrics"| OTEL
     CGC <-->|"MQTT over TLS<br/>pub/sub"| MQ
 ```
 
@@ -46,7 +48,8 @@ flowchart LR
     subgraph Gateway["CLOUD_GATEWAY"]
         direction TB
         TRANS[Protocol<br/>Translation]
-        STORE[In-Memory<br/>Storage]
+        STORE[Command Store<br/>In-Memory]
+        OTELEXP[OpenTelemetry<br/>Exporter]
     end
     
     subgraph Southbound["Southbound Interface (MQTT)"]
@@ -55,16 +58,22 @@ flowchart LR
         MQ[Mosquitto<br/>Broker]
     end
     
+    subgraph Observability["Observability"]
+        OTEL[OpenTelemetry<br/>Collector]
+    end
+    
     subgraph Vehicle["Vehicle"]
         CGC[CLOUD_GATEWAY_CLIENT]
     end
     
-    CA -->|"POST commands<br/>GET status/telemetry"| REST
+    CA -->|"POST commands<br/>GET status"| REST
     REST --> TRANS
     TRANS --> STORE
     TRANS --> MQTT
     MQTT <--> MQ
     MQ <--> CGC
+    MQTT -->|"telemetry"| OTELEXP
+    OTELEXP -->|"OTLP"| OTEL
 ```
 
 ### Internal Architecture
@@ -79,7 +88,6 @@ flowchart TB
             
             subgraph Handlers["Request Handlers"]
                 CH[Command Handler]
-                TH[Telemetry Handler]
                 HH[Health Handler]
             end
         end
@@ -92,13 +100,16 @@ flowchart TB
             
             subgraph Stores["Data Stores"]
                 CST[Command Store<br/>In-Memory]
-                TST[Telemetry Store<br/>In-Memory]
             end
         end
         
         subgraph SouthboundLayer["Southbound Layer (MQTT)"]
             MQTT[MQTT Client<br/>paho.mqtt.golang]
             MQTTH[MQTT Message<br/>Handlers]
+        end
+        
+        subgraph ObservabilityLayer["Observability Layer"]
+            OTELEXP[OpenTelemetry<br/>Exporter]
         end
         
         CFG[Config]
@@ -109,16 +120,13 @@ flowchart TB
     HTTP --> MW
     MW --> ROUTER
     ROUTER --> CH
-    ROUTER --> TH
     ROUTER --> HH
     CH --> CS
     CH --> AUDIT
-    TH --> TS
-    TH --> AUDIT
     CS --> CST
     CS <--> MQTT
     CS --> AUDIT
-    TS --> TST
+    TS --> OTELEXP
     TS --> AUDIT
     MQTT --> MQTTH
     MQTTH --> CS
@@ -159,7 +167,7 @@ sequenceDiagram
     NB-->>CA: 200 OK {status: "success"}
 ```
 
-### Message Flow: Telemetry
+### Message Flow: Telemetry (OpenTelemetry Export)
 
 ```mermaid
 sequenceDiagram
@@ -167,17 +175,15 @@ sequenceDiagram
     participant MQ as Mosquitto
     participant SB as Southbound (MQTT)
     participant CG as CLOUD_GATEWAY Core
-    participant NB as Northbound (REST)
-    participant CA as COMPANION_APP
+    participant OTEL as OpenTelemetry Collector
     
     CGC->>MQ: Publish to vehicles/{VIN}/telemetry
     MQ->>SB: Deliver telemetry message
     SB->>CG: Handle telemetry message
-    CG->>CG: Parse and store telemetry
+    CG->>CG: Parse telemetry data
+    CG->>OTEL: Export metrics via OTLP
     
-    CA->>NB: GET /api/v1/vehicles/{vin}/telemetry
-    NB->>CG: Get latest telemetry
-    NB-->>CA: 200 OK {location, door_status, ...}
+    Note over CG: Telemetry NOT exposed via REST API
 ```
 
 ## Components and Interfaces
@@ -187,8 +193,9 @@ sequenceDiagram
 The Northbound interface serves the COMPANION_APP via HTTPS/REST. It provides endpoints for:
 - Command submission (lock/unlock)
 - Command status queries
-- Telemetry queries
 - Health and readiness checks
+
+Note: Telemetry is NOT exposed via REST API. It is exported to OpenTelemetry collector instead.
 
 #### Command Submission
 
@@ -276,31 +283,6 @@ Response 404:
 {
   "error_code": "COMMAND_NOT_FOUND",
   "message": "Command not found: cmd-unknown",
-  "request_id": "req-xyz789"
-}
-```
-
-#### Telemetry Query
-
-```
-GET /api/v1/vehicles/{vin}/telemetry
-
-Response 200:
-{
-  "timestamp": "2024-01-15T10:30:00Z",
-  "latitude": 37.7749,
-  "longitude": -122.4194,
-  "door_locked": true,
-  "door_open": false,
-  "parking_session_active": true,
-  "received_at": "2024-01-15T10:30:01Z",
-  "request_id": "req-xyz789"
-}
-
-Response 404:
-{
-  "error_code": "TELEMETRY_NOT_FOUND",
-  "message": "No telemetry received for vehicle: DEMO_VIN",
   "request_id": "req-xyz789"
 }
 ```
@@ -411,23 +393,6 @@ func (h *CommandHandler) HandleSubmitCommand(w http.ResponseWriter, r *http.Requ
 func (h *CommandHandler) HandleGetCommandStatus(w http.ResponseWriter, r *http.Request)
 ```
 
-##### TelemetryHandler
-
-Handles REST API requests for telemetry (Northbound).
-
-```go
-type TelemetryHandler struct {
-    telemetryService *TelemetryService
-    configuredVIN    string
-    logger           *slog.Logger
-}
-
-func NewTelemetryHandler(telemetryService *TelemetryService, vin string, logger *slog.Logger) *TelemetryHandler
-
-// HandleGetTelemetry handles GET /api/v1/vehicles/{vin}/telemetry (Northbound)
-func (h *TelemetryHandler) HandleGetTelemetry(w http.ResponseWriter, r *http.Request)
-```
-
 ##### HealthHandler
 
 Handles health and readiness checks (Northbound).
@@ -482,22 +447,41 @@ func (s *CommandService) StartTimeoutChecker(ctx context.Context)
 
 ##### TelemetryService
 
-Business logic for telemetry operations. Stores Southbound data for Northbound queries.
+Business logic for telemetry operations. Exports telemetry to OpenTelemetry collector.
 
 ```go
 type TelemetryService struct {
-    store  *TelemetryStore
-    logger *slog.Logger
+    otelExporter *OTelExporter
+    logger       *slog.Logger
 }
 
-func NewTelemetryService(store *TelemetryStore, logger *slog.Logger) *TelemetryService
+func NewTelemetryService(otelExporter *OTelExporter, logger *slog.Logger) *TelemetryService
 
-// GetLatestTelemetry returns the latest telemetry for a vehicle (Northbound query)
-// Returns nil if no telemetry has been received
-func (s *TelemetryService) GetLatestTelemetry(vin string) *Telemetry
-
-// HandleTelemetryMessage processes a telemetry message from CLOUD_GATEWAY_CLIENT (Southbound → Core)
+// HandleTelemetryMessage processes a telemetry message from CLOUD_GATEWAY_CLIENT (Southbound → OpenTelemetry)
+// Exports telemetry as metrics to OpenTelemetry collector
 func (s *TelemetryService) HandleTelemetryMessage(vin string, msg *TelemetryMessage)
+```
+
+#### Observability Layer Components
+
+##### OTelExporter
+
+Exports telemetry data to OpenTelemetry collector via OTLP.
+
+```go
+type OTelExporter struct {
+    meterProvider *metric.MeterProvider
+    meter         metric.Meter
+    logger        *slog.Logger
+}
+
+func NewOTelExporter(otlpEndpoint string, logger *slog.Logger) (*OTelExporter, error)
+
+// ExportTelemetry exports vehicle telemetry as OpenTelemetry metrics
+func (e *OTelExporter) ExportTelemetry(vin string, telemetry *Telemetry)
+
+// Shutdown gracefully shuts down the exporter
+func (e *OTelExporter) Shutdown(ctx context.Context) error
 ```
 
 #### Southbound Layer Components
@@ -584,25 +568,6 @@ func (s *CommandStore) Update(cmd *Command)
 
 // GetPendingCommands returns all commands with pending status (for timeout checking)
 func (s *CommandStore) GetPendingCommands() []*Command
-```
-
-##### TelemetryStore
-
-In-memory storage for telemetry. Stores data received via Southbound for Northbound queries.
-
-```go
-type TelemetryStore struct {
-    telemetry map[string]*Telemetry  // keyed by VIN
-    mu        sync.RWMutex
-}
-
-func NewTelemetryStore() *TelemetryStore
-
-// Save stores telemetry for a vehicle (called when Southbound telemetry received from CLOUD_GATEWAY_CLIENT)
-func (s *TelemetryStore) Save(vin string, telemetry *Telemetry)
-
-// Get retrieves the latest telemetry for a vehicle (called for Northbound queries from COMPANION_APP)
-func (s *TelemetryStore) Get(vin string) *Telemetry
 ```
 
 #### Middleware Components
@@ -894,6 +859,9 @@ type Config struct {
     // Storage configuration
     MaxCommands int `env:"MAX_COMMANDS" envDefault:"100"`
     
+    // OpenTelemetry configuration
+    OTLPEndpoint string `env:"OTLP_ENDPOINT" envDefault:""`  // Optional: if empty, telemetry export disabled
+    
     // Logging
     LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
 }
@@ -903,6 +871,11 @@ type MQTTConfig struct {
     Username  string
     Password  string
     ClientID  string
+}
+
+type OTelConfig struct {
+    Endpoint string
+    Enabled  bool
 }
 
 func LoadConfig() (*Config, error)
@@ -917,7 +890,6 @@ const (
     ErrMissingAuthToken   = "MISSING_AUTH_TOKEN"
     ErrVehicleNotFound    = "VEHICLE_NOT_FOUND"
     ErrCommandNotFound    = "COMMAND_NOT_FOUND"
-    ErrTelemetryNotFound  = "TELEMETRY_NOT_FOUND"
     ErrTimeout            = "TIMEOUT"
     ErrInternalError      = "INTERNAL_ERROR"
 )
@@ -979,17 +951,17 @@ Based on the prework analysis, the following properties can be verified through 
 
 **Validates: Requirements 5.2, 5.3**
 
-### Property 9: Telemetry Round-Trip
+### Property 9: Telemetry OpenTelemetry Export
 
-*For any* valid telemetry message received from MQTT, storing the telemetry and then retrieving it via the REST API SHALL return equivalent data (timestamp, latitude, longitude, door_locked, door_open, parking_session_active) plus a received_at timestamp.
+*For any* valid telemetry message received from MQTT, the service SHALL export the telemetry data as OpenTelemetry metrics including VIN as an attribute. The exported metrics SHALL include latitude, longitude, door_locked, door_open, and parking_session_active values.
 
 **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
 
-### Property 10: Telemetry Overwrites Previous
+### Property 10: Telemetry Not Exposed via REST
 
-*For any* vehicle, storing new telemetry SHALL overwrite the previous telemetry. Retrieving telemetry SHALL always return the most recently stored data.
+*For any* HTTP request to a telemetry endpoint, the service SHALL return HTTP 404 (endpoint not found). Telemetry data SHALL only be accessible via OpenTelemetry collector.
 
-**Validates: Requirements 12.3**
+**Validates: Requirements 6.5, 15.6**
 
 ### Property 11: Error Response Format Consistency
 
@@ -1035,7 +1007,7 @@ Based on the prework analysis, the following properties can be verified through 
 
 ### Property 18: Interface Independence
 
-*For any* temporary MQTT disconnection (Southbound), the REST API (Northbound) SHALL remain available for querying cached command status and telemetry data. New command submissions SHALL fail gracefully with appropriate error response when MQTT is disconnected.
+*For any* temporary MQTT disconnection (Southbound), the REST API (Northbound) SHALL remain available for querying cached command status data. New command submissions SHALL fail gracefully with appropriate error response when MQTT is disconnected.
 
 **Validates: Requirements 15.7, 15.8**
 
@@ -1043,7 +1015,13 @@ Based on the prework analysis, the following properties can be verified through 
 
 *For any* command submitted via REST API (Northbound), the MQTT message published (Southbound) SHALL contain equivalent command_id, command_type, doors, and auth_token fields. The translation SHALL be bidirectional - command responses received via MQTT SHALL correctly update the command status queryable via REST API.
 
-**Validates: Requirements 15.5, 15.6**
+**Validates: Requirements 15.5**
+
+### Property 20: OpenTelemetry Export Resilience
+
+*For any* telemetry message received when the OpenTelemetry collector is unavailable, the service SHALL log a warning and continue processing without failing. Telemetry export SHALL be best-effort and not block MQTT message processing.
+
+**Validates: Requirements 6.7**
 
 ## Error Handling
 
@@ -1141,16 +1119,16 @@ backend/cloud-gateway/
 │   │   └── config.go
 │   ├── handler/
 │   │   ├── command.go
-│   │   ├── telemetry.go
 │   │   └── health.go
 │   ├── service/
 │   │   ├── command.go
 │   │   └── telemetry.go
 │   ├── store/
-│   │   ├── command.go
-│   │   └── telemetry.go
+│   │   └── command.go
 │   ├── mqtt/
 │   │   └── client.go
+│   ├── otel/
+│   │   └── exporter.go
 │   ├── audit/
 │   │   └── logger.go
 │   ├── model/
@@ -1160,14 +1138,14 @@ backend/cloud-gateway/
 └── tests/
     ├── unit/
     │   ├── command_handler_test.go
-    │   ├── telemetry_handler_test.go
     │   ├── command_service_test.go
     │   ├── telemetry_service_test.go
+    │   ├── otel_exporter_test.go
     │   ├── audit_logger_test.go
     │   └── validation_test.go
     └── property/
         ├── command_properties_test.go    # Properties 2, 3, 4, 5, 6, 7, 8
-        ├── telemetry_properties_test.go  # Properties 9, 10
+        ├── telemetry_properties_test.go  # Properties 9, 10, 20
         ├── store_properties_test.go      # Property 12
         ├── error_properties_test.go      # Properties 1, 11
         ├── backoff_properties_test.go    # Property 13
@@ -1214,18 +1192,19 @@ func TestCommandCreationUniqueID(t *testing.T) {
     properties.TestingRun(t)
 }
 
-// Property 9: Telemetry Round-Trip
-func TestTelemetryRoundTrip(t *testing.T) {
-    // Feature: cloud-gateway, Property 9: Telemetry Round-Trip
+// Property 9: Telemetry OpenTelemetry Export
+func TestTelemetryOTelExport(t *testing.T) {
+    // Feature: cloud-gateway, Property 9: Telemetry OpenTelemetry Export
     parameters := gopter.DefaultTestParameters()
     parameters.MinSuccessfulTests = 100
     
     properties := gopter.NewProperties(parameters)
     
-    properties.Property("stored telemetry is retrievable", prop.ForAll(
-        func(lat, lng float64, locked, open, parking bool) bool {
-            store := NewTelemetryStore()
-            service := NewTelemetryService(store, nil)
+    properties.Property("telemetry is exported to OpenTelemetry with VIN attribute", prop.ForAll(
+        func(vin string, lat, lng float64, locked, open, parking bool) bool {
+            // Create mock OTel exporter that captures exported metrics
+            mockExporter := NewMockOTelExporter()
+            service := NewTelemetryService(mockExporter, nil)
             
             msg := &MQTTTelemetryMessage{
                 Timestamp:            time.Now().Format(time.RFC3339),
@@ -1236,19 +1215,23 @@ func TestTelemetryRoundTrip(t *testing.T) {
                 ParkingSessionActive: parking,
             }
             
-            service.HandleTelemetryMessage("DEMO_VIN", msg)
+            service.HandleTelemetryMessage(vin, msg)
             
-            result := service.GetLatestTelemetry("DEMO_VIN")
-            if result == nil {
+            // Verify metrics were exported with correct VIN attribute
+            exported := mockExporter.GetExportedMetrics()
+            if len(exported) == 0 {
                 return false
             }
             
-            return result.Latitude == lat &&
-                   result.Longitude == lng &&
-                   result.DoorLocked == locked &&
-                   result.DoorOpen == open &&
-                   result.ParkingSessionActive == parking
+            lastExport := exported[len(exported)-1]
+            return lastExport.VIN == vin &&
+                   lastExport.Latitude == lat &&
+                   lastExport.Longitude == lng &&
+                   lastExport.DoorLocked == locked &&
+                   lastExport.DoorOpen == open &&
+                   lastExport.ParkingSessionActive == parking
         },
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
         gen.Float64Range(-90, 90),
         gen.Float64Range(-180, 180),
         gen.Bool(),
@@ -1467,8 +1450,10 @@ Unit tests focus on:
 - Error condition handling
 - MQTT message serialization/deserialization
 - Integration with mock MQTT client
-- Graceful shutdown behavior
-- Configuration loading and validation
+- OpenTelemetry exporter initialization and metric export
+- Graceful shutdown behavior (including OTel exporter shutdown)
+- Configuration loading and validation (including OTLP endpoint)
 - Audit logger event formatting and field population
 - Token hashing for sensitive data protection
 - Audit log correlation ID propagation
+- Telemetry service OpenTelemetry export (not REST API)

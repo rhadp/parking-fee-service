@@ -4,10 +4,10 @@
 
 This document defines the requirements for the CLOUD_GATEWAY component of the SDV Parking Demo System. The CLOUD_GATEWAY is a Go backend service deployed on OpenShift that acts as a bridge for vehicle-to-cloud communication. It provides two distinct interfaces:
 
-1. **REST API Interface (Northbound)**: Serves the COMPANION_APP for remote vehicle control and status queries via HTTPS/REST
+1. **REST API Interface (Northbound)**: Serves the COMPANION_APP for remote vehicle control and command status queries via HTTPS/REST
 2. **MQTT Interface (Southbound)**: Communicates with vehicles via the CLOUD_GATEWAY_CLIENT through an Eclipse Mosquitto MQTT broker
 
-The service translates REST API requests from the COMPANION_APP into MQTT messages for vehicles, and routes MQTT telemetry/responses from vehicles back to REST API consumers.
+The service translates REST API requests from the COMPANION_APP into MQTT messages for vehicles, and routes MQTT command responses from vehicles back to REST API consumers. Vehicle telemetry received via MQTT is exported to an OpenTelemetry collector for observability.
 
 ## Glossary
 
@@ -20,10 +20,12 @@ The service translates REST API requests from the COMPANION_APP into MQTT messag
 - **Command**: A lock or unlock request sent from COMPANION_APP to a vehicle
 - **Command_ID**: Unique identifier for tracking command execution and responses
 - **Command_Status**: Current state of a command (pending, success, failed, timeout)
-- **Telemetry**: Vehicle state data received from vehicles (location, door status, parking state)
+- **Telemetry**: Vehicle state data received from vehicles (location, door status, parking state), exported via OpenTelemetry
 - **Auth_Token**: Authentication token for command authorization (demo-grade)
 - **Eclipse_Mosquitto**: Open-source MQTT broker used as underlying message broker
 - **OpenShift**: Red Hat's Kubernetes platform where the service is deployed
+- **OpenTelemetry**: Observability framework for collecting and exporting telemetry data (metrics, traces, logs)
+- **OTLP**: OpenTelemetry Protocol for exporting telemetry to collectors
 
 ## Requirements
 
@@ -35,11 +37,11 @@ The service translates REST API requests from the COMPANION_APP into MQTT messag
 
 1. THE CLOUD_GATEWAY SHALL expose a REST API interface (Northbound) for COMPANION_APP communication over HTTPS
 2. THE CLOUD_GATEWAY SHALL maintain an MQTT client connection (Southbound) to communicate with vehicles via Eclipse_Mosquitto broker
-3. THE REST API interface SHALL support command submission, command status queries, and telemetry queries
+3. THE REST API interface SHALL support command submission and command status queries
 4. THE MQTT interface SHALL support publishing commands to vehicles and subscribing to command responses and telemetry
 5. THE CLOUD_GATEWAY SHALL translate REST API command requests into MQTT messages for vehicle delivery
-6. THE CLOUD_GATEWAY SHALL translate MQTT telemetry messages into REST API responses for client consumption
-7. THE two interfaces SHALL operate independently such that REST API availability is not affected by temporary MQTT disconnections (cached data remains queryable)
+6. THE CLOUD_GATEWAY SHALL export MQTT telemetry messages to OpenTelemetry collector (telemetry is NOT exposed via REST API)
+7. THE two interfaces SHALL operate independently such that REST API availability is not affected by temporary MQTT disconnections (cached command data remains queryable)
 8. THE CLOUD_GATEWAY SHALL report interface health separately in readiness checks (mqtt_connected status)
 
 ### Requirement 1: MQTT Broker Integration (Southbound Interface)
@@ -106,19 +108,19 @@ The service translates REST API requests from the COMPANION_APP into MQTT messag
 3. WHEN a command times out THEN the CLOUD_GATEWAY SHALL set error_code to "TIMEOUT" and error_message to "Vehicle did not respond within timeout period"
 4. IF a response arrives from CLOUD_GATEWAY_CLIENT after timeout THEN the CLOUD_GATEWAY SHALL log a warning and discard the late response
 
-### Requirement 6: Telemetry Storage and Query API
+### Requirement 6: Telemetry Processing and OpenTelemetry Export
 
-**User Story:** As a COMPANION_APP user, I want to view my vehicle's current state, so that I can see its location and door status.
+**User Story:** As a system operator, I want vehicle telemetry to be collected and exported to OpenTelemetry, so that I can monitor vehicle state through observability tools.
 
 #### Acceptance Criteria
 
-1. WHEN a message is received on `vehicles/{VIN}/telemetry` topic from CLOUD_GATEWAY_CLIENT THEN the CLOUD_GATEWAY SHALL parse and store the telemetry data (Southbound)
-2. THE stored telemetry SHALL include timestamp, latitude, longitude, door_locked, door_open, and parking_session_active fields
-3. WHEN the CLOUD_GATEWAY receives a GET /api/v1/vehicles/{vin}/telemetry request from COMPANION_APP THEN it SHALL return the latest stored telemetry (Northbound)
-4. THE telemetry response SHALL include all stored telemetry fields plus a received_at timestamp
-5. IF no telemetry has been received from CLOUD_GATEWAY_CLIENT for the vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
-6. IF the VIN does not match the configured vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
-7. IF the telemetry payload from CLOUD_GATEWAY_CLIENT is malformed THEN the CLOUD_GATEWAY SHALL log an error and discard the message
+1. WHEN a message is received on `vehicles/{VIN}/telemetry` topic from CLOUD_GATEWAY_CLIENT THEN the CLOUD_GATEWAY SHALL parse the telemetry data (Southbound)
+2. THE telemetry data SHALL include timestamp, latitude, longitude, door_locked, door_open, and parking_session_active fields
+3. THE CLOUD_GATEWAY SHALL export telemetry data as OpenTelemetry metrics to a configured OTLP endpoint
+4. THE exported metrics SHALL include vehicle VIN as an attribute for filtering
+5. THE CLOUD_GATEWAY SHALL NOT expose telemetry data via REST API
+6. IF the telemetry payload from CLOUD_GATEWAY_CLIENT is malformed THEN the CLOUD_GATEWAY SHALL log an error and discard the message
+7. IF the OpenTelemetry collector is unavailable THEN the CLOUD_GATEWAY SHALL log a warning and continue processing (best-effort export)
 
 ### Requirement 7: Health Check Endpoint (Northbound Interface)
 
@@ -148,10 +150,11 @@ The service translates REST API requests from the COMPANION_APP into MQTT messag
 #### Acceptance Criteria
 
 1. THE CLOUD_GATEWAY SHALL support configuration via environment variables
-2. THE configuration SHALL include: HTTP listen port, MQTT broker URL, MQTT username and password, configured VIN, and command timeout duration
+2. THE configuration SHALL include: HTTP listen port, MQTT broker URL, MQTT username and password, configured VIN, command timeout duration, and OTLP endpoint URL
 3. THE CLOUD_GATEWAY SHALL provide sensible defaults for optional configuration options
 4. WHEN required configuration (MQTT broker URL, VIN) is missing THEN the CLOUD_GATEWAY SHALL fail to start with a clear error message
 5. THE CLOUD_GATEWAY SHALL log all configuration values (except secrets) on startup
+6. THE OTLP endpoint configuration SHALL be optional; if not configured, telemetry export SHALL be disabled
 
 ### Requirement 10: Request Logging
 
@@ -195,14 +198,13 @@ The service translates REST API requests from the COMPANION_APP into MQTT messag
 
 ### Requirement 12: In-Memory Storage
 
-**User Story:** As a demo system, I want commands and telemetry stored in memory, so that the system is simple and stateless for demonstration purposes.
+**User Story:** As a demo system, I want commands stored in memory, so that the system is simple and stateless for demonstration purposes.
 
 #### Acceptance Criteria
 
 1. THE CLOUD_GATEWAY SHALL store commands in memory with a maximum retention of 100 commands
 2. WHEN the command limit is reached THEN the CLOUD_GATEWAY SHALL remove the oldest commands first
-3. THE CLOUD_GATEWAY SHALL store only the latest telemetry per vehicle
-4. WHEN the CLOUD_GATEWAY restarts THEN all stored data SHALL be cleared (acceptable for demo)
+3. WHEN the CLOUD_GATEWAY restarts THEN all stored command data SHALL be cleared (acceptable for demo)
 
 ### Requirement 13: Graceful Shutdown
 
