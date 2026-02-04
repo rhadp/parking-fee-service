@@ -4,7 +4,7 @@
 
 The PARKING_FEE_SERVICE is a Go backend service deployed on OpenShift that provides REST APIs for parking operations. It serves as the backend for the SDV Parking Demo System, providing zone lookup by location, adapter registry information, and mock parking operator functionality.
 
-The service is stateless except for in-memory session storage (demo scope), making it horizontally scalable. It exposes RESTful endpoints consumed by the PARKING_OPERATOR_ADAPTOR (for parking operations) and UPDATE_SERVICE (for adapter registry queries).
+The service uses SQLite for session persistence, with zone and adapter data stored in-memory (configuration-driven). It exposes RESTful endpoints consumed by the PARKING_OPERATOR_ADAPTOR (for parking operations) and UPDATE_SERVICE (for adapter registry queries).
 
 ## Architecture
 
@@ -56,8 +56,10 @@ flowchart TB
         subgraph Stores["Data Stores"]
             ZST[Zone Store<br/>In-Memory]
             AST[Adapter Store<br/>In-Memory]
-            PST[Session Store<br/>In-Memory]
+            PST[Session Store<br/>SQLite]
         end
+        
+        DB[(SQLite DB)]
         
         MW[Middleware<br/>Logging/RequestID]
         CFG[Config]
@@ -76,6 +78,7 @@ flowchart TB
     ZS --> ZST
     AS --> AST
     PS --> PST
+    PST --> DB
 ```
 
 ### Request Flow: Zone Lookup
@@ -93,9 +96,10 @@ flowchart TB
 2. **Middleware**: Request ID generated, body parsed
 3. **Routing**: Router dispatches to Parking Handler
 4. **Validation**: Handler validates required fields
-5. **Session Creation**: Parking Service creates session with unique ID
-6. **Storage**: Session stored in memory
-7. **Response**: Handler returns session details
+5. **Idempotency Check**: Parking Service checks for existing active session for vehicle_id
+6. **Session Creation**: If no active session exists, Parking Service creates session with unique ID
+7. **Storage**: Session persisted to SQLite database
+8. **Response**: Handler returns session details (new or existing)
 
 ## Components and Interfaces
 
@@ -197,6 +201,8 @@ Response 400:
   "request_id": "req-123"
 }
 
+Note: If a parking session is already active for the vehicle_id, the existing session details are returned without creating a new session (idempotent behavior).
+
 POST /api/v1/parking/stop
 
 Request:
@@ -222,12 +228,7 @@ Response 404:
   "request_id": "req-123"
 }
 
-Response 409:
-{
-  "error": "SESSION_ALREADY_STOPPED",
-  "message": "Session already stopped",
-  "request_id": "req-123"
-}
+Note: If the session is already stopped, the previous stop result is returned without modification (idempotent behavior).
 
 GET /api/v1/parking/status/{session_id}
 
@@ -264,7 +265,7 @@ Response 200:
 Response 503:
 {
   "status": "not ready",
-  "reason": "session store not initialized"
+  "reason": "database connection failed"
 }
 ```
 
@@ -334,15 +335,17 @@ Handles health and readiness checks.
 ```go
 type HealthHandler struct {
     sessionStore *SessionStore
+    db           *sql.DB
     logger       *slog.Logger
 }
 
-func NewHealthHandler(sessionStore *SessionStore, logger *slog.Logger) *HealthHandler
+func NewHealthHandler(sessionStore *SessionStore, db *sql.DB, logger *slog.Logger) *HealthHandler
 
 // HandleHealth handles GET /health
 func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request)
 
 // HandleReady handles GET /ready
+// Verifies SQLite database connection is established and operational
 func (h *HealthHandler) HandleReady(w http.ResponseWriter, r *http.Request)
 ```
 
@@ -395,17 +398,23 @@ type ParkingService struct {
 
 func NewParkingService(store *SessionStore, zoneStore *ZoneStore, hourlyRate float64) *ParkingService
 
-// StartSession creates a new parking session
+// StartSession creates a new parking session or returns existing active session for vehicle_id (idempotent)
+// Returns existing session if one is already active for the vehicle_id
 // Returns error if validation fails
-func (s *ParkingService) StartSession(req *StartSessionRequest) (*Session, error)
+func (s *ParkingService) StartSession(req *StartSessionRequest) (*Session, bool, error)
+// Returns: session, isExisting, error
 
-// StopSession ends an active parking session
-// Returns error if session not found or already stopped
+// StopSession ends an active parking session (idempotent)
+// Returns previous stop result if session is already stopped
+// Returns error if session not found
 func (s *ParkingService) StopSession(req *StopSessionRequest) (*Session, error)
 
 // GetSessionStatus returns current session status
 // Returns nil if session not found
 func (s *ParkingService) GetSessionStatus(sessionID string) *SessionStatus
+
+// GetActiveSessionByVehicle returns active session for vehicle_id if exists
+func (s *ParkingService) GetActiveSessionByVehicle(vehicleID string) *Session
 
 // CalculateCost calculates cost based on duration and hourly rate
 func (s *ParkingService) CalculateCost(durationSeconds int64) float64
@@ -451,24 +460,36 @@ func (s *AdapterStore) Get(adapterID string) *Adapter
 
 #### SessionStore
 
-In-memory storage for parking sessions.
+SQLite-backed storage for parking sessions with persistence.
 
 ```go
 type SessionStore struct {
-    sessions map[string]*Session
-    mu       sync.RWMutex
+    db *sql.DB
+    mu sync.RWMutex
 }
 
-func NewSessionStore() *SessionStore
+func NewSessionStore(db *sql.DB) (*SessionStore, error)
 
-// Save stores a session
+// InitSchema creates the sessions table if it doesn't exist
+func (s *SessionStore) InitSchema() error
+
+// Save stores a session to SQLite
 func (s *SessionStore) Save(session *Session) error
 
-// Get retrieves a session by ID
+// Update updates an existing session in SQLite
+func (s *SessionStore) Update(session *Session) error
+
+// Get retrieves a session by ID from SQLite
 func (s *SessionStore) Get(sessionID string) *Session
 
-// IsInitialized returns true if store is ready
+// GetActiveByVehicle retrieves active session for vehicle_id
+func (s *SessionStore) GetActiveByVehicle(vehicleID string) *Session
+
+// IsInitialized returns true if database connection is ready
 func (s *SessionStore) IsInitialized() bool
+
+// Ping verifies database connection is operational
+func (s *SessionStore) Ping() error
 ```
 
 #### Middleware
@@ -641,6 +662,9 @@ type Config struct {
     // Server configuration
     Port int `env:"PORT" envDefault:"8080"`
     
+    // Database configuration
+    DatabasePath string `env:"DATABASE_PATH" envDefault:"./parking.db"`
+    
     // Demo zone configuration
     DemoZoneID         string  `env:"DEMO_ZONE_ID" envDefault:"demo-zone-001"`
     DemoOperatorName   string  `env:"DEMO_OPERATOR_NAME" envDefault:"Demo Parking Operator"`
@@ -668,13 +692,13 @@ func LoadConfig() (*Config, error)
 
 ```go
 const (
-    ErrInvalidParameters    = "INVALID_PARAMETERS"
-    ErrZoneNotFound         = "ZONE_NOT_FOUND"
-    ErrAdapterNotFound      = "ADAPTER_NOT_FOUND"
-    ErrSessionNotFound      = "SESSION_NOT_FOUND"
-    ErrSessionAlreadyStopped = "SESSION_ALREADY_STOPPED"
-    ErrValidationError      = "VALIDATION_ERROR"
-    ErrInternalError        = "INTERNAL_ERROR"
+    ErrInvalidParameters = "INVALID_PARAMETERS"
+    ErrZoneNotFound      = "ZONE_NOT_FOUND"
+    ErrAdapterNotFound   = "ADAPTER_NOT_FOUND"
+    ErrSessionNotFound   = "SESSION_NOT_FOUND"
+    ErrValidationError   = "VALIDATION_ERROR"
+    ErrInternalError     = "INTERNAL_ERROR"
+    ErrDatabaseError     = "DATABASE_ERROR"
 )
 ```
 
@@ -730,47 +754,65 @@ Based on the prework analysis, the following properties can be verified through 
 
 ### Property 8: Session Creation Round-Trip
 
-*For any* valid start session request, the service SHALL create a session with a unique session_id, store it in memory, and the session SHALL be retrievable by that session_id via the status endpoint.
+*For any* valid start session request, the service SHALL create a session with a unique session_id, persist it to SQLite database, and the session SHALL be retrievable by that session_id via the status endpoint.
 
 **Validates: Requirements 4.1, 4.3, 4.4, 4.5**
 
-### Property 9: Session Stop Response Completeness
+### Property 9: Session Start Idempotency
+
+*For any* vehicle_id with an active parking session, calling start session again with the same vehicle_id SHALL return the existing session details without creating a new session.
+
+**Validates: Requirements 4.7**
+
+### Property 10: Session Stop Response Completeness
 
 *For any* active session that is stopped, the stop response SHALL include session_id, start_time, end_time, duration_seconds, total_cost, and payment_status. The end_time SHALL be after start_time.
 
 **Validates: Requirements 5.1, 5.3**
 
-### Property 10: Cost Calculation Correctness
+### Property 10: Session Stop Response Completeness
+
+*For any* active session that is stopped, the stop response SHALL include session_id, start_time, end_time, duration_seconds, total_cost, and payment_status. The end_time SHALL be after start_time.
+
+**Validates: Requirements 5.1, 5.3**
+
+### Property 11: Session Stop Idempotency
+
+*For any* session that has already been stopped, calling stop session again SHALL return the previous stop result without modification.
+
+**Validates: Requirements 5.7**
+
+### Property 12: Cost Calculation Correctness
 
 *For any* parking session with a known duration and hourly rate, the calculated cost SHALL equal (duration_seconds / 3600) * hourly_rate, rounded to 2 decimal places.
 
 **Validates: Requirements 5.4, 6.3**
 
-### Property 11: Mock Payment Always Succeeds
+### Property 13: Mock Payment Always Succeeds
 
 *For any* stopped parking session, the payment_status SHALL always be "success".
 
 **Validates: Requirements 5.5**
 
-### Property 12: Session Not Found
+### Property 14: Session Not Found
 
 *For any* session_id that does not exist, both the stop endpoint and status endpoint SHALL return HTTP 404 with an error message.
 
 **Validates: Requirements 5.6, 6.5**
 
-### Property 13: Session Already Stopped
-
-*For any* session that has already been stopped, attempting to stop it again SHALL return HTTP 409 with an error message indicating the session is already stopped.
-
-**Validates: Requirements 5.7**
-
-### Property 14: Session Status Consistency
+### Property 15: Session Status Consistency
 
 *For any* existing session, the status response SHALL include session_id, state, start_time, duration_seconds, current_cost, and zone_id. The state SHALL be "active" for ongoing sessions and "stopped" for ended sessions.
 
 **Validates: Requirements 6.1, 6.2, 6.4**
 
-### Property 15: Error Response Format Consistency
+### Property 16: Readiness Check Database Verification
+
+*For any* readiness check request, the service SHALL verify that the SQLite database connection is established and operational before returning ready status.
+
+**Validates: Requirements 8.3**
+
+### Property 17: Error Response Format Consistency
 
 *For any* error response from the service, the response body SHALL include "error" and "message" fields, and SHALL include a "request_id" field for tracing.
 
@@ -788,8 +830,10 @@ Based on the prework analysis, the following properties can be verified through 
 | Zone not found | 404 | ZONE_NOT_FOUND |
 | Adapter not found | 404 | ADAPTER_NOT_FOUND |
 | Session not found | 404 | SESSION_NOT_FOUND |
-| Session already stopped | 409 | SESSION_ALREADY_STOPPED |
+| Database connection error | 500 | DATABASE_ERROR |
 | Internal server error | 500 | INTERNAL_ERROR |
+
+Note: Session start and stop operations are idempotent - they return success with existing/previous data rather than errors for duplicate requests.
 
 ### Error Response Helper
 
@@ -816,8 +860,8 @@ func WriteNotFound(w http.ResponseWriter, r *http.Request, code, message string)
     WriteError(w, r, http.StatusNotFound, code, message)
 }
 
-func WriteConflict(w http.ResponseWriter, r *http.Request, code, message string) {
-    WriteError(w, r, http.StatusConflict, code, message)
+func WriteDatabaseError(w http.ResponseWriter, r *http.Request, message string) {
+    WriteError(w, r, http.StatusInternalServerError, ErrDatabaseError, message)
 }
 ```
 
@@ -896,7 +940,7 @@ backend/parking-fee-service/
 │   ├── store/
 │   │   ├── zone.go
 │   │   ├── adapter.go
-│   │   └── session.go
+│   │   └── session.go      # SQLite-backed session store
 │   ├── model/
 │   │   └── models.go
 │   └── middleware/
@@ -906,12 +950,14 @@ backend/parking-fee-service/
     │   ├── zone_test.go
     │   ├── adapter_test.go
     │   ├── parking_test.go
+    │   ├── session_store_test.go  # SQLite store tests
     │   └── validation_test.go
     └── property/
         ├── zone_properties_test.go      # Properties 1, 2, 3
         ├── adapter_properties_test.go   # Properties 4, 5, 6, 7
-        ├── parking_properties_test.go   # Properties 8, 9, 10, 11, 12, 13, 14
-        └── error_properties_test.go     # Property 15
+        ├── parking_properties_test.go   # Properties 8, 9, 10, 11, 12, 13, 14, 15
+        ├── health_properties_test.go    # Property 16
+        └── error_properties_test.go     # Property 17
 ```
 
 ### Property Test Examples
@@ -951,9 +997,13 @@ func TestSessionCreationRoundTrip(t *testing.T) {
     
     properties := gopter.NewProperties(parameters)
     
-    properties.Property("created session is retrievable", prop.ForAll(
+    properties.Property("created session is retrievable from SQLite", prop.ForAll(
         func(vehicleID, zoneID string, lat, lng float64) bool {
-            store := NewSessionStore()
+            db, _ := sql.Open("sqlite3", ":memory:")
+            defer db.Close()
+            
+            store, _ := NewSessionStore(db)
+            store.InitSchema()
             service := NewParkingService(store, nil, 2.50)
             
             req := &StartSessionRequest{
@@ -964,7 +1014,7 @@ func TestSessionCreationRoundTrip(t *testing.T) {
                 Timestamp: time.Now().Format(time.RFC3339),
             }
             
-            session, err := service.StartSession(req)
+            session, _, err := service.StartSession(req)
             if err != nil {
                 return false
             }
@@ -981,9 +1031,91 @@ func TestSessionCreationRoundTrip(t *testing.T) {
     properties.TestingRun(t)
 }
 
-// Property 10: Cost Calculation Correctness
+// Property 9: Session Start Idempotency
+func TestSessionStartIdempotency(t *testing.T) {
+    // Feature: parking-fee-service, Property 9: Session Start Idempotency
+    parameters := gopter.DefaultTestParameters()
+    parameters.MinSuccessfulTests = 100
+    
+    properties := gopter.NewProperties(parameters)
+    
+    properties.Property("duplicate start returns existing session", prop.ForAll(
+        func(vehicleID, zoneID string, lat, lng float64) bool {
+            db, _ := sql.Open("sqlite3", ":memory:")
+            defer db.Close()
+            
+            store, _ := NewSessionStore(db)
+            store.InitSchema()
+            service := NewParkingService(store, nil, 2.50)
+            
+            req := &StartSessionRequest{
+                VehicleID: vehicleID,
+                Latitude:  lat,
+                Longitude: lng,
+                ZoneID:    zoneID,
+                Timestamp: time.Now().Format(time.RFC3339),
+            }
+            
+            session1, isExisting1, _ := service.StartSession(req)
+            session2, isExisting2, _ := service.StartSession(req)
+            
+            return !isExisting1 && isExisting2 && session1.SessionID == session2.SessionID
+        },
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
+        gen.Float64Range(-90, 90),
+        gen.Float64Range(-180, 180),
+    ))
+    
+    properties.TestingRun(t)
+}
+
+// Property 11: Session Stop Idempotency
+func TestSessionStopIdempotency(t *testing.T) {
+    // Feature: parking-fee-service, Property 11: Session Stop Idempotency
+    parameters := gopter.DefaultTestParameters()
+    parameters.MinSuccessfulTests = 100
+    
+    properties := gopter.NewProperties(parameters)
+    
+    properties.Property("duplicate stop returns same result", prop.ForAll(
+        func(vehicleID, zoneID string) bool {
+            db, _ := sql.Open("sqlite3", ":memory:")
+            defer db.Close()
+            
+            store, _ := NewSessionStore(db)
+            store.InitSchema()
+            service := NewParkingService(store, nil, 2.50)
+            
+            startReq := &StartSessionRequest{
+                VehicleID: vehicleID,
+                ZoneID:    zoneID,
+                Timestamp: time.Now().Format(time.RFC3339),
+            }
+            session, _, _ := service.StartSession(startReq)
+            
+            stopReq := &StopSessionRequest{
+                SessionID: session.SessionID,
+                Timestamp: time.Now().Add(time.Hour).Format(time.RFC3339),
+            }
+            
+            result1, _ := service.StopSession(stopReq)
+            result2, _ := service.StopSession(stopReq)
+            
+            return result1.TotalCost != nil && result2.TotalCost != nil &&
+                   *result1.TotalCost == *result2.TotalCost &&
+                   result1.EndTime.Equal(*result2.EndTime)
+        },
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
+    ))
+    
+    properties.TestingRun(t)
+}
+
+// Property 12: Cost Calculation Correctness
 func TestCostCalculation(t *testing.T) {
-    // Feature: parking-fee-service, Property 10: Cost Calculation Correctness
+    // Feature: parking-fee-service, Property 12: Cost Calculation Correctness
     parameters := gopter.DefaultTestParameters()
     parameters.MinSuccessfulTests = 100
     
@@ -1005,9 +1137,9 @@ func TestCostCalculation(t *testing.T) {
     properties.TestingRun(t)
 }
 
-// Property 15: Error Response Format Consistency
+// Property 17: Error Response Format Consistency
 func TestErrorResponseFormat(t *testing.T) {
-    // Feature: parking-fee-service, Property 15: Error Response Format Consistency
+    // Feature: parking-fee-service, Property 17: Error Response Format Consistency
     parameters := gopter.DefaultTestParameters()
     parameters.MinSuccessfulTests = 100
     
@@ -1085,7 +1217,11 @@ func TestAdapterListEmpty(t *testing.T) {
 
 // Health endpoint example
 func TestHealthEndpoint(t *testing.T) {
-    handler := NewHealthHandler(sessionStore, logger)
+    db, _ := sql.Open("sqlite3", ":memory:")
+    defer db.Close()
+    
+    sessionStore, _ := NewSessionStore(db)
+    handler := NewHealthHandler(sessionStore, db, logger)
     
     req := httptest.NewRequest("GET", "/health", nil)
     rec := httptest.NewRecorder()
@@ -1098,5 +1234,78 @@ func TestHealthEndpoint(t *testing.T) {
     assert.Equal(t, "healthy", response.Status)
     assert.Equal(t, "parking-fee-service", response.Service)
     assert.NotEmpty(t, response.Timestamp)
+}
+
+// Readiness endpoint with SQLite check
+func TestReadyEndpoint(t *testing.T) {
+    db, _ := sql.Open("sqlite3", ":memory:")
+    defer db.Close()
+    
+    sessionStore, _ := NewSessionStore(db)
+    sessionStore.InitSchema()
+    handler := NewHealthHandler(sessionStore, db, logger)
+    
+    req := httptest.NewRequest("GET", "/ready", nil)
+    rec := httptest.NewRecorder()
+    handler.HandleReady(rec, req)
+    
+    assert.Equal(t, http.StatusOK, rec.Code)
+    
+    var response ReadyResponse
+    json.Unmarshal(rec.Body.Bytes(), &response)
+    assert.Equal(t, "ready", response.Status)
+}
+
+// Session start idempotency example
+func TestSessionStartIdempotent(t *testing.T) {
+    db, _ := sql.Open("sqlite3", ":memory:")
+    defer db.Close()
+    
+    store, _ := NewSessionStore(db)
+    store.InitSchema()
+    service := NewParkingService(store, nil, 2.50)
+    
+    req := &StartSessionRequest{
+        VehicleID: "vehicle-001",
+        ZoneID:    "zone-001",
+        Timestamp: time.Now().Format(time.RFC3339),
+    }
+    
+    session1, isExisting1, _ := service.StartSession(req)
+    session2, isExisting2, _ := service.StartSession(req)
+    
+    assert.False(t, isExisting1)
+    assert.True(t, isExisting2)
+    assert.Equal(t, session1.SessionID, session2.SessionID)
+}
+
+// Session stop idempotency example
+func TestSessionStopIdempotent(t *testing.T) {
+    db, _ := sql.Open("sqlite3", ":memory:")
+    defer db.Close()
+    
+    store, _ := NewSessionStore(db)
+    store.InitSchema()
+    service := NewParkingService(store, nil, 2.50)
+    
+    startReq := &StartSessionRequest{
+        VehicleID: "vehicle-001",
+        ZoneID:    "zone-001",
+        Timestamp: time.Now().Format(time.RFC3339),
+    }
+    session, _, _ := service.StartSession(startReq)
+    
+    stopReq := &StopSessionRequest{
+        SessionID: session.SessionID,
+        Timestamp: time.Now().Add(time.Hour).Format(time.RFC3339),
+    }
+    
+    result1, err1 := service.StopSession(stopReq)
+    result2, err2 := service.StopSession(stopReq)
+    
+    assert.NoError(t, err1)
+    assert.NoError(t, err2)
+    assert.Equal(t, *result1.TotalCost, *result2.TotalCost)
+    assert.Equal(t, result1.EndTime, result2.EndTime)
 }
 ```

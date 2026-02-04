@@ -23,6 +23,13 @@ The service acts as the backend for the parking system, providing zone informati
 - **OCI**: Open Container Initiative - standard for container images
 - **Google Artifact Registry**: Cloud container registry storing adapter images
 
+## Out of Scope
+
+The following items are explicitly out of scope for this implementation:
+
+- **Payment Service Provider (PSP) Integration**: No real payment processing; all payments use a mock service returning "success"
+- **Receipt/Invoice Generation**: No parking receipts or invoices will be generated
+
 ## Requirements
 
 ### Requirement 1: Zone Lookup by Location
@@ -70,8 +77,9 @@ The service acts as the backend for the parking system, providing zone informati
 2. THE start request SHALL accept vehicle_id, latitude, longitude, zone_id, and timestamp in the request body
 3. WHEN a session is created successfully THEN the PARKING_FEE_SERVICE SHALL return session_id, zone_id, hourly_rate, and start_time
 4. THE PARKING_FEE_SERVICE SHALL generate a unique session_id for each new session
-5. THE PARKING_FEE_SERVICE SHALL store the session in memory for the demo
+5. THE PARKING_FEE_SERVICE SHALL persist the session in SQLite database
 6. IF required fields are missing THEN the PARKING_FEE_SERVICE SHALL return HTTP 400 with a validation error
+7. IF a parking session is already active for the vehicle_id THEN the PARKING_FEE_SERVICE SHALL return the existing session details without creating a new session (idempotent behavior)
 
 ### Requirement 5: Mock Parking Session Stop
 
@@ -85,7 +93,7 @@ The service acts as the backend for the parking system, providing zone informati
 4. THE total_cost SHALL be calculated as (duration_seconds / 3600) * hourly_rate
 5. THE payment_status SHALL always be "success" for the demo (mock payment)
 6. IF the session_id does not exist THEN the PARKING_FEE_SERVICE SHALL return HTTP 404 with an error message
-7. IF the session is already stopped THEN the PARKING_FEE_SERVICE SHALL return HTTP 409 with an error message
+7. IF the session is already stopped THEN the PARKING_FEE_SERVICE SHALL return the previous stop result without modification (idempotent behavior)
 
 ### Requirement 6: Mock Parking Session Status
 
@@ -117,7 +125,7 @@ The service acts as the backend for the parking system, providing zone informati
 
 1. WHEN the PARKING_FEE_SERVICE receives a GET /ready request THEN it SHALL return HTTP 200 if ready to serve requests
 2. IF the service is not ready THEN the PARKING_FEE_SERVICE SHALL return HTTP 503 with status "not ready"
-3. THE readiness check SHALL verify that the in-memory session store is initialized
+3. THE readiness check SHALL verify that the SQLite database connection is established and operational
 
 ### Requirement 9: Configuration Management
 
