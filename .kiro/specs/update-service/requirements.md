@@ -141,7 +141,21 @@ The service receives adapter installation requests from the PARKING_APP via gRPC
 5. THE UPDATE_SERVICE SHALL listen on a TCP socket with TLS for gRPC connections from PARKING_APP
 6. THE UPDATE_SERVICE SHALL use standard gRPC status codes with custom error details for domain-specific errors
 
-### Requirement 11: Operation Logging
+### Requirement 11: OCI Registry Authentication
+
+**User Story:** As a system operator, I want the UPDATE_SERVICE to authenticate with the OCI registry, so that it can pull container images from private registries securely.
+
+#### Acceptance Criteria
+
+1. THE UPDATE_SERVICE SHALL support Bearer token authentication for OCI registry requests
+2. THE UPDATE_SERVICE SHALL obtain authentication tokens via the OCI token endpoint (GET /v2/token) when challenged with HTTP 401
+3. THE UPDATE_SERVICE SHALL include the Authorization header with Bearer token in subsequent registry requests after authentication
+4. THE UPDATE_SERVICE SHALL support configurable registry credentials via environment variables (REGISTRY_USERNAME, REGISTRY_PASSWORD)
+5. THE UPDATE_SERVICE SHALL cache authentication tokens and refresh them before expiration
+6. IF authentication fails THEN the UPDATE_SERVICE SHALL transition the adapter state to ERROR with a message indicating authentication failure
+7. THE UPDATE_SERVICE SHALL support anonymous access for public registries when no credentials are configured
+
+### Requirement 12: Operation Logging
 
 **User Story:** As a system auditor, I want all adapter operations to be logged, so that I can trace operations for debugging and compliance.
 

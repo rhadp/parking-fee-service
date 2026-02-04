@@ -42,23 +42,27 @@ flowchart TB
     subgraph UpdateService["UPDATE_SERVICE"]
         GRPC[gRPC Server<br/>TLS Listener]
         CMD[Request Handler]
+        AUTH[Registry Authenticator]
         DL[Image Downloader]
         VAL[Manifest Validator]
         CM[Container Manager]
         ST[State Tracker]
         WATCH[Watcher Manager]
         OFF[Offload Scheduler]
-        LOG[Logger]
+        LOG[Operation Logger]
     end
     
     GRPC --> CMD
     CMD --> DL
+    DL --> AUTH
+    AUTH --> DL
     DL --> VAL
     VAL --> CM
     CM --> ST
     ST --> WATCH
     OFF --> CM
     CMD --> LOG
+    AUTH --> LOG
     DL --> LOG
     VAL --> LOG
     CM --> LOG
@@ -68,14 +72,17 @@ flowchart TB
 ### Request Flow: InstallAdapter
 
 1. **Request Reception**: gRPC server receives InstallAdapter request via TLS
-2. **Duplicate Check**: Check if adapter already installed or in progress
-3. **State Initialization**: Create adapter entry with DOWNLOADING state
-4. **Image Download**: Pull OCI image from REGISTRY with retry logic
-5. **Manifest Validation**: Verify checksum and required fields
-6. **Container Installation**: Install container using podman
-7. **Container Startup**: Start container with DATA_BROKER network access
-8. **State Update**: Transition to RUNNING and emit state event
-9. **Response**: Return InstallAdapterResponse with current state
+2. **Correlation ID**: Generate unique correlation ID for request tracing
+3. **Request Logging**: Log incoming request with correlation ID, request type, and adapter_id
+4. **Duplicate Check**: Check if adapter already installed or in progress
+5. **State Initialization**: Create adapter entry with DOWNLOADING state, log state transition
+6. **Authentication**: Obtain Bearer token from registry token endpoint (if credentials configured)
+7. **Image Download**: Pull OCI image from REGISTRY with retry logic, log container pull operation
+8. **Manifest Validation**: Verify checksum and required fields
+9. **Container Installation**: Install container using podman, log install operation
+10. **Container Startup**: Start container with DATA_BROKER network access, log start operation
+11. **State Update**: Transition to RUNNING, log state transition, and emit state event
+12. **Response**: Return InstallAdapterResponse with current state
 
 ## Components and Interfaces
 
@@ -162,33 +169,107 @@ pub struct UpdateServiceImpl {
     container_manager: ContainerManager,
     watcher_manager: Arc<WatcherManager>,
     config: ServiceConfig,
-    logger: Logger,
+    logger: OperationLogger,
 }
 
 impl UpdateServiceImpl {
     pub fn new(config: ServiceConfig) -> Result<Self, Error>;
+    
+    /// Generates a unique correlation ID for request tracing
+    fn generate_correlation_id() -> String;
+}
+```
+
+#### RegistryAuthenticator
+
+Handles OCI registry authentication with Bearer token support.
+
+```rust
+pub struct RegistryAuthenticator {
+    http_client: reqwest::Client,
+    credentials: Option<RegistryCredentials>,
+    token_cache: RwLock<HashMap<String, CachedToken>>,
+}
+
+#[derive(Clone)]
+pub struct RegistryCredentials {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Clone)]
+pub struct CachedToken {
+    pub token: String,
+    pub expires_at: SystemTime,
+}
+
+impl RegistryAuthenticator {
+    /// Creates authenticator from environment variables
+    /// REGISTRY_USERNAME and REGISTRY_PASSWORD
+    pub fn from_env() -> Self;
+    
+    /// Gets a valid Bearer token for the registry
+    /// Returns cached token if valid, otherwise fetches new token
+    pub async fn get_token(
+        &self,
+        registry_url: &str,
+        scope: &str,
+    ) -> Result<Option<String>, AuthError>;
+    
+    /// Handles 401 challenge and obtains token from token endpoint
+    async fn fetch_token(
+        &self,
+        token_endpoint: &str,
+        scope: &str,
+    ) -> Result<CachedToken, AuthError>;
+    
+    /// Checks if cached token is still valid (not expired)
+    fn is_token_valid(&self, token: &CachedToken) -> bool;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AuthError {
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
+    
+    #[error("Token endpoint unreachable: {0}")]
+    TokenEndpointUnreachable(String),
+    
+    #[error("Invalid credentials")]
+    InvalidCredentials,
 }
 ```
 
 #### ImageDownloader
 
-Downloads OCI container images from the registry.
+Downloads OCI container images from the registry with authentication support.
 
 ```rust
 pub struct ImageDownloader {
     http_client: reqwest::Client,
+    authenticator: RegistryAuthenticator,
     max_retries: u32,
     base_delay: Duration,
+    logger: OperationLogger,
 }
 
 impl ImageDownloader {
-    /// Downloads container image with retry logic
+    /// Downloads container image with retry logic and authentication
     /// Returns path to downloaded image layers
     pub async fn download(
         &self,
         registry_url: &str,
         adapter_id: &str,
+        correlation_id: &str,
     ) -> Result<DownloadedImage, DownloadError>;
+    
+    /// Performs authenticated request to registry
+    /// Handles 401 challenges by obtaining Bearer token
+    async fn authenticated_request(
+        &self,
+        url: &str,
+        scope: &str,
+    ) -> Result<reqwest::Response, DownloadError>;
 }
 
 pub struct DownloadedImage {
@@ -344,6 +425,7 @@ pub struct OffloadScheduler {
     container_manager: Arc<ContainerManager>,
     offload_threshold: Duration,
     check_interval: Duration,
+    logger: OperationLogger,
 }
 
 impl OffloadScheduler {
@@ -352,6 +434,95 @@ impl OffloadScheduler {
     
     /// Checks for and offloads inactive adapters
     async fn check_and_offload(&self);
+}
+```
+
+#### OperationLogger
+
+Provides structured logging for all adapter operations with correlation identifiers.
+
+```rust
+use tracing::{info, warn, error, span, Level};
+
+pub struct OperationLogger {
+    service_name: String,
+}
+
+impl OperationLogger {
+    pub fn new(service_name: &str) -> Self;
+    
+    /// Logs incoming request with correlation ID
+    pub fn log_request(
+        &self,
+        correlation_id: &str,
+        request_type: &str,
+        adapter_id: &str,
+    );
+    
+    /// Logs state transition with previous and new state
+    pub fn log_state_transition(
+        &self,
+        correlation_id: &str,
+        adapter_id: &str,
+        previous_state: AdapterState,
+        new_state: AdapterState,
+        reason: Option<&str>,
+    );
+    
+    /// Logs container operation with outcome
+    pub fn log_container_operation(
+        &self,
+        correlation_id: &str,
+        adapter_id: &str,
+        operation: ContainerOperation,
+        outcome: OperationOutcome,
+    );
+    
+    /// Logs authentication events
+    pub fn log_auth_event(
+        &self,
+        correlation_id: &str,
+        registry_url: &str,
+        event: AuthEvent,
+    );
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ContainerOperation {
+    Pull,
+    Install,
+    Start,
+    Stop,
+    Remove,
+}
+
+#[derive(Debug, Clone)]
+pub enum OperationOutcome {
+    Success,
+    Failure(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum AuthEvent {
+    TokenRequested,
+    TokenObtained,
+    TokenCached,
+    TokenRefreshed,
+    AuthenticationFailed(String),
+    AnonymousAccess,
+}
+
+/// Structured log entry format
+#[derive(Debug, Serialize)]
+pub struct LogEntry {
+    pub timestamp: String,           // ISO 8601 format
+    pub level: String,               // INFO, WARN, ERROR
+    pub correlation_id: String,      // UUID for request tracing
+    pub service: String,             // "update-service"
+    pub adapter_id: Option<String>,
+    pub event_type: String,          // request, state_transition, container_op, auth
+    pub message: String,
+    pub details: serde_json::Value,  // Additional structured data
 }
 ```
 
@@ -397,6 +568,14 @@ pub struct ServiceConfig {
     pub offload_threshold_hours: u64,
     /// Offload check interval (minutes)
     pub offload_check_interval_minutes: u64,
+    /// Registry username (from REGISTRY_USERNAME env var)
+    pub registry_username: Option<String>,
+    /// Registry password (from REGISTRY_PASSWORD env var)
+    pub registry_password: Option<String>,
+    /// Token cache TTL buffer (seconds before expiry to refresh)
+    pub token_refresh_buffer_secs: u64,
+    /// Log level (trace, debug, info, warn, error)
+    pub log_level: String,
 }
 
 impl Default for ServiceConfig {
@@ -411,6 +590,10 @@ impl Default for ServiceConfig {
             download_base_delay_ms: 1000,
             offload_threshold_hours: 24,
             offload_check_interval_minutes: 60,
+            registry_username: std::env::var("REGISTRY_USERNAME").ok(),
+            registry_password: std::env::var("REGISTRY_PASSWORD").ok(),
+            token_refresh_buffer_secs: 60,
+            log_level: "info".to_string(),
         }
     }
 }
@@ -447,6 +630,15 @@ pub enum UpdateError {
     
     #[error("Missing manifest field: {0}")]
     MissingManifestField(String),
+    
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
+    
+    #[error("Token endpoint unreachable: {0}")]
+    TokenEndpointUnreachable(String),
+    
+    #[error("Invalid credentials")]
+    InvalidCredentials,
 }
 
 ## Correctness Properties
@@ -557,6 +749,48 @@ Based on the prework analysis, the following properties can be verified through 
 
 **Validates: Requirements 9.1, 9.2, 9.3**
 
+### Property 18: Bearer Token Authentication on 401 Challenge
+
+*For any* registry request that receives an HTTP 401 response, the UPDATE_SERVICE SHALL obtain a Bearer token from the token endpoint (GET /v2/token) and retry the request with the Authorization header containing the Bearer token.
+
+**Validates: Requirements 11.1, 11.2, 11.3**
+
+### Property 19: Token Caching and Refresh
+
+*For any* valid authentication token obtained from the registry, the UPDATE_SERVICE SHALL cache the token and reuse it for subsequent requests until it approaches expiration, at which point it SHALL refresh the token.
+
+**Validates: Requirements 11.5**
+
+### Property 20: Authentication Failure Transitions to Error
+
+*For any* adapter installation where registry authentication fails (invalid credentials or token endpoint unreachable), the UPDATE_SERVICE SHALL transition the adapter state to ERROR with a message indicating authentication failure.
+
+**Validates: Requirements 11.6**
+
+### Property 21: Anonymous Access for Public Registries
+
+*For any* registry request where no credentials are configured (REGISTRY_USERNAME and REGISTRY_PASSWORD not set), the UPDATE_SERVICE SHALL attempt anonymous access and succeed if the registry allows public access.
+
+**Validates: Requirements 11.7**
+
+### Property 22: Request Logging with Correlation ID
+
+*For any* received request (InstallAdapter, UninstallAdapter, ListAdapters, WatchAdapterStates), the UPDATE_SERVICE SHALL log the request with timestamp, request type, adapter_id, and a unique correlation identifier.
+
+**Validates: Requirements 12.1, 12.4**
+
+### Property 23: State Transition Logging
+
+*For any* adapter state transition, the UPDATE_SERVICE SHALL log the transition with the previous state, new state, reason for transition, and correlation identifier.
+
+**Validates: Requirements 12.2, 12.4**
+
+### Property 24: Container Operation Logging
+
+*For any* container operation (pull, install, start, stop, remove), the UPDATE_SERVICE SHALL log the operation with its outcome (success or failure with reason) and correlation identifier.
+
+**Validates: Requirements 12.3, 12.4**
+
 ## Error Handling
 
 ### gRPC Status Code Mapping
@@ -571,6 +805,9 @@ Based on the prework analysis, the following properties can be verified through 
 | Container start failed | INTERNAL (13) | CONTAINER_START_FAILED |
 | Adapter not found | NOT_FOUND (5) | ADAPTER_NOT_FOUND |
 | Adapter already exists | ALREADY_EXISTS (6) | ADAPTER_ALREADY_EXISTS |
+| Authentication failed | UNAUTHENTICATED (16) | AUTHENTICATION_FAILED |
+| Token endpoint unreachable | UNAVAILABLE (14) | TOKEN_ENDPOINT_UNAVAILABLE |
+| Invalid credentials | PERMISSION_DENIED (7) | INVALID_CREDENTIALS |
 
 ### Error Response Structure
 
@@ -605,6 +842,15 @@ impl From<UpdateError> for tonic::Status {
             }
             UpdateError::AdapterAlreadyExists(id) => {
                 Status::already_exists(format!("Adapter already exists: {}", id))
+            }
+            UpdateError::AuthenticationFailed(msg) => {
+                Status::unauthenticated(format!("Authentication failed: {}", msg))
+            }
+            UpdateError::TokenEndpointUnreachable(msg) => {
+                Status::unavailable(format!("Token endpoint unreachable: {}", msg))
+            }
+            UpdateError::InvalidCredentials => {
+                Status::permission_denied("Invalid registry credentials")
             }
             _ => Status::internal("Internal error"),
         }
@@ -666,17 +912,21 @@ rhivos/update-service/
 │   ├── lib.rs
 │   ├── service.rs
 │   ├── downloader.rs
+│   ├── authenticator.rs
 │   ├── validator.rs
 │   ├── container.rs
 │   ├── state.rs
 │   ├── watcher.rs
-│   └── offload.rs
+│   ├── offload.rs
+│   └── logger.rs
 └── tests/
     ├── unit/
     │   ├── downloader_test.rs
+    │   ├── authenticator_test.rs
     │   ├── validator_test.rs
     │   ├── container_test.rs
-    │   └── state_test.rs
+    │   ├── state_test.rs
+    │   └── logger_test.rs
     └── property/
         ├── install_properties.rs     # Properties 1-4
         ├── download_properties.rs    # Properties 5-6
@@ -685,7 +935,9 @@ rhivos/update-service/
         ├── state_properties.rs       # Properties 10, 14
         ├── watcher_properties.rs     # Properties 11-13
         ├── uninstall_properties.rs   # Properties 15-16
-        └── offload_properties.rs     # Property 17
+        ├── offload_properties.rs     # Property 17
+        ├── auth_properties.rs        # Properties 18-21
+        └── logging_properties.rs     # Properties 22-24
 ```
 
 ### Property Test Examples
@@ -785,6 +1037,77 @@ proptest! {
         });
     }
 }
+
+// Property 18: Bearer Token Authentication on 401 Challenge
+proptest! {
+    /// Feature: update-service, Property 18: Bearer Token Authentication on 401 Challenge
+    #[test]
+    fn auth_handles_401_challenge(
+        registry_url in "https://[a-z]+\\.example\\.com/v2/[a-z]+",
+        token in "[a-zA-Z0-9]{32,64}",
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let mock_server = MockServer::start().await;
+            
+            // First request returns 401 with WWW-Authenticate header
+            Mock::given(method("GET"))
+                .and(path_regex("/v2/.*"))
+                .respond_with(ResponseTemplate::new(401)
+                    .insert_header("WWW-Authenticate", 
+                        format!("Bearer realm=\"{}/v2/token\"", mock_server.uri())))
+                .expect(1)
+                .mount(&mock_server).await;
+            
+            // Token endpoint returns valid token
+            Mock::given(method("GET"))
+                .and(path("/v2/token"))
+                .respond_with(ResponseTemplate::new(200)
+                    .set_body_json(json!({"token": token, "expires_in": 300})))
+                .expect(1)
+                .mount(&mock_server).await;
+            
+            // Retry with Bearer token succeeds
+            Mock::given(method("GET"))
+                .and(path_regex("/v2/.*"))
+                .and(header("Authorization", format!("Bearer {}", token)))
+                .respond_with(ResponseTemplate::new(200))
+                .expect(1)
+                .mount(&mock_server).await;
+            
+            let authenticator = RegistryAuthenticator::from_env();
+            let result = authenticator.get_token(&mock_server.uri(), "repository:pull").await;
+            
+            prop_assert!(result.is_ok());
+            prop_assert_eq!(result.unwrap(), Some(token));
+        });
+    }
+}
+
+// Property 22: Request Logging with Correlation ID
+proptest! {
+    /// Feature: update-service, Property 22: Request Logging with Correlation ID
+    #[test]
+    fn request_logging_includes_correlation_id(
+        adapter_id in "[a-z][a-z0-9-]{3,20}",
+        request_type in prop::sample::select(vec!["InstallAdapter", "UninstallAdapter", "ListAdapters"]),
+    ) {
+        let log_capture = LogCapture::new();
+        let logger = OperationLogger::new("update-service");
+        let correlation_id = uuid::Uuid::new_v4().to_string();
+        
+        logger.log_request(&correlation_id, &request_type, &adapter_id);
+        
+        let logs = log_capture.get_logs();
+        prop_assert!(logs.len() >= 1);
+        
+        let log_entry: LogEntry = serde_json::from_str(&logs[0]).unwrap();
+        prop_assert_eq!(log_entry.correlation_id, correlation_id);
+        prop_assert_eq!(log_entry.event_type, "request");
+        prop_assert!(log_entry.adapter_id.as_ref() == Some(&adapter_id));
+        prop_assert!(!log_entry.timestamp.is_empty());
+    }
+}
 ```
 
 ### Unit Test Coverage
@@ -795,6 +1118,10 @@ Unit tests focus on:
 - Mock container manager interactions
 - Timeout behavior simulation
 - Log output verification
+- Token expiration edge cases
+- Credential parsing from environment variables
+- Log entry JSON structure validation
+- Correlation ID uniqueness
 
 ### Integration Testing
 
