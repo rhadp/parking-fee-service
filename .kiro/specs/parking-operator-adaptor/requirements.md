@@ -44,7 +44,7 @@ The service subscribes to lock/unlock events from the DATA_BROKER, automatically
 1. WHEN initiating a parking session THEN the PARKING_OPERATOR_ADAPTOR SHALL read Vehicle.CurrentLocation.Latitude from the DATA_BROKER
 2. WHEN initiating a parking session THEN the PARKING_OPERATOR_ADAPTOR SHALL read Vehicle.CurrentLocation.Longitude from the DATA_BROKER
 3. IF location signals are unavailable THEN the PARKING_OPERATOR_ADAPTOR SHALL reject the session start and return an error indicating location is required
-4. THE PARKING_OPERATOR_ADAPTOR SHALL use the location to determine the Zone_ID for the parking session
+4. THE PARKING_OPERATOR_ADAPTOR SHALL receive the Zone_ID from the PARKING_APP via the StartSession request (the PARKING_APP obtains the Zone_ID from the PARKING_FEE_SERVICE based on location)
 
 ### Requirement 3: Session Start
 

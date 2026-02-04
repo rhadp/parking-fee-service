@@ -72,8 +72,8 @@ flowchart TB
 1. **Signal Reception**: Signal Subscriber receives IsLocked=true from DATA_BROKER
 2. **State Check**: Session Manager verifies no active session exists
 3. **Location Read**: Location Reader fetches current latitude/longitude from DATA_BROKER
-4. **Zone Detection**: Determine Zone_ID from location (simplified for demo)
-5. **API Call**: Operator API Client calls POST /parking/start
+4. **Zone Lookup**: PARKING_APP queries PARKING_FEE_SERVICE for Zone_ID based on location
+5. **API Call**: Operator API Client calls POST /parking/start with zone_id from PARKING_APP
 6. **Session Creation**: Session Manager creates session with Session_ID from response
 7. **State Publication**: State Publisher writes SessionActive=true to DATA_BROKER
 8. **Persistence**: Session Store persists session state
@@ -114,7 +114,7 @@ enum SessionState {
 }
 
 message StartSessionRequest {
-  // Empty - location is read from DATA_BROKER
+  string zone_id = 1;  // Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE)
 }
 
 message StartSessionResponse {

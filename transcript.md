@@ -32,3 +32,9 @@ What's your timeline for the demo? This helps prioritize which scenarios (Happy 
 -> everything is needed for the demo
 
 ---
+Credits after the spec phase: 241
+---
+use claude code to be a critic of the design after completing the docs.
+
+"read the prd.md document and make sure you understand it. Then traverse the requirements, design and task documents in folder .kiro/. and analyze and understand them as well. The documents in .kiro/ will guide the implementation of the system. now make sure they are complete,    
+  consisten etc. point out any issues, gaps or make sugestions what COULD be changed or improved. create a markdown document in .kiro with your findings."
