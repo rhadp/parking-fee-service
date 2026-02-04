@@ -36,6 +36,9 @@ The service also subscribes to vehicle state changes from the DATA_BROKER and pu
 3. WHEN the MQTT connection is lost THEN the CLOUD_GATEWAY_CLIENT SHALL attempt reconnection with exponential backoff starting at 1 second and capping at 60 seconds
 4. WHEN reconnection succeeds THEN the CLOUD_GATEWAY_CLIENT SHALL resubscribe to all required topics
 5. THE CLOUD_GATEWAY_CLIENT SHALL maintain a heartbeat/keepalive with the MQTT broker at the configured interval
+6. WHEN the TLS certificate is updated on disk THEN the CLOUD_GATEWAY_CLIENT SHALL detect the change via file system notification and reload the certificate without service restart
+7. WHEN certificate reload fails (invalid certificate, permission error) THEN the CLOUD_GATEWAY_CLIENT SHALL continue using the existing certificate and log an error
+8. THE CLOUD_GATEWAY_CLIENT SHALL log certificate reload events including success/failure status and certificate expiry date
 
 ### Requirement 2: Command Reception
 
@@ -107,6 +110,9 @@ The service also subscribes to vehicle state changes from the DATA_BROKER and pu
 3. THE CLOUD_GATEWAY_CLIENT SHALL batch telemetry updates and publish at most once per second to avoid flooding
 4. IF the DATA_BROKER connection is lost THEN the CLOUD_GATEWAY_CLIENT SHALL stop publishing telemetry until reconnected
 5. WHEN the DATA_BROKER connection is restored THEN the CLOUD_GATEWAY_CLIENT SHALL resume telemetry publishing with current state
+6. WHEN the MQTT connection is offline THEN the CLOUD_GATEWAY_CLIENT SHALL buffer telemetry messages up to a maximum of 100 messages or 60 seconds of data, whichever is reached first
+7. WHEN the offline buffer is full THEN the CLOUD_GATEWAY_CLIENT SHALL drop the oldest messages to make room for new ones (FIFO eviction)
+8. WHEN the MQTT connection is restored THEN the CLOUD_GATEWAY_CLIENT SHALL publish buffered messages in chronological order before resuming real-time publishing
 
 ### Requirement 8: Configuration Management
 
@@ -141,3 +147,9 @@ The service also subscribes to vehicle state changes from the DATA_BROKER and pu
 3. THE CLOUD_GATEWAY_CLIENT SHALL log all MQTT connection state changes (connected, disconnected, reconnecting)
 4. THE CLOUD_GATEWAY_CLIENT SHALL log all DATA_BROKER subscription state changes
 5. THE CLOUD_GATEWAY_CLIENT SHALL include correlation identifiers in logs to enable end-to-end tracing
+
+## Out of Scope
+
+The following items are explicitly out of scope for this component:
+
+- **UDS Credential Protection**: How Unix Domain Socket credentials are protected is managed at the RHIVOS platform level and is not the responsibility of the CLOUD_GATEWAY_CLIENT. The service assumes the UDS endpoints are secured by the underlying operating system's file permissions and SELinux policies.

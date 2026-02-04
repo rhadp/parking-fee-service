@@ -37,27 +37,33 @@ flowchart TB
 flowchart TB
     subgraph CloudGatewayClient["CLOUD_GATEWAY_CLIENT"]
         MQTT[MQTT Client<br/>TLS Connection]
+        CERT[Certificate Watcher<br/>Hot-Reload]
         CMD[Command Handler]
         VAL[Command Validator]
         FWD[Command Forwarder]
         RESP[Response Publisher]
         TEL[Telemetry Publisher]
+        BUF[Offline Buffer<br/>FIFO Queue]
         SUB[Signal Subscriber]
         CFG[Config Manager]
         LOG[Logger]
     end
     
+    CERT --> MQTT
     MQTT --> CMD
     CMD --> VAL
     VAL --> FWD
     FWD --> RESP
     SUB --> TEL
+    TEL --> BUF
+    BUF --> MQTT
     TEL --> MQTT
     RESP --> MQTT
     CMD --> LOG
     VAL --> LOG
     FWD --> LOG
     TEL --> LOG
+    CERT --> LOG
 ```
 
 ### Message Flow - Command Processing
@@ -89,6 +95,52 @@ sequenceDiagram
     DB->>CGC: VSS Signal Change (gRPC Stream)
     CGC->>CGC: Buffer & Batch Updates
     CGC->>CG: MQTT: vehicles/{VIN}/telemetry
+```
+
+### Message Flow - Offline Telemetry Buffering
+
+```mermaid
+sequenceDiagram
+    participant DB as DATA_BROKER
+    participant TEL as Telemetry Publisher
+    participant BUF as Offline Buffer
+    participant MQTT as MQTT Client
+    participant CG as CLOUD_GATEWAY
+    
+    Note over MQTT,CG: Connection Lost
+    DB->>TEL: VSS Signal Change
+    TEL->>MQTT: Check Connection
+    MQTT-->>TEL: Disconnected
+    TEL->>BUF: Buffer Message
+    BUF->>BUF: Evict if full (FIFO)
+    
+    Note over MQTT,CG: Connection Restored
+    MQTT-->>TEL: Connected
+    TEL->>BUF: Drain Buffer
+    BUF-->>TEL: Buffered Messages (chronological)
+    loop For each buffered message
+        TEL->>CG: MQTT: vehicles/{VIN}/telemetry
+    end
+    TEL->>CG: Resume Real-time Publishing
+```
+
+### Message Flow - Certificate Hot-Reload
+
+```mermaid
+sequenceDiagram
+    participant FS as File System
+    participant CW as Certificate Watcher
+    participant MQTT as MQTT Client
+    participant LOG as Logger
+    
+    FS->>CW: File Change Notification
+    CW->>CW: Load New Certificate
+    alt Valid Certificate
+        CW->>MQTT: Update TLS Context
+        CW->>LOG: Log Success + Expiry Date
+    else Invalid Certificate
+        CW->>LOG: Log Error (keep existing cert)
+    end
 ```
 
 ## Components and Interfaces
@@ -142,7 +194,7 @@ sequenceDiagram
 
 #### MqttClient
 
-Manages the MQTT connection with TLS and automatic reconnection.
+Manages the MQTT connection with TLS, automatic reconnection, and certificate hot-reload.
 
 ```rust
 pub struct MqttClient {
@@ -150,6 +202,7 @@ pub struct MqttClient {
     event_loop: rumqttc::EventLoop,
     config: MqttConfig,
     connection_state: Arc<RwLock<ConnectionState>>,
+    cert_watcher: CertificateWatcher,
 }
 
 impl MqttClient {
@@ -158,6 +211,7 @@ impl MqttClient {
     pub async fn subscribe(&self, topic: &str) -> Result<(), MqttError>;
     pub async fn publish(&self, topic: &str, payload: &[u8]) -> Result<(), MqttError>;
     pub async fn disconnect(&self) -> Result<(), MqttError>;
+    pub fn is_connected(&self) -> bool;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -166,6 +220,69 @@ pub enum ConnectionState {
     Connecting,
     Connected,
     Reconnecting { attempt: u32 },
+}
+```
+
+#### CertificateWatcher
+
+Monitors TLS certificate files for changes and triggers hot-reload without service restart.
+
+```rust
+pub struct CertificateWatcher {
+    watcher: notify::RecommendedWatcher,
+    cert_paths: CertificatePaths,
+    current_certs: Arc<RwLock<LoadedCertificates>>,
+    logger: Logger,
+}
+
+#[derive(Debug, Clone)]
+pub struct CertificatePaths {
+    pub ca_cert_path: PathBuf,
+    pub client_cert_path: PathBuf,
+    pub client_key_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadedCertificates {
+    pub ca_cert: Vec<u8>,
+    pub client_cert: Vec<u8>,
+    pub client_key: Vec<u8>,
+    pub expiry_date: Option<DateTime<Utc>>,
+    pub loaded_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CertReloadEvent {
+    pub timestamp: DateTime<Utc>,
+    pub status: CertReloadStatus,
+    pub cert_path: String,
+    pub expiry_date: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum CertReloadStatus {
+    Success,
+    Failed,
+}
+
+impl CertificateWatcher {
+    pub fn new(paths: CertificatePaths, logger: Logger) -> Result<Self, CertWatcherError>;
+    
+    /// Starts watching certificate files for changes
+    pub async fn start(&mut self) -> Result<(), CertWatcherError>;
+    
+    /// Handles file system notification and attempts certificate reload
+    async fn handle_cert_change(&mut self, path: &Path) -> CertReloadEvent;
+    
+    /// Attempts to load and validate a certificate file
+    fn load_certificate(&self, path: &Path) -> Result<Vec<u8>, CertLoadError>;
+    
+    /// Extracts expiry date from X.509 certificate
+    fn extract_expiry_date(&self, cert_data: &[u8]) -> Option<DateTime<Utc>>;
+    
+    /// Returns current loaded certificates (for TLS context rebuild)
+    pub fn get_current_certs(&self) -> LoadedCertificates;
 }
 ```
 
@@ -272,7 +389,7 @@ pub struct SignalUpdate {
 
 #### TelemetryPublisher
 
-Batches and publishes telemetry to MQTT.
+Batches and publishes telemetry to MQTT with offline buffering support.
 
 ```rust
 pub struct TelemetryPublisher {
@@ -281,12 +398,20 @@ pub struct TelemetryPublisher {
     signal_rx: mpsc::Receiver<SignalUpdate>,
     current_state: TelemetryState,
     publish_interval: Duration,
+    offline_buffer: OfflineTelemetryBuffer,
 }
 
 impl TelemetryPublisher {
     /// Runs the telemetry publishing loop
     /// Batches updates and publishes at most once per publish_interval
+    /// Buffers messages when MQTT is offline
     pub async fn run(&mut self) -> Result<(), TelemetryError>;
+    
+    /// Attempts to publish telemetry, buffering if offline
+    async fn publish_or_buffer(&mut self, telemetry: Telemetry) -> Result<(), TelemetryError>;
+    
+    /// Drains offline buffer when connection is restored
+    async fn drain_offline_buffer(&mut self) -> Result<(), TelemetryError>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -298,6 +423,56 @@ pub struct TelemetryState {
     pub parking_session_active: Option<bool>,
     pub last_updated: Option<SystemTime>,
 }
+```
+
+#### OfflineTelemetryBuffer
+
+Manages buffering of telemetry messages during MQTT connection outages.
+
+```rust
+pub struct OfflineTelemetryBuffer {
+    buffer: VecDeque<BufferedTelemetry>,
+    max_messages: usize,
+    max_age: Duration,
+}
+
+#[derive(Debug, Clone)]
+pub struct BufferedTelemetry {
+    pub telemetry: Telemetry,
+    pub buffered_at: Instant,
+}
+
+impl OfflineTelemetryBuffer {
+    /// Creates a new buffer with specified limits
+    /// Default: max 100 messages, max 60 seconds age
+    pub fn new(max_messages: usize, max_age: Duration) -> Self;
+    
+    /// Adds a telemetry message to the buffer
+    /// Evicts oldest messages if buffer is full (FIFO)
+    /// Also evicts messages older than max_age
+    pub fn push(&mut self, telemetry: Telemetry);
+    
+    /// Returns all buffered messages in chronological order and clears buffer
+    pub fn drain(&mut self) -> Vec<Telemetry>;
+    
+    /// Returns current buffer size
+    pub fn len(&self) -> usize;
+    
+    /// Returns true if buffer is empty
+    pub fn is_empty(&self) -> bool;
+    
+    /// Evicts messages that exceed max_age
+    fn evict_expired(&mut self);
+}
+
+impl Default for OfflineTelemetryBuffer {
+    fn default() -> Self {
+        Self {
+            buffer: VecDeque::new(),
+            max_messages: 100,
+            max_age: Duration::from_secs(60),
+        }
+    }
 ```
 
 ## Data Models
@@ -511,6 +686,30 @@ pub enum MqttError {
     #[error("Publish failed: {0}")]
     PublishFailed(String),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum CertWatcherError {
+    #[error("Failed to initialize file watcher: {0}")]
+    WatcherInitFailed(String),
+    
+    #[error("Failed to watch path: {0}")]
+    WatchPathFailed(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CertLoadError {
+    #[error("Certificate file not found: {0}")]
+    FileNotFound(String),
+    
+    #[error("Permission denied: {0}")]
+    PermissionDenied(String),
+    
+    #[error("Invalid certificate format: {0}")]
+    InvalidFormat(String),
+    
+    #[error("Certificate parsing failed: {0}")]
+    ParseFailed(String),
+}
 ```
 
 ### VSS Signal Paths
@@ -547,9 +746,13 @@ pub enum EventType {
     CommandCompleted,
     ResponsePublished,
     TelemetryPublished,
+    TelemetryBuffered,
+    TelemetryBufferDrained,
     DataBrokerConnected,
     DataBrokerDisconnected,
     SignalReceived,
+    CertReloadSuccess,
+    CertReloadFailed,
     ShutdownInitiated,
     ShutdownCompleted,
 }
@@ -659,6 +862,42 @@ Based on the prework analysis, the following properties can be verified through 
 
 **Validates: Requirements 9.4**
 
+### Property 17: Certificate Hot-Reload on File Change
+
+*For any* valid certificate file update on disk, the CertificateWatcher SHALL detect the change and reload the certificate without requiring a service restart. The new certificate SHALL be used for subsequent TLS connections.
+
+**Validates: Requirements 1.6**
+
+### Property 18: Certificate Reload Failure Resilience
+
+*For any* invalid certificate file (malformed, wrong format, permission denied), the CertificateWatcher SHALL continue using the existing valid certificate and SHALL NOT disrupt the current MQTT connection.
+
+**Validates: Requirements 1.7**
+
+### Property 19: Certificate Reload Event Logging
+
+*For any* certificate reload attempt (success or failure), the log entry SHALL contain: timestamp, reload status (success/failed), certificate path, and for successful reloads the certificate expiry date.
+
+**Validates: Requirements 1.8**
+
+### Property 20: Offline Telemetry Buffer Limits
+
+*For any* sequence of telemetry messages generated while MQTT is offline, the OfflineTelemetryBuffer SHALL contain at most 100 messages AND no message older than 60 seconds, whichever limit is reached first.
+
+**Validates: Requirements 7.6**
+
+### Property 21: Offline Buffer FIFO Eviction
+
+*For any* sequence of telemetry messages that exceeds the buffer capacity, the OfflineTelemetryBuffer SHALL evict the oldest messages first (FIFO order) to make room for new messages.
+
+**Validates: Requirements 7.7**
+
+### Property 22: Buffered Message Chronological Publishing
+
+*For any* set of buffered telemetry messages, when the MQTT connection is restored, the messages SHALL be published in chronological order (oldest first) before resuming real-time publishing.
+
+**Validates: Requirements 7.8**
+
 ## Error Handling
 
 ### Error Code Mapping
@@ -743,6 +982,128 @@ async fn reconnect_with_backoff(&mut self) -> Result<(), MqttError> {
 }
 ```
 
+### Certificate Hot-Reload Handler
+
+```rust
+impl CertificateWatcher {
+    async fn handle_cert_change(&mut self, path: &Path) -> CertReloadEvent {
+        let timestamp = Utc::now();
+        
+        match self.load_certificate(path) {
+            Ok(cert_data) => {
+                let expiry_date = self.extract_expiry_date(&cert_data);
+                
+                // Update the current certificates
+                let mut certs = self.current_certs.write().await;
+                if path == self.cert_paths.ca_cert_path {
+                    certs.ca_cert = cert_data;
+                } else if path == self.cert_paths.client_cert_path {
+                    certs.client_cert = cert_data;
+                } else if path == self.cert_paths.client_key_path {
+                    certs.client_key = cert_data;
+                }
+                certs.expiry_date = expiry_date;
+                certs.loaded_at = timestamp;
+                
+                let event = CertReloadEvent {
+                    timestamp,
+                    status: CertReloadStatus::Success,
+                    cert_path: path.to_string_lossy().to_string(),
+                    expiry_date,
+                    error_message: None,
+                };
+                
+                self.logger.log_cert_reload(&event);
+                event
+            }
+            Err(e) => {
+                // Keep existing certificate, log error
+                let event = CertReloadEvent {
+                    timestamp,
+                    status: CertReloadStatus::Failed,
+                    cert_path: path.to_string_lossy().to_string(),
+                    expiry_date: None,
+                    error_message: Some(e.to_string()),
+                };
+                
+                self.logger.log_cert_reload(&event);
+                event
+            }
+        }
+    }
+}
+```
+
+### Offline Telemetry Buffer Management
+
+```rust
+impl OfflineTelemetryBuffer {
+    pub fn push(&mut self, telemetry: Telemetry) {
+        // First, evict expired messages
+        self.evict_expired();
+        
+        // If buffer is full, evict oldest (FIFO)
+        while self.buffer.len() >= self.max_messages {
+            self.buffer.pop_front();
+        }
+        
+        // Add new message
+        self.buffer.push_back(BufferedTelemetry {
+            telemetry,
+            buffered_at: Instant::now(),
+        });
+    }
+    
+    pub fn drain(&mut self) -> Vec<Telemetry> {
+        // Evict expired before draining
+        self.evict_expired();
+        
+        // Return messages in chronological order (oldest first)
+        self.buffer
+            .drain(..)
+            .map(|bt| bt.telemetry)
+            .collect()
+    }
+    
+    fn evict_expired(&mut self) {
+        let now = Instant::now();
+        self.buffer.retain(|bt| now.duration_since(bt.buffered_at) < self.max_age);
+    }
+}
+
+impl TelemetryPublisher {
+    async fn publish_or_buffer(&mut self, telemetry: Telemetry) -> Result<(), TelemetryError> {
+        if self.mqtt_client.is_connected() {
+            // Drain any buffered messages first (chronological order)
+            if !self.offline_buffer.is_empty() {
+                self.drain_offline_buffer().await?;
+            }
+            
+            // Publish current telemetry
+            let payload = serde_json::to_vec(&telemetry)?;
+            let topic = format!("vehicles/{}/telemetry", self.vin);
+            self.mqtt_client.publish(&topic, &payload).await?;
+        } else {
+            // Buffer for later
+            self.offline_buffer.push(telemetry);
+        }
+        Ok(())
+    }
+    
+    async fn drain_offline_buffer(&mut self) -> Result<(), TelemetryError> {
+        let buffered = self.offline_buffer.drain();
+        let topic = format!("vehicles/{}/telemetry", self.vin);
+        
+        for telemetry in buffered {
+            let payload = serde_json::to_vec(&telemetry)?;
+            self.mqtt_client.publish(&topic, &payload).await?;
+        }
+        Ok(())
+    }
+}
+```
+```
+
 ### Graceful Shutdown Handler
 
 ```rust
@@ -804,6 +1165,8 @@ rhivos/cloud-gateway-client/
 │   ├── forwarder.rs
 │   ├── response.rs
 │   ├── telemetry.rs
+│   ├── offline_buffer.rs
+│   ├── cert_watcher.rs
 │   ├── config.rs
 │   └── error.rs
 └── tests/
@@ -811,7 +1174,9 @@ rhivos/cloud-gateway-client/
     │   ├── mqtt_test.rs
     │   ├── validator_test.rs
     │   ├── forwarder_test.rs
-    │   └── telemetry_test.rs
+    │   ├── telemetry_test.rs
+    │   ├── offline_buffer_test.rs
+    │   └── cert_watcher_test.rs
     └── property/
         ├── backoff_properties.rs      # Property 1
         ├── parsing_properties.rs      # Properties 2, 3, 4
@@ -819,7 +1184,9 @@ rhivos/cloud-gateway-client/
         ├── forwarding_properties.rs   # Properties 8, 9
         ├── response_properties.rs     # Properties 10, 11, 12
         ├── telemetry_properties.rs    # Properties 13, 14
-        └── config_properties.rs       # Properties 15, 16
+        ├── config_properties.rs       # Properties 15, 16
+        ├── cert_reload_properties.rs  # Properties 17, 18, 19
+        └── offline_buffer_properties.rs # Properties 20, 21, 22
 ```
 
 ### Property Test Examples
@@ -922,6 +1289,109 @@ proptest! {
         prop_assert!(published_count <= max_expected + 1); // +1 for initial publish
     }
 }
+
+// Property 17: Certificate Hot-Reload on File Change
+proptest! {
+    /// Feature: cloud-gateway-client, Property 17: Certificate Hot-Reload on File Change
+    #[test]
+    fn cert_hot_reload_on_valid_change(
+        cert_data in prop::collection::vec(any::<u8>(), 100..1000),
+    ) {
+        let valid_cert = create_valid_test_certificate(&cert_data);
+        let watcher = create_test_cert_watcher();
+        
+        let event = watcher.handle_cert_change_sync(&valid_cert.path);
+        
+        prop_assert_eq!(event.status, CertReloadStatus::Success);
+        prop_assert!(event.expiry_date.is_some());
+        prop_assert!(watcher.get_current_certs().loaded_at > event.timestamp - Duration::from_secs(1));
+    }
+}
+
+// Property 18: Certificate Reload Failure Resilience
+proptest! {
+    /// Feature: cloud-gateway-client, Property 18: Certificate Reload Failure Resilience
+    #[test]
+    fn cert_reload_failure_keeps_existing(
+        invalid_data in prop::collection::vec(any::<u8>(), 10..100)
+            .prop_filter("not valid cert", |d| !is_valid_certificate(d)),
+    ) {
+        let watcher = create_test_cert_watcher_with_valid_cert();
+        let original_cert = watcher.get_current_certs().clone();
+        
+        let event = watcher.handle_invalid_cert_change(&invalid_data);
+        
+        prop_assert_eq!(event.status, CertReloadStatus::Failed);
+        prop_assert!(event.error_message.is_some());
+        // Verify existing cert is still in use
+        prop_assert_eq!(watcher.get_current_certs().ca_cert, original_cert.ca_cert);
+    }
+}
+
+// Property 20: Offline Telemetry Buffer Limits
+proptest! {
+    /// Feature: cloud-gateway-client, Property 20: Offline Telemetry Buffer Limits
+    #[test]
+    fn offline_buffer_respects_limits(
+        num_messages in 1usize..500,
+    ) {
+        let mut buffer = OfflineTelemetryBuffer::new(100, Duration::from_secs(60));
+        
+        for i in 0..num_messages {
+            buffer.push(create_test_telemetry(i));
+        }
+        
+        prop_assert!(buffer.len() <= 100);
+    }
+}
+
+// Property 21: Offline Buffer FIFO Eviction
+proptest! {
+    /// Feature: cloud-gateway-client, Property 21: Offline Buffer FIFO Eviction
+    #[test]
+    fn offline_buffer_fifo_eviction(
+        num_messages in 101usize..300,
+    ) {
+        let mut buffer = OfflineTelemetryBuffer::new(100, Duration::from_secs(60));
+        
+        for i in 0..num_messages {
+            buffer.push(create_test_telemetry_with_id(i));
+        }
+        
+        let drained = buffer.drain();
+        
+        // Should have exactly 100 messages (the newest ones)
+        prop_assert_eq!(drained.len(), 100);
+        
+        // First message should be (num_messages - 100), last should be (num_messages - 1)
+        let expected_first_id = num_messages - 100;
+        prop_assert!(drained[0].contains_id(expected_first_id));
+        prop_assert!(drained[99].contains_id(num_messages - 1));
+    }
+}
+
+// Property 22: Buffered Message Chronological Publishing
+proptest! {
+    /// Feature: cloud-gateway-client, Property 22: Buffered Message Chronological Publishing
+    #[test]
+    fn buffered_messages_chronological_order(
+        num_messages in 1usize..100,
+    ) {
+        let mut buffer = OfflineTelemetryBuffer::new(100, Duration::from_secs(60));
+        
+        for i in 0..num_messages {
+            buffer.push(create_test_telemetry_with_timestamp(i));
+            std::thread::sleep(Duration::from_millis(1)); // Ensure distinct timestamps
+        }
+        
+        let drained = buffer.drain();
+        
+        // Verify chronological order (oldest first)
+        for i in 1..drained.len() {
+            prop_assert!(drained[i-1].timestamp <= drained[i].timestamp);
+        }
+    }
+}
 ```
 
 ### Unit Test Coverage
@@ -934,6 +1404,10 @@ Unit tests focus on:
 - Mock DATA_BROKER signal subscription
 - Telemetry batching behavior
 - Configuration loading from environment
+- Certificate file loading and validation edge cases
+- Certificate expiry date extraction
+- Offline buffer boundary conditions (exactly 100 messages, exactly 60 seconds)
+- Buffer eviction timing edge cases
 
 ### Integration Testing
 
@@ -943,3 +1417,6 @@ Integration tests verify:
 - Telemetry flows from DATA_BROKER subscription → batching → MQTT publish
 - Graceful shutdown completes in-flight operations
 - Reconnection behavior with simulated disconnects
+- Certificate hot-reload with file system changes
+- Offline buffer draining on reconnection
+- Telemetry ordering after connection restoration
