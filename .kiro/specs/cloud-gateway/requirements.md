@@ -2,9 +2,12 @@
 
 ## Introduction
 
-This document defines the requirements for the CLOUD_GATEWAY component of the SDV Parking Demo System. The CLOUD_GATEWAY is a Go backend service deployed on OpenShift that acts as an MQTT broker/router for vehicle-to-cloud communication. It bridges commands from the COMPANION_APP to vehicles and routes telemetry from vehicles to interested clients.
+This document defines the requirements for the CLOUD_GATEWAY component of the SDV Parking Demo System. The CLOUD_GATEWAY is a Go backend service deployed on OpenShift that acts as a bridge for vehicle-to-cloud communication. It provides two distinct interfaces:
 
-The service accepts MQTT connections from vehicles (via CLOUD_GATEWAY_CLIENT), provides REST APIs for the COMPANION_APP to send commands and query vehicle state, and manages the routing of messages between these endpoints.
+1. **REST API Interface (Northbound)**: Serves the COMPANION_APP for remote vehicle control and status queries via HTTPS/REST
+2. **MQTT Interface (Southbound)**: Communicates with vehicles via the CLOUD_GATEWAY_CLIENT through an Eclipse Mosquitto MQTT broker
+
+The service translates REST API requests from the COMPANION_APP into MQTT messages for vehicles, and routes MQTT telemetry/responses from vehicles back to REST API consumers.
 
 ## Glossary
 
@@ -24,53 +27,68 @@ The service accepts MQTT connections from vehicles (via CLOUD_GATEWAY_CLIENT), p
 
 ## Requirements
 
-### Requirement 1: MQTT Broker Integration
+### Requirement 15: Dual Interface Architecture
+
+**User Story:** As a system architect, I want the CLOUD_GATEWAY to expose two distinct interfaces (REST API and MQTT), so that it can bridge communication between mobile clients and vehicles.
+
+#### Acceptance Criteria
+
+1. THE CLOUD_GATEWAY SHALL expose a REST API interface (Northbound) for COMPANION_APP communication over HTTPS
+2. THE CLOUD_GATEWAY SHALL maintain an MQTT client connection (Southbound) to communicate with vehicles via Eclipse_Mosquitto broker
+3. THE REST API interface SHALL support command submission, command status queries, and telemetry queries
+4. THE MQTT interface SHALL support publishing commands to vehicles and subscribing to command responses and telemetry
+5. THE CLOUD_GATEWAY SHALL translate REST API command requests into MQTT messages for vehicle delivery
+6. THE CLOUD_GATEWAY SHALL translate MQTT telemetry messages into REST API responses for client consumption
+7. THE two interfaces SHALL operate independently such that REST API availability is not affected by temporary MQTT disconnections (cached data remains queryable)
+8. THE CLOUD_GATEWAY SHALL report interface health separately in readiness checks (mqtt_connected status)
+
+### Requirement 1: MQTT Broker Integration (Southbound Interface)
 
 **User Story:** As a system integrator, I want the CLOUD_GATEWAY to connect to an MQTT broker, so that it can route messages between vehicles and clients.
 
 #### Acceptance Criteria
 
 1. WHEN the CLOUD_GATEWAY starts THEN it SHALL connect to the Eclipse_Mosquitto broker using configured connection parameters
-2. THE CLOUD_GATEWAY SHALL subscribe to `vehicles/{VIN}/command_responses` topic to receive command responses from vehicles
-3. THE CLOUD_GATEWAY SHALL subscribe to `vehicles/{VIN}/telemetry` topic to receive telemetry from vehicles
+2. THE CLOUD_GATEWAY SHALL subscribe to `vehicles/{VIN}/command_responses` topic to receive command responses from CLOUD_GATEWAY_CLIENT
+3. THE CLOUD_GATEWAY SHALL subscribe to `vehicles/{VIN}/telemetry` topic to receive telemetry from CLOUD_GATEWAY_CLIENT
 4. WHEN the MQTT connection is lost THEN the CLOUD_GATEWAY SHALL attempt reconnection with exponential backoff starting at 1 second and capping at 30 seconds
 5. WHEN reconnection succeeds THEN the CLOUD_GATEWAY SHALL resubscribe to all required topics
 
-### Requirement 2: Command Submission API
+### Requirement 2: Command Submission API (Northbound Interface)
 
 **User Story:** As a COMPANION_APP user, I want to send lock/unlock commands to my vehicle via REST API, so that I can remotely control my vehicle's doors.
 
 #### Acceptance Criteria
 
-1. WHEN the CLOUD_GATEWAY receives a POST /api/v1/vehicles/{vin}/commands request THEN it SHALL create a new command and publish it to the vehicle
+1. WHEN the CLOUD_GATEWAY receives a POST /api/v1/vehicles/{vin}/commands request from COMPANION_APP THEN it SHALL create a new command and publish it to the vehicle via MQTT
 2. THE request body SHALL accept command_type ("lock" or "unlock"), doors (array of "driver" or "all"), and auth_token fields
 3. WHEN a command is created THEN the CLOUD_GATEWAY SHALL generate a unique command_id and return it in the response
 4. THE response SHALL include command_id and status fields where status is initially "pending"
-5. WHEN the command is published to MQTT THEN the CLOUD_GATEWAY SHALL publish to `vehicles/{VIN}/commands` topic
+5. WHEN the command is published to MQTT THEN the CLOUD_GATEWAY SHALL publish to `vehicles/{VIN}/commands` topic for CLOUD_GATEWAY_CLIENT consumption
 6. IF command_type is not "lock" or "unlock" THEN the CLOUD_GATEWAY SHALL return HTTP 400 with validation error
 7. IF auth_token is missing or empty THEN the CLOUD_GATEWAY SHALL return HTTP 400 with validation error
 8. IF the VIN does not match the configured vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
 
-### Requirement 3: Command Status Query API
+### Requirement 3: Command Status Query API (Northbound Interface)
 
 **User Story:** As a COMPANION_APP user, I want to check the status of my command, so that I know whether my lock/unlock request succeeded.
 
 #### Acceptance Criteria
 
-1. WHEN the CLOUD_GATEWAY receives a GET /api/v1/vehicles/{vin}/commands/{command_id} request THEN it SHALL return the current command status
+1. WHEN the CLOUD_GATEWAY receives a GET /api/v1/vehicles/{vin}/commands/{command_id} request from COMPANION_APP THEN it SHALL return the current command status
 2. THE response SHALL include command_id, command_type, status, and created_at fields
 3. WHEN the command has completed THEN the response SHALL include completed_at field
 4. WHEN the command has failed THEN the response SHALL include error_code and error_message fields
 5. IF the command_id does not exist THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
 6. IF the VIN does not match the configured vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
 
-### Requirement 4: Command Response Processing
+### Requirement 4: Command Response Processing (Southbound Interface)
 
-**User Story:** As a system integrator, I want command responses from vehicles to update command status, so that clients can track command completion.
+**User Story:** As a system integrator, I want command responses from CLOUD_GATEWAY_CLIENT to update command status, so that COMPANION_APP clients can track command completion.
 
 #### Acceptance Criteria
 
-1. WHEN a message is received on `vehicles/{VIN}/command_responses` topic THEN the CLOUD_GATEWAY SHALL parse the JSON payload
+1. WHEN a message is received on `vehicles/{VIN}/command_responses` topic from CLOUD_GATEWAY_CLIENT THEN the CLOUD_GATEWAY SHALL parse the JSON payload
 2. WHEN the response contains a valid command_id THEN the CLOUD_GATEWAY SHALL update the stored command status
 3. WHEN the response status is "success" THEN the CLOUD_GATEWAY SHALL set command status to "success"
 4. WHEN the response status is "failed" THEN the CLOUD_GATEWAY SHALL set command status to "failed" and store error details
@@ -84,9 +102,9 @@ The service accepts MQTT connections from vehicles (via CLOUD_GATEWAY_CLIENT), p
 #### Acceptance Criteria
 
 1. WHEN a command is created THEN the CLOUD_GATEWAY SHALL start a timeout timer of 30 seconds
-2. IF no response is received within the timeout period THEN the CLOUD_GATEWAY SHALL set command status to "timeout"
+2. IF no response is received from CLOUD_GATEWAY_CLIENT within the timeout period THEN the CLOUD_GATEWAY SHALL set command status to "timeout"
 3. WHEN a command times out THEN the CLOUD_GATEWAY SHALL set error_code to "TIMEOUT" and error_message to "Vehicle did not respond within timeout period"
-4. IF a response arrives after timeout THEN the CLOUD_GATEWAY SHALL log a warning and discard the late response
+4. IF a response arrives from CLOUD_GATEWAY_CLIENT after timeout THEN the CLOUD_GATEWAY SHALL log a warning and discard the late response
 
 ### Requirement 6: Telemetry Storage and Query API
 
@@ -94,15 +112,15 @@ The service accepts MQTT connections from vehicles (via CLOUD_GATEWAY_CLIENT), p
 
 #### Acceptance Criteria
 
-1. WHEN a message is received on `vehicles/{VIN}/telemetry` topic THEN the CLOUD_GATEWAY SHALL parse and store the telemetry data
+1. WHEN a message is received on `vehicles/{VIN}/telemetry` topic from CLOUD_GATEWAY_CLIENT THEN the CLOUD_GATEWAY SHALL parse and store the telemetry data (Southbound)
 2. THE stored telemetry SHALL include timestamp, latitude, longitude, door_locked, door_open, and parking_session_active fields
-3. WHEN the CLOUD_GATEWAY receives a GET /api/v1/vehicles/{vin}/telemetry request THEN it SHALL return the latest stored telemetry
+3. WHEN the CLOUD_GATEWAY receives a GET /api/v1/vehicles/{vin}/telemetry request from COMPANION_APP THEN it SHALL return the latest stored telemetry (Northbound)
 4. THE telemetry response SHALL include all stored telemetry fields plus a received_at timestamp
-5. IF no telemetry has been received for the vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
+5. IF no telemetry has been received from CLOUD_GATEWAY_CLIENT for the vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
 6. IF the VIN does not match the configured vehicle THEN the CLOUD_GATEWAY SHALL return HTTP 404 with error message
-7. IF the telemetry payload is malformed THEN the CLOUD_GATEWAY SHALL log an error and discard the message
+7. IF the telemetry payload from CLOUD_GATEWAY_CLIENT is malformed THEN the CLOUD_GATEWAY SHALL log an error and discard the message
 
-### Requirement 7: Health Check Endpoint
+### Requirement 7: Health Check Endpoint (Northbound Interface)
 
 **User Story:** As an OpenShift operator, I want to check if the service is running, so that I can monitor service health.
 
@@ -112,16 +130,16 @@ The service accepts MQTT connections from vehicles (via CLOUD_GATEWAY_CLIENT), p
 2. THE health response SHALL include service name and current timestamp
 3. THE health endpoint SHALL respond within 100ms under normal conditions
 
-### Requirement 8: Readiness Check Endpoint
+### Requirement 8: Readiness Check Endpoint (Northbound Interface)
 
 **User Story:** As an OpenShift operator, I want to check if the service is ready to accept traffic, so that I can manage load balancing.
 
 #### Acceptance Criteria
 
 1. WHEN the CLOUD_GATEWAY receives a GET /ready request THEN it SHALL return HTTP 200 if ready to serve requests
-2. THE readiness check SHALL verify that the MQTT broker connection is established
+2. THE readiness check SHALL verify that the MQTT broker connection (Southbound interface) is established
 3. IF the MQTT connection is not established THEN the CLOUD_GATEWAY SHALL return HTTP 503 with status "not ready"
-4. THE readiness response SHALL include mqtt_connected boolean field
+4. THE readiness response SHALL include mqtt_connected boolean field indicating Southbound interface status
 
 ### Requirement 9: Configuration Management
 

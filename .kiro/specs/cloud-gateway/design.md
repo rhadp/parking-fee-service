@@ -2,9 +2,12 @@
 
 ## Overview
 
-The CLOUD_GATEWAY is a Go backend service deployed on OpenShift that acts as an MQTT broker/router for vehicle-to-cloud communication. It bridges commands from the COMPANION_APP to vehicles and routes telemetry from vehicles to interested clients.
+The CLOUD_GATEWAY is a Go backend service deployed on OpenShift that acts as a bridge for vehicle-to-cloud communication. It provides two distinct interfaces:
 
-The service connects to an Eclipse Mosquitto MQTT broker to communicate with vehicles (via CLOUD_GATEWAY_CLIENT), and exposes REST APIs for the COMPANION_APP to send lock/unlock commands and query vehicle state. Commands and telemetry are stored in-memory for the demo scope.
+1. **REST API Interface (Northbound)**: Serves the COMPANION_APP for remote vehicle control and status queries via HTTPS/REST
+2. **MQTT Interface (Southbound)**: Communicates with vehicles via the CLOUD_GATEWAY_CLIENT through an Eclipse Mosquitto MQTT broker
+
+The service translates REST API requests from the COMPANION_APP into MQTT messages for vehicles, and routes MQTT telemetry/responses from vehicles back to REST API consumers. Commands and telemetry are stored in-memory for the demo scope.
 
 ## Architecture
 
@@ -25,9 +28,43 @@ flowchart TB
         CGC[CLOUD_GATEWAY_CLIENT]
     end
     
-    CA -->|"HTTPS/REST<br/>commands, telemetry"| CG
-    CG <-->|"MQTT over TLS<br/>pub/sub"| MQ
+    CA -->|"HTTPS/REST<br/>(Northbound)<br/>commands, telemetry queries"| CG
+    CG <-->|"MQTT over TLS<br/>(Southbound)<br/>pub/sub"| MQ
     CGC <-->|"MQTT over TLS<br/>pub/sub"| MQ
+```
+
+### Dual Interface Architecture
+
+```mermaid
+flowchart LR
+    subgraph Northbound["Northbound Interface (REST API)"]
+        direction TB
+        CA[COMPANION_APP]
+        REST[REST API<br/>HTTPS]
+    end
+    
+    subgraph Gateway["CLOUD_GATEWAY"]
+        direction TB
+        TRANS[Protocol<br/>Translation]
+        STORE[In-Memory<br/>Storage]
+    end
+    
+    subgraph Southbound["Southbound Interface (MQTT)"]
+        direction TB
+        MQTT[MQTT Client<br/>TLS]
+        MQ[Mosquitto<br/>Broker]
+    end
+    
+    subgraph Vehicle["Vehicle"]
+        CGC[CLOUD_GATEWAY_CLIENT]
+    end
+    
+    CA -->|"POST commands<br/>GET status/telemetry"| REST
+    REST --> TRANS
+    TRANS --> STORE
+    TRANS --> MQTT
+    MQTT <--> MQ
+    MQ <--> CGC
 ```
 
 ### Internal Architecture
@@ -35,27 +72,35 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph CloudGateway["CLOUD_GATEWAY"]
-        HTTP[HTTP Server<br/>net/http]
-        ROUTER[Router<br/>gorilla/mux]
-        
-        subgraph Handlers["Request Handlers"]
-            CH[Command Handler]
-            TH[Telemetry Handler]
-            HH[Health Handler]
+        subgraph NorthboundLayer["Northbound Layer (REST API)"]
+            HTTP[HTTP Server<br/>net/http]
+            ROUTER[Router<br/>gorilla/mux]
+            MW[Middleware<br/>Logging/RequestID]
+            
+            subgraph Handlers["Request Handlers"]
+                CH[Command Handler]
+                TH[Telemetry Handler]
+                HH[Health Handler]
+            end
         end
         
-        subgraph Services["Business Logic"]
-            CS[Command Service]
-            TS[Telemetry Service]
+        subgraph CoreLayer["Core Layer (Business Logic)"]
+            subgraph Services["Services"]
+                CS[Command Service]
+                TS[Telemetry Service]
+            end
+            
+            subgraph Stores["Data Stores"]
+                CST[Command Store<br/>In-Memory]
+                TST[Telemetry Store<br/>In-Memory]
+            end
         end
         
-        subgraph Stores["Data Stores"]
-            CST[Command Store<br/>In-Memory]
-            TST[Telemetry Store<br/>In-Memory]
+        subgraph SouthboundLayer["Southbound Layer (MQTT)"]
+            MQTT[MQTT Client<br/>paho.mqtt.golang]
+            MQTTH[MQTT Message<br/>Handlers]
         end
         
-        MQTT[MQTT Client<br/>paho.mqtt.golang]
-        MW[Middleware<br/>Logging/RequestID]
         CFG[Config]
         LOG[Logger]
         AUDIT[Audit Logger]
@@ -75,7 +120,9 @@ flowchart TB
     CS --> AUDIT
     TS --> TST
     TS --> AUDIT
-    MQTT --> TS
+    MQTT --> MQTTH
+    MQTTH --> CS
+    MQTTH --> TS
     MQTT --> AUDIT
 ```
 
@@ -84,26 +131,32 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     participant CA as COMPANION_APP
-    participant CG as CLOUD_GATEWAY
+    participant NB as Northbound (REST)
+    participant CG as CLOUD_GATEWAY Core
+    participant SB as Southbound (MQTT)
     participant MQ as Mosquitto
     participant CGC as CLOUD_GATEWAY_CLIENT
     participant LS as LOCKING_SERVICE
     
-    CA->>CG: POST /api/v1/vehicles/{vin}/commands
+    CA->>NB: POST /api/v1/vehicles/{vin}/commands
+    NB->>CG: Create command
     CG->>CG: Generate command_id, store command
-    CG->>MQ: Publish to vehicles/{VIN}/commands
-    CG-->>CA: 200 OK {command_id, status: "pending"}
+    CG->>SB: Publish command
+    SB->>MQ: Publish to vehicles/{VIN}/commands
+    NB-->>CA: 200 OK {command_id, status: "pending"}
     
     MQ->>CGC: Deliver command message
     CGC->>LS: Forward lock command (gRPC)
     LS-->>CGC: Lock result
     CGC->>MQ: Publish to vehicles/{VIN}/command_responses
     
-    MQ->>CG: Deliver response message
+    MQ->>SB: Deliver response message
+    SB->>CG: Handle command response
     CG->>CG: Update command status
     
-    CA->>CG: GET /api/v1/vehicles/{vin}/commands/{command_id}
-    CG-->>CA: 200 OK {status: "success"}
+    CA->>NB: GET /api/v1/vehicles/{vin}/commands/{command_id}
+    NB->>CG: Get command status
+    NB-->>CA: 200 OK {status: "success"}
 ```
 
 ### Message Flow: Telemetry
@@ -112,20 +165,30 @@ sequenceDiagram
 sequenceDiagram
     participant CGC as CLOUD_GATEWAY_CLIENT
     participant MQ as Mosquitto
-    participant CG as CLOUD_GATEWAY
+    participant SB as Southbound (MQTT)
+    participant CG as CLOUD_GATEWAY Core
+    participant NB as Northbound (REST)
     participant CA as COMPANION_APP
     
     CGC->>MQ: Publish to vehicles/{VIN}/telemetry
-    MQ->>CG: Deliver telemetry message
+    MQ->>SB: Deliver telemetry message
+    SB->>CG: Handle telemetry message
     CG->>CG: Parse and store telemetry
     
-    CA->>CG: GET /api/v1/vehicles/{vin}/telemetry
-    CG-->>CA: 200 OK {location, door_status, ...}
+    CA->>NB: GET /api/v1/vehicles/{vin}/telemetry
+    NB->>CG: Get latest telemetry
+    NB-->>CA: 200 OK {location, door_status, ...}
 ```
 
 ## Components and Interfaces
 
-### REST API Endpoints
+### Northbound Interface (REST API)
+
+The Northbound interface serves the COMPANION_APP via HTTPS/REST. It provides endpoints for:
+- Command submission (lock/unlock)
+- Command status queries
+- Telemetry queries
+- Health and readiness checks
 
 #### Command Submission
 
@@ -269,9 +332,16 @@ Response 503:
 }
 ```
 
-### MQTT Topics
+### Southbound Interface (MQTT)
 
-#### Commands to Vehicle (Publish)
+The Southbound interface communicates with vehicles via the CLOUD_GATEWAY_CLIENT through an Eclipse Mosquitto MQTT broker. It handles:
+- Publishing commands to vehicles
+- Subscribing to command responses from vehicles
+- Subscribing to telemetry from vehicles
+
+#### MQTT Topics
+
+#### Commands to Vehicle (Publish to CLOUD_GATEWAY_CLIENT)
 
 ```
 Topic: vehicles/{VIN}/commands
@@ -286,7 +356,7 @@ Message:
 }
 ```
 
-#### Command Responses from Vehicle (Subscribe)
+#### Command Responses from Vehicle (Subscribe from CLOUD_GATEWAY_CLIENT)
 
 ```
 Topic: vehicles/{VIN}/command_responses
@@ -301,7 +371,7 @@ Message:
 }
 ```
 
-#### Telemetry from Vehicle (Subscribe)
+#### Telemetry from Vehicle (Subscribe from CLOUD_GATEWAY_CLIENT)
 
 ```
 Topic: vehicles/{VIN}/telemetry
@@ -319,9 +389,11 @@ Message:
 
 ### Internal Components
 
-#### CommandHandler
+#### Northbound Layer Components
 
-Handles REST API requests for commands.
+##### CommandHandler
+
+Handles REST API requests for commands (Northbound).
 
 ```go
 type CommandHandler struct {
@@ -332,16 +404,16 @@ type CommandHandler struct {
 
 func NewCommandHandler(commandService *CommandService, vin string, logger *slog.Logger) *CommandHandler
 
-// HandleSubmitCommand handles POST /api/v1/vehicles/{vin}/commands
+// HandleSubmitCommand handles POST /api/v1/vehicles/{vin}/commands (Northbound)
 func (h *CommandHandler) HandleSubmitCommand(w http.ResponseWriter, r *http.Request)
 
-// HandleGetCommandStatus handles GET /api/v1/vehicles/{vin}/commands/{command_id}
+// HandleGetCommandStatus handles GET /api/v1/vehicles/{vin}/commands/{command_id} (Northbound)
 func (h *CommandHandler) HandleGetCommandStatus(w http.ResponseWriter, r *http.Request)
 ```
 
-#### TelemetryHandler
+##### TelemetryHandler
 
-Handles REST API requests for telemetry.
+Handles REST API requests for telemetry (Northbound).
 
 ```go
 type TelemetryHandler struct {
@@ -352,13 +424,13 @@ type TelemetryHandler struct {
 
 func NewTelemetryHandler(telemetryService *TelemetryService, vin string, logger *slog.Logger) *TelemetryHandler
 
-// HandleGetTelemetry handles GET /api/v1/vehicles/{vin}/telemetry
+// HandleGetTelemetry handles GET /api/v1/vehicles/{vin}/telemetry (Northbound)
 func (h *TelemetryHandler) HandleGetTelemetry(w http.ResponseWriter, r *http.Request)
 ```
 
-#### HealthHandler
+##### HealthHandler
 
-Handles health and readiness checks.
+Handles health and readiness checks (Northbound).
 
 ```go
 type HealthHandler struct {
@@ -368,21 +440,23 @@ type HealthHandler struct {
 
 func NewHealthHandler(mqttClient MQTTClient, logger *slog.Logger) *HealthHandler
 
-// HandleHealth handles GET /health
+// HandleHealth handles GET /health (Northbound)
 func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request)
 
-// HandleReady handles GET /ready
+// HandleReady handles GET /ready - reports Southbound (MQTT) connection status (Northbound)
 func (h *HealthHandler) HandleReady(w http.ResponseWriter, r *http.Request)
 ```
 
-#### CommandService
+#### Core Layer Components
 
-Business logic for command operations.
+##### CommandService
+
+Business logic for command operations. Bridges Northbound requests to Southbound MQTT.
 
 ```go
 type CommandService struct {
     store          *CommandStore
-    mqttClient     MQTTClient
+    mqttClient     MQTTClient  // Southbound interface
     configuredVIN  string
     commandTimeout time.Duration
     logger         *slog.Logger
@@ -391,24 +465,24 @@ type CommandService struct {
 
 func NewCommandService(store *CommandStore, mqttClient MQTTClient, vin string, timeout time.Duration, logger *slog.Logger) *CommandService
 
-// SubmitCommand creates a new command and publishes it to MQTT
+// SubmitCommand creates a new command and publishes it to MQTT (Northbound → Southbound)
 // Returns the created command with pending status
 func (s *CommandService) SubmitCommand(req *SubmitCommandRequest) (*Command, error)
 
-// GetCommandStatus returns the current status of a command
+// GetCommandStatus returns the current status of a command (Northbound query)
 // Returns nil if command not found
 func (s *CommandService) GetCommandStatus(commandID string) *Command
 
-// HandleCommandResponse processes a command response from the vehicle
+// HandleCommandResponse processes a command response from CLOUD_GATEWAY_CLIENT (Southbound → Core)
 func (s *CommandService) HandleCommandResponse(response *CommandResponse)
 
 // StartTimeoutChecker starts a goroutine to check for timed-out commands
 func (s *CommandService) StartTimeoutChecker(ctx context.Context)
 ```
 
-#### TelemetryService
+##### TelemetryService
 
-Business logic for telemetry operations.
+Business logic for telemetry operations. Stores Southbound data for Northbound queries.
 
 ```go
 type TelemetryService struct {
@@ -418,33 +492,35 @@ type TelemetryService struct {
 
 func NewTelemetryService(store *TelemetryStore, logger *slog.Logger) *TelemetryService
 
-// GetLatestTelemetry returns the latest telemetry for a vehicle
+// GetLatestTelemetry returns the latest telemetry for a vehicle (Northbound query)
 // Returns nil if no telemetry has been received
 func (s *TelemetryService) GetLatestTelemetry(vin string) *Telemetry
 
-// HandleTelemetryMessage processes a telemetry message from the vehicle
+// HandleTelemetryMessage processes a telemetry message from CLOUD_GATEWAY_CLIENT (Southbound → Core)
 func (s *TelemetryService) HandleTelemetryMessage(vin string, msg *TelemetryMessage)
 ```
 
-#### MQTTClient
+#### Southbound Layer Components
 
-Interface for MQTT operations.
+##### MQTTClient
+
+Interface for MQTT operations (Southbound interface to CLOUD_GATEWAY_CLIENT).
 
 ```go
 type MQTTClient interface {
-    // Connect establishes connection to the MQTT broker
+    // Connect establishes connection to the MQTT broker (Southbound)
     Connect() error
     
-    // Disconnect cleanly disconnects from the broker
+    // Disconnect cleanly disconnects from the broker (Southbound)
     Disconnect()
     
-    // IsConnected returns true if connected to the broker
+    // IsConnected returns true if connected to the broker (Southbound status)
     IsConnected() bool
     
-    // Subscribe subscribes to a topic with a message handler
+    // Subscribe subscribes to a topic with a message handler (Southbound - receive from CLOUD_GATEWAY_CLIENT)
     Subscribe(topic string, handler MessageHandler) error
     
-    // Publish publishes a message to a topic
+    // Publish publishes a message to a topic (Southbound - send to CLOUD_GATEWAY_CLIENT)
     Publish(topic string, payload []byte) error
 }
 
@@ -460,9 +536,32 @@ type MQTTClientImpl struct {
 func NewMQTTClient(config *MQTTConfig, logger *slog.Logger) *MQTTClientImpl
 ```
 
-#### CommandStore
+##### MQTTMessageHandlers
 
-In-memory storage for commands.
+Handlers for processing messages received from CLOUD_GATEWAY_CLIENT via MQTT.
+
+```go
+// MQTTMessageHandlers processes incoming MQTT messages from CLOUD_GATEWAY_CLIENT
+type MQTTMessageHandlers struct {
+    commandService   *CommandService
+    telemetryService *TelemetryService
+    logger           *slog.Logger
+}
+
+func NewMQTTMessageHandlers(cs *CommandService, ts *TelemetryService, logger *slog.Logger) *MQTTMessageHandlers
+
+// HandleCommandResponse processes command responses from CLOUD_GATEWAY_CLIENT
+func (h *MQTTMessageHandlers) HandleCommandResponse(topic string, payload []byte)
+
+// HandleTelemetry processes telemetry messages from CLOUD_GATEWAY_CLIENT
+func (h *MQTTMessageHandlers) HandleTelemetry(topic string, payload []byte)
+```
+
+#### Storage Components
+
+##### CommandStore
+
+In-memory storage for commands. Stores commands created via Northbound and updated via Southbound.
 
 ```go
 type CommandStore struct {
@@ -474,22 +573,22 @@ type CommandStore struct {
 
 func NewCommandStore(maxSize int) *CommandStore
 
-// Save stores a command
+// Save stores a command (called when command created via Northbound)
 func (s *CommandStore) Save(cmd *Command)
 
-// Get retrieves a command by ID
+// Get retrieves a command by ID (called for Northbound status queries)
 func (s *CommandStore) Get(commandID string) *Command
 
-// Update updates an existing command
+// Update updates an existing command (called when Southbound response received)
 func (s *CommandStore) Update(cmd *Command)
 
-// GetPendingCommands returns all commands with pending status
+// GetPendingCommands returns all commands with pending status (for timeout checking)
 func (s *CommandStore) GetPendingCommands() []*Command
 ```
 
-#### TelemetryStore
+##### TelemetryStore
 
-In-memory storage for telemetry.
+In-memory storage for telemetry. Stores data received via Southbound for Northbound queries.
 
 ```go
 type TelemetryStore struct {
@@ -499,29 +598,33 @@ type TelemetryStore struct {
 
 func NewTelemetryStore() *TelemetryStore
 
-// Save stores telemetry for a vehicle (overwrites previous)
+// Save stores telemetry for a vehicle (called when Southbound telemetry received from CLOUD_GATEWAY_CLIENT)
 func (s *TelemetryStore) Save(vin string, telemetry *Telemetry)
 
-// Get retrieves the latest telemetry for a vehicle
+// Get retrieves the latest telemetry for a vehicle (called for Northbound queries from COMPANION_APP)
 func (s *TelemetryStore) Get(vin string) *Telemetry
 ```
 
-#### Middleware
+#### Middleware Components
 
-Request middleware for logging and request ID.
+##### Middleware
+
+Request middleware for logging and request ID (Northbound layer).
 
 ```go
-// RequestIDMiddleware adds a unique request ID to each request
+// RequestIDMiddleware adds a unique request ID to each request (Northbound)
 func RequestIDMiddleware(next http.Handler) http.Handler
 
-// LoggingMiddleware logs request details and duration
+// LoggingMiddleware logs request details and duration (Northbound)
 func LoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler
 
 // GetRequestID extracts request ID from context
 func GetRequestID(ctx context.Context) string
 ```
 
-#### AuditLogger
+#### Audit Components
+
+##### AuditLogger
 
 Handles security-relevant audit logging for compliance and incident investigation.
 
@@ -929,6 +1032,18 @@ Based on the prework analysis, the following properties can be verified through 
 *For any* complete command lifecycle (submission → status changes → completion/timeout), the audit logs SHALL contain sufficient detail to reconstruct the sequence of events including all status transitions with timestamps.
 
 **Validates: Requirements 14.10**
+
+### Property 18: Interface Independence
+
+*For any* temporary MQTT disconnection (Southbound), the REST API (Northbound) SHALL remain available for querying cached command status and telemetry data. New command submissions SHALL fail gracefully with appropriate error response when MQTT is disconnected.
+
+**Validates: Requirements 15.7, 15.8**
+
+### Property 19: Protocol Translation Correctness
+
+*For any* command submitted via REST API (Northbound), the MQTT message published (Southbound) SHALL contain equivalent command_id, command_type, doors, and auth_token fields. The translation SHALL be bidirectional - command responses received via MQTT SHALL correctly update the command status queryable via REST API.
+
+**Validates: Requirements 15.5, 15.6**
 
 ## Error Handling
 
