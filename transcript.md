@@ -8,7 +8,7 @@ PRD.md "good enough" to move to Phase 1
 
 ---
 In Kiro, with Opus 4.5:
-C: 120
+Credits at start: 120
 
 "Read and analyze PRD.md. Before you start to create a new specm aks clarifiying questions if needed."
 
