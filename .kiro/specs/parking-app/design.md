@@ -190,6 +190,23 @@ interface DataBrokerClient {
      * @param maxAttempts Maximum reconnection attempts (default 5)
      */
     suspend fun reconnect(maxAttempts: Int = 5): Result<Unit>
+    
+    /**
+     * Connection state flow for monitoring gRPC connectivity
+     * When connection is lost, UI should show "not available" state
+     */
+    val connectionState: StateFlow<GrpcConnectionState>
+}
+
+/**
+ * gRPC connection state for RHIVOS services
+ * When DISCONNECTED or FAILED, the app displays "not available" overlay
+ */
+enum class GrpcConnectionState {
+    CONNECTED,      // Normal operation
+    DISCONNECTED,   // Connection lost, attempting reconnect
+    RECONNECTING,   // Actively reconnecting with backoff
+    FAILED          // All reconnection attempts exhausted
 }
 
 data class LocationUpdate(
@@ -198,6 +215,36 @@ data class LocationUpdate(
     val timestamp: Long
 )
 ```
+
+### Offline Behavior
+
+When the gRPC connection to RHIVOS services is lost, the app displays a "not available" overlay:
+
+```kotlin
+/**
+ * Offline state management for RHIVOS connectivity
+ * The app monitors gRPC connection state and displays appropriate UI
+ */
+data class OfflineState(
+    val isOffline: Boolean,
+    val reason: OfflineReason,
+    val lastConnectedTimestamp: Long?
+)
+
+enum class OfflineReason {
+    NONE,                    // Connected normally
+    DATA_BROKER_UNAVAILABLE, // Cannot reach DATA_BROKER
+    UPDATE_SERVICE_UNAVAILABLE, // Cannot reach UPDATE_SERVICE
+    ADAPTOR_UNAVAILABLE,     // Cannot reach PARKING_OPERATOR_ADAPTOR
+    NETWORK_ERROR            // General network connectivity issue
+}
+```
+
+When offline:
+- A semi-transparent overlay displays "Parking Service Not Available"
+- The underlying screen remains visible but non-interactive
+- Automatic reconnection attempts continue in background
+- When connection is restored, overlay dismisses automatically
 
 #### UpdateServiceClient
 
@@ -405,10 +452,12 @@ class SessionRepository(
     suspend fun getSessionStatus(): Result<SessionStatus?>
     
     /**
-     * Polls session status at regular intervals
-     * @param intervalMs Polling interval in milliseconds (default 30000)
+     * Polls session status at high frequency for responsive UI
+     * @param intervalMs Polling interval in milliseconds (default 100ms = 10 updates/sec)
+     * 
+     * Note: Minimum 10 updates/second required for responsive UI feedback
      */
-    fun pollSessionStatus(intervalMs: Long = 30_000L): Flow<SessionStatus?>
+    fun pollSessionStatus(intervalMs: Long = 100L): Flow<SessionStatus?>
 }
 ```
 
@@ -483,7 +532,10 @@ data class ParkingUiState(
     val finalSession: FinalSessionInfo? = null,
     val error: ParkingError? = null,
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
-    val isMockMode: Boolean = false
+    val isMockMode: Boolean = false,
+    // Offline state: when true, shows "not available" overlay
+    val isOffline: Boolean = false,
+    val offlineReason: OfflineReason = OfflineReason.NONE
 )
 
 enum class ParkingScreen {
@@ -492,6 +544,17 @@ enum class ParkingScreen {
     SESSION_ACTIVE,
     SESSION_ENDED,
     ERROR
+}
+
+/**
+ * Reason for offline state - displayed to user in overlay
+ */
+enum class OfflineReason {
+    NONE,                    // Connected normally
+    DATA_BROKER_UNAVAILABLE, // Cannot reach DATA_BROKER
+    UPDATE_SERVICE_UNAVAILABLE, // Cannot reach UPDATE_SERVICE
+    ADAPTOR_UNAVAILABLE,     // Cannot reach PARKING_OPERATOR_ADAPTOR
+    NETWORK_ERROR            // General network connectivity issue
 }
 
 data class FinalSessionInfo(
@@ -661,7 +724,8 @@ data class AppConfig(
     val zoneLookupBaseDelayMs: Long = 1000,
     
     // Polling configuration
-    val sessionPollIntervalMs: Long = 30_000,
+    // UI update rate: minimum 10 updates/second (100ms interval)
+    val sessionPollIntervalMs: Long = 100,
     
     // Mock mode
     val mockLocationEnabled: Boolean = BuildConfig.DEBUG
@@ -785,7 +849,7 @@ Based on the prework analysis, the following properties can be verified through 
 *For any* active parking session:
 1. The PARKING_APP SHALL query PARKING_OPERATOR_ADAPTOR for session status
 2. The UI SHALL display session_id, zone_id, duration_seconds, and current_cost
-3. Status queries SHALL occur at 30-second intervals while session is active
+3. Status queries SHALL occur at minimum 10 updates per second (100ms interval) while session is active
 4. If session state is ERROR, the UI SHALL transition to ERROR screen with the error message
 
 **Validates: Requirements 5.1, 5.2, 5.3, 5.4**
@@ -840,6 +904,22 @@ Based on the prework analysis, the following properties can be verified through 
 *For any* app restart (cold start after termination), the PARKING_APP SHALL query PARKING_OPERATOR_ADAPTOR for existing active session before starting signal subscriptions. If an active session exists, the UI SHALL display SESSION_ACTIVE screen.
 
 **Validates: Requirements 10.3, 10.4**
+
+### Property 17: Offline State Display
+
+*For any* gRPC connection loss to RHIVOS services (DATA_BROKER, UPDATE_SERVICE, or PARKING_OPERATOR_ADAPTOR), the PARKING_APP SHALL:
+1. Set isOffline to true in UI state
+2. Display a "not available" overlay on the current screen
+3. Continue reconnection attempts in background
+4. Automatically dismiss the overlay when connection is restored
+
+**Validates: Requirements 1.3, 1.4**
+
+### Property 18: UI Update Rate Compliance
+
+*For any* active parking session, the session status polling SHALL occur at minimum 10 updates per second (maximum 100ms between updates). The UI SHALL reflect the latest session data within 100ms of receiving it.
+
+**Validates: Requirements 5.3**
 
 ## Error Handling
 
@@ -975,7 +1055,9 @@ android/parking-app/
 │                       ├── ErrorMappingPropertyTest.kt         # Property 10
 │                       ├── UiStatePropertyTest.kt              # Properties 11, 12
 │                       ├── MockLocationPropertyTest.kt         # Property 13
-│                       └── LifecyclePropertyTest.kt            # Properties 14, 15, 16
+│                       ├── LifecyclePropertyTest.kt            # Properties 14, 15, 16
+│                       ├── OfflineStatePropertyTest.kt         # Property 17
+│                       └── UpdateRatePropertyTest.kt           # Property 18
 ```
 
 ### Property Test Examples

@@ -66,6 +66,8 @@ This implementation plan covers the Kotlin Android Automotive OS application for
     - Implement `startSubscriptions()` with reconnection logic
     - Implement exponential backoff for DATA_BROKER reconnection (max 5 attempts)
     - Expose `connectionState` flow for UI feedback
+    - Set `isOffline=true` in UI state when gRPC connection lost
+    - Auto-restore `isOffline=false` when connection re-established
     - _Requirements: 1.2, 1.3, 1.4, 2.2, 2.3_
   
   - [ ] 5.2 Write property test for location storage
@@ -92,7 +94,7 @@ This implementation plan covers the Kotlin Android Automotive OS application for
   
   - [ ] 5.7 Implement SessionRepository
     - Create `SessionRepository` for session status queries
-    - Implement `getSessionStatus()` and `pollSessionStatus()` with 30-second interval
+    - Implement `getSessionStatus()` and `pollSessionStatus()` with 100ms interval (10 updates/sec)
     - _Requirements: 5.1, 5.3, 6.1_
 
 - [ ] 6. Checkpoint - Ensure all repository tests pass
@@ -135,6 +137,14 @@ This implementation plan covers the Kotlin Android Automotive OS application for
   - [ ] 7.8 Write property test for mock location mode
     - **Property 13: Mock Location Mode**
     - **Validates: Requirements 9.1**
+  
+  - [ ] 7.9 Write property test for offline state display
+    - **Property 17: Offline State Display**
+    - **Validates: Requirements 1.3, 1.4**
+  
+  - [ ] 7.10 Write property test for UI update rate compliance
+    - **Property 18: UI Update Rate Compliance**
+    - **Validates: Requirements 5.3**
 
 - [ ] 8. Checkpoint - Ensure all ViewModel tests pass
   - Ensure all tests pass, ask the user if questions arise.
@@ -160,8 +170,8 @@ This implementation plan covers the Kotlin Android Automotive OS application for
   
   - [ ] 9.4 Implement SessionActiveScreen
     - Display zone name, hourly rate, current duration, current cost
-    - Auto-refresh display based on session status polling
-    - _Requirements: 5.2_
+    - Auto-refresh display at 10 updates/second (100ms polling) for responsive UI
+    - _Requirements: 5.2, 5.3_
   
   - [ ] 9.5 Implement SessionEndedScreen
     - Display final duration and final cost
@@ -177,6 +187,12 @@ This implementation plan covers the Kotlin Android Automotive OS application for
     - Create `ProgressIndicator` composable for loading states
     - Create `ErrorMessage` composable for error display
     - _Requirements: 8.4_
+  
+  - [ ] 9.8 Implement offline overlay
+    - Create `OfflineOverlay` composable showing "Parking Service Not Available"
+    - Display semi-transparent overlay when gRPC connection lost
+    - Auto-dismiss when connection restored
+    - _Requirements: 1.3, 1.4_
 
 - [ ] 10. Implement lifecycle handling
   - [ ] 10.1 Implement background/foreground handling
