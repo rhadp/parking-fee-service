@@ -278,7 +278,6 @@ CloudGateway -->|"via Secure Gateway ECU"| CloudGatewayClient
 
 CloudGatewayClient -->|"validated command"| LockingService
 CloudGatewayClient -->|"telemetry publish"| CloudGateway
-CloudGatewayClient -->|"read: vehicle state"| DataBroker
 
 LockingService -->|"write: lock/unlock events"| DataBroker
 
