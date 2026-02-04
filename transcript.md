@@ -38,3 +38,11 @@ use claude code to be a critic of the design after completing the docs.
 
 "read the prd.md document and make sure you understand it. Then traverse the requirements, design and task documents in folder .kiro/. and analyze and understand them as well. The documents in .kiro/ will guide the implementation of the system. now make sure they are complete,    
   consisten etc. point out any issues, gaps or make sugestions what COULD be changed or improved. create a markdown document in .kiro with your findings."
+
+Credits after review phase:
+
+---
+use claude code to verify component cohesion:
+
+"The documents in .kiro/ will guide the implementation of the system. Read the requirements, design and task documents in folder .kiro/. and analyze and understand them. Now verify the component's communicational cohesion. look for inconsistencies in the messaging between the components."
+

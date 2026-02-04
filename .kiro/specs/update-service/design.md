@@ -2,9 +2,9 @@
 
 ## Overview
 
-The UPDATE_SERVICE is a Rust service running in the RHIVOS QM partition that manages the lifecycle of containerized parking operator adapters. It provides on-demand container image pulling from an OCI registry, manifest validation, container lifecycle management via podman, and real-time state streaming to clients.
+The UPDATE_SERVICE is a Rust service running in the RHIVOS QM partition that manages the lifecycle of containerized parking operator adapters. It provides on-demand container image pulling from an OCI registry, attestation validation for container verification, container lifecycle management via podman, and real-time state streaming to clients.
 
-The service receives requests from PARKING_APP via gRPC over TCP/TLS (cross-domain communication), pulls container images from the REGISTRY using HTTPS/OCI protocol, and manages adapter containers using podman/crun. It tracks adapter states and provides streaming updates to enable reactive UI updates in the PARKING_APP.
+The service receives requests from PARKING_APP via gRPC over TCP/TLS (cross-domain communication), pulls container images from the REGISTRY using HTTPS/OCI protocol, and manages adapter containers using podman/crun. It fetches and validates attestations from the registry to verify container authenticity before installation. It tracks adapter states and provides streaming updates to enable reactive UI updates in the PARKING_APP.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ flowchart TB
         CMD[Request Handler]
         AUTH[Registry Authenticator]
         DL[Image Downloader]
-        VAL[Manifest Validator]
+        ATT[Attestation Validator]
         CM[Container Manager]
         ST[State Tracker]
         WATCH[Watcher Manager]
@@ -56,15 +56,15 @@ flowchart TB
     CMD --> DL
     DL --> AUTH
     AUTH --> DL
-    DL --> VAL
-    VAL --> CM
+    DL --> ATT
+    ATT --> CM
     CM --> ST
     ST --> WATCH
     OFF --> CM
     CMD --> LOG
     AUTH --> LOG
     DL --> LOG
-    VAL --> LOG
+    ATT --> LOG
     CM --> LOG
     ST --> LOG
 ```
@@ -78,11 +78,12 @@ flowchart TB
 5. **State Initialization**: Create adapter entry with DOWNLOADING state, log state transition
 6. **Authentication**: Obtain Bearer token from registry token endpoint (if credentials configured)
 7. **Image Download**: Pull OCI image from REGISTRY with retry logic, log container pull operation
-8. **Manifest Validation**: Verify checksum and required fields
-9. **Container Installation**: Install container using podman, log install operation
-10. **Container Startup**: Start container with DATA_BROKER network access, log start operation
-11. **State Update**: Transition to RUNNING, log state transition, and emit state event
-12. **Response**: Return InstallAdapterResponse with current state
+8. **Attestation Fetch**: Retrieve attestation from registry for the downloaded image
+9. **Attestation Validation**: Verify attestation signature and subject digest matches image
+10. **Container Installation**: Install container using podman, log install operation
+11. **Container Startup**: Start container with DATA_BROKER network access, log start operation
+12. **State Update**: Transition to RUNNING, log state transition, and emit state event
+13. **Response**: Return InstallAdapterResponse with current state
 
 ## Components and Interfaces
 
@@ -165,7 +166,7 @@ Main service implementation handling gRPC requests.
 pub struct UpdateServiceImpl {
     state_tracker: Arc<StateTracker>,
     image_downloader: ImageDownloader,
-    manifest_validator: ManifestValidator,
+    attestation_validator: AttestationValidator,
     container_manager: ContainerManager,
     watcher_manager: Arc<WatcherManager>,
     config: ServiceConfig,
@@ -279,41 +280,62 @@ pub struct DownloadedImage {
 }
 ```
 
-#### ManifestValidator
+#### AttestationValidator
 
-Validates container manifests for integrity and completeness.
+Fetches and validates container attestations from the registry to verify container authenticity.
 
 ```rust
-pub struct ManifestValidator;
+pub struct AttestationValidator {
+    http_client: reqwest::Client,
+    authenticator: RegistryAuthenticator,
+}
 
-impl ManifestValidator {
-    /// Validates manifest checksum matches expected digest
-    pub fn validate_checksum(
+impl AttestationValidator {
+    /// Fetches attestation from registry for the given image digest
+    pub async fn fetch_attestation(
         &self,
-        manifest_path: &Path,
-        expected_digest: &str,
+        registry_url: &str,
+        image_digest: &str,
+    ) -> Result<Attestation, ValidationError>;
+    
+    /// Validates attestation signature and subject digest
+    pub fn validate(
+        &self,
+        attestation: &Attestation,
+        expected_image_digest: &str,
     ) -> Result<(), ValidationError>;
     
-    /// Validates manifest contains required fields
+    /// Validates attestation contains required fields
     pub fn validate_structure(
         &self,
-        manifest_path: &Path,
-    ) -> Result<OciManifest, ValidationError>;
+        attestation: &Attestation,
+    ) -> Result<(), ValidationError>;
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OciManifest {
-    pub schema_version: u32,
-    pub media_type: String,
-    pub config: OciDescriptor,
-    pub layers: Vec<OciDescriptor>,
+pub struct Attestation {
+    pub payload_type: String,
+    pub payload: AttestationPayload,
+    pub signatures: Vec<AttestationSignature>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OciDescriptor {
-    pub media_type: String,
-    pub digest: String,
-    pub size: u64,
+pub struct AttestationPayload {
+    pub subject: Vec<AttestationSubject>,
+    pub predicate_type: String,
+    pub predicate: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AttestationSubject {
+    pub name: String,
+    pub digest: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AttestationSignature {
+    pub keyid: String,
+    pub sig: String,
 }
 ```
 
@@ -607,7 +629,7 @@ pub enum UpdateError {
     #[error("Download failed: {0}")]
     DownloadError(String),
     
-    #[error("Manifest validation failed: {0}")]
+    #[error("Attestation validation failed: {0}")]
     ValidationError(String),
     
     #[error("Container operation failed: {0}")]
@@ -625,11 +647,17 @@ pub enum UpdateError {
     #[error("Invalid registry URL: {0}")]
     InvalidRegistryUrl(String),
     
-    #[error("Checksum mismatch: expected {expected}, got {actual}")]
-    ChecksumMismatch { expected: String, actual: String },
+    #[error("Attestation subject digest mismatch: expected {expected}, got {actual}")]
+    AttestationDigestMismatch { expected: String, actual: String },
     
-    #[error("Missing manifest field: {0}")]
-    MissingManifestField(String),
+    #[error("Invalid attestation signature")]
+    InvalidAttestationSignature,
+    
+    #[error("Missing attestation field: {0}")]
+    MissingAttestationField(String),
+    
+    #[error("Attestation not found for image")]
+    AttestationNotFound,
     
     #[error("Authentication failed: {0}")]
     AuthenticationFailed(String),
@@ -683,15 +711,15 @@ Based on the prework analysis, the following properties can be verified through 
 
 **Validates: Requirements 2.3, 4.2, 4.3**
 
-### Property 7: Checksum Validation
+### Property 7: Attestation Verification
 
-*For any* downloaded container image, if the manifest checksum does not match the expected SHA256 digest, the UPDATE_SERVICE SHALL reject the image, transition state to ERROR, and the downloaded content SHALL be deleted.
+*For any* downloaded container image, if the attestation verification fails (invalid signature, missing attestation, or subject digest mismatch), the UPDATE_SERVICE SHALL reject the image, transition state to ERROR, and the downloaded content SHALL be deleted.
 
 **Validates: Requirements 3.1, 3.2**
 
-### Property 8: Manifest Structure Validation
+### Property 8: Attestation Structure Validation
 
-*For any* container manifest missing required fields (config, layers, or mediaType), the UPDATE_SERVICE SHALL reject the image and transition the adapter state to ERROR with a message indicating the missing field.
+*For any* container attestation missing required fields (subject digest, predicate type, or signature), the UPDATE_SERVICE SHALL reject the image and transition the adapter state to ERROR with a message indicating the missing field.
 
 **Validates: Requirements 3.3, 3.4**
 
@@ -800,8 +828,10 @@ Based on the prework analysis, the following properties can be verified through 
 | Invalid/malformed registry URL | INVALID_ARGUMENT (3) | INVALID_REGISTRY_URL |
 | Registry unreachable | UNAVAILABLE (14) | REGISTRY_UNAVAILABLE |
 | Download failed after retries | UNAVAILABLE (14) | DOWNLOAD_FAILED |
-| Checksum mismatch | FAILED_PRECONDITION (9) | CHECKSUM_MISMATCH |
-| Missing manifest fields | FAILED_PRECONDITION (9) | INVALID_MANIFEST |
+| Attestation digest mismatch | FAILED_PRECONDITION (9) | ATTESTATION_DIGEST_MISMATCH |
+| Invalid attestation signature | FAILED_PRECONDITION (9) | INVALID_ATTESTATION_SIGNATURE |
+| Missing attestation fields | FAILED_PRECONDITION (9) | INVALID_ATTESTATION |
+| Attestation not found | FAILED_PRECONDITION (9) | ATTESTATION_NOT_FOUND |
 | Container start failed | INTERNAL (13) | CONTAINER_START_FAILED |
 | Adapter not found | NOT_FOUND (5) | ADAPTER_NOT_FOUND |
 | Adapter already exists | ALREADY_EXISTS (6) | ADAPTER_ALREADY_EXISTS |
@@ -824,15 +854,21 @@ impl From<UpdateError> for tonic::Status {
             UpdateError::DownloadError(msg) => {
                 Status::unavailable(format!("Download failed: {}", msg))
             }
-            UpdateError::ChecksumMismatch { expected, actual } => {
+            UpdateError::AttestationDigestMismatch { expected, actual } => {
                 Status::failed_precondition(
-                    format!("Checksum mismatch: expected {}, got {}", expected, actual)
+                    format!("Attestation subject digest mismatch: expected {}, got {}", expected, actual)
                 )
             }
-            UpdateError::MissingManifestField(field) => {
+            UpdateError::InvalidAttestationSignature => {
+                Status::failed_precondition("Invalid attestation signature")
+            }
+            UpdateError::MissingAttestationField(field) => {
                 Status::failed_precondition(
-                    format!("Missing manifest field: {}", field)
+                    format!("Missing attestation field: {}", field)
                 )
+            }
+            UpdateError::AttestationNotFound => {
+                Status::failed_precondition("Attestation not found for image")
             }
             UpdateError::ContainerError(msg) => {
                 Status::internal(format!("Container error: {}", msg))
@@ -913,7 +949,7 @@ rhivos/update-service/
 │   ├── service.rs
 │   ├── downloader.rs
 │   ├── authenticator.rs
-│   ├── validator.rs
+│   ├── attestation.rs
 │   ├── container.rs
 │   ├── state.rs
 │   ├── watcher.rs
@@ -923,14 +959,14 @@ rhivos/update-service/
     ├── unit/
     │   ├── downloader_test.rs
     │   ├── authenticator_test.rs
-    │   ├── validator_test.rs
+    │   ├── attestation_test.rs
     │   ├── container_test.rs
     │   ├── state_test.rs
     │   └── logger_test.rs
     └── property/
         ├── install_properties.rs     # Properties 1-4
         ├── download_properties.rs    # Properties 5-6
-        ├── validation_properties.rs  # Properties 7-8
+        ├── attestation_properties.rs # Properties 7-8
         ├── container_properties.rs   # Property 9
         ├── state_properties.rs       # Properties 10, 14
         ├── watcher_properties.rs     # Properties 11-13
@@ -980,28 +1016,28 @@ proptest! {
     }
 }
 
-// Property 7: Checksum Validation
+// Property 7: Attestation Verification
 proptest! {
-    /// Feature: update-service, Property 7: Checksum Validation
+    /// Feature: update-service, Property 7: Attestation Verification
     #[test]
-    fn checksum_mismatch_rejects_image(
+    fn attestation_digest_mismatch_rejects_image(
         expected_digest in "sha256:[a-f0-9]{64}",
         actual_digest in "sha256:[a-f0-9]{64}",
     ) {
         prop_assume!(expected_digest != actual_digest);
         
-        let validator = ManifestValidator::new();
-        let manifest = create_test_manifest(&actual_digest);
+        let validator = AttestationValidator::new();
+        let attestation = create_test_attestation(&actual_digest);
         
-        let result = validator.validate_checksum(&manifest, &expected_digest);
+        let result = validator.validate(&attestation, &expected_digest);
         
         prop_assert!(result.is_err());
         match result.unwrap_err() {
-            ValidationError::ChecksumMismatch { expected, actual } => {
+            ValidationError::AttestationDigestMismatch { expected, actual } => {
                 prop_assert_eq!(expected, expected_digest);
                 prop_assert_eq!(actual, actual_digest);
             }
-            _ => prop_assert!(false, "Expected ChecksumMismatch error"),
+            _ => prop_assert!(false, "Expected AttestationDigestMismatch error"),
         }
     }
 }

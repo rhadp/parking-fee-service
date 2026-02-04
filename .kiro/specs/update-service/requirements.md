@@ -4,7 +4,7 @@
 
 This document defines the requirements for the UPDATE_SERVICE component of the SDV Parking Demo System. The UPDATE_SERVICE is a Rust service running in the RHIVOS QM partition that manages the lifecycle of containerized parking operator adapters.
 
-The service receives adapter installation requests from the PARKING_APP via gRPC over TCP/TLS, pulls OCI container images from the REGISTRY, validates container manifests, manages adapter container lifecycle using podman/crun, and provides streaming state updates to clients.
+The service receives adapter installation requests from the PARKING_APP via gRPC over TCP/TLS, pulls OCI container images from the REGISTRY, validates container attestations from the registry, manages adapter container lifecycle using podman/crun, and provides streaming state updates to clients.
 
 ## Glossary
 
@@ -14,7 +14,7 @@ The service receives adapter installation requests from the PARKING_APP via gRPC
 - **REGISTRY**: OCI-compliant container registry (Google Artifact Registry) storing validated adapter images
 - **OCI**: Open Container Initiative - standard for container image format and distribution
 - **Adapter_State**: Current state of an adapter (DOWNLOADING, INSTALLING, RUNNING, STOPPED, ERROR)
-- **Manifest**: Container image metadata including layers, config, and checksums
+- **Attestation**: Cryptographic proof created during container build, stored in the container registry, used to verify container authenticity and integrity
 - **Checksum**: SHA256 digest used to verify container image integrity
 - **podman**: Daemonless container engine for running OCI containers
 - **crun**: Lightweight OCI runtime for container execution
@@ -48,16 +48,16 @@ The service receives adapter installation requests from the PARKING_APP via gRPC
 4. IF a download fails due to network error THEN the UPDATE_SERVICE SHALL retry up to 3 times with exponential backoff
 5. IF all download retries fail THEN the UPDATE_SERVICE SHALL transition the adapter state to ERROR and include the failure reason
 
-### Requirement 3: Container Manifest Validation
+### Requirement 3: Container Attestation Validation
 
-**User Story:** As a security engineer, I want container manifests to be validated before installation, so that only verified adapters are installed.
+**User Story:** As a security engineer, I want container attestations to be validated before installation, so that only verified adapters are installed.
 
 #### Acceptance Criteria
 
-1. WHEN a container image is downloaded THEN the UPDATE_SERVICE SHALL verify the manifest checksum matches the expected SHA256 digest
-2. IF the manifest checksum verification fails THEN the UPDATE_SERVICE SHALL reject the image, transition state to ERROR, and delete the downloaded content
-3. THE UPDATE_SERVICE SHALL validate that the manifest contains required fields (config, layers, mediaType)
-4. IF the manifest is missing required fields THEN the UPDATE_SERVICE SHALL reject the image and transition state to ERROR
+1. WHEN a container image is downloaded THEN the UPDATE_SERVICE SHALL fetch and verify the attestation from the container registry
+2. IF the attestation verification fails (invalid signature, missing attestation, or checksum mismatch) THEN the UPDATE_SERVICE SHALL reject the image, transition state to ERROR, and delete the downloaded content
+3. THE UPDATE_SERVICE SHALL validate that the attestation contains required fields (subject digest, predicate type, signature)
+4. IF the attestation is missing required fields or the subject digest does not match the image THEN the UPDATE_SERVICE SHALL reject the image and transition state to ERROR
 
 ### Requirement 4: Container Installation and Startup
 
@@ -65,7 +65,7 @@ The service receives adapter installation requests from the PARKING_APP via gRPC
 
 #### Acceptance Criteria
 
-1. WHEN manifest validation succeeds THEN the UPDATE_SERVICE SHALL install the container using podman
+1. WHEN attestation validation succeeds THEN the UPDATE_SERVICE SHALL install the container using podman
 2. WHEN installation completes THEN the UPDATE_SERVICE SHALL start the adapter container
 3. WHEN the container starts successfully THEN the UPDATE_SERVICE SHALL transition the adapter state to RUNNING
 4. THE UPDATE_SERVICE SHALL configure the container with network access to DATA_BROKER
