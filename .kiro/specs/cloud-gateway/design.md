@@ -58,6 +58,7 @@ flowchart TB
         MW[Middleware<br/>Logging/RequestID]
         CFG[Config]
         LOG[Logger]
+        AUDIT[Audit Logger]
     end
     
     HTTP --> MW
@@ -66,11 +67,16 @@ flowchart TB
     ROUTER --> TH
     ROUTER --> HH
     CH --> CS
+    CH --> AUDIT
     TH --> TS
+    TH --> AUDIT
     CS --> CST
     CS <--> MQTT
+    CS --> AUDIT
     TS --> TST
+    TS --> AUDIT
     MQTT --> TS
+    MQTT --> AUDIT
 ```
 
 ### Message Flow: Lock Command
@@ -515,6 +521,43 @@ func LoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler
 func GetRequestID(ctx context.Context) string
 ```
 
+#### AuditLogger
+
+Handles security-relevant audit logging for compliance and incident investigation.
+
+```go
+type AuditLogger interface {
+    // LogCommandSubmission logs a command submission event
+    LogCommandSubmission(ctx context.Context, event *CommandSubmissionEvent)
+    
+    // LogCommandStatusChange logs a command status change event
+    LogCommandStatusChange(ctx context.Context, event *CommandStatusChangeEvent)
+    
+    // LogAuthAttempt logs an authentication attempt event
+    LogAuthAttempt(ctx context.Context, event *AuthAttemptEvent)
+    
+    // LogTelemetryUpdate logs a telemetry update event
+    LogTelemetryUpdate(ctx context.Context, event *TelemetryUpdateEvent)
+    
+    // LogMQTTConnectionEvent logs MQTT connection events
+    LogMQTTConnectionEvent(ctx context.Context, event *MQTTConnectionEvent)
+    
+    // LogValidationFailure logs a validation failure event
+    LogValidationFailure(ctx context.Context, event *ValidationFailureEvent)
+}
+
+// AuditLoggerImpl implements AuditLogger using structured JSON logging
+type AuditLoggerImpl struct {
+    logger *slog.Logger
+}
+
+func NewAuditLogger(logger *slog.Logger) *AuditLoggerImpl
+
+// hashToken returns first 8 characters of SHA256 hash of token
+// Used to log auth tokens without exposing sensitive data
+func hashToken(token string) string
+```
+
 ## Data Models
 
 ### Command
@@ -658,6 +701,74 @@ type MQTTTelemetryMessage struct {
 }
 ```
 
+### Audit Event Models
+
+```go
+// Base audit event fields included in all audit log entries
+type AuditEventBase struct {
+    LogType       string    `json:"log_type"`       // Always "audit"
+    CorrelationID string    `json:"correlation_id"` // Request tracing ID
+    Timestamp     time.Time `json:"timestamp"`
+}
+
+// CommandSubmissionEvent logs command submission details
+type CommandSubmissionEvent struct {
+    AuditEventBase
+    EventType   string   `json:"event_type"` // "command_submission"
+    VIN         string   `json:"vin"`
+    CommandType string   `json:"command_type"`
+    Doors       []string `json:"doors"`
+    SourceIP    string   `json:"source_ip"`
+    RequestID   string   `json:"request_id"`
+    CommandID   string   `json:"command_id"`
+}
+
+// CommandStatusChangeEvent logs command status transitions
+type CommandStatusChangeEvent struct {
+    AuditEventBase
+    EventType      string `json:"event_type"` // "command_status_change"
+    CommandID      string `json:"command_id"`
+    PreviousStatus string `json:"previous_status"`
+    NewStatus      string `json:"new_status"`
+}
+
+// AuthAttemptEvent logs authentication attempts
+type AuthAttemptEvent struct {
+    AuditEventBase
+    EventType     string `json:"event_type"` // "auth_attempt"
+    VIN           string `json:"vin"`
+    AuthTokenHash string `json:"auth_token_hash"` // First 8 chars of SHA256 hash
+    Success       bool   `json:"success"`
+    SourceIP      string `json:"source_ip"`
+}
+
+// TelemetryUpdateEvent logs telemetry updates
+type TelemetryUpdateEvent struct {
+    AuditEventBase
+    EventType        string `json:"event_type"` // "telemetry_update"
+    VIN              string `json:"vin"`
+    LocationPresent  bool   `json:"location_present"`
+    DoorStateChanged bool   `json:"door_state_changed"`
+}
+
+// MQTTConnectionEvent logs MQTT connection events
+type MQTTConnectionEvent struct {
+    AuditEventBase
+    EventType     string `json:"event_type"` // "mqtt_connect", "mqtt_disconnect", "mqtt_reconnect"
+    BrokerAddress string `json:"broker_address"`
+}
+
+// ValidationFailureEvent logs validation failures
+type ValidationFailureEvent struct {
+    AuditEventBase
+    EventType       string `json:"event_type"` // "validation_failure"
+    VIN             string `json:"vin"`
+    Endpoint        string `json:"endpoint"`
+    ValidationError string `json:"validation_error"`
+    SourceIP        string `json:"source_ip"`
+}
+```
+
 ### Configuration
 
 ```go
@@ -795,6 +906,30 @@ Based on the prework analysis, the following properties can be verified through 
 
 **Validates: Requirements 1.4**
 
+### Property 14: Audit Log Event Completeness
+
+*For any* audit event type (command_submission, command_status_change, auth_attempt, telemetry_update, mqtt_connection, validation_failure), the audit log entry SHALL contain all required fields for that event type as specified in Requirement 14.
+
+**Validates: Requirements 14.1, 14.2, 14.3, 14.4, 14.6, 14.7**
+
+### Property 15: Audit Log Structure Consistency
+
+*For any* audit log entry, it SHALL contain a `log_type` field set to "audit" and a `correlation_id` field for request tracing.
+
+**Validates: Requirements 14.5, 14.8**
+
+### Property 16: Sensitive Data Exclusion
+
+*For any* audit log entry, it SHALL NOT contain the full auth_token or user credentials. Auth tokens SHALL only appear as truncated hashes (first 8 characters of SHA256).
+
+**Validates: Requirements 14.9**
+
+### Property 17: Command Lifecycle Traceability
+
+*For any* complete command lifecycle (submission → status changes → completion/timeout), the audit logs SHALL contain sufficient detail to reconstruct the sequence of events including all status transitions with timestamps.
+
+**Validates: Requirements 14.10**
+
 ## Error Handling
 
 ### HTTP Status Code Mapping
@@ -901,6 +1036,8 @@ backend/cloud-gateway/
 │   │   └── telemetry.go
 │   ├── mqtt/
 │   │   └── client.go
+│   ├── audit/
+│   │   └── logger.go
 │   ├── model/
 │   │   └── models.go
 │   └── middleware/
@@ -911,13 +1048,15 @@ backend/cloud-gateway/
     │   ├── telemetry_handler_test.go
     │   ├── command_service_test.go
     │   ├── telemetry_service_test.go
+    │   ├── audit_logger_test.go
     │   └── validation_test.go
     └── property/
         ├── command_properties_test.go    # Properties 2, 3, 4, 5, 6, 7, 8
         ├── telemetry_properties_test.go  # Properties 9, 10
         ├── store_properties_test.go      # Property 12
         ├── error_properties_test.go      # Properties 1, 11
-        └── backoff_properties_test.go    # Property 13
+        ├── backoff_properties_test.go    # Property 13
+        └── audit_properties_test.go      # Properties 14, 15, 16, 17
 ```
 
 ### Property Test Examples
@@ -1076,6 +1215,134 @@ func TestExponentialBackoff(t *testing.T) {
     
     properties.TestingRun(t)
 }
+
+// Property 14: Audit Log Event Completeness
+func TestAuditLogEventCompleteness(t *testing.T) {
+    // Feature: cloud-gateway, Property 14: Audit Log Event Completeness
+    parameters := gopter.DefaultTestParameters()
+    parameters.MinSuccessfulTests = 100
+    
+    properties := gopter.NewProperties(parameters)
+    
+    properties.Property("command submission audit logs contain all required fields", prop.ForAll(
+        func(vin, cmdType, sourceIP, requestID, commandID string, doors []string) bool {
+            var buf bytes.Buffer
+            logger := slog.New(slog.NewJSONHandler(&buf, nil))
+            auditLogger := NewAuditLogger(logger)
+            
+            event := &CommandSubmissionEvent{
+                AuditEventBase: AuditEventBase{
+                    LogType:       "audit",
+                    CorrelationID: requestID,
+                    Timestamp:     time.Now(),
+                },
+                EventType:   "command_submission",
+                VIN:         vin,
+                CommandType: cmdType,
+                Doors:       doors,
+                SourceIP:    sourceIP,
+                RequestID:   requestID,
+                CommandID:   commandID,
+            }
+            
+            auditLogger.LogCommandSubmission(context.Background(), event)
+            
+            logOutput := buf.String()
+            return strings.Contains(logOutput, vin) &&
+                   strings.Contains(logOutput, cmdType) &&
+                   strings.Contains(logOutput, sourceIP) &&
+                   strings.Contains(logOutput, requestID) &&
+                   strings.Contains(logOutput, commandID)
+        },
+        gen.AlphaString(),
+        gen.OneConstOf("lock", "unlock"),
+        gen.AlphaString(),
+        gen.AlphaString(),
+        gen.AlphaString(),
+        gen.SliceOf(gen.OneConstOf("driver", "all")),
+    ))
+    
+    properties.TestingRun(t)
+}
+
+// Property 15: Audit Log Structure Consistency
+func TestAuditLogStructureConsistency(t *testing.T) {
+    // Feature: cloud-gateway, Property 15: Audit Log Structure Consistency
+    parameters := gopter.DefaultTestParameters()
+    parameters.MinSuccessfulTests = 100
+    
+    properties := gopter.NewProperties(parameters)
+    
+    properties.Property("all audit logs have log_type=audit and correlation_id", prop.ForAll(
+        func(correlationID string) bool {
+            var buf bytes.Buffer
+            logger := slog.New(slog.NewJSONHandler(&buf, nil))
+            auditLogger := NewAuditLogger(logger)
+            
+            event := &CommandSubmissionEvent{
+                AuditEventBase: AuditEventBase{
+                    LogType:       "audit",
+                    CorrelationID: correlationID,
+                    Timestamp:     time.Now(),
+                },
+                EventType: "command_submission",
+            }
+            
+            auditLogger.LogCommandSubmission(context.Background(), event)
+            
+            logOutput := buf.String()
+            return strings.Contains(logOutput, `"log_type":"audit"`) &&
+                   strings.Contains(logOutput, correlationID)
+        },
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
+    ))
+    
+    properties.TestingRun(t)
+}
+
+// Property 16: Sensitive Data Exclusion
+func TestSensitiveDataExclusion(t *testing.T) {
+    // Feature: cloud-gateway, Property 16: Sensitive Data Exclusion
+    parameters := gopter.DefaultTestParameters()
+    parameters.MinSuccessfulTests = 100
+    
+    properties := gopter.NewProperties(parameters)
+    
+    properties.Property("auth tokens are hashed and truncated in audit logs", prop.ForAll(
+        func(authToken string) bool {
+            if len(authToken) < 10 {
+                return true // skip short tokens
+            }
+            
+            var buf bytes.Buffer
+            logger := slog.New(slog.NewJSONHandler(&buf, nil))
+            auditLogger := NewAuditLogger(logger)
+            
+            tokenHash := hashToken(authToken)
+            
+            event := &AuthAttemptEvent{
+                AuditEventBase: AuditEventBase{
+                    LogType:       "audit",
+                    CorrelationID: "test-correlation",
+                    Timestamp:     time.Now(),
+                },
+                EventType:     "auth_attempt",
+                AuthTokenHash: tokenHash,
+                Success:       true,
+            }
+            
+            auditLogger.LogAuthAttempt(context.Background(), event)
+            
+            logOutput := buf.String()
+            // Full token should NOT appear, only truncated hash
+            return !strings.Contains(logOutput, authToken) &&
+                   len(tokenHash) == 8
+        },
+        gen.AlphaString().SuchThat(func(s string) bool { return len(s) >= 10 }),
+    ))
+    
+    properties.TestingRun(t)
+}
 ```
 
 ### Unit Test Coverage
@@ -1087,3 +1354,6 @@ Unit tests focus on:
 - Integration with mock MQTT client
 - Graceful shutdown behavior
 - Configuration loading and validation
+- Audit logger event formatting and field population
+- Token hashing for sensitive data protection
+- Audit log correlation ID propagation

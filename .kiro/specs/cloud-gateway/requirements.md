@@ -147,6 +147,23 @@ The service accepts MQTT connections from vehicles (via CLOUD_GATEWAY_CLIENT), p
 4. THE CLOUD_GATEWAY SHALL use structured JSON logging format
 5. THE CLOUD_GATEWAY SHALL include request duration in HTTP log entries
 
+### Requirement 14: Audit Logging
+
+**User Story:** As a security auditor, I want comprehensive audit logs of all security-relevant operations, so that I can investigate incidents and verify compliance.
+
+#### Acceptance Criteria
+
+1. THE CLOUD_GATEWAY SHALL log all command submissions with VIN, command_type, doors, timestamp, source_ip, and request_id
+2. THE CLOUD_GATEWAY SHALL log all command status changes with command_id, previous_status, new_status, and timestamp
+3. THE CLOUD_GATEWAY SHALL log all authentication attempts with VIN, auth_token_hash (first 8 chars), success/failure, and source_ip
+4. THE CLOUD_GATEWAY SHALL log all telemetry updates with VIN, timestamp, and data summary (location present, door state changed)
+5. THE CLOUD_GATEWAY SHALL include a correlation_id in all audit log entries to enable request tracing across services
+6. THE CLOUD_GATEWAY SHALL log MQTT connection events (connect, disconnect, reconnect) with broker address and timestamp
+7. THE CLOUD_GATEWAY SHALL log all failed validation attempts with VIN, endpoint, validation_error, and source_ip
+8. AUDIT log entries SHALL be distinguishable from operational logs via a log_type field set to "audit"
+9. THE CLOUD_GATEWAY SHALL NOT log sensitive data (full auth_token, user credentials) in audit logs
+10. AUDIT logs SHALL include sufficient detail to reconstruct the sequence of events for any command lifecycle
+
 ### Requirement 11: Error Response Format
 
 **User Story:** As an API consumer, I want consistent error responses, so that I can handle errors programmatically.
