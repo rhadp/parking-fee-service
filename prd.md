@@ -287,7 +287,7 @@ DataBroker -->|"read: lock/unlock events"| ParkingApp
 DataBroker -->|"read: lock/unlock events"| Adaptor
 
 ParkingApp -->|"lookup PARKING_OPERATOR"| ParkingFeeService
-ParkingApp -->|"request adapter install"| UpdateService
+ParkingApp -->|"adapter install"| UpdateService
 ParkingApp -->|"start/stop parking"| Adaptor
 
 UpdateService -->|"pull container"| Registry
