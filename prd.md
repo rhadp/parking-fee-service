@@ -8,6 +8,16 @@ The demo addresses another challenge: how to dynamically provision location-spec
 
 Attendees will see functioning code demonstrating practical mixed-criticality integration patterns, container deployment to vehicles, and cloud-native SDV development workflows across multiple domains (Android Automotive, Safe Linux/RHIVOS, Cloud-native services).
 
+## User Journey
+
+1. Vehicle Arrival: User parks their vehicle at a designated parking spot in a participating zone.
+2. Automatic Location Detection: The vehicle's onboard system detects its current location and queries the cloud service to identify the appropriate parking operator adapter for that zone.
+3. Adapter Provisioning: The parking oerator adapter specific to that location (e.g., municipal parking authority, private operator) downloads and initializes automatically on the vehicle's system.
+4. Parking Session Confirmation: The infotainment (IVI) screen displays: "Parking active - €X.XX/hr" confirming the session has been established and showing the applicable rate.
+5. Session Start: User locks the vehicle with their key fob or the car's companion app. This is handled by a door lock service, which publishes the event on the internal message bus. The parking app subscribes to this event and automatically initiate the parking payment session. No physical ticket or app interaction required.
+6. Session End: User unlocks the vehicle upon return, automatically stopping the parking session. Payment is processed seamlessly based on actual duration.
+7. Resource Management: If the adapter remains unused for 24 hours (vehicle hasn't returned to that parking zone), it's automatically offloaded to optimize storage and system resources.
+
 ## Problem Statement
 
 Parking regulations and payment systems vary significantly by location and PARKING_OPERATOR. Pre-loading the car with all possible PARKING_OPERATOR integrations is impractical due to the dynamic nature of operators and their location-specific requirements. 
@@ -20,30 +30,20 @@ The PARKING_APP will utilize flexible PARKING_OPERATOR_ADAPTORS that are loaded 
 
 ### Objectives and Benefits
 
-- To enable automatic parking fee payment via the car's IVI system.    
+- To enable automatic parking fee payment via the car's IVI system.
 - To eliminate the need for car owners to use multiple, dedicated parking apps.
 - To orchestrate interactions with various PARKING_OPERATORs on the user's behalf.
 - To provide a flexible and adaptable solution for diverse parking environments.
-
-## User Journey
-
-1. Vehicle Arrival: User parks their vehicle at a designated parking spot in a participating zone.
-2. Automatic Location Detection: The vehicle's onboard system detects its current location and queries the cloud service to identify the appropriate parking provider adapter for that zone.
-3. Adapter Provisioning: The parking adapter specific to that location (e.g., municipal parking authority, private operator) downloads and initializes automatically on the vehicle's system.
-4. Parking Session Confirmation: The infotainment (IVI) screen displays: "Parking active - €X.XX/hr" confirming the session has been established and showing the applicable rate.
-5. Session Start: User locks the vehicle with their key fob or the car's companion app. This is handled by a door lock service, which publishes the event on the internal message bus. The parking service subscribes to this event and automatically initiate the parking payment session. No physical ticket or app interaction required.
-6. Session End: User unlocks the vehicle upon return, automatically stopping the parking session. Payment is processed seamlessly based on actual duration.
-7. Resource Management: If the adapter remains unused for 24 hours (vehicle hasn't returned to that parking zone), it's automatically offloaded to optimize storage and system resources.
 
 ## Architecture Overview
 
 ### Component Placement
 
-1. **Android IVI (QM)**: In-car user interface for parking app
+1. **Android IVI (QM)**: In-car user interface for the parking app
 2. **RHIVOS QM Partition**: Dynamic parking operator adapters (containers)
 3. **RHIVOS Safety Partition**: ASIL-B door lock service + vehicle signals
-4. **Cloud (OpenShift)**: Adapter registry, parking service, CI/CD for development and validation
-5. **Mobile Companion App**: Typical Android or iOS app
+4. **Cloud (OpenShift)**: Parking operator adapter registry, parking fee service, CDE, CI/CD for development and validation
+5. **Mobile Companion App**: Typical Android app (optional: iOS)
 
 ### Mixed-Criticality Communication Pattern
 
