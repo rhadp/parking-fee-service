@@ -69,7 +69,7 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Implement clear() to remove stored session
     - _Requirements: 7.3, 7.4_
 
-  - [ ]* 4.2 Write property test for session persistence round-trip
+  - [ ] 4.2 Write property test for session persistence round-trip
     - **Property 13: Session Persistence Round-Trip**
     - *For any* session saved to persistent storage, loading that session SHALL produce an equivalent session object with all fields preserved
     - Generate random sessions with proptest, save and load, verify equivalence
@@ -83,7 +83,7 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Return LocationError if signals unavailable
     - _Requirements: 2.1, 2.2, 2.3_
 
-  - [ ]* 5.2 Write property test for location reading
+  - [ ] 5.2 Write property test for location reading
     - **Property 3: Location Reading During Session Start**
     - *For any* session start operation, the PARKING_OPERATOR_ADAPTOR SHALL read both latitude and longitude. If either is unavailable, session start SHALL be rejected
     - Test with available and unavailable location signals
@@ -103,19 +103,19 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Implement reconnect() with exponential backoff (5 attempts max)
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ]* 5.5 Write property test for lock event triggers session start
+  - [ ] 5.5 Write property test for lock event triggers session start
     - **Property 1: Lock Event Triggers Session Start**
     - *For any* vehicle in unlocked state with no active session, when IsLocked transitions false→true, session start SHALL be initiated
     - Simulate lock events and verify session start initiation
     - **Validates: Requirements 1.2**
 
-  - [ ]* 5.6 Write property test for unlock event triggers session stop
+  - [ ] 5.6 Write property test for unlock event triggers session stop
     - **Property 2: Unlock Event Triggers Session Stop**
     - *For any* vehicle with active session, when IsLocked transitions true→false, session stop SHALL be initiated
     - Simulate unlock events and verify session stop initiation
     - **Validates: Requirements 1.3**
 
-  - [ ]* 5.7 Write property test for DATA_BROKER reconnection
+  - [ ] 5.7 Write property test for DATA_BROKER reconnection
     - **Property 15: DATA_BROKER Reconnection with Backoff**
     - *For any* DATA_BROKER connection loss, reconnection SHALL be attempted with exponential backoff, entering degraded state after 5 failures
     - Simulate connection loss and verify reconnection attempts with increasing delays
@@ -147,25 +147,25 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Implement 10 second request timeout
     - _Requirements: 3.1, 3.2, 3.5, 4.1, 4.2, 4.5, 5.4, 9.1, 9.2, 9.3, 9.4, 9.5_
 
-  - [ ]* 7.3 Write property test for API request completeness (start)
+  - [ ] 7.3 Write property test for API request completeness (start)
     - **Property 4: Session Start API Request Completeness**
     - *For any* session start with valid location, POST /parking/start SHALL include vehicle_id, latitude, longitude, zone_id, timestamp
     - Verify start request includes all required fields
     - **Validates: Requirements 3.1, 3.2, 3.3**
 
-  - [ ]* 7.4 Write property test for API request completeness (stop)
+  - [ ] 7.4 Write property test for API request completeness (stop)
     - **Property 5: Session Stop API Request Completeness**
     - *For any* session stop with active session, POST /parking/stop SHALL include session_id and timestamp
     - Verify stop request includes session_id and timestamp
     - **Validates: Requirements 4.1, 4.2, 4.3**
 
-  - [ ]* 7.5 Write property test for API retry behavior
+  - [ ] 7.5 Write property test for API retry behavior
     - **Property 7: API Retry with Exponential Backoff**
     - *For any* failed API call, retry up to 3 times with exponential backoff (delay doubles after each attempt)
     - Inject failures and verify retry count and delays
     - **Validates: Requirements 3.5, 4.5**
 
-  - [ ]* 7.6 Write property test for error state after retries
+  - [ ] 7.6 Write property test for error state after retries
     - **Property 8: Error State After Retry Exhaustion**
     - *For any* operation where all retries fail, session state SHALL transition to ERROR with error_message
     - Verify ERROR state and error message after all retries fail
@@ -187,19 +187,19 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Implement is_operation_in_progress() to check STARTING/STOPPING states
     - _Requirements: 1.2, 1.3, 3.1, 3.3, 3.4, 4.1, 4.3, 4.4, 5.1, 6.1, 6.2, 7.1, 7.2, 7.5_
 
-  - [ ]* 9.2 Write property test for session state publication
+  - [ ] 9.2 Write property test for session state publication
     - **Property 6: Session State Publication Consistency**
     - *For any* successful session start, SessionActive=true SHALL be published. *For any* successful stop, SessionActive=false SHALL be published
     - Verify SessionActive matches session state
     - **Validates: Requirements 3.4, 4.4**
 
-  - [ ]* 9.3 Write property test for state timestamp recording
+  - [ ] 9.3 Write property test for state timestamp recording
     - **Property 12: State Transition Timestamp Recording**
     - *For any* session state change, last_updated timestamp SHALL be updated to reflect the time of transition
     - Verify last_updated is updated on state changes
     - **Validates: Requirements 7.1, 7.2**
 
-  - [ ]* 9.4 Write property test for concurrent operation prevention
+  - [ ] 9.4 Write property test for concurrent operation prevention
     - **Property 14: Concurrent Operation Prevention**
     - *For any* operation in progress (STARTING/STOPPING), concurrent operations SHALL be rejected with OperationInProgress error
     - Verify concurrent operations are rejected
@@ -245,19 +245,19 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Return GetSessionStatusResponse with has_active_session, session_id, state, start_time_unix, duration_seconds, current_cost, zone_id, latitude, longitude, error_message
     - _Requirements: 5.1, 5.2, 5.3, 8.3_
 
-  - [ ]* 12.5 Write property test for status response completeness
+  - [ ] 12.5 Write property test for status response completeness
     - **Property 9: Status Response Completeness**
     - *For any* GetSessionStatus request when session exists, response SHALL include session_id, state, start_time, duration, current_cost, zone_id, error_message (if ERROR)
     - Verify all required fields are present in response
     - **Validates: Requirements 5.1, 5.2**
 
-  - [ ]* 12.6 Write property test for manual session control
+  - [ ] 12.6 Write property test for manual session control
     - **Property 10: Manual Session Control Independence**
     - *For any* StartSession/StopSession gRPC request, session operation SHALL proceed regardless of current lock state
     - Verify sessions start/stop regardless of lock state
     - **Validates: Requirements 6.1, 6.2**
 
-  - [ ]* 12.7 Write property test for invalid operation rejection
+  - [ ] 12.7 Write property test for invalid operation rejection
     - **Property 11: Invalid Operation Rejection**
     - *For any* StartSession when session active, return error. *For any* StopSession when no session, return error
     - Verify errors for duplicate start and stop without session
@@ -333,7 +333,7 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
 
 ## Notes
 
-- Tasks marked with `*` are optional property tests that can be skipped for faster MVP
+- All tasks including property tests are required for comprehensive implementation
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation
 - Property tests validate universal correctness properties from the design document
