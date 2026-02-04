@@ -487,14 +487,16 @@ Developing the demo happens in multiple phases. The first iterations SHOULD happ
 Once sufficient functionallity is in place, create end-to-end pipelines for e.g. nightly builds and continuous deployment. 
 At this point, local and cloud-based development shoult be interchangeable.
 
-#### Phase 0: Requirements Engineering
+#### Phase 1: Planing and Setup
+
+##### Phase 1.1: Requirements Engineering
 
 - Iterate over PRD.md (this document) and translate the "products requirements" into a requirements document.
 - Decompose the requirements document into a design document.
 - Create steering documents foragents based on the design.
 - Create a task list of atomic implementation steps.
 
-#### Phase 1: Setup
+##### Phase 1.2: Setup
 
 - Setup the code repo, with dedicated sub-folders for each type of code:
   - RHIVOS services: Rust
@@ -506,7 +508,9 @@ At this point, local and cloud-based development shoult be interchangeable.
 - Setup local infrastructure, used for local unit and integration testing
 - Setup local unit and integration testing capabilites
 
-#### Phase 2: RHIVOS Safety Partition
+#### Phase 2: Implementation
+
+##### Phase 2.1: RHIVOS Safety Partition
 
 - Implementation of the ASIL-B services:
   - CLOUD_GATEWAY_CLIENT
@@ -514,14 +518,14 @@ At this point, local and cloud-based development shoult be interchangeable.
   - DATA_BROKER
   - Demo Mock Services to test the above services
 
-#### Phase 3: Vehicle-to-Cloud Connectivity
+##### Phase 2.2: Vehicle-to-Cloud Connectivity
 
 - Implementation of the V2X connectivity:
   - CLOUD_GATEWAY
   - Mock COMPANION_APP service to test the CLOUD_GATEWAY without the COMPANION_APP
   - Integration test of bi-directional CLOUD_GATEWAY - CLOUD_GATEWAY_CLIENT communication
 
-#### Phase 4: RHIVOS QM Partition
+##### Phase 2.3: RHIVOS QM Partition
 
 - Implementation of the RHIVOS QM services
   - generic PARKING_OPERATOR_ADAPTOR
@@ -530,29 +534,31 @@ At this point, local and cloud-based development shoult be interchangeable.
   - Mock PARKING_APP to test the UPDATE_SERVICE without the PARKING_APP
   - Integration test of DATA_BROKER to PARKING_OPERATOR_ADAPTOR communication
 
-#### Phase 5: Parking app
+#### Phase 2.4: Parking app
 
 - Implementation of the PARKING_FEE_SERVICE
 - Implementation of the PARKING_APP app
 - Integration test of PARKING_APP, PARKING_FEE_SERVICE, UPDATE_SERVICE communication
 - Integration test of PARKING_APP, PARKING_OPERATOR_ADAPTOR communication
 
-#### Phase 6: Cloud CI/CD setup
+##### Phase 2.5: Companion App
+
+- Implementation of the COMPANION_APP app
+
+#### Phase 3: Integration
+
+##### Phase 3.1: Cloud CI/CD setup
 
 - Create CI/CD pipelines for a cloud-based (on OpenShift) build of all components, including the Android apps
 - Dploymentment of all non-Android components to OpenShift, for end-to-end integration testing (Software-in-the-loop testing)
 
-#### Phase 7: Virtual validation
+#### Phase 3.2: Virtual validation
 
 - Create CI/CD pipelines for RHIVOS image builds
 - Deployment of RHIVOS image to a "virtual device" (Qemu VM)
 - Deploment of the PARKING_APP to a "virtual device" (Cuttlefish)
 
-#### Phase 8: Companion App
-
-- Implementation of the COMPANION_APP app
-
-#### Phase 9: Final Demo Scenario Validation
+#### Phase 4: Final Demo Scenario Validation
 
 - Verify that all three demo scenarios work end-to-end
 
