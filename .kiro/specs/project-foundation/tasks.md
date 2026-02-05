@@ -91,27 +91,47 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - **Validates: Requirements 2.7**
 
 - [ ] 5. Set up container build configuration
-  - [x] 5.1 Create Containerfiles for RHIVOS services
-    - Create `containers/rhivos/Containerfile.locking-service`
-    - Create `containers/rhivos/Containerfile.update-service`
-    - Create `containers/rhivos/Containerfile.parking-operator-adaptor`
-    - Create `containers/rhivos/Containerfile.cloud-gateway-client`
-    - _Requirements: 4.6_
+  - [x] 5.1 Create Containerfiles for RHIVOS services using UBI10 base images
+    - Create `containers/rhivos/Containerfile.locking-service` with UBI10-minimal final stage
+    - Create `containers/rhivos/Containerfile.update-service` with UBI10-minimal final stage
+    - Create `containers/rhivos/Containerfile.parking-operator-adaptor` with UBI10-minimal final stage
+    - Create `containers/rhivos/Containerfile.cloud-gateway-client` with UBI10-minimal final stage
+    - Include base image rationale comment in each Containerfile
+    - Use multi-stage builds with Rust builder and UBI10 final stage
+    - _Requirements: 4.6, 8.1, 8.3, 8.4, 8.5_
   
-  - [ ] 5.2 Create Containerfiles for backend services
-    - Create `containers/backend/Containerfile.parking-fee-service`
-    - Create `containers/backend/Containerfile.cloud-gateway`
-    - _Requirements: 4.6_
+  - [ ] 5.2 Create Containerfiles for backend services using UBI10 base images
+    - Create `containers/backend/Containerfile.parking-fee-service` with UBI10-micro final stage
+    - Create `containers/backend/Containerfile.cloud-gateway` with UBI10-micro final stage
+    - Include base image rationale comment in each Containerfile
+    - Use multi-stage builds with Go builder and UBI10 final stage
+    - _Requirements: 4.6, 8.1, 8.3, 8.4, 8.5_
   
-  - [ ] 5.3 Create container manifest generation script
+  - [ ] 5.3 Create mock service Containerfile using UBI10 base image
+    - Create `containers/mock/Containerfile.parking-operator` with UBI10-minimal final stage
+    - Include base image rationale comment
+    - _Requirements: 3.4, 8.1, 8.3, 8.4_
+  
+  - [ ] 5.4 Create container manifest generation script
     - Create `scripts/generate-manifest.sh` that extracts image metadata
     - Include git commit hash, build timestamp, and labels in manifest
     - _Requirements: 4.7, 4.8_
   
-  - [ ] 5.4 Write property test for container image git tagging
+  - [ ] 5.5 Write property test for container image git tagging
     - **Property 3: Container Image Git Tagging**
     - Test that built images contain valid git metadata in tags
     - **Validates: Requirements 4.8**
+  
+  - [ ] 5.6 Write property test for UBI10 base image compliance
+    - **Property 5: UBI10 Base Image Compliance**
+    - Parse all Containerfiles and verify final stage uses `registry.access.redhat.com/ubi10/*`
+    - Reject any final stages using alpine, ubuntu, debian, or other non-UBI images
+    - **Validates: Requirements 8.1, 8.2, 8.5**
+  
+  - [ ] 5.7 Write property test for Containerfile documentation compliance
+    - **Property 6: Containerfile Documentation Compliance**
+    - Verify each Containerfile contains a comment block with base image rationale
+    - **Validates: Requirements 8.4**
 
 - [ ] 6. Checkpoint - Verify build system
   - Ensure `make proto` generates valid code stubs
@@ -126,17 +146,12 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Add health checks for all services
     - _Requirements: 3.1, 3.2, 3.3, 3.6_
   
-  - [ ] 7.2 Create mock service Containerfile
-    - Create `containers/mock/Containerfile.parking-operator` for mock parking operator
-    - Create simple HTTP server that responds to parking session requests
-    - _Requirements: 3.4_
-  
-  - [ ] 7.3 Create service configuration files
+  - [ ] 7.2 Create service configuration files
     - Create `infra/config/mosquitto/mosquitto.conf` with listener and TLS settings
     - Create `infra/config/kuksa/config.json` with VSS signal definitions
     - _Requirements: 3.5_
   
-  - [ ] 7.4 Write property test for health check configuration completeness
+  - [ ] 7.3 Write property test for health check configuration completeness
     - **Property 2: Health Check Configuration Completeness**
     - Test that all services in compose file have health check configurations
     - **Validates: Requirements 3.6**
@@ -217,7 +232,9 @@ This implementation plan establishes the foundational infrastructure for the SDV
 
 ## Notes
 
+- All tasks are required for comprehensive testing from the start
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation
 - Property tests validate universal correctness properties
+- All Containerfiles must use UBI10 base images per Requirement 8
 - The foundation does not include actual service implementations - those are covered in separate specs

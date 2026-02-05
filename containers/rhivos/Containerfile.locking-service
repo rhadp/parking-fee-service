@@ -1,77 +1,51 @@
-# Containerfile for RHIVOS Locking Service
-# ASIL-B door locking service for RHIVOS safety partition
+# containers/rhivos/Containerfile.locking-service
 #
-# Build: podman build -f Containerfile.locking-service -t locking-service:latest ../../rhivos
-# Run: podman run --rm locking-service:latest
+# Base Image Rationale: Using ubi10/ubi-minimal for balance between size and
+# package availability. The locking-service is an ASIL-B safety-critical component
+# that requires minimal runtime dependencies. UBI-minimal provides the necessary
+# glibc runtime while keeping the image size optimized for faster deployment
+# in automotive environments.
 
-# =============================================================================
-# Stage 1: Builder
-# =============================================================================
-FROM docker.io/library/rust:1.75-bookworm AS builder
+# Build stage - Rust compilation
+FROM docker.io/library/rust:1.75 AS builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    protobuf-compiler \
-    libprotobuf-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create a new directory for the build
 WORKDIR /build
 
-# Copy the workspace files
-COPY Cargo.toml Cargo.lock ./
-COPY shared/ ./shared/
-COPY locking-service/ ./locking-service/
-COPY cloud-gateway-client/ ./cloud-gateway-client/
-COPY parking-operator-adaptor/ ./parking-operator-adaptor/
-COPY update-service/ ./update-service/
+# Copy workspace configuration first for better layer caching
+COPY rhivos/Cargo.toml rhivos/Cargo.lock* ./
+
+# Copy all workspace members
+COPY rhivos/shared/ shared/
+COPY rhivos/locking-service/ locking-service/
+COPY rhivos/cloud-gateway-client/ cloud-gateway-client/
+COPY rhivos/parking-operator-adaptor/ parking-operator-adaptor/
+COPY rhivos/update-service/ update-service/
+
+# Copy proto definitions for build
+COPY proto/ /proto/
 
 # Build the locking-service binary in release mode
 RUN cargo build --release --package locking-service
 
-# =============================================================================
-# Stage 2: Runtime
-# =============================================================================
-FROM docker.io/library/debian:bookworm-slim AS runtime
+# Final stage - MUST use UBI10
+FROM registry.access.redhat.com/ubi10/ubi-minimal
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+LABEL maintainer="SDV Team"
+LABEL version="${GIT_VERSION}"
+LABEL description="ASIL-B Door Locking Service for RHIVOS Safety Partition"
+LABEL component="locking-service"
+LABEL partition="safety"
+
+# Install minimal runtime dependencies
+RUN microdnf install -y shadow-utils && microdnf clean all
 
 # Create non-root user for security
-RUN useradd --create-home --user-group --uid 1000 rhivos
+RUN useradd -r -u 1000 -g root locking-service
 
-# Copy the binary from builder stage
-COPY --from=builder /build/target/release/locking-service /usr/local/bin/locking-service
+# Copy the compiled binary from builder stage
+COPY --from=builder /build/target/release/locking-service /usr/local/bin/
 
-# Set ownership and permissions
-RUN chown rhivos:rhivos /usr/local/bin/locking-service && \
-    chmod 755 /usr/local/bin/locking-service
+# Run as non-root user
+USER locking-service
 
-# Create directories for runtime data
-RUN mkdir -p /run/rhivos && chown rhivos:rhivos /run/rhivos
-
-# Switch to non-root user
-USER rhivos
-
-# Set working directory
-WORKDIR /home/rhivos
-
-# OCI-compliant labels
-LABEL org.opencontainers.image.title="RHIVOS Locking Service" \
-      org.opencontainers.image.description="ASIL-B door locking service for RHIVOS safety partition" \
-      org.opencontainers.image.vendor="SDV Parking Demo Team" \
-      org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.source="https://github.com/example/parking-fee-service" \
-      org.opencontainers.image.documentation="https://github.com/example/parking-fee-service/blob/main/rhivos/locking-service/README.md"
-
-# Expose gRPC port (if running in TCP mode)
-EXPOSE 50053
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/locking-service", "--health-check"] || exit 1
-
-# Set entrypoint
 ENTRYPOINT ["/usr/local/bin/locking-service"]
