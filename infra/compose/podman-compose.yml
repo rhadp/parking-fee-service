@@ -22,7 +22,7 @@ services:
   # Simulates vehicle-to-cloud communication channel
   # Requirements: 3.2
   mosquitto:
-    image: docker.io/eclipse-mosquitto:2
+    image: docker.io/eclipse-mosquitto:2.0
     container_name: sdv-mosquitto
     ports:
       - "1883:1883"   # MQTT (unencrypted, dev only)
@@ -45,23 +45,28 @@ services:
   # Eclipse Kuksa Databroker
   # Provides VSS-compliant gRPC pub/sub interface for vehicle signals
   # Requirements: 3.3
+  # Note: Using port 55556 instead of 55555 (55555 is blocked on macOS)
+  # Note: Health check disabled - container is minimal (no shell/tools available)
+  #       Service health can be verified externally via: nc -zv localhost 55556
   kuksa-databroker:
     image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.4.4
     container_name: sdv-kuksa-databroker
     ports:
-      - "55555:55555"  # gRPC API
+      - "55556:55556"  # gRPC API
     volumes:
       - ../config/kuksa:/config:ro
     command:
       - --address
       - "0.0.0.0"
       - --port
-      - "55555"
+      - "55556"
       - --insecure
     healthcheck:
-      test: ["CMD-SHELL", "grpcurl -plaintext localhost:55555 list || exit 1"]
-      interval: 10s
-      timeout: 5s
+      # Minimal container has no shell - using NONE and relying on container status
+      # External verification: nc -zv localhost 55556 or grpcurl -plaintext localhost:55556 list
+      test: ["NONE"]
+      interval: 30s
+      timeout: 10s
       retries: 3
       start_period: 10s
     restart: unless-stopped
@@ -73,8 +78,8 @@ services:
   # Requirements: 3.4
   mock-parking-operator:
     build:
-      context: ../../containers/mock
-      dockerfile: Containerfile.parking-operator
+      context: ../..
+      dockerfile: containers/mock/Containerfile.parking-operator
     container_name: sdv-mock-parking-operator
     ports:
       - "8080:8080"

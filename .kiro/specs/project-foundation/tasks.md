@@ -163,31 +163,31 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that all services in compose file have health check configurations
     - **Validates: Requirements 3.6**
 
-- [~] 8. Set up communication protocol configuration
-  - [ ] 8.1 Create development TLS certificates
+- [x] 8. Set up communication protocol configuration
+  - [x] 8.1 Create development TLS certificates
     - Create `scripts/generate-certs.sh` to generate self-signed CA and certificates
     - Generate CA certificate, server certificate, and client certificate
     - Place certificates in `infra/certs/` directory structure
     - _Requirements: 5.5_
   
-  - [ ] 8.2 Create service endpoint configuration
+  - [x] 8.2 Create service endpoint configuration
     - Create `infra/config/endpoints.yaml` documenting all service ports and socket paths
     - Configure UDS paths for local RHIVOS communication
     - Configure TCP ports for cross-domain communication
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.7_
   
-  - [ ] 8.3 Create development mode configuration
+  - [x] 8.3 Create development mode configuration
     - Add environment variable support for disabling TLS verification
     - Document development mode settings in configuration
     - _Requirements: 5.6_
 
-- [~] 9. Checkpoint - Verify local infrastructure
+- [x] 9. Checkpoint - Verify local infrastructure
   - Ensure `make infra-up` starts all services
   - Ensure services respond on documented ports
   - Ask the user if questions arise
 
-- [~] 10. Create documentation
-  - [ ] 10.1 Create root README with project overview
+- [-] 10. Create documentation
+  - [x] 10.1 Create root README with project overview
     - Write project description and architecture overview
     - Include quick-start instructions for cloning and building
     - Include communication diagram (Mermaid)
@@ -219,7 +219,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that all major directories have README.md files
     - **Validates: Requirements 6.2**
 
-- [~] 11. Set up demo scenario support
+- [-] 11. Set up demo scenario support
   - [ ] 11.1 Create mock data generators
     - Create `scripts/mock-location.sh` for generating location signals
     - Create `scripts/mock-speed.sh` for generating speed signals
@@ -232,7 +232,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Document failure simulation in `docs/demo-scenarios.md`
     - _Requirements: 7.5_
 
-- [~] 12. Final checkpoint - Verify complete foundation
+- [ ] 12. Final checkpoint - Verify complete foundation
   - Ensure all tests pass
   - Verify all three demo scenarios can be configured
   - Ask the user if questions arise
