@@ -6,8 +6,8 @@ This implementation plan establishes the foundational infrastructure for the SDV
 
 ## Tasks
 
-- [~] 1. Create monorepo directory structure
-  - [-] 1.1 Create root project structure with all required directories
+- [x] 1. Create monorepo directory structure
+  - [x] 1.1 Create root project structure with all required directories
     - Create `rhivos/` directory with subdirectories for each Rust service
     - Create `android/parking-app/` and `android/companion-app/` directories
     - Create `backend/` directory for Go services
@@ -17,50 +17,50 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Create `scripts/` and `docs/` directories
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
 
-- [~] 2. Implement Protocol Buffer definitions
-  - [~] 2.1 Create common error handling proto definitions
+- [x] 2. Implement Protocol Buffer definitions
+  - [x] 2.1 Create common error handling proto definitions
     - Create `proto/common/error.proto` with ErrorDetails message
     - Define standard error codes for domain-specific errors
     - _Requirements: 2.6_
   
-  - [~] 2.2 Create VSS signal proto definitions
+  - [x] 2.2 Create VSS signal proto definitions
     - Create `proto/vss/signals.proto` with DoorState, Location, VehicleSpeed, ParkingState messages
     - Create VehicleSignal oneof container for subscriptions
     - _Requirements: 2.5_
   
-  - [~] 2.3 Create DataBroker service proto definition
+  - [x] 2.3 Create DataBroker service proto definition
     - Create `proto/services/databroker.proto` with GetSignal, SetSignal, Subscribe RPCs
     - Define request/response messages compatible with Eclipse Kuksa
     - _Requirements: 2.1_
   
-  - [~] 2.4 Create UpdateService proto definition
+  - [x] 2.4 Create UpdateService proto definition
     - Create `proto/services/update_service.proto` with InstallAdapter, UninstallAdapter, ListAdapters, WatchAdapterStates RPCs
     - Define AdapterState enum and AdapterInfo message
     - _Requirements: 2.2_
   
-  - [~] 2.5 Create ParkingAdaptor service proto definition
+  - [x] 2.5 Create ParkingAdaptor service proto definition
     - Create `proto/services/parking_adaptor.proto` with StartSession, StopSession, GetSessionStatus RPCs
     - Define session request/response messages
     - _Requirements: 2.3_
   
-  - [~] 2.6 Create LockingService proto definition
+  - [x] 2.6 Create LockingService proto definition
     - Create `proto/services/locking_service.proto` with Lock, Unlock, GetLockState RPCs
     - Define Door enum and lock command messages
     - _Requirements: 2.4_
 
-- [~] 3. Checkpoint - Verify proto definitions
+- [x] 3. Checkpoint - Verify proto definitions
   - Ensure all proto files are syntactically valid using `protoc --lint`
   - Ask the user if questions arise
 
 - [~] 4. Set up build system
-  - [~] 4.1 Create root Makefile with all build targets
+  - [x] 4.1 Create root Makefile with all build targets
     - Define `all`, `proto`, `build`, `test`, `clean` targets
     - Define per-stack targets: `proto-rust`, `proto-kotlin`, `proto-dart`, `proto-go`
     - Define `build-rhivos`, `build-android`, `build-backend`, `build-containers`
     - Define `infra-up`, `infra-down` for local infrastructure
     - _Requirements: 4.1, 4.9_
   
-  - [~] 4.2 Create Rust workspace configuration
+  - [-] 4.2 Create Rust workspace configuration
     - Create `rhivos/Cargo.toml` workspace manifest
     - Create stub `Cargo.toml` for each service (locking-service, cloud-gateway-client, parking-operator-adaptor, update-service)
     - Create `rhivos/shared/Cargo.toml` for shared library
