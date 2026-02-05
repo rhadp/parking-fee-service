@@ -60,13 +60,13 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Define `infra-up`, `infra-down` for local infrastructure
     - _Requirements: 4.1, 4.9_
   
-  - [-] 4.2 Create Rust workspace configuration
+  - [x] 4.2 Create Rust workspace configuration
     - Create `rhivos/Cargo.toml` workspace manifest
     - Create stub `Cargo.toml` for each service (locking-service, cloud-gateway-client, parking-operator-adaptor, update-service)
     - Create `rhivos/shared/Cargo.toml` for shared library
     - _Requirements: 4.2_
   
-  - [~] 4.3 Create Go module configuration
+  - [x] 4.3 Create Go module configuration
     - Create `backend/go.mod` with module path
     - Create stub directories for parking-fee-service and cloud-gateway
     - _Requirements: 4.5_
