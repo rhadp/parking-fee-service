@@ -91,7 +91,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - **Validates: Requirements 2.7**
 
 - [ ] 5. Set up container build configuration
-  - [x] 5.1 Create Containerfiles for RHIVOS services using UBI10 base images
+  - [ ] 5.1 Create Containerfiles for RHIVOS services using UBI10 base images
     - Create `containers/rhivos/Containerfile.locking-service` with UBI10-minimal final stage
     - Create `containers/rhivos/Containerfile.update-service` with UBI10-minimal final stage
     - Create `containers/rhivos/Containerfile.parking-operator-adaptor` with UBI10-minimal final stage
@@ -100,7 +100,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Use multi-stage builds with Rust builder and UBI10 final stage
     - _Requirements: 4.6, 8.1, 8.3, 8.4, 8.5_
   
-  - [ ] 5.2 Create Containerfiles for backend services using UBI10 base images
+  - [x] 5.2 Create Containerfiles for backend services using UBI10 base images
     - Create `containers/backend/Containerfile.parking-fee-service` with UBI10-micro final stage
     - Create `containers/backend/Containerfile.cloud-gateway` with UBI10-micro final stage
     - Include base image rationale comment in each Containerfile
