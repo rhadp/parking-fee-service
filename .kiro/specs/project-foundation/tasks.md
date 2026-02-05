@@ -133,7 +133,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Verify each Containerfile contains a comment block with base image rationale
     - **Validates: Requirements 8.4**
   
-  - [ ] 5.8 Write property test for builder image compliance
+  - [x] 5.8 Write property test for builder image compliance
     - **Property 7: Builder Image Compliance**
     - Parse all Containerfiles building Go or Rust artifacts
     - Verify build stage uses `ghcr.io/rhadp/builder` as base image
