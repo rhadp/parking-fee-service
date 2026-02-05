@@ -128,7 +128,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Reject any final stages using alpine, ubuntu, debian, or other non-UBI images
     - **Validates: Requirements 8.1, 8.2, 8.5**
   
-  - [ ] 5.7 Write property test for Containerfile documentation compliance
+  - [x] 5.7 Write property test for Containerfile documentation compliance
     - **Property 6: Containerfile Documentation Compliance**
     - Verify each Containerfile contains a comment block with base image rationale
     - **Validates: Requirements 8.4**
