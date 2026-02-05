@@ -311,22 +311,20 @@ generate_go() {
         go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
     fi
     
-    # Generate Go files
+    # Clean existing generated files
+    rm -rf "${GO_OUT}"/*
+    
+    # Generate Go files - use module mode to respect go_package paths
     local proto_files
     proto_files=$(get_proto_files)
     
     for proto_file in $proto_files; do
-        local relative_path="${proto_file#${PROTO_DIR}/}"
-        local package_dir=$(dirname "$relative_path")
-        local output_dir="${GO_OUT}/${package_dir}"
-        mkdir -p "$output_dir"
-        
         protoc \
             --proto_path="${PROTO_DIR}" \
             --go_out="${GO_OUT}" \
-            --go_opt=paths=source_relative \
+            --go_opt=module=github.com/sdv-parking-demo/backend/gen \
             --go-grpc_out="${GO_OUT}" \
-            --go-grpc_opt=paths=source_relative \
+            --go-grpc_opt=module=github.com/sdv-parking-demo/backend/gen \
             "$proto_file" 2>&1 || {
                 log_warn "Failed to generate Go bindings for $proto_file"
             }
