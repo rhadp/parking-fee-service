@@ -565,9 +565,11 @@ Each Containerfile must:
 # Base Image Rationale: Using ubi10/ubi-minimal for balance between size and 
 # package availability. The locking-service requires minimal runtime dependencies
 # and benefits from the smaller image size for faster deployment.
+#
+# Build Stage: Using ghcr.io/rhadp/builder per project standards for Rust builds.
 
-# Build stage - can use any image for compilation
-FROM docker.io/library/rust:1.75 AS builder
+# Build stage - MUST use ghcr.io/rhadp/builder for Rust/Go builds
+FROM ghcr.io/rhadp/builder AS builder
 WORKDIR /app
 COPY rhivos/locking-service/ .
 COPY rhivos/shared/ ../shared/
@@ -600,9 +602,11 @@ ENTRYPOINT ["/usr/local/bin/locking-service"]
 # Base Image Rationale: Using ubi10/ubi-micro for minimal footprint. Go binaries
 # are statically compiled and require no runtime dependencies, making micro the
 # ideal choice for smallest possible image size.
+#
+# Build Stage: Using ghcr.io/rhadp/builder per project standards for Go builds.
 
-# Build stage
-FROM docker.io/library/golang:1.22 AS builder
+# Build stage - MUST use ghcr.io/rhadp/builder for Rust/Go builds
+FROM ghcr.io/rhadp/builder AS builder
 WORKDIR /app
 COPY backend/parking-fee-service/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o parking-fee-service .
@@ -631,6 +635,14 @@ The following base images are NOT permitted in final container stages:
 - Any `*-slim` variants of the above
 
 These images may be used in build stages of multi-stage builds, but the final stage must always use UBI10.
+
+### Build Stage Image Requirements
+
+For Golang and Rust artifacts, the build stage MUST use `ghcr.io/rhadp/builder` as the base image:
+- **Required**: `ghcr.io/rhadp/builder` for all Go and Rust build stages
+- **Prohibited**: `docker.io/library/golang:*`, `docker.io/library/rust:*`, or other official Docker images
+
+This ensures consistent build environments and enterprise support across all container builds.
 
 ## Correctness Properties
 
@@ -704,6 +716,18 @@ This is an invariant property: all Containerfiles must document their base image
 1. Parsing all Containerfiles in the containers/ directory
 2. Searching for comment blocks containing "rationale" or "base image" keywords
 3. Verifying the comment references UBI10 variant selection reasoning
+
+### Property 7: Builder Image Compliance
+
+*For any* Containerfile building Golang or Rust artifacts, the build stage base image SHALL be `ghcr.io/rhadp/builder`.
+
+**Validates: Requirements 8.6**
+
+This is an invariant property: all Go/Rust build stages must use the approved builder image. We can test this by:
+1. Parsing all Containerfiles in the containers/ directory
+2. Identifying Containerfiles that build Go or Rust code (by examining COPY and RUN instructions)
+3. Verifying the build stage FROM instruction uses `ghcr.io/rhadp/builder`
+4. Rejecting any build stages using `docker.io/library/golang:*` or `docker.io/library/rust:*`
 
 ## Error Handling
 
@@ -782,7 +806,8 @@ tests/
     ├── container_tagging_test.sh
     ├── documentation_coverage_test.py
     ├── ubi10_compliance_test.py
-    └── containerfile_docs_test.py
+    ├── containerfile_docs_test.py
+    └── builder_image_compliance_test.py
 ```
 
 ### Integration Testing

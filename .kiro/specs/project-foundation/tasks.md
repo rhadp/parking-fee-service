@@ -132,6 +132,13 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - **Property 6: Containerfile Documentation Compliance**
     - Verify each Containerfile contains a comment block with base image rationale
     - **Validates: Requirements 8.4**
+  
+  - [ ] 5.8 Write property test for builder image compliance
+    - **Property 7: Builder Image Compliance**
+    - Parse all Containerfiles building Go or Rust artifacts
+    - Verify build stage uses `ghcr.io/rhadp/builder` as base image
+    - Reject any build stages using `docker.io/library/golang:*` or `docker.io/library/rust:*`
+    - **Validates: Requirements 8.6**
 
 - [x] 6. Checkpoint - Verify build system
   - Ensure `make proto` generates valid code stubs
