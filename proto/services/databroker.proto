@@ -1,0 +1,70 @@
+// Copyright 2024 SDV Parking Demo System
+// DATA_BROKER service interface compatible with Eclipse Kuksa VSS signals.
+
+syntax = "proto3";
+
+package sdv.services.databroker;
+
+option java_package = "com.sdv.services.databroker";
+option java_multiple_files = true;
+option go_package = "github.com/sdv-parking/backend/gen/services/databroker";
+
+import "vss/signals.proto";
+
+// DataBroker provides a VSS-compliant gRPC pub/sub interface for vehicle signals.
+// This service is compatible with Eclipse Kuksa Databroker.
+service DataBroker {
+  // Get current value of one or more signals
+  rpc GetSignal(GetSignalRequest) returns (GetSignalResponse);
+  
+  // Set a signal value (write access required)
+  rpc SetSignal(SetSignalRequest) returns (SetSignalResponse);
+  
+  // Subscribe to signal changes (server-side streaming)
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}
+
+// Request to get current values of signals
+message GetSignalRequest {
+  // VSS signal paths to retrieve (e.g., "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
+  repeated string signal_paths = 1;
+}
+
+// Response containing current signal values
+message GetSignalResponse {
+  // Current values of requested signals
+  repeated sdv.vss.VehicleSignal signals = 1;
+}
+
+// Request to set a signal value
+message SetSignalRequest {
+  // VSS signal path to set (e.g., "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
+  string signal_path = 1;
+  
+  // Signal value to set
+  sdv.vss.VehicleSignal signal = 2;
+}
+
+// Response for set signal operation
+message SetSignalResponse {
+  // Whether the operation succeeded
+  bool success = 1;
+  
+  // Error message if operation failed
+  string error_message = 2;
+}
+
+// Request to subscribe to signal changes
+message SubscribeRequest {
+  // VSS signal paths to subscribe to
+  repeated string signal_paths = 1;
+}
+
+// Streamed response for signal changes
+message SubscribeResponse {
+  // VSS signal path that changed
+  string signal_path = 1;
+  
+  // Updated signal value
+  sdv.vss.VehicleSignal signal = 2;
+}
