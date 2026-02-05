@@ -55,7 +55,7 @@ build-rhivos:
 # Build Android applications
 build-android:
 	@echo "Building Android applications..."
-	cd android/parking-app && ./gradlew build
+	cd android/parking-app && gradle build
 	cd android/companion-app && flutter build apk
 
 # Build Go backend services
@@ -92,7 +92,7 @@ test-rhivos:
 # Run Android tests
 test-android:
 	@echo "Running Android tests..."
-	cd android/parking-app && ./gradlew test
+	cd android/parking-app && gradle test
 	cd android/companion-app && flutter test
 
 # Run Go backend tests
@@ -145,7 +145,7 @@ clean:
 	@# Clean Rust artifacts
 	cd rhivos && cargo clean 2>/dev/null || true
 	@# Clean Android artifacts
-	cd android/parking-app && ./gradlew clean 2>/dev/null || true
+	cd android/parking-app && gradle clean 2>/dev/null || true
 	cd android/companion-app && flutter clean 2>/dev/null || true
 	@# Clean Go artifacts
 	cd backend && go clean ./... 2>/dev/null || true
