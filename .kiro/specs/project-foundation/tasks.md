@@ -90,8 +90,8 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that modifying proto files and regenerating produces compilable code
     - **Validates: Requirements 2.7**
 
-- [ ] 5. Set up container build configuration
-  - [ ] 5.1 Create Containerfiles for RHIVOS services using UBI10 base images
+- [x] 5. Set up container build configuration
+  - [x] 5.1 Create Containerfiles for RHIVOS services using UBI10 base images
     - Create `containers/rhivos/Containerfile.locking-service` with UBI10-minimal final stage
     - Create `containers/rhivos/Containerfile.update-service` with UBI10-minimal final stage
     - Create `containers/rhivos/Containerfile.parking-operator-adaptor` with UBI10-minimal final stage
@@ -107,28 +107,28 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Use multi-stage builds with Go builder and UBI10 final stage
     - _Requirements: 4.6, 8.1, 8.3, 8.4, 8.5_
   
-  - [ ] 5.3 Create mock service Containerfile using UBI10 base image
+  - [x] 5.3 Create mock service Containerfile using UBI10 base image
     - Create `containers/mock/Containerfile.parking-operator` with UBI10-minimal final stage
     - Include base image rationale comment
     - _Requirements: 3.4, 8.1, 8.3, 8.4_
   
-  - [ ] 5.4 Create container manifest generation script
+  - [x] 5.4 Create container manifest generation script
     - Create `scripts/generate-manifest.sh` that extracts image metadata
     - Include git commit hash, build timestamp, and labels in manifest
     - _Requirements: 4.7, 4.8_
   
-  - [ ] 5.5 Write property test for container image git tagging
+  - [x] 5.5 Write property test for container image git tagging
     - **Property 3: Container Image Git Tagging**
     - Test that built images contain valid git metadata in tags
     - **Validates: Requirements 4.8**
   
-  - [ ] 5.6 Write property test for UBI10 base image compliance
+  - [x] 5.6 Write property test for UBI10 base image compliance
     - **Property 5: UBI10 Base Image Compliance**
     - Parse all Containerfiles and verify final stage uses `registry.access.redhat.com/ubi10/*`
     - Reject any final stages using alpine, ubuntu, debian, or other non-UBI images
     - **Validates: Requirements 8.1, 8.2, 8.5**
   
-  - [ ] 5.7 Write property test for Containerfile documentation compliance
+  - [x] 5.7 Write property test for Containerfile documentation compliance
     - **Property 6: Containerfile Documentation Compliance**
     - Verify each Containerfile contains a comment block with base image rationale
     - **Validates: Requirements 8.4**
