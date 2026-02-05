@@ -31,6 +31,7 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 ## Rules
 
 - Never commit directly to `main` or `develop`
+- Before starting to work on a task, create a new feature branch
 - One feature branch per task
 - Merge `.gitignore` changes—never overwrite the file
 - Use GitHub MCP server for all PR operations
