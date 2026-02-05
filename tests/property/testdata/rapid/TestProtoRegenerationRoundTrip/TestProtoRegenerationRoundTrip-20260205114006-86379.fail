@@ -1,0 +1,48 @@
+# 2026/02/05 11:40:06.096292 [TestProtoRegenerationRoundTrip] [rapid] draw modification: property.ProtoModification{Type:0, Name:"WbUk2", FieldNumber:142, FieldType:"int64", Comment:"// Auto-generated for property test at 2026-02-05T11:40:06+01:00"}
+# 2026/02/05 11:40:06.152573 [TestProtoRegenerationRoundTrip] Go code generation failed for modification AddField: generated Go code is not valid: go build validation failed: exit status 1
+# stderr: test_generated.pb.go:13:2: missing go.sum entry for module providing package google.golang.org/protobuf/reflect/protoreflect (imported by testvalidation); to add:
+# 	go get testvalidation
+# test_generated.pb.go:14:2: missing go.sum entry for module providing package google.golang.org/protobuf/runtime/protoimpl (imported by testvalidation); to add:
+# 	go get testvalidation
+# 
+# Proto content:
+# // Auto-generated test proto file for property-based testing
+# // This file tests proto regeneration round-trip property
+# syntax = "proto3";
+# 
+# package sdv.test;
+# 
+# option go_package = "github.com/sdv-parking-demo/backend/gen/test";
+# 
+# // Auto-generated for property test at 2026-02-05T11:40:06+01:00
+# message TestContainer {
+#   int64 WbUk2 = 142;
+# }
+# 
+v0.4.8#16449747415149815172
+0x0
+0x0
+0x0
+0xb40d69c3a72e5
+0x68968fc1d2e1d
+0x2
+0x320cb143080b4
+0x1c1bca5f109d23
+0x30
+0x881116172d5a1
+0x33bcaa8153dea
+0x1
+0xb5fb0fd0f708
+0xf0ebec7e69ed6
+0x2e
+0x6da2bcf757abf
+0xcbb513addb970
+0xa
+0x1c74e66b3cbdbe
+0x1868c2be2938ef
+0x36
+0x192ca6051a412
+0x11137e51d0dd37
+0x2a
+0x51ec1c71bbe8e
+0x2

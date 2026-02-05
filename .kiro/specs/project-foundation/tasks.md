@@ -52,7 +52,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
   - Ensure all proto files are syntactically valid using `protoc --lint`
   - Ask the user if questions arise
 
-- [~] 4. Set up build system
+- [x] 4. Set up build system
   - [x] 4.1 Create root Makefile with all build targets
     - Define `all`, `proto`, `build`, `test`, `clean` targets
     - Define per-stack targets: `proto-rust`, `proto-kotlin`, `proto-dart`, `proto-go`
@@ -71,107 +71,107 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Create stub directories for parking-fee-service and cloud-gateway
     - _Requirements: 4.5_
   
-  - [~] 4.4 Create Android project configuration
+  - [x] 4.4 Create Android project configuration
     - Create `android/parking-app/build.gradle.kts` with Kotlin and gRPC dependencies
     - Create `android/parking-app/settings.gradle.kts`
     - _Requirements: 4.3_
   
-  - [~] 4.5 Create Flutter project configuration
+  - [x] 4.5 Create Flutter project configuration
     - Create `android/companion-app/pubspec.yaml` with gRPC and protobuf dependencies
     - _Requirements: 4.4_
   
-  - [~] 4.6 Create proto generation scripts
+  - [x] 4.6 Create proto generation scripts
     - Create `scripts/generate-proto.sh` for all language bindings
     - Configure buf.yaml for proto linting and generation
     - _Requirements: 2.7, 4.9_
   
-  - [~] 4.7 Write property test for proto regeneration round-trip
+  - [x] 4.7 Write property test for proto regeneration round-trip
     - **Property 1: Proto Regeneration Round-Trip**
     - Test that modifying proto files and regenerating produces compilable code
     - **Validates: Requirements 2.7**
 
-- [~] 5. Set up container build configuration
-  - [~] 5.1 Create Containerfiles for RHIVOS services
+- [ ] 5. Set up container build configuration
+  - [x] 5.1 Create Containerfiles for RHIVOS services
     - Create `containers/rhivos/Containerfile.locking-service`
     - Create `containers/rhivos/Containerfile.update-service`
     - Create `containers/rhivos/Containerfile.parking-operator-adaptor`
     - Create `containers/rhivos/Containerfile.cloud-gateway-client`
     - _Requirements: 4.6_
   
-  - [~] 5.2 Create Containerfiles for backend services
+  - [ ] 5.2 Create Containerfiles for backend services
     - Create `containers/backend/Containerfile.parking-fee-service`
     - Create `containers/backend/Containerfile.cloud-gateway`
     - _Requirements: 4.6_
   
-  - [~] 5.3 Create container manifest generation script
+  - [ ] 5.3 Create container manifest generation script
     - Create `scripts/generate-manifest.sh` that extracts image metadata
     - Include git commit hash, build timestamp, and labels in manifest
     - _Requirements: 4.7, 4.8_
   
-  - [~] 5.4 Write property test for container image git tagging
+  - [ ] 5.4 Write property test for container image git tagging
     - **Property 3: Container Image Git Tagging**
     - Test that built images contain valid git metadata in tags
     - **Validates: Requirements 4.8**
 
-- [~] 6. Checkpoint - Verify build system
+- [ ] 6. Checkpoint - Verify build system
   - Ensure `make proto` generates valid code stubs
   - Ensure container builds complete successfully
   - Ask the user if questions arise
 
-- [~] 7. Set up local development infrastructure
-  - [~] 7.1 Create Podman Compose configuration
+- [ ] 7. Set up local development infrastructure
+  - [ ] 7.1 Create Podman Compose configuration
     - Create `infra/compose/podman-compose.yml` with all services
     - Configure Eclipse Mosquitto MQTT broker service
     - Configure Eclipse Kuksa Databroker service from CentOS Automotive images
     - Add health checks for all services
     - _Requirements: 3.1, 3.2, 3.3, 3.6_
   
-  - [~] 7.2 Create mock service Containerfile
+  - [ ] 7.2 Create mock service Containerfile
     - Create `containers/mock/Containerfile.parking-operator` for mock parking operator
     - Create simple HTTP server that responds to parking session requests
     - _Requirements: 3.4_
   
-  - [~] 7.3 Create service configuration files
+  - [ ] 7.3 Create service configuration files
     - Create `infra/config/mosquitto/mosquitto.conf` with listener and TLS settings
     - Create `infra/config/kuksa/config.json` with VSS signal definitions
     - _Requirements: 3.5_
   
-  - [~] 7.4 Write property test for health check configuration completeness
+  - [ ] 7.4 Write property test for health check configuration completeness
     - **Property 2: Health Check Configuration Completeness**
     - Test that all services in compose file have health check configurations
     - **Validates: Requirements 3.6**
 
-- [~] 8. Set up communication protocol configuration
-  - [~] 8.1 Create development TLS certificates
+- [ ] 8. Set up communication protocol configuration
+  - [ ] 8.1 Create development TLS certificates
     - Create `scripts/generate-certs.sh` to generate self-signed CA and certificates
     - Generate CA certificate, server certificate, and client certificate
     - Place certificates in `infra/certs/` directory structure
     - _Requirements: 5.5_
   
-  - [~] 8.2 Create service endpoint configuration
+  - [ ] 8.2 Create service endpoint configuration
     - Create `infra/config/endpoints.yaml` documenting all service ports and socket paths
     - Configure UDS paths for local RHIVOS communication
     - Configure TCP ports for cross-domain communication
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.7_
   
-  - [~] 8.3 Create development mode configuration
+  - [ ] 8.3 Create development mode configuration
     - Add environment variable support for disabling TLS verification
     - Document development mode settings in configuration
     - _Requirements: 5.6_
 
-- [~] 9. Checkpoint - Verify local infrastructure
+- [ ] 9. Checkpoint - Verify local infrastructure
   - Ensure `make infra-up` starts all services
   - Ensure services respond on documented ports
   - Ask the user if questions arise
 
-- [~] 10. Create documentation
-  - [~] 10.1 Create root README with project overview
+- [ ] 10. Create documentation
+  - [ ] 10.1 Create root README with project overview
     - Write project description and architecture overview
     - Include quick-start instructions for cloning and building
     - Include communication diagram (Mermaid)
     - _Requirements: 6.1, 6.5, 1.8_
   
-  - [~] 10.2 Create per-directory README files
+  - [ ] 10.2 Create per-directory README files
     - Create `rhivos/README.md` explaining Rust services structure
     - Create `android/README.md` explaining Android apps structure
     - Create `backend/README.md` explaining Go services structure
@@ -180,37 +180,37 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Create `containers/README.md` explaining Containerfile organization
     - _Requirements: 6.2_
   
-  - [~] 10.3 Create development environment setup guides
+  - [ ] 10.3 Create development environment setup guides
     - Create `docs/setup-rust.md` for Rust development environment
     - Create `docs/setup-android.md` for Android/Kotlin development
     - Create `docs/setup-flutter.md` for Flutter/Dart development
     - Create `docs/setup-go.md` for Go development
     - _Requirements: 6.3_
   
-  - [~] 10.4 Create infrastructure documentation
+  - [ ] 10.4 Create infrastructure documentation
     - Create `docs/local-infrastructure.md` with detailed setup instructions
     - Document port assignments and service dependencies
     - _Requirements: 6.4_
   
-  - [~] 10.5 Write property test for documentation directory coverage
+  - [ ] 10.5 Write property test for documentation directory coverage
     - **Property 4: Documentation Directory Coverage**
     - Test that all major directories have README.md files
     - **Validates: Requirements 6.2**
 
-- [~] 11. Set up demo scenario support
-  - [~] 11.1 Create mock data generators
+- [ ] 11. Set up demo scenario support
+  - [ ] 11.1 Create mock data generators
     - Create `scripts/mock-location.sh` for generating location signals
     - Create `scripts/mock-speed.sh` for generating speed signals
     - Create `scripts/mock-door.sh` for generating door sensor signals
     - _Requirements: 7.4_
   
-  - [~] 11.2 Create failure simulation configuration
+  - [ ] 11.2 Create failure simulation configuration
     - Add configuration options to simulate registry unavailability
     - Add configuration options to simulate network failures
     - Document failure simulation in `docs/demo-scenarios.md`
     - _Requirements: 7.5_
 
-- [~] 12. Final checkpoint - Verify complete foundation
+- [ ] 12. Final checkpoint - Verify complete foundation
   - Ensure all tests pass
   - Verify all three demo scenarios can be configured
   - Ask the user if questions arise

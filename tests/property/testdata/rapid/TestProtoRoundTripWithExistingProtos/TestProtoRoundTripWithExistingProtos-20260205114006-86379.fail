@@ -1,0 +1,125 @@
+# 2026/02/05 11:40:06.554043 [TestProtoRoundTripWithExistingProtos] [rapid] draw modification: property.ProtoModification{Type:0, Name:"bQPbpeywudn7bb0jFOeK", FieldNumber:104, FieldType:"string", Comment:"// Auto-generated for property test at 2026-02-05T11:40:06+01:00"}
+# 2026/02/05 11:40:06.575309 [TestProtoRoundTripWithExistingProtos] Modified proto is not syntactically valid: protoc validation failed: exit status 1
+# stderr: /var/folders/1n/phtxj12j1tz07g68jp_fdftw0000gn/T/proto_existing_test_2760739421/proto/vss/signals.proto:39:3: Expected top-level statement (e.g. "message").
+# /var/folders/1n/phtxj12j1tz07g68jp_fdftw0000gn/T/proto_existing_test_2760739421/proto/vss/signals.proto:41:3: Expected top-level statement (e.g. "message").
+# /var/folders/1n/phtxj12j1tz07g68jp_fdftw0000gn/T/proto_existing_test_2760739421/proto/vss/signals.proto:43:3: Expected top-level statement (e.g. "message").
+# 
+# Modification:   string bQPbpeywudn7bb0jFOeK_3631 = 104;
+# 
+# New content:
+# syntax = "proto3";
+# package sdv.vss;
+# 
+# import "google/protobuf/timestamp.proto";
+# 
+# message DoorState {
+#   bool is_locked = 1;
+#   bool is_open = 2;
+#   google.protobuf.Timestamp timestamp = 3;
+# }
+# 
+# message Location {
+#   double latitude = 1;
+#   double longitude = 2;
+#   google.protobuf.Timestamp timestamp = 3;
+# }
+# 
+# message VehicleSpeed {
+#   float speed_kmh = 1;
+#   google.protobuf.Timestamp timestamp = 2;
+# }
+# 
+# message ParkingState {
+#   bool session_active = 1;
+#   string session_id = 2;
+#   google.protobuf.Timestamp timestamp = 3;
+# }
+# 
+# // Unified signal container for subscriptions
+# message VehicleSignal {
+#   oneof signal {
+#     DoorState door_state = 1;
+#     Location location = 2;
+#     VehicleSpeed speed = 3;
+#     ParkingState parking_state = 4;
+#   }
+# }
+# 
+#   string bQPbpeywudn7bb0jFOeK_5709 = 104;
+# 
+#   string bQPbpeywudn7bb0jFOeK_1853 = 104;
+# 
+#   string bQPbpeywudn7bb0jFOeK_3631 = 104;
+# 
+v0.4.8#14143475245226976112
+0xbb58cce05ca50
+0xd6c379dd032
+0x0
+0xc7720ea936608
+0x1f9ee28c881030
+0xffffffffffffffff
+0x11d454447ee533
+0x23b8c2f6d17b4
+0x1
+0x64b6dcc8ff2db
+0x1621fa5bd8a1c0
+0x2a
+0xc9c85c34aba69
+0x1a8475435d68c7
+0x29
+0x59e99895b5a90
+0x147849cff0265
+0x1
+0x38b60505c9183
+0x134977ad5f0589
+0xf
+0x1e47af1311ce5d
+0x179d2b815c47ab
+0x4
+0x1af4c99ae79bb
+0xc5644b6187042
+0x18
+0xcb228c6880d61
+0xf233c5e823deb
+0x16
+0xf60164b645982
+0xc833386b73266
+0x14
+0x1025bd53c041c
+0x60f3050407d0f
+0x3
+0x19cce7f5909468
+0x1c4c50580fde92
+0xd
+0x178407e9b58a47
+0x1b1403962e471a
+0x3b
+0x1339b35d0e6878
+0x947af5c4298af
+0x1
+0xa94d273ac1b9c
+0x54950b99ba7d4
+0x1
+0x2bebc484ec12d
+0x199e1c80513d6b
+0x34
+0x16f5ae34e96e3b
+0x115e9041580556
+0x9
+0x95fe4f1bdb27
+0x11ce8223931278
+0x1f
+0x1cc84af7cef753
+0xf5f028e0ddc3f
+0x28
+0x1136eff3c044de
+0x10a860f186a46d
+0x4
+0x120204c392aedb
+0x188ebc79ab94e6
+0x24
+0x43c94fc63a683
+0x8478160ea99a9
+0x4
+0x1dfe7b0e4e67a5
+0x0

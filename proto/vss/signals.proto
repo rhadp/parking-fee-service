@@ -1,6 +1,8 @@
 syntax = "proto3";
 package sdv.vss;
 
+option go_package = "github.com/sdv-parking-demo/backend/gen/vss";
+
 import "google/protobuf/timestamp.proto";
 
 message DoorState {
