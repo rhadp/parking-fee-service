@@ -35,4 +35,4 @@ USER mock-service
 # Expose HTTP port for mock API
 EXPOSE 8080
 
-ENTRYPOINT ["python3", "-m", "http.server", "8080"]
+ENTRYPOINT ["python3", "app.py"]

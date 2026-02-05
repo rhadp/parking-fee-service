@@ -6,6 +6,7 @@
 .PHONY: build-rhivos build-android build-backend build-containers
 .PHONY: test-rhivos test-android test-backend
 .PHONY: infra-up infra-down
+.PHONY: certs certs-clean
 
 # Default target
 all: proto build
@@ -100,6 +101,20 @@ test-backend:
 	cd backend && go test ./...
 
 #------------------------------------------------------------------------------
+# TLS Certificate Targets
+#------------------------------------------------------------------------------
+
+# Generate development TLS certificates
+certs:
+	@echo "Generating development TLS certificates..."
+	@./scripts/generate-certs.sh
+
+# Clean TLS certificates
+certs-clean:
+	@echo "Cleaning TLS certificates..."
+	@./scripts/generate-certs.sh clean
+
+#------------------------------------------------------------------------------
 # Local Infrastructure Targets
 #------------------------------------------------------------------------------
 
@@ -111,7 +126,7 @@ infra-up:
 	@sleep 5
 	@echo "Local infrastructure is running"
 	@echo "  - MQTT Broker: localhost:1883 (TLS: 8883)"
-	@echo "  - Kuksa Databroker: localhost:55555"
+	@echo "  - Kuksa Databroker: localhost:55556"
 	@echo "  - Mock Parking Operator: localhost:8080"
 
 # Stop local development infrastructure
@@ -172,6 +187,10 @@ help:
 	@echo "  test-rhivos      - Run Rust tests"
 	@echo "  test-android     - Run Android tests"
 	@echo "  test-backend     - Run Go backend tests"
+	@echo ""
+	@echo "Certificate targets:"
+	@echo "  certs            - Generate development TLS certificates"
+	@echo "  certs-clean      - Clean TLS certificates"
 	@echo ""
 	@echo "Infrastructure targets:"
 	@echo "  infra-up         - Start local development infrastructure"

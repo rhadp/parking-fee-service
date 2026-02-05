@@ -1,0 +1,311 @@
+# Service Endpoint Configuration
+# SDV Parking Demo System
+#
+# This file documents all service endpoints, ports, and socket paths
+# for the SDV Parking Demo System.
+#
+# Requirements: 5.1, 5.2, 5.3, 5.4, 5.7
+
+# =============================================================================
+# RHIVOS Services (In-Vehicle)
+# =============================================================================
+# These services run on the RHIVOS platform and communicate via Unix Domain
+# Sockets (UDS) for local inter-process communication within the vehicle.
+
+rhivos:
+  # DATA_BROKER - Eclipse Kuksa Databroker
+  # Provides VSS-compliant gRPC pub/sub interface for vehicle signals
+  databroker:
+    description: "Eclipse Kuksa Databroker for VSS signals"
+    protocol: grpc
+    local:
+      type: uds
+      path: /run/kuksa/databroker.sock
+    network:
+      type: tcp
+      host: "0.0.0.0"
+      port: 55556
+    tls:
+      enabled: true
+      cert_file: /etc/kuksa/certs/server.crt
+      key_file: /etc/kuksa/certs/server.key
+      ca_file: /etc/kuksa/certs/ca.crt
+
+  # LOCKING_SERVICE - ASIL-B Door Locking Service
+  # Safety-critical service in the safety partition
+  locking_service:
+    description: "ASIL-B Door Locking Service (Safety Partition)"
+    protocol: grpc
+    local:
+      type: uds
+      path: /run/rhivos/locking.sock
+    # No network exposure - safety-critical service
+    network: null
+    tls:
+      enabled: true
+      cert_file: /etc/rhivos/certs/server.crt
+      key_file: /etc/rhivos/certs/server.key
+      ca_file: /etc/rhivos/certs/ca.crt
+      # Mutual TLS required for safety-critical operations
+      client_auth: required
+
+  # UPDATE_SERVICE - Container Lifecycle Manager
+  # Manages adapter installation/uninstallation in QM partition
+  update_service:
+    description: "Container Lifecycle Manager (QM Partition)"
+    protocol: grpc
+    local:
+      type: uds
+      path: /run/rhivos/update.sock
+    network:
+      type: tcp
+      host: "0.0.0.0"
+      port: 50051
+    tls:
+      enabled: true
+      cert_file: /etc/rhivos/certs/server.crt
+      key_file: /etc/rhivos/certs/server.key
+      ca_file: /etc/rhivos/certs/ca.crt
+
+  # PARKING_OPERATOR_ADAPTOR - Dynamic Parking Adapter
+  # Downloaded on-demand based on vehicle location
+  parking_adaptor:
+    description: "Dynamic Parking Operator Adapter (QM Partition)"
+    protocol: grpc
+    local:
+      type: uds
+      path: /run/rhivos/parking.sock
+    network:
+      type: tcp
+      host: "0.0.0.0"
+      port: 50052
+    tls:
+      enabled: true
+      cert_file: /etc/rhivos/certs/server.crt
+      key_file: /etc/rhivos/certs/server.key
+      ca_file: /etc/rhivos/certs/ca.crt
+
+  # CLOUD_GATEWAY_CLIENT - MQTT Client for Cloud Communication
+  # Bridges vehicle services to cloud via MQTT
+  cloud_gateway_client:
+    description: "MQTT Client for Vehicle-to-Cloud Communication"
+    protocol: mqtt
+    local:
+      type: uds
+      path: /run/rhivos/cloud-gateway.sock
+    # Outbound connection to cloud MQTT broker
+    upstream:
+      type: tcp
+      host: mqtt.example.com
+      port: 8883
+    tls:
+      enabled: true
+      cert_file: /etc/rhivos/certs/client.crt
+      key_file: /etc/rhivos/certs/client.key
+      ca_file: /etc/rhivos/certs/ca.crt
+
+# =============================================================================
+# Android Automotive OS (AAOS) Services
+# =============================================================================
+# The PARKING_APP runs on AAOS and communicates with RHIVOS services
+# via gRPC over TLS (cross-domain communication).
+
+aaos:
+  # PARKING_APP - Android Automotive Parking Application
+  parking_app:
+    description: "Android Automotive Parking Application"
+    # Outbound connections to RHIVOS services
+    connections:
+      databroker:
+        protocol: grpc
+        host: rhivos.local
+        port: 55556
+        tls:
+          enabled: true
+          ca_file: /data/app/certs/ca.crt
+      update_service:
+        protocol: grpc
+        host: rhivos.local
+        port: 50051
+        tls:
+          enabled: true
+          ca_file: /data/app/certs/ca.crt
+      parking_adaptor:
+        protocol: grpc
+        host: rhivos.local
+        port: 50052
+        tls:
+          enabled: true
+          ca_file: /data/app/certs/ca.crt
+      parking_fee_service:
+        protocol: https
+        host: api.example.com
+        port: 443
+        tls:
+          enabled: true
+          # Uses system CA store
+
+# =============================================================================
+# Backend Services (Cloud)
+# =============================================================================
+# These services run in the cloud and handle parking operations and
+# vehicle-to-cloud communication.
+
+backend:
+  # CLOUD_GATEWAY - MQTT Broker/Router
+  # Handles vehicle-to-cloud MQTT communication
+  cloud_gateway:
+    description: "MQTT Broker/Router for Vehicle Communication"
+    protocol: mqtt
+    network:
+      type: tcp
+      host: "0.0.0.0"
+      port: 8883
+    tls:
+      enabled: true
+      cert_file: /etc/cloud-gateway/certs/server.crt
+      key_file: /etc/cloud-gateway/certs/server.key
+      ca_file: /etc/cloud-gateway/certs/ca.crt
+      client_auth: required
+
+  # PARKING_FEE_SERVICE - Parking Operations Backend
+  # REST API for parking session management
+  parking_fee_service:
+    description: "Parking Fee Service REST API"
+    protocol: https
+    network:
+      type: tcp
+      host: "0.0.0.0"
+      port: 443
+    tls:
+      enabled: true
+      cert_file: /etc/parking-fee-service/certs/server.crt
+      key_file: /etc/parking-fee-service/certs/server.key
+
+  # REGISTRY - OCI Container Registry
+  # Hosts parking operator adapter container images
+  registry:
+    description: "OCI Container Registry for Adapters"
+    protocol: https
+    network:
+      type: tcp
+      host: registry.example.com
+      port: 443
+    tls:
+      enabled: true
+      # Uses public CA
+
+# =============================================================================
+# Local Development Infrastructure
+# =============================================================================
+# Configuration for local development using Podman Compose.
+# All services run on localhost with mapped ports.
+
+local_development:
+  # Eclipse Mosquitto MQTT Broker
+  mosquitto:
+    description: "Eclipse Mosquitto MQTT Broker (Local)"
+    protocol: mqtt
+    network:
+      mqtt:
+        host: localhost
+        port: 1883
+      mqtt_tls:
+        host: localhost
+        port: 8883
+    tls:
+      enabled: true
+      cert_file: infra/certs/server/server.crt
+      key_file: infra/certs/server/server.key
+      ca_file: infra/certs/ca/ca.crt
+
+  # Eclipse Kuksa Databroker
+  kuksa_databroker:
+    description: "Eclipse Kuksa Databroker (Local)"
+    protocol: grpc
+    network:
+      host: localhost
+      port: 55556
+    tls:
+      enabled: true
+      cert_file: infra/certs/server/server.crt
+      key_file: infra/certs/server/server.key
+      ca_file: infra/certs/ca/ca.crt
+
+  # Mock Parking Operator
+  mock_parking_operator:
+    description: "Mock Parking Operator Service (Local)"
+    protocol: http
+    network:
+      host: localhost
+      port: 8080
+    tls:
+      enabled: false
+
+  # Local RHIVOS Services (simulated)
+  locking_service:
+    description: "Locking Service (Local Simulation)"
+    protocol: grpc
+    network:
+      host: localhost
+      port: 50053
+    tls:
+      enabled: true
+      cert_file: infra/certs/server/server.crt
+      key_file: infra/certs/server/server.key
+      ca_file: infra/certs/ca/ca.crt
+
+  update_service:
+    description: "Update Service (Local Simulation)"
+    protocol: grpc
+    network:
+      host: localhost
+      port: 50051
+    tls:
+      enabled: true
+      cert_file: infra/certs/server/server.crt
+      key_file: infra/certs/server/server.key
+      ca_file: infra/certs/ca/ca.crt
+
+  parking_adaptor:
+    description: "Parking Adaptor (Local Simulation)"
+    protocol: grpc
+    network:
+      host: localhost
+      port: 50052
+    tls:
+      enabled: true
+      cert_file: infra/certs/server/server.crt
+      key_file: infra/certs/server/server.key
+      ca_file: infra/certs/ca/ca.crt
+
+# =============================================================================
+# Port Assignment Summary
+# =============================================================================
+# This section provides a quick reference for all port assignments.
+#
+# | Service                | Protocol | Port  | Notes                    |
+# |------------------------|----------|-------|--------------------------|
+# | DATA_BROKER            | gRPC     | 55556 | Kuksa Databroker         |
+# | UPDATE_SERVICE         | gRPC     | 50051 | Container lifecycle      |
+# | PARKING_ADAPTOR        | gRPC     | 50052 | Parking session mgmt     |
+# | LOCKING_SERVICE        | gRPC     | 50053 | Local dev only (UDS prod)|
+# | CLOUD_GATEWAY          | MQTT/TLS | 8883  | Vehicle-to-cloud         |
+# | MOSQUITTO (plain)      | MQTT     | 1883  | Local dev only           |
+# | MOSQUITTO (TLS)        | MQTT/TLS | 8883  | Local dev                |
+# | MOCK_PARKING_OPERATOR  | HTTP     | 8080  | Local dev only           |
+# | PARKING_FEE_SERVICE    | HTTPS    | 443   | REST API                 |
+# | REGISTRY               | HTTPS    | 443   | OCI registry             |
+
+# =============================================================================
+# Unix Domain Socket Paths (RHIVOS Production)
+# =============================================================================
+# UDS paths for local inter-process communication within RHIVOS.
+#
+# | Service                | Socket Path                    |
+# |------------------------|--------------------------------|
+# | DATA_BROKER            | /run/kuksa/databroker.sock     |
+# | LOCKING_SERVICE        | /run/rhivos/locking.sock       |
+# | UPDATE_SERVICE         | /run/rhivos/update.sock        |
+# | PARKING_ADAPTOR        | /run/rhivos/parking.sock       |
+# | CLOUD_GATEWAY_CLIENT   | /run/rhivos/cloud-gateway.sock |
