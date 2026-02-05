@@ -75,6 +75,15 @@ protobuf {
 }
 ```
 
+### Dart
+
+```shell
+dart pub global activate protoc_plugin
+
+export PATH="$PATH":"$HOME/.pub-cache/bin"
+```
+
+
 ## Summary: What to Install Globally
 
 | Tool | Install Command |
