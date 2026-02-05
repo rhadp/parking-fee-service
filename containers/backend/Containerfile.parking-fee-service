@@ -3,9 +3,12 @@
 # Base Image Rationale: Using ubi10/ubi-micro for minimal footprint. Go binaries
 # are statically compiled and require no runtime dependencies, making micro the
 # ideal choice for smallest possible image size.
+#
+# Build Stage: Using ghcr.io/rhadp/builder per project standards for Go builds
+# (Requirement 8.6).
 
-# Build stage
-FROM docker.io/library/golang:1.22 AS builder
+# Build stage - MUST use ghcr.io/rhadp/builder for Go builds
+FROM ghcr.io/rhadp/builder AS builder
 WORKDIR /app
 COPY backend/parking-fee-service/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o parking-fee-service .
