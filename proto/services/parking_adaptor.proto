@@ -1,0 +1,55 @@
+syntax = "proto3";
+package sdv.services.parking;
+
+import "google/protobuf/timestamp.proto";
+
+service ParkingAdaptor {
+  // Start a parking session
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+  
+  // Stop a parking session
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+  
+  // Get current session status
+  rpc GetSessionStatus(GetSessionStatusRequest) returns (GetSessionStatusResponse);
+}
+
+message StartSessionRequest {
+  string vehicle_id = 1;
+  string zone_id = 2;
+  double latitude = 3;
+  double longitude = 4;
+}
+
+message StartSessionResponse {
+  string session_id = 1;
+  bool success = 2;
+  string error_message = 3;
+  string operator_name = 4;
+  double hourly_rate = 5;
+  string currency = 6;
+}
+
+message StopSessionRequest {
+  string session_id = 1;
+}
+
+message StopSessionResponse {
+  bool success = 1;
+  string error_message = 2;
+  double total_amount = 3;
+  string currency = 4;
+  int64 duration_seconds = 5;
+}
+
+message GetSessionStatusRequest {
+  string session_id = 1;
+}
+
+message GetSessionStatusResponse {
+  string session_id = 1;
+  bool active = 2;
+  google.protobuf.Timestamp start_time = 3;
+  double current_amount = 4;
+  string currency = 5;
+}
