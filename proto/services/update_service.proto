@@ -1,0 +1,82 @@
+syntax = "proto3";
+package sdv.services.update;
+
+// UpdateService provides adapter lifecycle management for the SDV system.
+// It handles installation, uninstallation, and state monitoring of parking operator adapters.
+service UpdateService {
+  // Install an adapter from registry
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+  
+  // Uninstall an adapter
+  rpc UninstallAdapter(UninstallAdapterRequest) returns (UninstallAdapterResponse);
+  
+  // List installed adapters
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+  
+  // Watch adapter state changes
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+}
+
+// AdapterState represents the lifecycle state of an adapter
+enum AdapterState {
+  ADAPTER_STATE_UNKNOWN = 0;
+  ADAPTER_STATE_DOWNLOADING = 1;
+  ADAPTER_STATE_INSTALLING = 2;
+  ADAPTER_STATE_RUNNING = 3;
+  ADAPTER_STATE_STOPPED = 4;
+  ADAPTER_STATE_ERROR = 5;
+}
+
+// AdapterInfo contains metadata about an installed adapter
+message AdapterInfo {
+  string adapter_id = 1;
+  string image_ref = 2;
+  string version = 3;
+  AdapterState state = 4;
+  string error_message = 5;
+}
+
+// InstallAdapterRequest contains the information needed to install an adapter
+message InstallAdapterRequest {
+  string image_ref = 1;
+  string checksum = 2;
+}
+
+// InstallAdapterResponse contains the result of an adapter installation request
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  AdapterState state = 3;
+}
+
+// UninstallAdapterRequest identifies the adapter to uninstall
+message UninstallAdapterRequest {
+  string adapter_id = 1;
+}
+
+// UninstallAdapterResponse contains the result of an adapter uninstallation request
+message UninstallAdapterResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ListAdaptersRequest is an empty request to list all installed adapters
+message ListAdaptersRequest {}
+
+// ListAdaptersResponse contains the list of installed adapters
+message ListAdaptersResponse {
+  repeated AdapterInfo adapters = 1;
+}
+
+// WatchAdapterStatesRequest specifies which adapters to watch for state changes
+message WatchAdapterStatesRequest {
+  repeated string adapter_ids = 1;  // Empty = watch all
+}
+
+// AdapterStateEvent represents a state change event for an adapter
+message AdapterStateEvent {
+  string adapter_id = 1;
+  AdapterState old_state = 2;
+  AdapterState new_state = 3;
+  string error_message = 4;
+}
