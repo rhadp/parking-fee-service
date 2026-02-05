@@ -167,6 +167,89 @@ environment_variables:
     default: "0.0"
     example: "export SDV_SIMULATE_FAILURE_RATE=0.1"
 
+  # -----------------------------------------------------------------------------
+  # Failure Simulation (Demo Scenarios)
+  # -----------------------------------------------------------------------------
+  # These settings enable simulation of specific failure scenarios for demos
+  # and testing error handling paths.
+  # Requirements: 7.5
+
+  # Simulate registry unavailability
+  SDV_SIMULATE_REGISTRY_UNAVAILABLE:
+    description: "Simulate OCI registry being unavailable"
+    type: boolean
+    default: "false"
+    values:
+      - "true"   # Registry calls will fail with UNAVAILABLE error
+      - "false"  # Normal registry operation (default)
+    use_case: "Demo Scenario 3: Error Handling - Registry unavailable"
+    example: "export SDV_SIMULATE_REGISTRY_UNAVAILABLE=true"
+
+  # Simulate registry timeout (seconds)
+  SDV_SIMULATE_REGISTRY_TIMEOUT_SEC:
+    description: "Simulate registry timeout after N seconds (0 = no timeout)"
+    type: integer
+    default: "0"
+    use_case: "Testing timeout handling in UPDATE_SERVICE"
+    example: "export SDV_SIMULATE_REGISTRY_TIMEOUT_SEC=30"
+
+  # Simulate network failures
+  SDV_SIMULATE_NETWORK_FAILURE:
+    description: "Simulate network connectivity failures"
+    type: boolean
+    default: "false"
+    values:
+      - "true"   # Network calls will fail with UNAVAILABLE error
+      - "false"  # Normal network operation (default)
+    use_case: "Testing offline/disconnected scenarios"
+    example: "export SDV_SIMULATE_NETWORK_FAILURE=true"
+
+  # Simulate network partition (specific services)
+  SDV_SIMULATE_PARTITION_SERVICES:
+    description: "Comma-separated list of services to simulate as unreachable"
+    type: string
+    default: ""
+    values:
+      - "databroker"      # DATA_BROKER unreachable
+      - "update_service"  # UPDATE_SERVICE unreachable
+      - "parking_adaptor" # PARKING_ADAPTOR unreachable
+      - "mqtt_broker"     # MQTT broker unreachable
+      - "registry"        # OCI registry unreachable
+    use_case: "Testing partial network failures"
+    example: "export SDV_SIMULATE_PARTITION_SERVICES=registry,mqtt_broker"
+
+  # Simulate checksum mismatch on adapter download
+  SDV_SIMULATE_CHECKSUM_MISMATCH:
+    description: "Simulate checksum verification failure on adapter download"
+    type: boolean
+    default: "false"
+    use_case: "Testing security validation in UPDATE_SERVICE"
+    example: "export SDV_SIMULATE_CHECKSUM_MISMATCH=true"
+
+  # Simulate adapter installation failure
+  SDV_SIMULATE_ADAPTER_INSTALL_FAILURE:
+    description: "Simulate adapter container failing to start"
+    type: boolean
+    default: "false"
+    use_case: "Testing adapter lifecycle error handling"
+    example: "export SDV_SIMULATE_ADAPTER_INSTALL_FAILURE=true"
+
+  # Simulate MQTT connection failure
+  SDV_SIMULATE_MQTT_FAILURE:
+    description: "Simulate MQTT broker connection failure"
+    type: boolean
+    default: "false"
+    use_case: "Testing vehicle-to-cloud communication failures"
+    example: "export SDV_SIMULATE_MQTT_FAILURE=true"
+
+  # Simulate intermittent failures (percentage)
+  SDV_SIMULATE_INTERMITTENT_RATE:
+    description: "Rate of intermittent failures (0-100%)"
+    type: integer
+    default: "0"
+    use_case: "Testing retry logic and resilience"
+    example: "export SDV_SIMULATE_INTERMITTENT_RATE=20"
+
 # =============================================================================
 # Development Mode Profiles
 # =============================================================================
@@ -233,6 +316,100 @@ profiles:
       export SDV_SIMULATE_LATENCY_MS=100
       export SDV_SIMULATE_FAILURE_RATE=0.1
       export SDV_LOG_LEVEL=debug
+
+  # -----------------------------------------------------------------------------
+  # Demo Scenario Profiles
+  # -----------------------------------------------------------------------------
+  # Pre-configured profiles for the three main demo scenarios.
+  # See docs/demo-scenarios.md for detailed scenario descriptions.
+
+  # Demo Scenario 1: Happy Path
+  demo_happy_path:
+    description: "Demo Scenario 1: Happy Path - Adapter downloads and manages parking session"
+    environment:
+      SDV_LOG_LEVEL: "info"
+      SDV_TLS_SKIP_VERIFY: "true"
+      SDV_SIMULATE_REGISTRY_UNAVAILABLE: "false"
+      SDV_SIMULATE_NETWORK_FAILURE: "false"
+    script: |
+      # Demo Scenario 1: Happy Path
+      # Adapter downloads successfully and manages parking session
+      export SDV_LOG_LEVEL=info
+      export SDV_TLS_SKIP_VERIFY=true
+      export SDV_SIMULATE_REGISTRY_UNAVAILABLE=false
+      export SDV_SIMULATE_NETWORK_FAILURE=false
+      echo "Demo Scenario 1: Happy Path configured"
+
+  # Demo Scenario 2: Adapter Already Installed
+  demo_adapter_installed:
+    description: "Demo Scenario 2: Adapter Already Installed - No download needed"
+    environment:
+      SDV_LOG_LEVEL: "info"
+      SDV_TLS_SKIP_VERIFY: "true"
+      SDV_SIMULATE_REGISTRY_UNAVAILABLE: "false"
+      SDV_SIMULATE_NETWORK_FAILURE: "false"
+    notes: |
+      For this scenario, ensure the parking operator adapter is pre-installed
+      before starting the demo. Use: make install-demo-adapter
+    script: |
+      # Demo Scenario 2: Adapter Already Installed
+      # Pre-install adapter before demo
+      export SDV_LOG_LEVEL=info
+      export SDV_TLS_SKIP_VERIFY=true
+      export SDV_SIMULATE_REGISTRY_UNAVAILABLE=false
+      export SDV_SIMULATE_NETWORK_FAILURE=false
+      echo "Demo Scenario 2: Adapter Already Installed configured"
+      echo "Note: Ensure adapter is pre-installed before demo"
+
+  # Demo Scenario 3: Error Handling - Registry Unavailable
+  demo_registry_error:
+    description: "Demo Scenario 3: Error Handling - Registry unavailable"
+    environment:
+      SDV_LOG_LEVEL: "debug"
+      SDV_TLS_SKIP_VERIFY: "true"
+      SDV_SIMULATE_REGISTRY_UNAVAILABLE: "true"
+      SDV_SIMULATE_NETWORK_FAILURE: "false"
+    script: |
+      # Demo Scenario 3: Error Handling - Registry Unavailable
+      # Simulates registry being down during adapter download
+      export SDV_LOG_LEVEL=debug
+      export SDV_TLS_SKIP_VERIFY=true
+      export SDV_SIMULATE_REGISTRY_UNAVAILABLE=true
+      export SDV_SIMULATE_NETWORK_FAILURE=false
+      echo "Demo Scenario 3: Registry Unavailable configured"
+      echo "UPDATE_SERVICE will return UNAVAILABLE errors"
+
+  # Demo Scenario 3 Variant: Network Failure
+  demo_network_error:
+    description: "Demo Scenario 3 Variant: Network connectivity failure"
+    environment:
+      SDV_LOG_LEVEL: "debug"
+      SDV_TLS_SKIP_VERIFY: "true"
+      SDV_SIMULATE_NETWORK_FAILURE: "true"
+    script: |
+      # Demo Scenario 3 Variant: Network Failure
+      # Simulates complete network connectivity loss
+      export SDV_LOG_LEVEL=debug
+      export SDV_TLS_SKIP_VERIFY=true
+      export SDV_SIMULATE_NETWORK_FAILURE=true
+      echo "Demo Scenario 3 Variant: Network Failure configured"
+      echo "All network calls will fail"
+
+  # Demo Scenario 3 Variant: Partial Network Partition
+  demo_partial_partition:
+    description: "Demo Scenario 3 Variant: Partial network partition (registry only)"
+    environment:
+      SDV_LOG_LEVEL: "debug"
+      SDV_TLS_SKIP_VERIFY: "true"
+      SDV_SIMULATE_PARTITION_SERVICES: "registry"
+    script: |
+      # Demo Scenario 3 Variant: Partial Network Partition
+      # Only registry is unreachable, other services work
+      export SDV_LOG_LEVEL=debug
+      export SDV_TLS_SKIP_VERIFY=true
+      export SDV_SIMULATE_PARTITION_SERVICES=registry
+      echo "Demo Scenario 3 Variant: Partial Partition configured"
+      echo "Registry unreachable, other services operational"
 
 # =============================================================================
 # Usage Examples

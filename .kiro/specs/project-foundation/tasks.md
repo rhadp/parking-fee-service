@@ -219,14 +219,14 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that all major directories have README.md files
     - **Validates: Requirements 6.2**
 
-- [-] 11. Set up demo scenario support
-  - [ ] 11.1 Create mock data generators
+- [x] 11. Set up demo scenario support
+  - [x] 11.1 Create mock data generators
     - Create `scripts/mock-location.sh` for generating location signals
     - Create `scripts/mock-speed.sh` for generating speed signals
     - Create `scripts/mock-door.sh` for generating door sensor signals
     - _Requirements: 7.4_
   
-  - [ ] 11.2 Create failure simulation configuration
+  - [x] 11.2 Create failure simulation configuration
     - Add configuration options to simulate registry unavailability
     - Add configuration options to simulate network failures
     - Document failure simulation in `docs/demo-scenarios.md`
