@@ -135,10 +135,11 @@ clean:
 	@# Clean Go artifacts
 	cd backend && go clean ./... 2>/dev/null || true
 	@# Clean generated proto files
-	rm -rf rhivos/*/src/proto 2>/dev/null || true
+	rm -rf rhivos/shared/src/proto 2>/dev/null || true
 	rm -rf android/parking-app/app/src/main/java/sdv/proto 2>/dev/null || true
+	rm -rf android/companion-app/lib/generated 2>/dev/null || true
 	rm -rf android/companion-app/lib/proto 2>/dev/null || true
-	rm -rf backend/pkg/proto 2>/dev/null || true
+	rm -rf backend/gen 2>/dev/null || true
 	@echo "Clean complete"
 
 #------------------------------------------------------------------------------

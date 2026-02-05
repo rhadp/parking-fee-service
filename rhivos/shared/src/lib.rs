@@ -5,7 +5,11 @@
 
 pub mod config;
 pub mod error;
+pub mod proto;
 
 /// Re-export commonly used types
 pub use config::{DataBrokerConfig, MqttConfig, ServiceConfig};
 pub use error::{Error, Result};
+
+/// Re-export proto types for convenience
+pub use proto::sdv;

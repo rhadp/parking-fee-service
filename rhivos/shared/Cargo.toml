@@ -19,3 +19,7 @@ config.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+
+[build-dependencies]
+tonic-build = "0.10"
+walkdir = "2.4"
