@@ -450,11 +450,11 @@ services:
   kuksa-databroker:
     image: registry.gitlab.com/centos/automotive/container-images/eclipse-kuksa/kuksa-databroker:latest
     ports:
-      - "55555:55555"  # gRPC
+      - "55556:55556"  # gRPC
     volumes:
       - ./config/kuksa:/config
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:55555"]
+      test: ["CMD", "grpc_health_probe", "-addr=:55556"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -516,7 +516,7 @@ pub struct ContainerManifest {
 
 | Service | Local (UDS) | Network (TCP) | Port |
 |---------|-------------|---------------|------|
-| DATA_BROKER | /run/kuksa/databroker.sock | 0.0.0.0:55555 | 55555 |
+| DATA_BROKER | /run/kuksa/databroker.sock | 0.0.0.0:55556 | 55556 |
 | LOCKING_SERVICE | /run/rhivos/locking.sock | - | - |
 | UPDATE_SERVICE | /run/rhivos/update.sock | 0.0.0.0:50051 | 50051 |
 | PARKING_ADAPTOR | /run/rhivos/parking.sock | 0.0.0.0:50052 | 50052 |

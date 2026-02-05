@@ -45,7 +45,7 @@ services:
   # Eclipse Kuksa Databroker
   # Provides VSS-compliant gRPC pub/sub interface for vehicle signals
   # Requirements: 3.3
-  # Note: Using port 55556 instead of 55555 (55555 is blocked on macOS)
+  # Note: Using port 55556 instead of 55556 (55556 is blocked on macOS)
   # Note: Health check disabled - container is minimal (no shell/tools available)
   #       Service health can be verified externally via: nc -zv localhost 55556
   kuksa-databroker:

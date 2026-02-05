@@ -76,8 +76,8 @@ environment_variables:
   SDV_DATABROKER_ADDRESS:
     description: "Override DATA_BROKER service address"
     type: string
-    default: "localhost:55555"
-    example: "export SDV_DATABROKER_ADDRESS=192.168.1.100:55555"
+    default: "localhost:55556"
+    example: "export SDV_DATABROKER_ADDRESS=192.168.1.100:55556"
 
   # Override UPDATE_SERVICE address
   SDV_UPDATE_SERVICE_ADDRESS:
@@ -256,14 +256,14 @@ profiles:
 # 4. Test with grpcurl (no TLS):
 #    
 #    export SDV_TLS_DISABLED=true
-#    grpcurl -plaintext localhost:55555 list
+#    grpcurl -plaintext localhost:55556 list
 #
 # 5. Test with grpcurl (self-signed TLS):
 #    
 #    grpcurl -cacert infra/certs/ca/ca.crt \
 #            -cert infra/certs/client/client.crt \
 #            -key infra/certs/client/client.key \
-#            localhost:55555 list
+#            localhost:55556 list
 
 # =============================================================================
 # Language-Specific Configuration

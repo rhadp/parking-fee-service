@@ -735,7 +735,7 @@ fun ZoneResponse.toDomain(): ZoneInfo = ZoneInfo(
 data class AppConfig(
     // DATA_BROKER connection
     val dataBrokerHost: String = "localhost",
-    val dataBrokerPort: Int = 55555,
+    val dataBrokerPort: Int = 55556,
     val dataBrokerUseTls: Boolean = true,
     
     // UPDATE_SERVICE connection

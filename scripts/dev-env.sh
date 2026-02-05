@@ -57,7 +57,7 @@ setup_local_tls() {
     export SDV_LOG_LEVEL=debug
     
     # Service addresses for local development
-    export SDV_DATABROKER_ADDRESS="localhost:55555"
+    export SDV_DATABROKER_ADDRESS="localhost:55556"
     export SDV_UPDATE_SERVICE_ADDRESS="localhost:50051"
     export SDV_PARKING_ADAPTOR_ADDRESS="localhost:50052"
     export SDV_LOCKING_SERVICE_ADDRESS="localhost:50053"
@@ -76,7 +76,7 @@ setup_local_insecure() {
     export SDV_LOG_LEVEL=debug
     
     # Service addresses for local development (non-TLS ports)
-    export SDV_DATABROKER_ADDRESS="localhost:55555"
+    export SDV_DATABROKER_ADDRESS="localhost:55556"
     export SDV_UPDATE_SERVICE_ADDRESS="localhost:50051"
     export SDV_PARKING_ADAPTOR_ADDRESS="localhost:50052"
     export SDV_LOCKING_SERVICE_ADDRESS="localhost:50053"
