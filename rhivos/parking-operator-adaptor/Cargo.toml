@@ -1,0 +1,24 @@
+[package]
+name = "parking-operator-adaptor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Dynamic parking operator adapter for RHIVOS QM partition"
+
+[[bin]]
+name = "parking-operator-adaptor"
+path = "src/main.rs"
+
+[dependencies]
+shared.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
