@@ -90,7 +90,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that modifying proto files and regenerating produces compilable code
     - **Validates: Requirements 2.7**
 
-- [ ] 5. Set up container build configuration
+- [x] 5. Set up container build configuration
   - [x] 5.1 Create Containerfiles for RHIVOS services using UBI10 base images
     - Create `containers/rhivos/Containerfile.locking-service` with UBI10-minimal final stage
     - Create `containers/rhivos/Containerfile.update-service` with UBI10-minimal final stage
