@@ -117,7 +117,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Include git commit hash, build timestamp, and labels in manifest
     - _Requirements: 4.7, 4.8_
   
-  - [ ] 5.5 Write property test for container image git tagging
+  - [x] 5.5 Write property test for container image git tagging
     - **Property 3: Container Image Git Tagging**
     - Test that built images contain valid git metadata in tags
     - **Validates: Requirements 4.8**
