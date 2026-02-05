@@ -2,9 +2,9 @@
 
 ## Overview
 
-This design document describes the foundational infrastructure for the SDV Parking Demo System. The foundation establishes a monorepo structure, shared Protocol Buffer definitions, local development infrastructure, build system, and communication protocol configurations that enable development of all system components.
+This design document describes the foundational infrastructure for the SDV Parking Demo System. The foundation establishes a monorepo structure, shared Protocol Buffer definitions, local development infrastructure, build system, communication protocol configurations, and container base image standards that enable development of all system components.
 
-The architecture supports mixed-criticality communication patterns between Android Automotive OS applications and RHIVOS safety/QM partitions, with containerized services and cloud backend integration.
+The architecture supports mixed-criticality communication patterns between Android Automotive OS applications and RHIVOS safety/QM partitions, with containerized services and cloud backend integration. All container images are built on Red Hat Universal Base Image 10 (UBI10) to ensure enterprise support, security compliance, and consistency across deployments.
 
 ## Architecture
 
@@ -538,7 +538,99 @@ infra/certs/
     └── client.key       # Client private key
 ```
 
+## Container Base Image Standards
 
+All container images in this project use Red Hat Universal Base Image 10 (UBI10) as the base image to ensure enterprise support, security compliance, and consistency.
+
+### UBI10 Variant Selection Guide
+
+| Variant | Registry Path | Use Case | Size |
+|---------|---------------|----------|------|
+| UBI Standard | `registry.access.redhat.com/ubi10/ubi` | General-purpose containers with full tooling | ~200MB |
+| UBI Minimal | `registry.access.redhat.com/ubi10/ubi-minimal` | Size-optimized containers with microdnf | ~100MB |
+| UBI Micro | `registry.access.redhat.com/ubi10/ubi-micro` | Minimal footprint, no package manager | ~30MB |
+
+### Containerfile Standards
+
+Each Containerfile must:
+1. Use a UBI10 variant as the base image (or final stage in multi-stage builds)
+2. Include a comment documenting the rationale for the chosen variant
+3. Use multi-stage builds when third-party dependencies require non-UBI images
+
+#### Example: Rust Service Containerfile
+
+```dockerfile
+# containers/rhivos/Containerfile.locking-service
+# 
+# Base Image Rationale: Using ubi10/ubi-minimal for balance between size and 
+# package availability. The locking-service requires minimal runtime dependencies
+# and benefits from the smaller image size for faster deployment.
+
+# Build stage - can use any image for compilation
+FROM docker.io/library/rust:1.75 AS builder
+WORKDIR /app
+COPY rhivos/locking-service/ .
+COPY rhivos/shared/ ../shared/
+RUN cargo build --release
+
+# Final stage - MUST use UBI10
+FROM registry.access.redhat.com/ubi10/ubi-minimal
+
+LABEL maintainer="SDV Team"
+LABEL version="${GIT_VERSION}"
+LABEL description="ASIL-B Door Locking Service"
+
+# Install runtime dependencies
+RUN microdnf install -y shadow-utils && microdnf clean all
+
+# Create non-root user
+RUN useradd -r -u 1000 -g root locking-service
+
+COPY --from=builder /app/target/release/locking-service /usr/local/bin/
+
+USER locking-service
+ENTRYPOINT ["/usr/local/bin/locking-service"]
+```
+
+#### Example: Go Service Containerfile
+
+```dockerfile
+# containers/backend/Containerfile.parking-fee-service
+#
+# Base Image Rationale: Using ubi10/ubi-micro for minimal footprint. Go binaries
+# are statically compiled and require no runtime dependencies, making micro the
+# ideal choice for smallest possible image size.
+
+# Build stage
+FROM docker.io/library/golang:1.22 AS builder
+WORKDIR /app
+COPY backend/parking-fee-service/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -o parking-fee-service .
+
+# Final stage - MUST use UBI10
+FROM registry.access.redhat.com/ubi10/ubi-micro
+
+LABEL maintainer="SDV Team"
+LABEL version="${GIT_VERSION}"
+LABEL description="Parking Fee Service Backend"
+
+COPY --from=builder /app/parking-fee-service /usr/local/bin/
+
+USER 1000
+ENTRYPOINT ["/usr/local/bin/parking-fee-service"]
+```
+
+### Prohibited Base Images
+
+The following base images are NOT permitted in final container stages:
+- `alpine` / `alpine:*`
+- `ubuntu` / `ubuntu:*`
+- `debian` / `debian:*`
+- `centos` / `centos:*` (use UBI instead)
+- `fedora` / `fedora:*`
+- Any `*-slim` variants of the above
+
+These images may be used in build stages of multi-stage builds, but the final stage must always use UBI10.
 
 ## Correctness Properties
 
@@ -589,6 +681,29 @@ This is an invariant property: all major directories must be documented. We can 
 1. Enumerating all major directories
 2. Checking for README.md existence in each
 3. Verifying the README contains non-empty content
+
+### Property 5: UBI10 Base Image Compliance
+
+*For any* Containerfile in the project, the final stage base image SHALL be a Red Hat Universal Base Image 10 (UBI10) variant from `registry.access.redhat.com/ubi10/*`.
+
+**Validates: Requirements 8.1, 8.2, 8.5**
+
+This is an invariant property: all final container images must use UBI10. We can test this by:
+1. Parsing all Containerfiles in the containers/ directory
+2. Identifying the final FROM instruction (last FROM in multi-stage builds)
+3. Verifying the image reference matches `registry.access.redhat.com/ubi10/*` pattern
+4. Rejecting any final stages using alpine, ubuntu, debian, or other non-UBI images
+
+### Property 6: Containerfile Documentation Compliance
+
+*For any* Containerfile in the project, there SHALL exist a comment block documenting the rationale for the chosen UBI10 variant.
+
+**Validates: Requirements 8.4**
+
+This is an invariant property: all Containerfiles must document their base image choice. We can test this by:
+1. Parsing all Containerfiles in the containers/ directory
+2. Searching for comment blocks containing "rationale" or "base image" keywords
+3. Verifying the comment references UBI10 variant selection reasoning
 
 ## Error Handling
 
@@ -665,7 +780,9 @@ tests/
     ├── proto_roundtrip_test.go
     ├── healthcheck_completeness_test.py
     ├── container_tagging_test.sh
-    └── documentation_coverage_test.py
+    ├── documentation_coverage_test.py
+    ├── ubi10_compliance_test.py
+    └── containerfile_docs_test.py
 ```
 
 ### Integration Testing

@@ -126,3 +126,18 @@ The system demonstrates mixed-criticality communication between an Android parki
 3. THE Foundation SHALL support the Error Handling scenario with simulated registry unavailability
 4. THE Foundation SHALL provide mock data generators for location, speed, and door sensor signals
 5. WHEN demonstrating error scenarios THEN the Foundation SHALL provide configuration options to simulate failures
+
+### Requirement 8: Container Base Image Standards
+
+**User Story:** As a developer, I want standardized container base images across all services, so that I can ensure consistency, security compliance, and enterprise support for production deployments.
+
+#### Acceptance Criteria
+
+1. THE Container_Build SHALL use Red Hat Universal Base Image 10 (UBI10) or UBI10 variants as the base image for all Containerfiles
+2. THE Container_Build SHALL NOT use Alpine, Ubuntu, Debian, or other non-UBI base images
+3. WHEN creating a new Containerfile THEN the developer SHALL select an appropriate UBI10 variant:
+   - `registry.access.redhat.com/ubi10/ubi` for general-purpose containers
+   - `registry.access.redhat.com/ubi10/ubi-minimal` for size-optimized containers
+   - `registry.access.redhat.com/ubi10/ubi-micro` for minimal footprint containers
+4. THE Container_Build SHALL document the rationale for the chosen UBI10 variant in each Containerfile
+5. IF a third-party dependency requires a non-UBI base image THEN the Build_System SHALL use multi-stage builds to copy artifacts into a UBI10-based final image

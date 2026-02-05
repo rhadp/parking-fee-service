@@ -120,6 +120,7 @@ parking-fee-service/
 - **Eclipse Mosquitto**: MQTT broker
 - **Protocol Buffers**: Interface definitions (`proto/`)
 - **Podman**: Container builds and local orchestration
+- **Container Images**: Red Hat UBI10 based container images, or Centos AutoSD based
 
 ### External Dependencies
 
