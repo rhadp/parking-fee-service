@@ -20,7 +20,7 @@ This project uses gitflow-workflow for version control.
 2. Implement changes
 3. Stage and commit with descriptive message: `git add . && git commit -m "<type>: <description>"`
 4. Push and create PR via GitHub MCP server
-5. Merge back to `develop` before starting next task
+5. Always merge the changes back to `develop` before starting next task
 
 ## Commit Message Format
 

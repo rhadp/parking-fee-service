@@ -56,6 +56,8 @@ Credits after review: 442
 ---
 05.02.2026:
 
+Wasted 1+ hours on configuring GitHub MCP across all tools
+
 Restarted the development on `main`. Created a dedicated AGENT.md, to guide Claude Code, Cursor and Kiro consistently.
 
-
+Credits at start: 449

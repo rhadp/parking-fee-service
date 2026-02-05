@@ -57,8 +57,17 @@ Other misc. documentation markdown files live in `docs/{topic.md}`
 
 ## Development Workflow
 
-- This project uses a typical "Git-flow" during the development. This is defined in @.kiro/steering/git-flow.md
-- When implementing a task, always update the `.kiro/specs/{feature-name}/task.md` document, accoring to the conventions defined in @.kiro/steering/requirements-engineering.md
+This project uses a typical "Git-flow" during the development. This is defined in @.kiro/steering/git-flow.md.
+
+When implementing a task, always update the `.kiro/specs/{feature-name}/task.md` document, accoring to the conventions defined in @.kiro/steering/requirements-engineering.md
+
+### Workflow Per Task
+
+1. Create feature branch from `develop`: `git checkout -b feature/<task-name> develop`
+2. Implement changes
+3. Stage and commit with descriptive message: `git add . && git commit -m "<type>: <description>"`
+4. Push and create PR via GitHub MCP server
+5. Always merge the changes back to `develop` before starting next task
 
 ## Project Structure
 
