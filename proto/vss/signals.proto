@@ -1,0 +1,37 @@
+syntax = "proto3";
+package sdv.vss;
+
+import "google/protobuf/timestamp.proto";
+
+message DoorState {
+  bool is_locked = 1;
+  bool is_open = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message VehicleSpeed {
+  float speed_kmh = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message ParkingState {
+  bool session_active = 1;
+  string session_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// Unified signal container for subscriptions
+message VehicleSignal {
+  oneof signal {
+    DoorState door_state = 1;
+    Location location = 2;
+    VehicleSpeed speed = 3;
+    ParkingState parking_state = 4;
+  }
+}
