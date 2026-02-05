@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Eclipse Kuksa Databroker Configuration - SDV Parking Demo System",
+  "version": "1.0.0",
+  "vss": {
+    "version": "4.0",
+    "signals": {
+      "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Driver side door lock state",
+        "comment": "True = locked, False = unlocked"
+      },
+      "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Driver side door open state",
+        "comment": "True = open, False = closed"
+      },
+      "Vehicle.Cabin.Door.Row1.PassengerSide.IsLocked": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Passenger side door lock state"
+      },
+      "Vehicle.Cabin.Door.Row1.PassengerSide.IsOpen": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Passenger side door open state"
+      },
+      "Vehicle.Cabin.Door.Row2.DriverSide.IsLocked": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Rear left door lock state"
+      },
+      "Vehicle.Cabin.Door.Row2.DriverSide.IsOpen": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Rear left door open state"
+      },
+      "Vehicle.Cabin.Door.Row2.PassengerSide.IsLocked": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Rear right door lock state"
+      },
+      "Vehicle.Cabin.Door.Row2.PassengerSide.IsOpen": {
+        "datatype": "boolean",
+        "type": "sensor",
+        "description": "Rear right door open state"
+      },
+      "Vehicle.CurrentLocation.Latitude": {
+        "datatype": "double",
+        "type": "sensor",
+        "unit": "degrees",
+        "min": -90.0,
+        "max": 90.0,
+        "description": "Current vehicle latitude in WGS84 coordinates"
+      },
+      "Vehicle.CurrentLocation.Longitude": {
+        "datatype": "double",
+        "type": "sensor",
+        "unit": "degrees",
+        "min": -180.0,
+        "max": 180.0,
+        "description": "Current vehicle longitude in WGS84 coordinates"
+      },
+      "Vehicle.CurrentLocation.Altitude": {
+        "datatype": "double",
+        "type": "sensor",
+        "unit": "m",
+        "description": "Current vehicle altitude in meters above sea level"
+      },
+      "Vehicle.CurrentLocation.Heading": {
+        "datatype": "double",
+        "type": "sensor",
+        "unit": "degrees",
+        "min": 0.0,
+        "max": 360.0,
+        "description": "Current vehicle heading in degrees (0 = North)"
+      },
+      "Vehicle.Speed": {
+        "datatype": "float",
+        "type": "sensor",
+        "unit": "km/h",
+        "min": 0.0,
+        "description": "Current vehicle speed in kilometers per hour"
+      },
+      "Vehicle.Parking.SessionActive": {
+        "datatype": "boolean",
+        "type": "actuator",
+        "description": "Indicates if a parking session is currently active",
+        "comment": "Custom signal for SDV Parking Demo"
+      },
+      "Vehicle.Parking.SessionId": {
+        "datatype": "string",
+        "type": "attribute",
+        "description": "Current parking session identifier",
+        "comment": "Custom signal for SDV Parking Demo"
+      },
+      "Vehicle.Parking.OperatorId": {
+        "datatype": "string",
+        "type": "attribute",
+        "description": "Current parking operator identifier",
+        "comment": "Custom signal for SDV Parking Demo"
+      },
+      "Vehicle.Parking.ZoneId": {
+        "datatype": "string",
+        "type": "attribute",
+        "description": "Current parking zone identifier",
+        "comment": "Custom signal for SDV Parking Demo"
+      }
+    }
+  },
+  "authorization": {
+    "enabled": false,
+    "comment": "Authorization disabled for local development"
+  },
+  "tls": {
+    "enabled": false,
+    "comment": "TLS disabled for local development. Enable for production."
+  }
+}
