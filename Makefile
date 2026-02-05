@@ -7,6 +7,7 @@
 .PHONY: test-rhivos test-android test-backend
 .PHONY: infra-up infra-down
 .PHONY: certs certs-clean
+.PHONY: git-clean-branches
 
 # Default target
 all: proto build
@@ -158,6 +159,18 @@ clean:
 	@echo "Clean complete"
 
 #------------------------------------------------------------------------------
+# Git Maintenance Targets
+#------------------------------------------------------------------------------
+
+# Delete all local branches except main, develop, and release
+git-clean-branches:
+	@echo "Cleaning up local feature branches..."
+	@git checkout develop 2>/dev/null || git checkout main
+	@git branch | grep -vE '^\*|^\s*(main|develop|release)$$' | xargs -r git branch -D
+	@echo "Branch cleanup complete. Remaining branches:"
+	@git branch
+
+#------------------------------------------------------------------------------
 # Help Target
 #------------------------------------------------------------------------------
 
@@ -195,3 +208,6 @@ help:
 	@echo "Infrastructure targets:"
 	@echo "  infra-up         - Start local development infrastructure"
 	@echo "  infra-down       - Stop local development infrastructure"
+	@echo ""
+	@echo "Git maintenance targets:"
+	@echo "  git-clean-branches - Delete all local branches except main, develop, release"
