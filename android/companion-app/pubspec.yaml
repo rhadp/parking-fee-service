@@ -1,0 +1,88 @@
+name: companion_app
+description: Flutter/Dart mobile companion application for the SDV Parking Demo System. Communicates with backend services via gRPC.
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Material Design
+  cupertino_icons: ^1.0.6
+
+  # gRPC for communicating with backend services
+  grpc: ^3.2.4
+  protobuf: ^3.1.0
+
+  # HTTP/2 support for gRPC
+  http2: ^2.2.0
+
+  # Async utilities
+  async: ^2.11.0
+
+  # State management
+  provider: ^6.1.1
+
+  # Logging
+  logging: ^1.2.0
+
+  # JSON serialization
+  json_annotation: ^4.8.1
+
+  # Path utilities
+  path: ^1.8.3
+
+  # Secure storage for credentials
+  flutter_secure_storage: ^9.0.0
+
+  # HTTP client for REST API calls (PARKING_FEE_SERVICE)
+  http: ^1.1.2
+  dio: ^5.4.0
+
+  # Connectivity checking
+  connectivity_plus: ^5.0.2
+
+  # Location services (for parking zone detection)
+  geolocator: ^10.1.0
+
+  # Permissions handling
+  permission_handler: ^11.1.0
+
+  # Internationalization
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code generation for protobuf
+  protoc_plugin: ^21.1.2
+
+  # JSON serialization code generation
+  json_serializable: ^6.7.1
+  build_runner: ^2.4.7
+
+  # Linting
+  flutter_lints: ^3.0.1
+
+  # Testing utilities
+  mockito: ^5.4.4
+  build_test: ^2.2.2
+
+  # Property-based testing
+  test: ^1.24.9
+
+flutter:
+  uses-material-design: true
+
+  # Asset directories (for certificates, etc.)
+  # assets:
+  #   - assets/certs/
+
+# Proto generation configuration
+# Run: dart run build_runner build
+# Or use the project's make proto-dart target
