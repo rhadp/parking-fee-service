@@ -141,3 +141,4 @@ The system demonstrates mixed-criticality communication between an Android parki
    - `registry.access.redhat.com/ubi10/ubi-micro` for minimal footprint containers
 4. THE Container_Build SHALL document the rationale for the chosen UBI10 variant in each Containerfile
 5. IF a third-party dependency requires a non-UBI base image THEN the Build_System SHALL use multi-stage builds to copy artifacts into a UBI10-based final image
+6. WHEN building Golang or Rust artifacts THEN the Container_Build SHALL use `ghcr.io/rhadp/builder` as the build stage base image, NOT the official Docker golang or rust images

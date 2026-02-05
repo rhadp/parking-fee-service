@@ -62,3 +62,11 @@ Restarted the development on `main`. Created a dedicated AGENT.md, to guide Clau
 Credits at start: 449
 
 Restarted because Gitflow was broken
+
+Stuck at Task 6. Container build is "wrong"
+Credits: 601
+
+---
+ubi10/go-toolset
+ubi10/go-toolset
+registry.access.redhat.com/ubi10/go-toolset:1.25
