@@ -122,7 +122,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that built images contain valid git metadata in tags
     - **Validates: Requirements 4.8**
   
-  - [ ] 5.6 Write property test for UBI10 base image compliance
+  - [x] 5.6 Write property test for UBI10 base image compliance
     - **Property 5: UBI10 Base Image Compliance**
     - Parse all Containerfiles and verify final stage uses `registry.access.redhat.com/ubi10/*`
     - Reject any final stages using alpine, ubuntu, debian, or other non-UBI images
