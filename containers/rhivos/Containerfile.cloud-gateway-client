@@ -6,9 +6,12 @@
 # vehicle-to-cloud messaging. UBI-minimal provides the necessary glibc runtime
 # and TLS libraries while keeping the image size optimized for automotive
 # deployment requirements.
+#
+# Build Stage: Using ghcr.io/rhadp/builder per project standards for Rust builds
+# (Requirement 8.6).
 
-# Build stage - Rust compilation
-FROM docker.io/library/rust:1.75 AS builder
+# Build stage - MUST use ghcr.io/rhadp/builder for Rust builds
+FROM ghcr.io/rhadp/builder AS builder
 
 WORKDIR /build
 
