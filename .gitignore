@@ -7,3 +7,6 @@ stuff.md
 **/target/
 **/*.rs.bk
 Cargo.lock
+
+# Android build artifacts
+**/.gradle

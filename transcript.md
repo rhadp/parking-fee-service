@@ -66,5 +66,7 @@ Restarted because Gitflow was broken
 Stuck at Task 6. Container build is "wrong"
 Credits: 601
 
----
+Many manual interventions to get the agent "unstuck" ...
 
+---
+read the requirements.md, design.md and task.md documents in .kiro/specs/project-foundation. all tasks are implemented. make sure you understand the specification. next, analyze the code etc and make sure that what was required, designed and defined to be implemented is actually implemented, works as intended by the specifications. excute any test if you need to verify code correctness. also point out any potential issues and suggest areas to be improved. remember, this is a proof-of-concept, not a production system, therfor it is OK to simplify aspects of the implementation, unless it makes the implementation unreasonalbe or unrealistic. create a markdown document with your findings and recommendations in docs/reviews/{review}.
