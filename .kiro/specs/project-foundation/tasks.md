@@ -145,25 +145,25 @@ This implementation plan establishes the foundational infrastructure for the SDV
   - Ensure container builds complete successfully
   - Ask the user if questions arise
 
-- [ ] 7. Set up local development infrastructure
-  - [ ] 7.1 Create Podman Compose configuration
+- [x] 7. Set up local development infrastructure
+  - [x] 7.1 Create Podman Compose configuration
     - Create `infra/compose/podman-compose.yml` with all services
     - Configure Eclipse Mosquitto MQTT broker service
     - Configure Eclipse Kuksa Databroker service from CentOS Automotive images
     - Add health checks for all services
     - _Requirements: 3.1, 3.2, 3.3, 3.6_
   
-  - [ ] 7.2 Create service configuration files
+  - [x] 7.2 Create service configuration files
     - Create `infra/config/mosquitto/mosquitto.conf` with listener and TLS settings
     - Create `infra/config/kuksa/config.json` with VSS signal definitions
     - _Requirements: 3.5_
   
-  - [ ] 7.3 Write property test for health check configuration completeness
+  - [x] 7.3 Write property test for health check configuration completeness
     - **Property 2: Health Check Configuration Completeness**
     - Test that all services in compose file have health check configurations
     - **Validates: Requirements 3.6**
 
-- [ ] 8. Set up communication protocol configuration
+- [~] 8. Set up communication protocol configuration
   - [ ] 8.1 Create development TLS certificates
     - Create `scripts/generate-certs.sh` to generate self-signed CA and certificates
     - Generate CA certificate, server certificate, and client certificate
@@ -181,12 +181,12 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Document development mode settings in configuration
     - _Requirements: 5.6_
 
-- [ ] 9. Checkpoint - Verify local infrastructure
+- [~] 9. Checkpoint - Verify local infrastructure
   - Ensure `make infra-up` starts all services
   - Ensure services respond on documented ports
   - Ask the user if questions arise
 
-- [ ] 10. Create documentation
+- [~] 10. Create documentation
   - [ ] 10.1 Create root README with project overview
     - Write project description and architecture overview
     - Include quick-start instructions for cloning and building
@@ -219,7 +219,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Test that all major directories have README.md files
     - **Validates: Requirements 6.2**
 
-- [ ] 11. Set up demo scenario support
+- [~] 11. Set up demo scenario support
   - [ ] 11.1 Create mock data generators
     - Create `scripts/mock-location.sh` for generating location signals
     - Create `scripts/mock-speed.sh` for generating speed signals
@@ -232,7 +232,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Document failure simulation in `docs/demo-scenarios.md`
     - _Requirements: 7.5_
 
-- [ ] 12. Final checkpoint - Verify complete foundation
+- [~] 12. Final checkpoint - Verify complete foundation
   - Ensure all tests pass
   - Verify all three demo scenarios can be configured
   - Ask the user if questions arise

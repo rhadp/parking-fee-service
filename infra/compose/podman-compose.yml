@@ -1,0 +1,104 @@
+# SDV Parking Demo System - Local Development Infrastructure
+#
+# This Podman Compose configuration provides a containerized local development
+# environment for testing component interactions without cloud dependencies.
+#
+# Services:
+#   - mosquitto: Eclipse Mosquitto MQTT broker for vehicle-to-cloud communication
+#   - kuksa-databroker: Eclipse Kuksa Databroker for VSS signal pub/sub
+#   - mock-parking-operator: Mock parking operator service for testing
+#
+# Usage:
+#   podman-compose up -d        # Start all services
+#   podman-compose down         # Stop all services
+#   podman-compose logs -f      # Follow logs
+#
+# Requirements: 3.1, 3.2, 3.3, 3.6
+
+version: '3.8'
+
+services:
+  # Eclipse Mosquitto MQTT Broker
+  # Simulates vehicle-to-cloud communication channel
+  # Requirements: 3.2
+  mosquitto:
+    image: docker.io/eclipse-mosquitto:2
+    container_name: sdv-mosquitto
+    ports:
+      - "1883:1883"   # MQTT (unencrypted, dev only)
+      - "8883:8883"   # MQTT over TLS
+      - "9001:9001"   # WebSocket (optional)
+    volumes:
+      - ../config/mosquitto:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-W", "3"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - sdv-network
+
+  # Eclipse Kuksa Databroker
+  # Provides VSS-compliant gRPC pub/sub interface for vehicle signals
+  # Requirements: 3.3
+  kuksa-databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.4.4
+    container_name: sdv-kuksa-databroker
+    ports:
+      - "55555:55555"  # gRPC API
+    volumes:
+      - ../config/kuksa:/config:ro
+    command:
+      - --address
+      - "0.0.0.0"
+      - --port
+      - "55555"
+      - --insecure
+    healthcheck:
+      test: ["CMD-SHELL", "grpcurl -plaintext localhost:55555 list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - sdv-network
+
+  # Mock Parking Operator Service
+  # Simulates external parking operator API for testing
+  # Requirements: 3.4
+  mock-parking-operator:
+    build:
+      context: ../../containers/mock
+      dockerfile: Containerfile.parking-operator
+    container_name: sdv-mock-parking-operator
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=debug
+      - MOCK_DELAY_MS=100
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sdv-network
+
+networks:
+  sdv-network:
+    driver: bridge
+    name: sdv-parking-demo
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
