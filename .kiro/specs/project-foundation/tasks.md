@@ -107,7 +107,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - Use multi-stage builds with Go builder and UBI10 final stage
     - _Requirements: 4.6, 8.1, 8.3, 8.4, 8.5_
   
-  - [ ] 5.3 Create mock service Containerfile using UBI10 base image
+  - [x] 5.3 Create mock service Containerfile using UBI10 base image
     - Create `containers/mock/Containerfile.parking-operator` with UBI10-minimal final stage
     - Include base image rationale comment
     - _Requirements: 3.4, 8.1, 8.3, 8.4_
