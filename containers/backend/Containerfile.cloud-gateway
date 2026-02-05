@@ -1,0 +1,23 @@
+# containers/backend/Containerfile.cloud-gateway
+#
+# Base Image Rationale: Using ubi10/ubi-micro for minimal footprint. Go binaries
+# are statically compiled and require no runtime dependencies, making micro the
+# ideal choice for smallest possible image size.
+
+# Build stage
+FROM docker.io/library/golang:1.22 AS builder
+WORKDIR /app
+COPY backend/cloud-gateway/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -o cloud-gateway .
+
+# Final stage - MUST use UBI10
+FROM registry.access.redhat.com/ubi10/ubi-micro
+
+LABEL maintainer="SDV Team"
+LABEL version="${GIT_VERSION}"
+LABEL description="Cloud Gateway MQTT Broker/Router"
+
+COPY --from=builder /app/cloud-gateway /usr/local/bin/
+
+USER 1000
+ENTRYPOINT ["/usr/local/bin/cloud-gateway"]
