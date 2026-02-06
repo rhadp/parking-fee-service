@@ -101,7 +101,7 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Simulate timeout scenarios and verify no partial state changes
     - **Validates: Requirements 6.3**
 
-- [ ] 7. Checkpoint - Verify core logic
+- [x] 7. Checkpoint - Verify core logic
   - Run `cargo test` for unit tests
   - Ensure safety validation and execution work correctly
   - Ask the user if questions arise
