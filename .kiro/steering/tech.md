@@ -6,7 +6,7 @@
 |-----------|----------|----------|
 | RHIVOS services | Rust | `rhivos/` |
 | Android IVI app | Kotlin | `android/parking-app/` |
-| Companion app | Flutter/Dart | `android/companion-app/` |
+| Companion app | Flutter/Dart | `android/companion_app/` |
 | Backend services | Go | `backend/` |
 
 ### Key Dependencies

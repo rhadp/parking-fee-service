@@ -47,7 +47,7 @@ parking-fee-service/
 │   └── shared/                     # Shared Rust libraries
 ├── android/
 │   ├── parking-app/                # Kotlin AAOS application
-│   └── companion-app/              # Flutter/Dart mobile app
+│   └── companion_app/              # Flutter/Dart mobile app
 ├── backend/
 │   ├── parking-fee-service/        # Go parking operations service
 │   └── cloud-gateway/              # Go MQTT broker/router
@@ -77,7 +77,7 @@ parking-fee-service/
 | **Go** | `backend/` | `go build ./...` | `go test -short ./...` | `golangci-lint run ./...` | `gofmt -w .` |
 | **Rust** | `rhivos/` | `cargo build --workspace` | `cargo test --workspace` | `cargo clippy --all-targets` | `cargo fmt` |
 | **Kotlin** | `android/parking-app/` | `./gradlew assembleDebug` | `./gradlew test` | `./gradlew lint` | (Android Studio) |
-| **Flutter/Dart** | `android/companion-app/` | `flutter build apk` | `flutter test` | `flutter analyze` | `dart format .` |
+| **Flutter/Dart** | `android/companion_app/` | `flutter build apk` | `flutter test` | `flutter analyze` | `dart format .` |
 
 Use `make test` to run all tests, or `make test-rhivos`, `make test-android`, `make test-backend` for specific stacks.
 
@@ -113,10 +113,10 @@ Use `make test` to run all tests, or `make test-rhivos`, `make test-android`, `m
 #### Flutter/Dart (Companion App)
 
 - **Version**: Flutter 3.16+, Dart 3.2+
-- **Location**: `android/companion-app/`
-- **Testing**: `cd android/companion-app && flutter test`
-- **Linting**: `cd android/companion-app && flutter analyze`
-- **Formatting**: `cd android/companion-app && dart format .`
+- **Location**: `android/companion_app/`
+- **Testing**: `cd android/companion_app && flutter test`
+- **Linting**: `cd android/companion_app && flutter analyze`
+- **Formatting**: `cd android/companion_app && dart format .`
 - **Lint rules**: Configured in `analysis_options.yaml`
 - **Setup guide**: [docs/setup-flutter.md](docs/setup-flutter.md)
 - **MCP Tools**: When working with Flutter/Dart, prefer using the Dart MCP tools (e.g., `run_tests`, `analyze_files`, `dart_format`) over shell commands for better integration.
@@ -176,7 +176,7 @@ cd android/parking-app && ./gradlew test lint
 
 **Flutter/Dart changes:**
 ```bash
-cd android/companion-app && flutter test && flutter analyze && dart format --set-exit-if-changed .
+cd android/companion_app && flutter test && flutter analyze && dart format --set-exit-if-changed .
 ```
 
 **Update docs**: If you changed behavior, update README.md or other docs.

@@ -139,7 +139,7 @@ Based on my analysis of the tasks.md files, here's the implementation status:
 | parking-operator-adaptor | ❌ Not Started |
 | update-service | ❌ Not Started |
 | parking-app | ❌ Not Started |
-| companion-app | ❌ Not Started |
+| companion_app | ❌ Not Started |
 
 The next spec to implement is **cloud-gateway-client** — it's partially complete and needs to finish tasks 14-20 which cover:
 - Telemetry subscription and publishing with offline buffering
@@ -151,7 +151,7 @@ After that, the logical order would be:
 1. **update-service** — manages container lifecycle for parking adapters
 2. **parking-operator-adaptor** — depends on update-service for container management
 3. **parking-app** — the Android IVI app that ties everything together
-4. **companion-app** — the mobile companion app
+4. **companion_app** — the mobile companion app
 
 Would you like me to continue implementing the cloud-gateway-client spec starting from task 14?
 

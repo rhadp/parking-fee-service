@@ -334,7 +334,7 @@ Based on design documents, the following proto definitions may need review:
 |-----------|----------------|-----------|----------|-------|--------------|
 | cloud-gateway-client | ✓ | ✓ | ✓ | ✓ | 93% |
 | cloud-gateway | ✓ | ✓ | ✓ | ✓ | 90% |
-| companion-app | ✓ | ✓ | ✓ | N/A | 85% |
+| companion_app | ✓ | ✓ | ✓ | N/A | 85% |
 | locking-service | ✓ | ✓ | ✓ | ✓ | 92% |
 | parking-app | ✓ | ✓ | ✓ | ✓ | 88% |
 | parking-fee-service | ✓ | ✓ | ✓ | ✓ | 88% |

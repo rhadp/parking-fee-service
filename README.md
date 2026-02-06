@@ -64,7 +64,7 @@ parking-fee-service/
 │   └── shared/                # Shared Rust libraries
 ├── android/
 │   ├── parking-app/           # Kotlin AAOS application
-│   └── companion-app/         # Flutter/Dart mobile app
+│   └── companion_app/         # Flutter/Dart mobile app
 ├── backend/
 │   ├── parking-fee-service/   # Go service for parking operations
 │   └── cloud-gateway/         # Go MQTT broker/router

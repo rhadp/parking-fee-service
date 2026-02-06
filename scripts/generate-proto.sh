@@ -20,7 +20,7 @@ PROTO_DIR="${PROJECT_ROOT}/proto"
 # Output directories (must match buf.gen.yaml)
 RUST_OUT="${PROJECT_ROOT}/rhivos/shared/src/proto"
 KOTLIN_OUT="${PROJECT_ROOT}/android/parking-app/app/src/main/java"
-DART_OUT="${PROJECT_ROOT}/android/companion-app/lib/generated"
+DART_OUT="${PROJECT_ROOT}/android/companion_app/lib/generated"
 GO_OUT="${PROJECT_ROOT}/backend/gen"
 
 # Colors for output
@@ -455,7 +455,7 @@ clean() {
     rm -rf "${GO_OUT}" 2>/dev/null || true
     rm -rf "${PROJECT_ROOT}/android/parking-app/src/main/proto" 2>/dev/null || true
     # Also clean old Dart output location if it exists
-    rm -rf "${PROJECT_ROOT}/android/companion-app/lib/proto" 2>/dev/null || true
+    rm -rf "${PROJECT_ROOT}/android/companion_app/lib/proto" 2>/dev/null || true
     
     log_success "Generated files cleaned"
 }

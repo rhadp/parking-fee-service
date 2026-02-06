@@ -59,7 +59,7 @@ build-rhivos:
 build-android:
 	@echo "Building Android applications..."
 	cd android/parking-app && gradle build
-	cd android/companion-app && flutter build apk
+	cd android/companion_app && flutter build apk
 
 # Build Go backend services
 build-backend:
@@ -119,10 +119,10 @@ test-android:
 	else \
 		echo "Skipping parking-app tests: ANDROID_HOME not set and no local.properties found"; \
 	fi
-	@if command -v flutter >/dev/null 2>&1 && [ -d android/companion-app/test ]; then \
-		cd android/companion-app && flutter test; \
+	@if command -v flutter >/dev/null 2>&1 && [ -d android/companion_app/test ]; then \
+		cd android/companion_app && flutter test; \
 	else \
-		echo "Skipping companion-app tests: Flutter not available or no test directory"; \
+		echo "Skipping companion_app tests: Flutter not available or no test directory"; \
 	fi
 
 # Run Go backend tests
@@ -181,14 +181,14 @@ clean:
 	cd rhivos && cargo clean 2>/dev/null || true
 	@# Clean Android artifacts
 	cd android/parking-app && gradle clean 2>/dev/null || true
-	cd android/companion-app && flutter clean 2>/dev/null || true
+	cd android/companion_app && flutter clean 2>/dev/null || true
 	@# Clean Go artifacts
 	cd backend && go clean ./... 2>/dev/null || true
 	@# Clean generated proto files
 	rm -rf rhivos/shared/src/proto 2>/dev/null || true
 	rm -rf android/parking-app/app/src/main/java/sdv/proto 2>/dev/null || true
-	rm -rf android/companion-app/lib/generated 2>/dev/null || true
-	rm -rf android/companion-app/lib/proto 2>/dev/null || true
+	rm -rf android/companion_app/lib/generated 2>/dev/null || true
+	rm -rf android/companion_app/lib/proto 2>/dev/null || true
 	rm -rf backend/gen 2>/dev/null || true
 	@echo "Clean complete"
 

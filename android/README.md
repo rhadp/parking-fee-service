@@ -13,7 +13,7 @@ android/
 │   │       └── proto/    # Proto definitions (synced from root)
 │   ├── build.gradle.kts  # Gradle build configuration
 │   └── settings.gradle.kts
-└── companion-app/        # Flutter/Dart mobile application
+└── companion_app/        # Flutter/Dart mobile application
     ├── lib/
     │   ├── main.dart     # App entry point
     │   └── generated/    # Generated protobuf code
@@ -45,7 +45,7 @@ Mobile companion application for remote vehicle control:
 
 **Build:**
 ```bash
-cd android/companion-app && flutter build apk
+cd android/companion_app && flutter build apk
 ```
 
 ## Dependencies
@@ -76,4 +76,4 @@ make proto-dart
 
 Generated code is placed in:
 - Kotlin: `android/parking-app/app/src/main/java/`
-- Dart: `android/companion-app/lib/generated/`
+- Dart: `android/companion_app/lib/generated/`

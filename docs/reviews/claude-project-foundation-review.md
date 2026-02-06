@@ -36,7 +36,7 @@ All required directories exist:
 |-----------|----------|---------|-------|
 | `rhivos/` | Yes | Yes | Contains 5 Rust services + shared library |
 | `android/parking-app/` | Yes | Yes | Kotlin AAOS application |
-| `android/companion-app/` | Yes | Yes | Flutter/Dart mobile app |
+| `android/companion_app/` | Yes | Yes | Flutter/Dart mobile app |
 | `backend/` | Yes | Yes | Go services with generated proto bindings |
 | `proto/` | Yes | Yes | vss/, services/, common/ subdirectories |
 | `containers/` | Yes | Yes | rhivos/, backend/, mock/ subdirectories |
@@ -141,7 +141,7 @@ All required proto files exist:
 | Rust | `rhivos/Cargo.toml` | Workspace with 5 members |
 | Go | `backend/go.mod` | Go 1.24.0, proper dependencies |
 | Android/Kotlin | `android/parking-app/build.gradle.kts` | SDK 34, Kotlin 1.9.21 |
-| Flutter/Dart | `android/companion-app/pubspec.yaml` | SDK >=3.2.0, gRPC deps |
+| Flutter/Dart | `android/companion_app/pubspec.yaml` | SDK >=3.2.0, gRPC deps |
 
 **Container Git Tagging:** Verified - `build-containers` target extracts git commit and tag for image versioning.
 

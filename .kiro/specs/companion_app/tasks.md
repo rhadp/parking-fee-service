@@ -7,7 +7,7 @@ This implementation plan covers the Flutter/Dart mobile application for the SDV 
 ## Tasks
 
 - [ ] 1. Set up project structure and dependencies
-  - Create Flutter project structure under `android/companion-app/`
+  - Create Flutter project structure under `android/companion_app/`
   - Configure `pubspec.yaml` with dependencies:
     - flutter_bloc ^8.1.0, dio ^5.0.0, flutter_secure_storage ^9.0.0
     - go_router ^12.0.0, shared_preferences ^2.2.0, equatable ^2.0.0, intl ^0.18.0

@@ -76,7 +76,7 @@ cd parking-fee-service
 ### Install Dependencies
 
 ```bash
-cd android/companion-app
+cd android/companion_app
 flutter pub get
 ```
 
@@ -86,12 +86,12 @@ flutter pub get
 make proto-dart
 ```
 
-Generated code is placed in `android/companion-app/lib/generated/`.
+Generated code is placed in `android/companion_app/lib/generated/`.
 
 ## Project Structure
 
 ```
-android/companion-app/
+android/companion_app/
 ├── lib/
 │   ├── main.dart           # App entry point
 │   └── generated/          # Generated proto code
@@ -123,7 +123,7 @@ dev_dependencies:
 ### Run on Emulator/Device
 
 ```bash
-cd android/companion-app
+cd android/companion_app
 flutter run
 ```
 

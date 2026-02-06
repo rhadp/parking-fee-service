@@ -9,7 +9,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
 - [x] 1. Create monorepo directory structure
   - [x] 1.1 Create root project structure with all required directories
     - Create `rhivos/` directory with subdirectories for each Rust service
-    - Create `android/parking-app/` and `android/companion-app/` directories
+    - Create `android/parking-app/` and `android/companion_app/` directories
     - Create `backend/` directory for Go services
     - Create `proto/` directory with `vss/`, `services/`, and `common/` subdirectories
     - Create `containers/` directory with `rhivos/`, `backend/`, and `mock/` subdirectories
@@ -77,7 +77,7 @@ This implementation plan establishes the foundational infrastructure for the SDV
     - _Requirements: 4.3_
   
   - [x] 4.5 Create Flutter project configuration
-    - Create `android/companion-app/pubspec.yaml` with gRPC and protobuf dependencies
+    - Create `android/companion_app/pubspec.yaml` with gRPC and protobuf dependencies
     - _Requirements: 4.4_
   
   - [x] 4.6 Create proto generation scripts

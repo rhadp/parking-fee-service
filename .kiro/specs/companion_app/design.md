@@ -888,12 +888,12 @@ The COMPANION_APP uses both unit tests and property-based tests:
 Property-based tests use the `glados` package for Dart. Each property test:
 - Runs minimum 100 iterations
 - References the design document property
-- Uses tag format: **Feature: companion-app, Property {number}: {property_text}**
+- Uses tag format: **Feature: companion_app, Property {number}: {property_text}**
 
 ### Test Organization
 
 ```
-android/companion-app/
+android/companion_app/
 ├── lib/
 │   ├── main.dart
 │   ├── app.dart

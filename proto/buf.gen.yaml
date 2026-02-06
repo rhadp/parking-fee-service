@@ -9,7 +9,7 @@
 # Output directories:
 # - Rust:   rhivos/shared/src/proto/     (handled separately via tonic-build)
 # - Kotlin: android/parking-app/app/src/main/java/
-# - Dart:   android/companion-app/lib/generated/
+# - Dart:   android/companion_app/lib/generated/
 # - Go:     backend/gen/
 
 version: v1
@@ -64,12 +64,12 @@ plugins:
     out: ../android/parking-app/app/src/main/java
 
   # ============================================================================
-  # Dart Generation (android/companion-app/lib/generated/)
+  # Dart Generation (android/companion_app/lib/generated/)
   # ============================================================================
   
   # Dart protobuf messages and gRPC services
   - plugin: buf.build/community/google-dart
-    out: ../android/companion-app/lib/generated
+    out: ../android/companion_app/lib/generated
 
   # ============================================================================
   # Rust Generation

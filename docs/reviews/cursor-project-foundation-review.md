@@ -21,7 +21,7 @@ This review identifies **no critical issues**. The implementation is appropriate
 |---------------------|--------|----------|
 | 1.1 `rhivos/` directory for Rust services | ✅ Pass | Directory exists with workspace structure |
 | 1.2 `android/parking-app/` for Kotlin AAOS | ✅ Pass | Full Gradle project with build.gradle.kts |
-| 1.3 `android/companion-app/` for Flutter | ✅ Pass | Flutter project with pubspec.yaml |
+| 1.3 `android/companion_app/` for Flutter | ✅ Pass | Flutter project with pubspec.yaml |
 | 1.4 `backend/` for Golang services | ✅ Pass | Go module with parking-fee-service and cloud-gateway |
 | 1.5 `proto/` for Protocol Buffers | ✅ Pass | Contains vss/, services/, common/ subdirectories |
 | 1.6 `containers/` for Containerfiles | ✅ Pass | Organized by rhivos/, backend/, mock/ |
@@ -67,7 +67,7 @@ This review identifies **no critical issues**. The implementation is appropriate
 | 4.1 Root Makefile with build targets | ✅ Pass | Comprehensive Makefile with all targets |
 | 4.2 Rust Cargo configuration | ✅ Pass | `rhivos/Cargo.toml` workspace manifest |
 | 4.3 Gradle for Kotlin AAOS | ✅ Pass | `android/parking-app/build.gradle.kts` |
-| 4.4 Flutter configuration | ✅ Pass | `android/companion-app/pubspec.yaml` |
+| 4.4 Flutter configuration | ✅ Pass | `android/companion_app/pubspec.yaml` |
 | 4.5 Go modules configuration | ✅ Pass | `backend/go.mod` |
 | 4.6 Container build targets (OCI-compliant) | ✅ Pass | `make build-containers` |
 | 4.7 Container manifest generation | ✅ Pass | `scripts/generate-manifest.sh` |
@@ -177,7 +177,7 @@ Total test execution time: ~33 seconds
    - **PoC Status:** Minor inconvenience.
 
 5. **Generated proto files in repository**
-   - The `rhivos/shared/src/proto/` and `android/companion-app/lib/generated/` directories contain pre-generated proto files.
+   - The `rhivos/shared/src/proto/` and `android/companion_app/lib/generated/` directories contain pre-generated proto files.
    - **Recommendation:** Consider whether these should be gitignored and regenerated on build.
    - **PoC Status:** Acceptable - simplifies initial setup.
 
@@ -255,7 +255,7 @@ The minor issues identified do not impact the functionality or correctness of th
 - `rhivos/Cargo.toml`
 - `backend/go.mod`
 - `android/parking-app/build.gradle.kts`
-- `android/companion-app/pubspec.yaml`
+- `android/companion_app/pubspec.yaml`
 - `infra/compose/podman-compose.yml`
 - `infra/config/endpoints.yaml`
 - `infra/config/development.yaml`

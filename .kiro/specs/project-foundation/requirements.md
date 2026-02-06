@@ -31,7 +31,7 @@ The system demonstrates mixed-criticality communication between an Android parki
 
 1. THE Project_Structure SHALL contain a `rhivos/` directory for all Rust services (safety and QM partition components)
 2. THE Project_Structure SHALL contain an `android/parking-app/` directory for the Kotlin AAOS application
-3. THE Project_Structure SHALL contain an `android/companion-app/` directory for the Flutter/Dart mobile application
+3. THE Project_Structure SHALL contain an `android/companion_app/` directory for the Flutter/Dart mobile application
 4. THE Project_Structure SHALL contain a `backend/` directory for Golang services
 5. THE Project_Structure SHALL contain a `proto/` directory for shared Protocol Buffer definitions
 6. THE Project_Structure SHALL contain a `containers/` directory for container build files (Containerfiles)

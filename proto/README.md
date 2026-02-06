@@ -60,7 +60,7 @@ make proto-go      # Go bindings
 |----------|------------------|
 | Rust | `rhivos/shared/src/proto/` |
 | Kotlin | `android/parking-app/app/src/main/java/` |
-| Dart | `android/companion-app/lib/generated/` |
+| Dart | `android/companion_app/lib/generated/` |
 | Go | `backend/gen/` |
 
 ## Linting
