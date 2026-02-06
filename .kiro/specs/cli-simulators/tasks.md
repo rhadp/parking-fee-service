@@ -10,8 +10,8 @@ Both CLIs use REPL interfaces and connect to the same backend services as the re
 
 ## Tasks
 
-- [ ] 1. Set up project structure and shared REPL framework
-  - [ ] 1.1 Create directory structure for both CLIs
+- [x] 1. Set up project structure and shared REPL framework
+  - [x] 1.1 Create directory structure for both CLIs
     - Create `backend/companion-cli/cmd/companion-cli/main.go`
     - Create `backend/companion-cli/internal/config/config.go`
     - Create `backend/companion-cli/internal/repl/repl.go`
@@ -29,16 +29,16 @@ Both CLIs use REPL interfaces and connect to the same backend services as the re
     - **Property 6: Help Command Completeness**
     - **Validates: Requirements 8.4, 8.6**
 
-- [ ] 2. Checkpoint - Ensure project structure compiles
+- [x] 2. Checkpoint - Ensure project structure compiles
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. Implement COMPANION_CLI HTTP client and commands
-  - [ ] 3.1 Implement GatewayClient for CLOUD_GATEWAY REST API
+- [x] 3. Implement COMPANION_CLI HTTP client and commands
+  - [x] 3.1 Implement GatewayClient for CLOUD_GATEWAY REST API
     - Create `backend/companion-cli/internal/client/gateway.go`
     - Implement SendLockCommand, SendUnlockCommand, GetCommandStatus, Ping
     - _Requirements: 1.1, 2.1, 3.1, 10.5_
 
-  - [ ] 3.2 Implement COMPANION_CLI commands (lock, unlock, status, ping, help, quit)
+  - [x] 3.2 Implement COMPANION_CLI commands (lock, unlock, status, ping, help, quit)
     - Wire commands to GatewayClient
     - Implement output formatting for responses and errors
     - _Requirements: 1.2, 1.3, 1.4, 2.2, 2.3, 2.4, 3.2, 3.3, 3.4, 10.1, 10.2, 10.3_
@@ -48,82 +48,82 @@ Both CLIs use REPL interfaces and connect to the same backend services as the re
     - **Property 2: Error Message Propagation** (COMPANION_CLI portion)
     - **Validates: Requirements 1.2, 1.4, 2.2, 2.4, 3.2, 3.4**
 
-- [ ] 4. Checkpoint - COMPANION_CLI functional
+- [x] 4. Checkpoint - COMPANION_CLI functional
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Implement PARKING_CLI gRPC clients
-  - [ ] 5.1 Implement DataBrokerClient for DATA_BROKER gRPC service
+- [x] 5. Implement PARKING_CLI gRPC clients
+  - [x] 5.1 Implement DataBrokerClient for DATA_BROKER gRPC service
     - Create `backend/parking-cli/internal/client/databroker.go`
     - Implement SetLocation, GetLocation, Close
     - _Requirements: 4.1, 4.4_
 
-  - [ ] 5.2 Implement ParkingFeeClient for PARKING_FEE_SERVICE REST API
+  - [x] 5.2 Implement ParkingFeeClient for PARKING_FEE_SERVICE REST API
     - Create `backend/parking-cli/internal/client/parking.go`
     - Implement GetZone
     - _Requirements: 5.1_
 
-  - [ ] 5.3 Implement UpdateServiceClient for UPDATE_SERVICE gRPC service
+  - [x] 5.3 Implement UpdateServiceClient for UPDATE_SERVICE gRPC service
     - Create `backend/parking-cli/internal/client/update.go`
     - Implement ListAdapters, InstallAdapter, UninstallAdapter, Close
     - _Requirements: 6.1, 6.3, 6.5_
 
-  - [ ] 5.4 Implement ParkingAdaptorClient for PARKING_OPERATOR_ADAPTOR gRPC service
+  - [x] 5.4 Implement ParkingAdaptorClient for PARKING_OPERATOR_ADAPTOR gRPC service
     - Create `backend/parking-cli/internal/client/adaptor.go`
     - Implement StartSession, StopSession, GetSessionStatus, Close
     - _Requirements: 7.1, 7.3, 7.5_
 
-  - [ ] 5.5 Implement LockingServiceClient for LOCKING_SERVICE gRPC service
+  - [x] 5.5 Implement LockingServiceClient for LOCKING_SERVICE gRPC service
     - Create `backend/parking-cli/internal/client/locking.go`
     - Implement GetLockState, GetAllLockStates, Close
     - _Requirements: 11.1_
 
-- [ ] 6. Implement PARKING_CLI commands
-  - [ ] 6.1 Implement location command (set and get)
+- [x] 6. Implement PARKING_CLI commands
+  - [x] 6.1 Implement location command (set and get)
     - Wire to DataBrokerClient
     - Implement output formatting
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 6.2 Implement zone command
+  - [x] 6.2 Implement zone command
     - Wire to ParkingFeeClient
     - Implement output formatting for zone info and not-found case
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 6.3 Implement adapter commands (adapters, install, uninstall)
+  - [x] 6.3 Implement adapter commands (adapters, install, uninstall)
     - Wire to UpdateServiceClient
     - Implement output formatting for adapter list and operations
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-  - [ ] 6.4 Implement session commands (start, stop, session)
+  - [x] 6.4 Implement session commands (start, stop, session)
     - Wire to ParkingAdaptorClient
     - Implement output formatting for session info
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
-  - [ ] 6.5 Implement locks command
+  - [x] 6.5 Implement locks command
     - Wire to LockingServiceClient
     - Implement output formatting for all door states
     - _Requirements: 11.1, 11.2, 11.3_
 
-  - [ ] 6.6 Implement ping command for all services
+  - [x] 6.6 Implement ping command for all services
     - Test connectivity to DATA_BROKER, PARKING_FEE_SERVICE, UPDATE_SERVICE, PARKING_ADAPTOR, LOCKING_SERVICE
     - Display status for each service
     - _Requirements: 10.5_
 
-- [ ] 7. Checkpoint - PARKING_CLI functional
+- [x] 7. Checkpoint - PARKING_CLI functional
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Implement non-interactive mode for both CLIs
-  - [ ] 8.1 Add CLI flag parsing for non-interactive mode
+- [x] 8. Implement non-interactive mode for both CLIs
+  - [x] 8.1 Add CLI flag parsing for non-interactive mode
     - Implement `-c`/`--command`, `--json`, `-q`/`--quiet` flags
     - Support positional command arguments (e.g., `companion-cli lock`)
     - Support stdin piping for commands
     - _Requirements: 12.1, 12.2, 12.5, 12.6, 12.7, 12.8_
 
-  - [ ] 8.2 Implement exit code handling
+  - [x] 8.2 Implement exit code handling
     - Exit 0 on success, non-zero on failure
     - Map error categories to specific exit codes
     - _Requirements: 12.3, 12.4_
 
-  - [ ] 8.3 Implement JSON output formatter
+  - [x] 8.3 Implement JSON output formatter
     - Create JSONOutput and JSONError structs
     - Wrap all command results in JSON when `--json` flag is set
     - _Requirements: 12.7_
@@ -133,7 +133,7 @@ Both CLIs use REPL interfaces and connect to the same backend services as the re
     - **Property 10: JSON Output Completeness**
     - **Validates: Requirements 12.3, 12.4, 12.7**
 
-- [ ] 9. Checkpoint - Non-interactive mode functional
+- [x] 9. Checkpoint - Non-interactive mode functional
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Write property tests for PARKING_CLI
@@ -154,19 +154,19 @@ Both CLIs use REPL interfaces and connect to the same backend services as the re
     - **Property 8: Ping Command Coverage**
     - **Validates: Requirements 10.3, 10.5**
 
-- [ ] 11. Update backend README and Makefile
-  - [ ] 11.1 Add CLI build targets to Makefile
+- [x] 11. Update backend README and Makefile
+  - [x] 11.1 Add CLI build targets to Makefile
     - Add `build-companion-cli` and `build-parking-cli` targets
     - Add `build-cli` target to build both
     - Update `build-backend` to include CLIs
 
-  - [ ] 11.2 Update backend/README.md with CLI documentation
+  - [x] 11.2 Update backend/README.md with CLI documentation
     - Document CLI usage and commands
     - Document environment variables
     - Document non-interactive mode and scripting examples
     - Add examples
 
-- [ ] 12. Final checkpoint - All tests pass
+- [x] 12. Final checkpoint - All tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

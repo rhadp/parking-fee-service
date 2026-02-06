@@ -4,7 +4,7 @@
 .PHONY: all proto build test clean
 .PHONY: proto-rust proto-kotlin proto-dart proto-go
 .PHONY: build-rhivos build-android build-backend build-containers
-.PHONY: build-parking-fee-service
+.PHONY: build-parking-fee-service build-cli build-companion-cli build-parking-cli
 .PHONY: test-rhivos test-android test-backend
 .PHONY: test-parking-fee-service
 .PHONY: infra-up infra-down
@@ -70,6 +70,20 @@ build-backend:
 build-parking-fee-service:
 	@echo "Building parking-fee-service..."
 	cd backend && go build -o bin/parking-fee-service ./parking-fee-service/cmd/server
+
+# Build CLI simulators
+build-cli: build-companion-cli build-parking-cli
+	@echo "CLI simulators built successfully"
+
+# Build companion-cli
+build-companion-cli:
+	@echo "Building companion-cli..."
+	cd backend && go build -o bin/companion-cli ./companion-cli/cmd/companion-cli
+
+# Build parking-cli
+build-parking-cli:
+	@echo "Building parking-cli..."
+	cd backend && go build -o bin/parking-cli ./parking-cli/cmd/parking-cli
 
 # Build all container images
 build-containers:
@@ -215,6 +229,9 @@ help:
 	@echo "  build-android            - Build Android applications"
 	@echo "  build-backend            - Build Go backend services"
 	@echo "  build-parking-fee-service - Build parking-fee-service specifically"
+	@echo "  build-cli                - Build CLI simulators (companion-cli, parking-cli)"
+	@echo "  build-companion-cli      - Build companion-cli for remote vehicle control"
+	@echo "  build-parking-cli        - Build parking-cli for parking session management"
 	@echo "  build-containers         - Build all container images"
 	@echo ""
 	@echo "Test targets:"
