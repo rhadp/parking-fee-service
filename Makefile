@@ -93,8 +93,16 @@ test-rhivos:
 # Run Android tests
 test-android:
 	@echo "Running Android tests..."
-	cd android/parking-app && gradle test
-	cd android/companion-app && flutter test
+	@if [ -n "$$ANDROID_HOME" ] || [ -f android/parking-app/local.properties ]; then \
+		cd android/parking-app && gradle test; \
+	else \
+		echo "Skipping parking-app tests: ANDROID_HOME not set and no local.properties found"; \
+	fi
+	@if command -v flutter >/dev/null 2>&1 && [ -d android/companion-app/test ]; then \
+		cd android/companion-app && flutter test; \
+	else \
+		echo "Skipping companion-app tests: Flutter not available or no test directory"; \
+	fi
 
 # Run Go backend tests
 test-backend:
