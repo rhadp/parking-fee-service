@@ -272,13 +272,13 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
 - [x] 17. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 18. Create Containerfile and deployment config
-  - [ ] 18.1 Create Containerfile for cloud-gateway
+- [x] 18. Create Containerfile and deployment config
+  - [x] 18.1 Create Containerfile for cloud-gateway
     - Multi-stage build for minimal image size
     - Copy binary and set entrypoint
-    - Place in `containers/backend/cloud-gateway/Containerfile`
-  
-  - [ ] 18.2 Add cloud-gateway to infra compose
+    - Place in `containers/backend/Containerfile.cloud-gateway`
+
+  - [x] 18.2 Add cloud-gateway to infra compose
     - Add service definition to compose file
     - Configure environment variables (including OTLP_ENDPOINT, PARKING_FEE_SERVICE_URL)
     - Set up network connectivity with Mosquitto, OTel collector, and PARKING_FEE_SERVICE

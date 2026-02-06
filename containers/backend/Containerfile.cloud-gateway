@@ -10,8 +10,18 @@
 # Build stage - MUST use ghcr.io/rhadp/builder for Go builds
 FROM ghcr.io/rhadp/builder AS builder
 WORKDIR /app
-COPY backend/cloud-gateway/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o cloud-gateway .
+
+# Copy go.mod and go.sum from backend directory (shared workspace)
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+
+# Copy the cloud-gateway source code
+COPY backend/cloud-gateway/ ./cloud-gateway/
+# Copy shared gen directory if needed
+COPY backend/gen/ ./gen/
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o cloud-gateway ./cloud-gateway/cmd/server/
 
 # Final stage - MUST use UBI10
 FROM registry.access.redhat.com/ubi10/ubi-micro
@@ -21,6 +31,9 @@ LABEL version="${GIT_VERSION}"
 LABEL description="Cloud Gateway MQTT Broker/Router"
 
 COPY --from=builder /app/cloud-gateway /usr/local/bin/
+
+# Expose HTTP port
+EXPOSE 8080
 
 USER 1000
 ENTRYPOINT ["/usr/local/bin/cloud-gateway"]

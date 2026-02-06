@@ -99,6 +99,64 @@ services:
     networks:
       - sdv-network
 
+  # Parking Fee Service
+  # Backend service for parking session management
+  parking-fee-service:
+    build:
+      context: ../..
+      dockerfile: containers/backend/Containerfile.parking-fee-service
+    container_name: sdv-parking-fee-service
+    ports:
+      - "8081:8081"
+    environment:
+      - LOG_LEVEL=info
+      - PORT=8081
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - sdv-network
+
+  # Cloud Gateway
+  # REST API gateway for companion app and MQTT bridge to vehicles
+  # Requirements: 15.1, 15.2
+  cloud-gateway:
+    build:
+      context: ../..
+      dockerfile: containers/backend/Containerfile.cloud-gateway
+    container_name: sdv-cloud-gateway
+    ports:
+      - "8082:8080"
+    environment:
+      - LOG_LEVEL=info
+      - PORT=8080
+      - MQTT_BROKER_URL=tcp://mosquitto:1883
+      - MQTT_CLIENT_ID=cloud-gateway
+      - CONFIGURED_VIN=TEST_VIN_001
+      - COMMAND_TIMEOUT_SECONDS=30
+      - MAX_COMMANDS=100
+      - PARKING_FEE_SERVICE_URL=http://parking-fee-service:8081
+      # OTLP_ENDPOINT is optional, uncomment to enable telemetry export
+      # - OTLP_ENDPOINT=http://otel-collector:4317
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      parking-fee-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sdv-network
+
 networks:
   sdv-network:
     driver: bridge
