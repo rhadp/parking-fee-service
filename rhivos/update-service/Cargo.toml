@@ -10,6 +10,10 @@ description = "Container lifecycle management service for RHIVOS QM partition"
 name = "update-service"
 path = "src/main.rs"
 
+[lib]
+name = "update_service"
+path = "src/lib.rs"
+
 [dependencies]
 shared.workspace = true
 tokio.workspace = true
@@ -17,8 +21,36 @@ tonic.workspace = true
 prost.workspace = true
 prost-types.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror.workspace = true
 anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+
+# HTTP client for registry communication
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# SHA256 digest computation
+sha2 = "0.10"
+
+# UUID for correlation IDs
+uuid = { version = "1.6", features = ["v4"] }
+
+# Base64 encoding for attestation
+base64 = "0.21"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# TLS support for gRPC server
+tokio-rustls = "0.24"
+rustls-pemfile = "1.0"
+
+# Streaming utilities
+tokio-stream = "0.1"
 
 [dev-dependencies]
 proptest.workspace = true
+tempfile = "3.9"
+wiremock = "0.5"
