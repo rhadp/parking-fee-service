@@ -64,28 +64,28 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - **Property 12: Command Store FIFO Eviction**
     - **Validates: Requirements 12.1, 12.2**
 
-- [ ] 6. Implement audit logging
-  - [ ] 6.1 Create AuditLogger interface and implementation
+- [x] 6. Implement audit logging
+  - [x] 6.1 Create AuditLogger interface and implementation
     - Define AuditLogger interface with all event logging methods
     - Implement LogCommandSubmission, LogCommandStatusChange, LogAuthAttempt
     - Implement LogTelemetryUpdate, LogMQTTConnectionEvent, LogValidationFailure
     - Implement hashToken for sensitive data protection (first 8 chars of SHA256)
     - Ensure all audit logs have log_type="audit" and correlation_id
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8, 14.9_
-  
-  - [ ] 6.2 Write property test for audit log event completeness
+
+  - [x] 6.2 Write property test for audit log event completeness
     - **Property 14: Audit Log Event Completeness**
     - **Validates: Requirements 14.1, 14.2, 14.3, 14.4, 14.6, 14.7**
-  
-  - [ ] 6.3 Write property test for audit log structure consistency
+
+  - [x] 6.3 Write property test for audit log structure consistency
     - **Property 15: Audit Log Structure Consistency**
     - **Validates: Requirements 14.5, 14.8**
-  
-  - [ ] 6.4 Write property test for sensitive data exclusion
+
+  - [x] 6.4 Write property test for sensitive data exclusion
     - **Property 16: Sensitive Data Exclusion**
     - **Validates: Requirements 14.9**
-  
-  - [ ] 6.5 Write property test for command lifecycle traceability
+
+  - [x] 6.5 Write property test for command lifecycle traceability
     - **Property 17: Command Lifecycle Traceability**
     - **Validates: Requirements 14.10**
 
