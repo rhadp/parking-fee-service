@@ -28,23 +28,23 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Define error code constants (ErrInvalidParameters, ErrZoneNotFound, etc.)
     - _Requirements: 1.2, 2.2, 3.2, 4.3, 5.3, 6.2, 11.1_
 
-- [ ] 3. Implement middleware and utilities
-  - [ ] 3.1 Implement request ID middleware
+- [x] 3. Implement middleware and utilities
+  - [x] 3.1 Implement request ID middleware
     - Generate UUID for each request
     - Store in context for downstream use via GetRequestID helper
     - _Requirements: 11.3_
-  
-  - [ ] 3.2 Implement logging middleware
+
+  - [x] 3.2 Implement logging middleware
     - Log request method, path, status, duration
     - Use structured JSON logging with slog
     - _Requirements: 10.1, 10.3, 10.4_
-  
-  - [ ] 3.3 Implement error response helpers
+
+  - [x] 3.3 Implement error response helpers
     - Create WriteError, WriteValidationError, WriteNotFound, WriteDatabaseError functions
     - Ensure consistent error format with error, message, and request_id fields
     - _Requirements: 11.1, 11.2, 11.3_
-  
-  - [ ] 3.4 Implement input validation helpers
+
+  - [x] 3.4 Implement input validation helpers
     - Create ValidateCoordinates (lat: -90 to 90, lng: -180 to 180)
     - Create ValidateStartSessionRequest
     - Create ValidateStopSessionRequest
