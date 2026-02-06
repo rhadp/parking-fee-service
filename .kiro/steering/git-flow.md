@@ -14,14 +14,6 @@ This project uses gitflow-workflow for version control.
 | `develop` | Integration branch for features |
 | `feature/*` | Individual feature/task work |
 
-## Workflow Per Task
-
-1. Create feature branch from `develop`: `git checkout -b feature/<task-name> develop`
-2. Implement changes
-3. Stage and commit with descriptive message: `git add . && git commit -m "<type>: <description>"`
-4. Push and create PR via GitHub MCP server
-5. Always merge the changes back to `develop` before starting next task
-
 ## Commit Message Format
 
 Use conventional commits: `<type>: <description>`
@@ -33,5 +25,5 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Never commit directly to `main` or `develop`
 - Before starting to work on a task, create a new feature branch
 - One feature branch per task
-- Merge `.gitignore` changes—never overwrite the file
-- Use GitHub MCP server for all PR operations
+- Merge `.gitignore` changes — NEVER overwrite the file
+- Use the GitHub MCP server for all git operations

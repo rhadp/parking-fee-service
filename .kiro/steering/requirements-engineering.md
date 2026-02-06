@@ -1,7 +1,3 @@
----
-inclusion: always
----
-
 # Requirements Engineering Guidelines
 
 Rules for writing requirements, design, and task documents in `.kiro/specs/`.
