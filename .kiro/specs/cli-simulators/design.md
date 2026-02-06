@@ -13,6 +13,7 @@ Both CLIs use a REPL (Read-Eval-Print Loop) interface similar to interactive she
 
 - **Go language**: Matches existing backend services, shares generated protobuf code from `backend/gen/`
 - **REPL interface**: Interactive command loop with readline support for history and editing
+- **Non-interactive mode**: Support for scripting and automated testing via CLI arguments
 - **Same interfaces**: Uses identical REST/gRPC endpoints as the real mobile apps
 - **Minimal dependencies**: Standard library plus existing project dependencies (gRPC, protobuf)
 
@@ -236,6 +237,83 @@ func (r *REPL) Run() error
 func (r *REPL) RegisterCommand(cmd Command)
 ```
 
+### CLI Flags and Non-Interactive Mode
+
+Both CLIs support non-interactive execution for scripting and automated testing:
+
+```go
+// CLIFlags holds command-line flags for non-interactive mode
+type CLIFlags struct {
+    Command string // -c, --command: Execute single command and exit
+    JSON    bool   // --json: Output in JSON format
+    Quiet   bool   // -q, --quiet: Suppress informational messages
+}
+```
+
+#### Usage Examples
+
+```bash
+# Direct command execution (positional arguments)
+companion-cli lock
+companion-cli status abc123
+parking-cli location 37.7749 -122.4194
+parking-cli adapters
+
+# Command flag execution
+companion-cli -c "lock"
+parking-cli --command "start zone-123"
+
+# JSON output for machine parsing
+companion-cli --json lock
+parking-cli --json session
+
+# Quiet mode (result only)
+companion-cli -q status abc123
+
+# Piped input
+echo "lock" | companion-cli
+echo -e "location 37.7749 -122.4194\nzone" | parking-cli
+
+# Scripted end-to-end test example
+#!/bin/bash
+set -e
+parking-cli -q location 37.7749 -122.4194
+ZONE=$(parking-cli --json zone | jq -r '.zone_id')
+parking-cli start "$ZONE"
+companion-cli lock
+sleep 5
+companion-cli unlock
+parking-cli stop
+```
+
+#### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Command executed successfully |
+| 1 | Command execution failed (service error) |
+| 2 | Invalid arguments or usage error |
+| 3 | Connection error (service unavailable) |
+
+#### JSON Output Format
+
+```go
+// JSONOutput wraps command results for JSON output mode
+type JSONOutput struct {
+    Success bool        `json:"success"`
+    Command string      `json:"command"`
+    Result  interface{} `json:"result,omitempty"`
+    Error   *JSONError  `json:"error,omitempty"`
+}
+
+// JSONError represents an error in JSON output
+type JSONError struct {
+    Code    string `json:"code"`
+    Message string `json:"message"`
+    Details string `json:"details,omitempty"`
+}
+```
+
 ## Data Models
 
 ### Configuration Models
@@ -367,6 +445,18 @@ Based on the prework analysis, the following properties consolidate related acce
 *For any* configured service endpoint, the ping command output SHALL include a connectivity status entry for that service.
 
 **Validates: Requirements 10.5**
+
+### Property 9: Non-Interactive Exit Codes
+
+*For any* command executed in non-interactive mode, the CLI SHALL exit with code 0 on success and a non-zero code on failure, with the exit code correctly reflecting the error category.
+
+**Validates: Requirements 12.3, 12.4**
+
+### Property 10: JSON Output Completeness
+
+*For any* command executed with the `--json` flag, the output SHALL be valid JSON containing the success status, command name, and either result data or error information.
+
+**Validates: Requirements 12.7**
 
 ## Error Handling
 

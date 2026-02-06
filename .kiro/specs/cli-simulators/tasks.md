@@ -111,36 +111,62 @@ Both CLIs use REPL interfaces and connect to the same backend services as the re
 - [ ] 7. Checkpoint - PARKING_CLI functional
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Write property tests for PARKING_CLI
-  - [ ]* 8.1 Write property tests for response field propagation
+- [ ] 8. Implement non-interactive mode for both CLIs
+  - [ ] 8.1 Add CLI flag parsing for non-interactive mode
+    - Implement `-c`/`--command`, `--json`, `-q`/`--quiet` flags
+    - Support positional command arguments (e.g., `companion-cli lock`)
+    - Support stdin piping for commands
+    - _Requirements: 12.1, 12.2, 12.5, 12.6, 12.7, 12.8_
+
+  - [ ] 8.2 Implement exit code handling
+    - Exit 0 on success, non-zero on failure
+    - Map error categories to specific exit codes
+    - _Requirements: 12.3, 12.4_
+
+  - [ ] 8.3 Implement JSON output formatter
+    - Create JSONOutput and JSONError structs
+    - Wrap all command results in JSON when `--json` flag is set
+    - _Requirements: 12.7_
+
+  - [ ]* 8.4 Write property tests for non-interactive mode
+    - **Property 9: Non-Interactive Exit Codes**
+    - **Property 10: JSON Output Completeness**
+    - **Validates: Requirements 12.3, 12.4, 12.7**
+
+- [ ] 9. Checkpoint - Non-interactive mode functional
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 10. Write property tests for PARKING_CLI
+  - [ ]* 10.1 Write property tests for response field propagation
     - **Property 1: Response Field Propagation** (PARKING_CLI portion)
     - **Validates: Requirements 5.2, 6.2, 6.4, 7.2, 7.4, 7.6, 11.2**
 
-  - [ ]* 8.2 Write property tests for error message propagation
+  - [ ]* 10.2 Write property tests for error message propagation
     - **Property 2: Error Message Propagation** (PARKING_CLI portion)
     - **Validates: Requirements 4.3, 5.4, 6.6, 7.7, 10.1, 10.2, 11.3**
 
-  - [ ]* 8.3 Write property tests for command argument parsing
+  - [ ]* 10.3 Write property tests for command argument parsing
     - **Property 4: Command Argument Parsing**
     - **Validates: Requirements 3.1, 4.1, 6.3, 6.5, 7.1**
 
-  - [ ]* 8.4 Write property tests for timeout and ping
+  - [ ]* 10.4 Write property tests for timeout and ping
     - **Property 7: Timeout Message Format**
     - **Property 8: Ping Command Coverage**
     - **Validates: Requirements 10.3, 10.5**
 
-- [ ] 9. Update backend README and Makefile
-  - [ ] 9.1 Add CLI build targets to Makefile
+- [ ] 11. Update backend README and Makefile
+  - [ ] 11.1 Add CLI build targets to Makefile
     - Add `build-companion-cli` and `build-parking-cli` targets
     - Add `build-cli` target to build both
     - Update `build-backend` to include CLIs
 
-  - [ ] 9.2 Update backend/README.md with CLI documentation
+  - [ ] 11.2 Update backend/README.md with CLI documentation
     - Document CLI usage and commands
     - Document environment variables
+    - Document non-interactive mode and scripting examples
     - Add examples
 
-- [ ] 10. Final checkpoint - All tests pass
+- [ ] 12. Final checkpoint - All tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

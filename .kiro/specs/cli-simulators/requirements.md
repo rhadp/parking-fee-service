@@ -157,3 +157,18 @@ These tools allow developers to test the full vehicle-to-cloud flow locally by:
 1. WHEN the user enters the "locks" command in PARKING_CLI, THE PARKING_CLI SHALL send a GetLockState request to the LOCKING_SERVICE via gRPC for all doors
 2. WHEN lock state is received, THE PARKING_CLI SHALL display each door's lock status (locked/unlocked) and open status (open/closed)
 3. IF the LOCKING_SERVICE connection fails, THEN THE PARKING_CLI SHALL display an error message with connection details
+
+### Requirement 12: Non-Interactive Command Mode
+
+**User Story:** As a developer, I want to run CLI commands from shell scripts or test tools, so that I can automate end-to-end testing without interactive REPL sessions.
+
+#### Acceptance Criteria
+
+1. WHEN the CLI is invoked with command arguments (e.g., `companion-cli lock`), THE CLI_SIMULATORS SHALL execute the command, print the result, and exit
+2. WHEN the CLI is invoked with the `-c` or `--command` flag (e.g., `companion-cli -c "status abc123"`), THE CLI_SIMULATORS SHALL execute the command string, print the result, and exit
+3. WHEN a non-interactive command succeeds, THE CLI_SIMULATORS SHALL exit with code 0
+4. WHEN a non-interactive command fails, THE CLI_SIMULATORS SHALL exit with a non-zero exit code and print the error to stderr
+5. WHEN the CLI is invoked without arguments, THE CLI_SIMULATORS SHALL start in interactive REPL mode (default behavior)
+6. THE CLI_SIMULATORS SHALL support piping input from stdin (e.g., `echo "lock" | companion-cli`)
+7. WHEN the `--json` flag is provided, THE CLI_SIMULATORS SHALL output results in JSON format for machine parsing
+8. WHEN the `--quiet` or `-q` flag is provided, THE CLI_SIMULATORS SHALL suppress informational messages and only output the command result
