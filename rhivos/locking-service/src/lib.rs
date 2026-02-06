@@ -20,6 +20,9 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod executor;
+pub mod logging;
+pub mod publisher;
+pub mod service;
 pub mod state;
 pub mod validator;
 
@@ -32,5 +35,8 @@ pub mod proto {
 pub use config::ServiceConfig;
 pub use error::{LockingError, Result, SafetyViolation};
 pub use executor::{ExecutionResult, LockExecutor};
+pub use logging::{EventType, LogEntry, LogLevel, Logger};
+pub use publisher::{PublishError, SignalWriter, StatePublisher};
+pub use service::LockingServiceImpl;
 pub use state::{DoorState, LockState};
 pub use validator::{SafetyValidator, SignalReader};
