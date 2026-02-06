@@ -13,14 +13,14 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
   - Create Makefile targets for build and test
   - _Requirements: 9.1_
 
-- [ ] 2. Implement configuration and models
-  - [ ] 2.1 Create configuration loader with environment variable support
+- [x] 2. Implement configuration and models
+  - [x] 2.1 Create configuration loader with environment variable support
     - Implement Config struct with env tags and defaults
     - Add LoadConfig function
     - Support: PORT, DATABASE_PATH, DEMO_ZONE_*, DEMO_ADAPTER_*, LOG_LEVEL
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
-  
-  - [ ] 2.2 Create data models
+
+  - [x] 2.2 Create data models
     - Implement Zone, Bounds, Adapter, AdapterSummary structs
     - Implement Session, SessionStatus structs
     - Implement request/response models (ZoneResponse, StartSessionRequest, StopSessionRequest, etc.)
