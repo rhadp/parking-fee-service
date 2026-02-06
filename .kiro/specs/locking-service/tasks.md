@@ -8,18 +8,18 @@ Tasks are organized to build incrementally: project setup, core data models, saf
 
 ## Tasks
 
-- [ ] 1. Set up locking-service project structure
-  - [ ] 1.1 Create Rust crate structure for locking-service
+- [x] 1. Set up locking-service project structure
+  - [x] 1.1 Create Rust crate structure for locking-service
     - Create `rhivos/locking-service/Cargo.toml` with dependencies (tonic, tokio, thiserror, tracing, proptest)
     - Create `rhivos/locking-service/src/lib.rs` as library root
     - Create `rhivos/locking-service/src/main.rs` as binary entry point
     - Add crate to `rhivos/Cargo.toml` workspace members
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-  - [ ] 1.2 Generate Rust bindings from locking_service.proto
-    - Create `rhivos/locking-service/build.rs` with tonic-build configuration
-    - Configure proto path to `proto/services/locking_service.proto`
-    - Generate server and client code
+  - [x] 1.2 Generate Rust bindings from locking_service.proto
+    - Proto bindings are generated in `shared` crate via `rhivos/shared/build.rs`
+    - Bindings available at `shared::sdv::services::locking`
+    - Re-exported from `locking_service::proto` for convenience
     - _Requirements: 8.1, 8.2, 8.3_
 
 - [ ] 2. Implement core data models and configuration
