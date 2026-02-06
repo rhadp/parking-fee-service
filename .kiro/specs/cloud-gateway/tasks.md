@@ -6,7 +6,7 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
 
 ## Tasks
 
-- [ ] 1. Set up project structure and core dependencies
+- [x] 1. Set up project structure and core dependencies
   - Create directory structure under `backend/cloud-gateway/`
   - Initialize Go module with `go mod init`
   - Add dependencies: gorilla/mux, paho.mqtt.golang, gopter, slog, go.opentelemetry.io/otel
