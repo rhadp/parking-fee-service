@@ -44,7 +44,7 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Implement From<LockingError> for tonic::Status
     - _Requirements: 1.3, 1.4, 2.3, 2.4, 3.3, 4.3, 6.2_
 
-- [ ] 3. Checkpoint - Verify data models compile
+- [x] 3. Checkpoint - Verify data models compile
   - Run `cargo check` in locking-service directory
   - Ensure all types are properly defined
   - Ask the user if questions arise
