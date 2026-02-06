@@ -143,6 +143,8 @@ When instructed to implement a feature, read and understand the guiding document
 
 first, before you start to make any changes.
 
+If the user asks you to implement more than one task at the same time, iterate over the tasks and implemented them independently from each other. Do NOT implement more than one task per coding session.
+
 ### Workflow Per Task
 
 When implementing a task, always update the `.kiro/specs/{feature-name}/task.md` document, according to the conventions defined in [steering/requirements-engineering.md](.kiro/steering/requirements-engineering.md).

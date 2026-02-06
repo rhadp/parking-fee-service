@@ -75,3 +75,52 @@ read the requirements.md, design.md and task.md documents in .kiro/specs/project
 06.2.2026
 debugging:
 credits 728
+
+---
+Let me check the specs directory to see what features are available and their current state.
+
+Based on the design documents and the project structure, I can see the dependency chain. Let me also check the project-foundation spec to understand the overall implementation order:
+
+Now let me check the tasks.md files for the other specs to see their completion status:
+
+Now I have a clear picture. Based on the dependency analysis from the design documents and task completion status:
+
+**Implementation Order After LOCKING_SERVICE:**
+
+Looking at the architecture and dependencies:
+
+1. **LOCKING_SERVICE** (partially complete - tasks 1-5 done, 6-14 remaining)
+   - Core service that handles door lock/unlock
+   - Depends on: DATA_BROKER (external Eclipse Kuksa)
+   - Required by: CLOUD_GATEWAY_CLIENT, PARKING_OPERATOR_ADAPTOR
+
+2. **CLOUD_GATEWAY_CLIENT** (not started)
+   - Bridges cloud commands to LOCKING_SERVICE
+   - Depends on: LOCKING_SERVICE, DATA_BROKER
+   - Required by: COMPANION_APP (for remote lock/unlock)
+
+3. **UPDATE_SERVICE** (not started)
+   - Manages container lifecycle for adapters
+   - Depends on: External registry, podman
+   - Required by: PARKING_APP (to install adapters)
+
+4. **PARKING_OPERATOR_ADAPTOR** (not started)
+   - Manages parking sessions based on lock state
+   - Depends on: DATA_BROKER (subscribes to IsLocked), PARKING_FEE_SERVICE (zone lookup)
+   - Runs as container managed by UPDATE_SERVICE
+
+**Recommended next spec: CLOUD_GATEWAY_CLIENT**
+
+This is the logical next step because:
+- It directly depends on LOCKING_SERVICE (which you're finishing)
+- It enables the COMPANION_APP to send remote lock/unlock commands
+- It's part of the safety partition (ASIL-B) like LOCKING_SERVICE
+- It completes the cloud-to-vehicle command path
+
+Alternatively, **UPDATE_SERVICE** could be next if you want to enable the adapter installation flow first, but CLOUD_GATEWAY_CLIENT has a tighter coupling to LOCKING_SERVICE.
+
+
+
+LOCKING_SERVICE → CLOUD_GATEWAY_CLIENT → UPDATE_SERVICE → PARKING_OPERATOR_ADAPTOR → PARKING_APP → COMPANION_APP
+
+
