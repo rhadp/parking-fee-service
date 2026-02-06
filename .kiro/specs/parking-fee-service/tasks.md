@@ -77,33 +77,33 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
 - [x] 5. Checkpoint - Ensure zone lookup tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Implement adapter registry functionality
-  - [ ] 6.1 Implement AdapterStore
+- [x] 6. Implement adapter registry functionality
+  - [x] 6.1 Implement AdapterStore
     - Create in-memory store initialized with demo adapter from config
     - Implement List method returning all adapters
     - Implement Get method returning adapter by ID
     - _Requirements: 2.1, 3.1_
-  
-  - [ ] 6.2 Implement AdapterService
+
+  - [x] 6.2 Implement AdapterService
     - Implement ListAdapters with alphabetical sorting by operator_name
     - Implement GetAdapter by ID, return nil if not found
     - _Requirements: 2.1, 2.4, 3.1_
-  
-  - [ ] 6.3 Implement AdapterHandler
+
+  - [x] 6.3 Implement AdapterHandler
     - Handle GET /api/v1/adapters (list all adapters)
     - Handle GET /api/v1/adapters/{adapter_id} (get adapter details)
     - Return empty list if no adapters registered
     - Return 404 for unknown adapter_id
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4_
-  
-  - [ ] 6.4 Write property tests for adapter registry
+
+  - [x] 6.4 Write property tests for adapter registry
     - **Property 4: Adapter List Completeness and Sorting** - all fields present, sorted by operator_name
     - **Property 5: Adapter Details Retrieval** - valid adapter_id returns complete details
     - **Property 6: Adapter Not Found** - invalid adapter_id returns 404
     - **Property 7: Checksum Format Validation** - checksum is sha256: followed by 64 hex chars
     - **Validates: Requirements 2.2, 2.4, 3.1, 3.2, 3.3, 3.4**
 
-- [ ] 7. Checkpoint - Ensure adapter registry tests pass
+- [x] 7. Checkpoint - Ensure adapter registry tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Implement SQLite session store
