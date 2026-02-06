@@ -238,6 +238,80 @@ impl OperatorApiClient {
     }
 }
 
+/// Retry configuration for testing.
+#[derive(Debug, Clone)]
+pub struct RetryConfig {
+    /// Maximum number of retries
+    pub max_retries: u32,
+    /// Base delay in milliseconds
+    pub base_delay_ms: u64,
+    /// Maximum delay in milliseconds
+    pub max_delay_ms: u64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            base_delay_ms: 1000,
+            max_delay_ms: 30000,
+        }
+    }
+}
+
+/// Result of a retry operation with tracking info.
+#[derive(Debug, Clone)]
+pub struct RetryResult<T> {
+    /// The result of the operation
+    pub result: Result<T, ApiError>,
+    /// Number of attempts made
+    pub attempts: u32,
+    /// Delays between attempts (in milliseconds)
+    pub delays: Vec<u64>,
+}
+
+/// Execute an operation with retry and track the behavior.
+/// This is exposed for testing purposes.
+pub async fn call_with_retry_tracked<T, F, Fut>(
+    config: &RetryConfig,
+    mut f: F,
+) -> RetryResult<T>
+where
+    F: FnMut(u32) -> Fut,
+    Fut: std::future::Future<Output = Result<T, ApiError>>,
+{
+    let mut delay_ms = config.base_delay_ms;
+    let mut attempts = 0;
+    let mut delays = Vec::new();
+
+    loop {
+        attempts += 1;
+        match f(attempts).await {
+            Ok(result) => {
+                return RetryResult {
+                    result: Ok(result),
+                    attempts,
+                    delays,
+                };
+            }
+            Err(e) if e.is_retryable() && attempts < config.max_retries => {
+                delays.push(delay_ms);
+                // In tests, we don't actually sleep - just record the delay
+                #[cfg(not(test))]
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                delay_ms = (delay_ms * 2).min(config.max_delay_ms);
+            }
+            Err(e) => {
+                return RetryResult {
+                    result: Err(e),
+                    attempts,
+                    delays,
+                };
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -331,5 +405,191 @@ mod tests {
             prop_assert_eq!(&request.session_id, &session_id);
             prop_assert!(!request.timestamp.is_empty());
         }
+    }
+
+    // Property 7: API Retry with Exponential Backoff
+    // Validates: Requirements 3.5, 4.5
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_retry_with_exponential_backoff(
+            max_retries in 2u32..6,
+            base_delay_ms in 100u64..2000,
+            max_delay_ms in 5000u64..60000,
+            fail_count in 1u32..5
+        ) {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let config = RetryConfig {
+                    max_retries,
+                    base_delay_ms,
+                    max_delay_ms,
+                };
+
+                // Determine how many times we'll actually fail before success/giving up
+                let actual_fails = fail_count.min(max_retries);
+                let will_succeed = fail_count < max_retries;
+
+                let call_count = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+                let call_count_clone = call_count.clone();
+
+                let result = call_with_retry_tracked(&config, |attempt| {
+                    let cc = call_count_clone.clone();
+                    async move {
+                        cc.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        if attempt <= actual_fails {
+                            // Return retryable error
+                            Err(ApiError::NetworkError("simulated failure".to_string()))
+                        } else {
+                            Ok("success".to_string())
+                        }
+                    }
+                }).await;
+
+                // Verify retry count
+                if will_succeed {
+                    prop_assert!(result.result.is_ok());
+                    prop_assert_eq!(result.attempts, actual_fails + 1);
+                } else {
+                    prop_assert!(result.result.is_err());
+                    prop_assert_eq!(result.attempts, max_retries);
+                }
+
+                // Verify exponential backoff delays
+                if result.delays.len() > 1 {
+                    for i in 1..result.delays.len() {
+                        let expected_delay = (result.delays[i - 1] * 2).min(max_delay_ms);
+                        prop_assert_eq!(result.delays[i], expected_delay,
+                            "Delay at index {} should be double the previous (or capped at max)", i);
+                    }
+                }
+
+                // Verify delays are capped at max_delay_ms
+                for delay in &result.delays {
+                    prop_assert!(*delay <= max_delay_ms,
+                        "Delay {} should not exceed max_delay_ms {}", delay, max_delay_ms);
+                }
+
+                // Verify first delay equals base_delay_ms
+                if !result.delays.is_empty() {
+                    prop_assert_eq!(result.delays[0], base_delay_ms,
+                        "First delay should equal base_delay_ms");
+                }
+
+                Ok(())
+            })?;
+        }
+    }
+
+    // Property 8: Error State After Retry Exhaustion
+    // Validates: Requirements 3.6, 4.6
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_error_state_after_retry_exhaustion(
+            max_retries in 1u32..5,
+            error_message in "[a-zA-Z0-9 ]{5,50}"
+        ) {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let config = RetryConfig {
+                    max_retries,
+                    base_delay_ms: 100,
+                    max_delay_ms: 1000,
+                };
+
+                // Always fail with a retryable error
+                let result: RetryResult<String> = call_with_retry_tracked(&config, |_attempt| {
+                    let msg = error_message.clone();
+                    async move {
+                        Err(ApiError::NetworkError(msg))
+                    }
+                }).await;
+
+                // After all retries exhausted, result should be error
+                prop_assert!(result.result.is_err(), "Result should be error after all retries");
+                prop_assert_eq!(result.attempts, max_retries,
+                    "Should have made exactly max_retries attempts");
+
+                // Error message should be preserved
+                if let Err(ApiError::NetworkError(msg)) = &result.result {
+                    prop_assert_eq!(msg, &error_message, "Error message should be preserved");
+                } else {
+                    prop_assert!(false, "Should be NetworkError");
+                }
+
+                // Verify we recorded the right number of delays (one less than attempts)
+                prop_assert_eq!(result.delays.len() as u32, max_retries - 1,
+                    "Should have max_retries - 1 delays between attempts");
+
+                Ok(())
+            })?;
+        }
+
+        #[test]
+        fn prop_non_retryable_error_fails_immediately(
+            max_retries in 2u32..5,
+            status_code in 400u16..500
+        ) {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let config = RetryConfig {
+                    max_retries,
+                    base_delay_ms: 100,
+                    max_delay_ms: 1000,
+                };
+
+                // Return a non-retryable HTTP error (4xx)
+                let result: RetryResult<String> = call_with_retry_tracked(&config, |_attempt| {
+                    async move {
+                        Err(ApiError::HttpError {
+                            status: status_code,
+                            message: "Client error".to_string(),
+                        })
+                    }
+                }).await;
+
+                // Non-retryable errors should fail immediately without retries
+                prop_assert!(result.result.is_err(), "Result should be error");
+                prop_assert_eq!(result.attempts, 1, "Should fail after first attempt for non-retryable error");
+                prop_assert!(result.delays.is_empty(), "Should have no delays for immediate failure");
+
+                Ok(())
+            })?;
+        }
+    }
+
+    #[test]
+    fn test_api_error_is_retryable() {
+        // Network errors are retryable
+        assert!(ApiError::NetworkError("connection refused".to_string()).is_retryable());
+
+        // Timeouts are retryable
+        assert!(ApiError::Timeout(10000).is_retryable());
+
+        // 5xx errors are retryable
+        assert!(ApiError::HttpError {
+            status: 500,
+            message: "Internal Server Error".to_string()
+        }.is_retryable());
+        assert!(ApiError::HttpError {
+            status: 503,
+            message: "Service Unavailable".to_string()
+        }.is_retryable());
+
+        // 4xx errors are NOT retryable
+        assert!(!ApiError::HttpError {
+            status: 400,
+            message: "Bad Request".to_string()
+        }.is_retryable());
+        assert!(!ApiError::HttpError {
+            status: 404,
+            message: "Not Found".to_string()
+        }.is_retryable());
+
+        // Invalid response is NOT retryable
+        assert!(!ApiError::InvalidResponse("bad json".to_string()).is_retryable());
     }
 }

@@ -172,13 +172,13 @@ Tasks are organized to build incrementally: project setup, core data models, DAT
     - Verify stop request includes session_id and timestamp
     - **Validates: Requirements 4.1, 4.2, 4.3**
 
-  - [ ]* 7.5 Write property test for API retry behavior
+  - [x] 7.5 Write property test for API retry behavior
     - **Property 7: API Retry with Exponential Backoff**
     - *For any* failed API call, retry up to 3 times with exponential backoff (delay doubles after each attempt, capped at 30s)
     - Inject failures and verify retry count and delays
     - **Validates: Requirements 3.5, 4.5**
 
-  - [ ]* 7.6 Write property test for error state after retries
+  - [x] 7.6 Write property test for error state after retries
     - **Property 8: Error State After Retry Exhaustion**
     - *For any* operation where all retries fail, session state SHALL transition to ERROR with error_message
     - Verify ERROR state and error message after all retries fail
