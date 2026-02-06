@@ -22,22 +22,22 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Re-exported from `locking_service::proto` for convenience
     - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 2. Implement core data models and configuration
-  - [ ] 2.1 Implement LockState and DoorState structs
+- [x] 2. Implement core data models and configuration
+  - [x] 2.1 Implement LockState and DoorState structs
     - Create `rhivos/locking-service/src/state.rs`
     - Implement LockState with driver, passenger, rear_left, rear_right fields
     - Implement DoorState with is_locked, is_open, last_updated fields
     - Implement get_door() and set_locked() methods
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 2.2 Implement ServiceConfig struct
+  - [x] 2.2 Implement ServiceConfig struct
     - Create `rhivos/locking-service/src/config.rs`
     - Define socket_path, data_broker_socket, timeouts, retry settings
     - Implement Default trait with values from design document
     - Add environment variable loading support
     - _Requirements: 5.2, 6.1_
 
-  - [ ] 2.3 Implement error types
+  - [x] 2.3 Implement error types
     - Create `rhivos/locking-service/src/error.rs`
     - Implement LockingError enum with AuthError, SafetyError, ExecutionError, DataBrokerError, TimeoutError, InvalidDoor variants
     - Implement SafetyViolation enum with DoorAjar and VehicleMoving variants
