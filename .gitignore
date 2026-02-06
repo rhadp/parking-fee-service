@@ -10,3 +10,9 @@ Cargo.lock
 
 # Android build artifacts
 **/.gradle
+**/build/
+**/local.properties
+**/gradlew
+**/gradlew.bat
+**/gradle/wrapper/
+**/.idea/
