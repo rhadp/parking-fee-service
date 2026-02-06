@@ -8,6 +8,9 @@ stuff.md
 **/*.rs.bk
 Cargo.lock
 
+# Go build artifacts
+**/bin/
+
 # Android build artifacts
 **/.gradle
 **/build/

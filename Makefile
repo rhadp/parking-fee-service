@@ -4,7 +4,9 @@
 .PHONY: all proto build test clean
 .PHONY: proto-rust proto-kotlin proto-dart proto-go
 .PHONY: build-rhivos build-android build-backend build-containers
+.PHONY: build-parking-fee-service
 .PHONY: test-rhivos test-android test-backend
+.PHONY: test-parking-fee-service
 .PHONY: infra-up infra-down
 .PHONY: certs certs-clean
 .PHONY: git-clean-branches
@@ -64,6 +66,11 @@ build-backend:
 	@echo "Building Go backend services..."
 	cd backend && go build ./...
 
+# Build parking-fee-service specifically
+build-parking-fee-service:
+	@echo "Building parking-fee-service..."
+	cd backend && go build -o bin/parking-fee-service ./parking-fee-service/cmd/server
+
 # Build all container images
 build-containers:
 	@echo "Building container images..."
@@ -108,6 +115,11 @@ test-android:
 test-backend:
 	@echo "Running Go backend tests..."
 	cd backend && go test ./...
+
+# Run parking-fee-service tests specifically
+test-parking-fee-service:
+	@echo "Running parking-fee-service tests..."
+	cd backend && go test -v ./parking-fee-service/...
 
 #------------------------------------------------------------------------------
 # TLS Certificate Targets
@@ -199,15 +211,17 @@ help:
 	@echo "  proto-go         - Generate Go bindings"
 	@echo ""
 	@echo "Build targets:"
-	@echo "  build-rhivos     - Build Rust services for RHIVOS"
-	@echo "  build-android    - Build Android applications"
-	@echo "  build-backend    - Build Go backend services"
-	@echo "  build-containers - Build all container images"
+	@echo "  build-rhivos             - Build Rust services for RHIVOS"
+	@echo "  build-android            - Build Android applications"
+	@echo "  build-backend            - Build Go backend services"
+	@echo "  build-parking-fee-service - Build parking-fee-service specifically"
+	@echo "  build-containers         - Build all container images"
 	@echo ""
 	@echo "Test targets:"
-	@echo "  test-rhivos      - Run Rust tests"
-	@echo "  test-android     - Run Android tests"
-	@echo "  test-backend     - Run Go backend tests"
+	@echo "  test-rhivos              - Run Rust tests"
+	@echo "  test-android             - Run Android tests"
+	@echo "  test-backend             - Run Go backend tests"
+	@echo "  test-parking-fee-service - Run parking-fee-service tests"
 	@echo ""
 	@echo "Certificate targets:"
 	@echo "  certs            - Generate development TLS certificates"
