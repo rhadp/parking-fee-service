@@ -11,7 +11,7 @@
 FROM ghcr.io/rhadp/builder AS builder
 WORKDIR /app
 COPY backend/parking-fee-service/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o parking-fee-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o parking-fee-service ./cmd/server
 
 # Final stage - MUST use UBI10
 FROM registry.access.redhat.com/ubi10/ubi-micro
@@ -20,7 +20,14 @@ LABEL maintainer="SDV Team"
 LABEL version="${GIT_VERSION}"
 LABEL description="Parking Fee Service Backend"
 
+# Environment defaults
+ENV PORT=8080
+ENV DATABASE_PATH=/data/parking.db
+ENV LOG_LEVEL=info
+
 COPY --from=builder /app/parking-fee-service /usr/local/bin/
+
+EXPOSE 8080
 
 USER 1000
 ENTRYPOINT ["/usr/local/bin/parking-fee-service"]
