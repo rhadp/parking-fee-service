@@ -124,3 +124,43 @@ CLOUD_GATEWAY -> PARKING_FEE_SERVICE
 CLOUD_GATEWAY_CLIENT → UPDATE_SERVICE → PARKING_OPERATOR_ADAPTOR → PARKING_APP → COMPANION_APP
 
 
+---
+Let me check the specs directory and the current implementation state to determine what should be implemented next.
+
+Based on my analysis of the tasks.md files, here's the implementation status:
+
+| Spec | Status |
+|------|--------|
+| project-foundation | ✅ Complete |
+| locking-service | ✅ Complete |
+| parking-fee-service | ✅ Complete |
+| cloud-gateway | ✅ Complete |
+| cloud-gateway-client | 🔄 In Progress (tasks 1-13 done, tasks 14-20 remaining) |
+| parking-operator-adaptor | ❌ Not Started |
+| update-service | ❌ Not Started |
+| parking-app | ❌ Not Started |
+| companion-app | ❌ Not Started |
+
+The next spec to implement is **cloud-gateway-client** — it's partially complete and needs to finish tasks 14-20 which cover:
+- Telemetry subscription and publishing with offline buffering
+- Structured logging
+- Main service startup and graceful shutdown
+- Integration testing
+
+After that, the logical order would be:
+1. **update-service** — manages container lifecycle for parking adapters
+2. **parking-operator-adaptor** — depends on update-service for container management
+3. **parking-app** — the Android IVI app that ties everything together
+4. **companion-app** — the mobile companion app
+
+Would you like me to continue implementing the cloud-gateway-client spec starting from task 14?
+
+
+---
+New spec:
+
+In order to test the overal system locally developing both Android app, I want to have a command-line app for each. these apps should:
+- allow me to send commands / events like the "real" apps. example: for the COMPANION_APP, send a lock/unlock command and also display the current status of the car. 
+- for the PARKING_APP it would be: "fake" a location, list available parking, select parking, start/stop parking etc.
+- The apps should be simple golang CLIs that basically are a REPL, like Claude code is.
+- The apps should use the same messaging interfaces as the android apps would
