@@ -164,8 +164,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
 - [x] 10. Checkpoint - Ensure parking operation tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Implement health endpoints
-  - [ ] 11.1 Implement HealthHandler
+- [x] 11. Implement health endpoints
+  - [x] 11.1 Implement HealthHandler
     - Handle GET /health
       - Return status "healthy", service name "parking-fee-service", timestamp
       - Should respond within 100ms
@@ -174,12 +174,12 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
       - Return status "ready" if database operational
       - Return 503 with status "not ready" and reason if database unavailable
     - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2, 8.3_
-  
-  - [ ] 11.2 Write property test for readiness check
+
+  - [x] 11.2 Write property test for readiness check
     - **Property 16: Readiness Check Database Verification** - ready only when DB connection operational
     - **Validates: Requirements 8.3**
-  
-  - [ ] 11.3 Write unit tests for health endpoints
+
+  - [x] 11.3 Write unit tests for health endpoints
     - Test health returns 200 with required fields
     - Test ready returns 200 when database initialized
     - Test ready returns 503 when database unavailable
