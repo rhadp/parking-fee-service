@@ -213,15 +213,15 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - **Property 17: Error Response Format Consistency** - all errors have error, message, request_id fields
     - **Validates: Requirements 11.1, 11.3**
 
-- [ ] 13. Create Containerfile and deployment artifacts
-  - [ ] 13.1 Create Containerfile for the service
+- [x] 13. Create Containerfile and deployment artifacts
+  - [x] 13.1 Create Containerfile for the service
     - Multi-stage build: builder stage with Go, runtime stage with minimal image
     - Copy binary and set as entrypoint
     - Set appropriate labels and environment defaults
     - Expose port 8080
     - _Requirements: 9.1_
-  
-  - [ ] 13.2 Update root Makefile with build targets
+
+  - [x] 13.2 Update root Makefile with build targets
     - Add build-parking-fee-service target
     - Add test-parking-fee-service target for Go tests
     - Integrate with existing make build and make test targets
