@@ -269,8 +269,8 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Generate buffered messages and verify drain returns them in chronological order (oldest first)
     - **Validates: Requirements 7.8**
 
-- [ ] 14. Implement telemetry subscription and publishing
-  - [ ] 14.1 Implement SignalSubscriber struct
+- [x] 14. Implement telemetry subscription and publishing
+  - [x] 14.1 Implement SignalSubscriber struct
     - Create `rhivos/cloud-gateway-client/src/subscriber.rs`
     - Implement SignalSubscriber with DataBrokerClient and signal channel
     - Implement subscribe_all() that subscribes to all required VSS signals:
@@ -283,7 +283,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Handle DATA_BROKER disconnection gracefully
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-  - [ ] 14.2 Implement TelemetryPublisher struct with offline buffering
+  - [x] 14.2 Implement TelemetryPublisher struct with offline buffering
     - Update `rhivos/cloud-gateway-client/src/telemetry.rs`
     - Implement TelemetryPublisher with mqtt_client, vin, signal_rx, current_state, offline_buffer
     - Implement run() that batches signal updates and publishes at most once per second
@@ -292,17 +292,17 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Stop publishing when DATA_BROKER disconnected, resume when reconnected
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8_
 
-  - [ ] 14.3 Write property test for telemetry field completeness
+  - [x] 14.3 Write property test for telemetry field completeness
     - **Property 13: Telemetry Contains All Required Fields**
     - Generate telemetry messages and verify all required fields present (timestamp, latitude, longitude flat, door_locked, door_open, parking_session_active)
     - **Validates: Requirements 7.2**
 
-  - [ ] 14.4 Write property test for telemetry rate limiting
+  - [x] 14.4 Write property test for telemetry rate limiting
     - **Property 14: Telemetry Rate Limiting**
     - Simulate rapid signal updates and verify publish rate is bounded to at most ceil(T/1s) messages
     - **Validates: Requirements 7.3**
 
-- [ ] 15. Checkpoint - Verify telemetry with offline buffering
+- [x] 15. Checkpoint - Verify telemetry with offline buffering
   - Run `cargo test` for telemetry and offline buffer tests
   - Ensure buffering and draining work correctly
   - Ask the user if questions arise

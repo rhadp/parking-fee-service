@@ -22,6 +22,7 @@ pub mod handler;
 pub mod mqtt;
 pub mod offline_buffer;
 pub mod response;
+pub mod subscriber;
 pub mod telemetry;
 pub mod validator;
 
@@ -48,4 +49,6 @@ pub use handler::{CommandHandler, CommandProcessingResult};
 pub use mqtt::{calculate_backoff_delay, ConnectionState, MqttClient, MqttMessage};
 pub use offline_buffer::{BufferedTelemetry, OfflineTelemetryBuffer};
 pub use response::ResponsePublisher;
+pub use subscriber::{vss_paths, SignalSubscriber, SignalUpdate, SignalValue};
+pub use telemetry::{TelemetryPublishStats, TelemetryPublisher};
 pub use validator::CommandValidator;
