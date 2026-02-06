@@ -111,8 +111,8 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Parse JSON payloads and delegate to services
     - _Requirements: 1.2, 1.3, 4.1, 6.1, 15.4_
 
-- [ ] 9. Implement OpenTelemetry exporter
-  - [ ] 9.1 Create OTelExporter for telemetry metrics
+- [x] 9. Implement OpenTelemetry exporter
+  - [x] 9.1 Create OTelExporter for telemetry metrics
     - Initialize OpenTelemetry meter provider with OTLP exporter
     - Implement ExportTelemetry method to export vehicle metrics
     - Include VIN as attribute on all exported metrics
@@ -120,8 +120,8 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Handle collector unavailability gracefully (log warning, continue)
     - Implement Shutdown for graceful cleanup
     - _Requirements: 6.3, 6.4, 6.7, 15.6_
-  
-  - [ ] 9.2 Write property test for OpenTelemetry export resilience
+
+  - [x] 9.2 Write property test for OpenTelemetry export resilience
     - **Property 20: OpenTelemetry Export Resilience**
     - **Validates: Requirements 6.7**
 
