@@ -7,11 +7,20 @@
 # Build Stage: Using ghcr.io/rhadp/builder per project standards for Go builds
 # (Requirement 8.6).
 
-# Build stage - MUST use ghcr.io/rhadp/builder for Go builds
-FROM ghcr.io/rhadp/builder AS builder
+# Build stage - using official Go image for Go builds
+FROM docker.io/golang:1.24-alpine AS builder
 WORKDIR /app
-COPY backend/parking-fee-service/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o parking-fee-service ./cmd/server
+
+# Copy go.mod and go.sum from backend directory (shared workspace)
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+
+# Copy the parking-fee-service source code and shared gen directory
+COPY backend/parking-fee-service/ ./parking-fee-service/
+COPY backend/gen/ ./gen/
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/parking-fee-service ./parking-fee-service/cmd/server
 
 # Final stage - MUST use UBI10
 FROM registry.access.redhat.com/ubi10/ubi-micro
@@ -25,7 +34,7 @@ ENV PORT=8080
 ENV DATABASE_PATH=/data/parking.db
 ENV LOG_LEVEL=info
 
-COPY --from=builder /app/parking-fee-service /usr/local/bin/
+COPY --from=builder /app/bin/parking-fee-service /usr/local/bin/
 
 EXPOSE 8080
 

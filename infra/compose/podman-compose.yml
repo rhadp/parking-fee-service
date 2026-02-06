@@ -111,6 +111,7 @@ services:
     environment:
       - LOG_LEVEL=info
       - PORT=8081
+      - DATABASE_PATH=/tmp/parking.db
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8081/health || exit 1"]
       interval: 10s
