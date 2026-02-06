@@ -156,18 +156,18 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - **Property 19: Protocol Translation Correctness**
     - **Validates: Requirements 15.5**
 
-- [ ] 11. Implement telemetry service
-  - [ ] 11.1 Create TelemetryService with OpenTelemetry export
+- [x] 11. Implement telemetry service
+  - [x] 11.1 Create TelemetryService with OpenTelemetry export
     - Implement HandleTelemetryMessage (parse MQTT message, export to OTel)
     - Export telemetry as OpenTelemetry metrics (NOT stored for REST API)
     - Integrate audit logging for telemetry updates
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 14.4, 15.6_
-  
-  - [ ] 11.2 Write property test for telemetry OpenTelemetry export
+
+  - [x] 11.2 Write property test for telemetry OpenTelemetry export
     - **Property 9: Telemetry OpenTelemetry Export**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
-  
-  - [ ] 11.3 Write property test for telemetry not exposed via REST
+
+  - [x] 11.3 Write property test for telemetry not exposed via REST
     - **Property 10: Telemetry Not Exposed via REST**
     - **Validates: Requirements 6.5, 15.6**
 
