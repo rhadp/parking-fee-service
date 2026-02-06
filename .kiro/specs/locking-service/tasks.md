@@ -49,14 +49,14 @@ Tasks are organized to build incrementally: project setup, core data models, saf
   - Ensure all types are properly defined
   - Ask the user if questions arise
 
-- [ ] 4. Implement authentication validation
-  - [ ] 4.1 Implement auth token validation
+- [x] 4. Implement authentication validation
+  - [x] 4.1 Implement auth token validation
     - Create `rhivos/locking-service/src/auth.rs`
     - Implement validate_auth_token() function that checks token against config.valid_tokens
     - Return AuthError for invalid or missing tokens
     - _Requirements: 1.4, 2.4_
 
-  - [ ] 4.2 Write property test for auth token rejection
+  - [x] 4.2 Write property test for auth token rejection
     - **Property 1: Invalid Auth Token Rejection**
     - Generate random invalid tokens and verify rejection with UNAUTHENTICATED status
     - **Validates: Requirements 1.4, 2.4**

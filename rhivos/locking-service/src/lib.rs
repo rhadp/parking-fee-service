@@ -16,6 +16,7 @@
 //! - Receives commands from CLOUD_GATEWAY_CLIENT via gRPC/UDS
 //! - Publishes door state to DATA_BROKER via gRPC/UDS
 
+pub mod auth;
 pub mod config;
 pub mod error;
 pub mod state;
