@@ -231,3 +231,8 @@ func (s *CommandService) markTimeout(cmd *model.Command) {
 		slog.Duration("timeout", s.commandTimeout),
 	)
 }
+
+// HandleCommandResponseFromMQTT implements the mqtt.CommandResponseHandler interface.
+func (s *CommandService) HandleCommandResponseFromMQTT(response *model.MQTTCommandResponse) {
+	s.HandleCommandResponse(context.Background(), response)
+}

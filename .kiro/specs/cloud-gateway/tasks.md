@@ -239,8 +239,8 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - **Property 18: Interface Independence**
     - **Validates: Requirements 15.7, 15.8**
 
-- [ ] 16. Wire components together
-  - [ ] 16.1 Create router and register routes
+- [x] 16. Wire components together
+  - [x] 16.1 Create router and register routes
     - Set up gorilla/mux router
     - Register command endpoints: POST/GET /api/v1/vehicles/{vin}/commands
     - Register command status endpoint: GET /api/v1/vehicles/{vin}/commands/{command_id}
@@ -249,8 +249,8 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Apply middleware chain (RequestID, Logging)
     - Note: NO telemetry REST endpoint (telemetry exported to OTel only)
     - _Requirements: 2.1, 3.1, 7.1, 8.1, 15.1, 15.3, 16.1_
-  
-  - [ ] 16.2 Implement main.go with full initialization
+
+  - [x] 16.2 Implement main.go with full initialization
     - Load configuration
     - Initialize stores, services, handlers, audit logger
     - Initialize OpenTelemetry exporter (if OTLP endpoint configured)
@@ -259,8 +259,8 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Start command timeout checker
     - Log configuration values (except secrets) on startup
     - _Requirements: 1.1, 1.2, 1.3, 9.5, 9.6, 15.1, 15.2_
-  
-  - [ ] 16.3 Implement graceful shutdown
+
+  - [x] 16.3 Implement graceful shutdown
     - Handle SIGTERM signal
     - Stop accepting new HTTP requests
     - Complete in-flight requests (10s timeout)
@@ -269,7 +269,7 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Complete shutdown within 15 seconds
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 17. Final checkpoint - Ensure all tests pass
+- [x] 17. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 18. Create Containerfile and deployment config

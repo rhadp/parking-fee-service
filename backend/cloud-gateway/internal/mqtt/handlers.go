@@ -9,7 +9,7 @@ import (
 
 // CommandResponseHandler handles command response messages from vehicles.
 type CommandResponseHandler interface {
-	HandleCommandResponse(response *model.MQTTCommandResponse)
+	HandleCommandResponseFromMQTT(response *model.MQTTCommandResponse)
 }
 
 // TelemetryHandler handles telemetry messages from vehicles.
@@ -54,7 +54,7 @@ func (h *MessageHandlers) HandleCommandResponse(topic string, payload []byte) {
 	)
 
 	if h.commandHandler != nil {
-		h.commandHandler.HandleCommandResponse(&response)
+		h.commandHandler.HandleCommandResponseFromMQTT(&response)
 	}
 }
 

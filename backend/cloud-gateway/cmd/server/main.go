@@ -16,10 +16,29 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/gorilla/mux"
+
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/audit"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/config"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/handler"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/middleware"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/mqtt"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/otel"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/service"
+	"github.com/sdv-parking-demo/backend/cloud-gateway/internal/store"
+)
+
+const (
+	serviceName    = "cloud-gateway"
+	serviceVersion = "0.1.0"
 )
 
 func main() {
@@ -30,36 +49,163 @@ func main() {
 	slog.SetDefault(logger)
 
 	logger.Info("starting cloud-gateway service",
-		slog.String("service", "cloud-gateway"),
-		slog.String("version", "0.1.0"),
+		slog.String("service", serviceName),
+		slog.String("version", serviceVersion),
 	)
 
-	// TODO: Load configuration from environment variables
-	// TODO: Initialize command store
-	// TODO: Initialize MQTT client (Southbound interface)
-	// TODO: Initialize OpenTelemetry exporter
-	// TODO: Initialize audit logger
-	// TODO: Initialize services (CommandService, TelemetryService, ParkingSessionService)
-	// TODO: Initialize HTTP handlers
-	// TODO: Set up router with middleware
-	// TODO: Start MQTT client and subscribe to topics
-	// TODO: Start command timeout checker
-	// TODO: Start HTTP server
+	// Load configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Error("failed to load configuration", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	// Log configuration values (except secrets)
+	cfg.LogConfigValues(logger)
+
+	// Initialize audit logger
+	auditLogger := audit.NewAuditLogger(logger)
+
+	// Initialize command store
+	cmdStore := store.NewCommandStore(100)
+
+	// Initialize OpenTelemetry exporter
+	ctx := context.Background()
+	otelExporter, err := otel.NewExporter(ctx, cfg.GetOTelConfig(), cfg.ConfiguredVIN, logger)
+	if err != nil {
+		logger.Warn("failed to initialize OpenTelemetry exporter, continuing without telemetry export",
+			slog.String("error", err.Error()),
+		)
+	}
+
+	// Initialize MQTT client
+	mqttClient := mqtt.NewClient(cfg.GetMQTTConfig(), logger, auditLogger)
+
+	// Initialize services
+	commandService := service.NewCommandService(
+		cmdStore,
+		mqttClient,
+		auditLogger,
+		logger,
+		cfg.CommandTimeout,
+		cfg.ConfiguredVIN,
+	)
+
+	telemetryService := service.NewTelemetryService(
+		otelExporter,
+		auditLogger,
+		logger,
+		cfg.ConfiguredVIN,
+	)
+
+	parkingSessionService := service.NewParkingSessionService(
+		cfg.ParkingFeeServiceURL,
+		logger,
+		cfg.ConfiguredVIN,
+	)
+
+	// Initialize MQTT handlers
+	mqttHandlers := mqtt.NewMessageHandlers(logger, commandService, telemetryService)
+
+	// Initialize HTTP handlers
+	commandHandler := handler.NewCommandHandler(commandService, auditLogger, logger, cfg.ConfiguredVIN)
+	healthHandler := handler.NewHealthHandler(mqttClient, serviceName)
+	parkingSessionHandler := handler.NewParkingSessionHandler(parkingSessionService, logger, cfg.ConfiguredVIN)
+
+	// Set up router
+	router := mux.NewRouter()
+
+	// Apply middleware
+	router.Use(middleware.RequestIDMiddleware)
+	router.Use(middleware.LoggingMiddleware(logger))
+
+	// Register health endpoints
+	router.HandleFunc("/health", healthHandler.HandleHealth).Methods("GET")
+	router.HandleFunc("/ready", healthHandler.HandleReady).Methods("GET")
+
+	// Register API endpoints
+	api := router.PathPrefix("/api/v1").Subrouter()
+	api.HandleFunc("/vehicles/{vin}/commands", commandHandler.HandleSubmitCommand).Methods("POST")
+	api.HandleFunc("/vehicles/{vin}/commands/{command_id}", commandHandler.HandleGetCommandStatus).Methods("GET")
+	api.HandleFunc("/vehicles/{vin}/parking-session", parkingSessionHandler.HandleGetParkingSession).Methods("GET")
+
+	// Connect to MQTT broker
+	if err := mqttClient.Connect(); err != nil {
+		logger.Error("failed to connect to MQTT broker", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	// Subscribe to MQTT topics
+	responsesTopic := fmt.Sprintf("vehicles/%s/command_responses", cfg.ConfiguredVIN)
+	if err := mqttClient.Subscribe(responsesTopic, mqttHandlers.HandleCommandResponse); err != nil {
+		logger.Error("failed to subscribe to command responses topic", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	telemetryTopic := fmt.Sprintf("vehicles/%s/telemetry", cfg.ConfiguredVIN)
+	if err := mqttClient.Subscribe(telemetryTopic, mqttHandlers.HandleTelemetry); err != nil {
+		logger.Error("failed to subscribe to telemetry topic", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	logger.Info("subscribed to MQTT topics",
+		slog.String("responses_topic", responsesTopic),
+		slog.String("telemetry_topic", telemetryTopic),
+	)
+
+	// Start command timeout checker
+	commandService.StartTimeoutChecker(5 * time.Second)
+
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start HTTP server in goroutine
+	go func() {
+		logger.Info("starting HTTP server", slog.Int("port", cfg.Port))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("HTTP server error", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+	}()
 
 	// Wait for termination signal
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	<-ctx.Done()
+	<-sigCtx.Done()
 
 	logger.Info("shutting down cloud-gateway service")
 
-	// TODO: Implement graceful shutdown
-	// - Stop accepting new HTTP requests
-	// - Complete in-flight requests (10s timeout)
-	// - Disconnect MQTT client cleanly
-	// - Shutdown OpenTelemetry exporter
-	// - Complete shutdown within 15 seconds
+	// Create shutdown context with timeout
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Stop command timeout checker
+	commandService.StopTimeoutChecker()
+
+	// Shutdown HTTP server gracefully (10s timeout for in-flight requests)
+	serverShutdownCtx, serverCancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+	defer serverCancel()
+
+	if err := server.Shutdown(serverShutdownCtx); err != nil {
+		logger.Error("HTTP server shutdown error", slog.String("error", err.Error()))
+	}
+
+	// Disconnect MQTT client
+	mqttClient.Disconnect()
+
+	// Shutdown OpenTelemetry exporter
+	if otelExporter != nil {
+		if err := otelExporter.Shutdown(shutdownCtx); err != nil {
+			logger.Error("OpenTelemetry exporter shutdown error", slog.String("error", err.Error()))
+		}
+	}
 
 	logger.Info("cloud-gateway service stopped")
 }
