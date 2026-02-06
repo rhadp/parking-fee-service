@@ -106,8 +106,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
 - [x] 7. Checkpoint - Ensure adapter registry tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Implement SQLite session store
-  - [ ] 8.1 Implement SessionStore with SQLite backend
+- [x] 8. Implement SQLite session store
+  - [x] 8.1 Implement SessionStore with SQLite backend
     - Create NewSessionStore accepting *sql.DB
     - Implement InitSchema to create sessions table
     - Implement Save to insert new session
@@ -116,8 +116,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Implement GetActiveByVehicle to find active session for vehicle_id
     - Implement IsInitialized and Ping for health checks
     - _Requirements: 4.5, 8.3_
-  
-  - [ ] 8.2 Write unit tests for SessionStore
+
+  - [x] 8.2 Write unit tests for SessionStore
     - Test schema initialization
     - Test Save/Get round-trip
     - Test Update modifies existing session
