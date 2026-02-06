@@ -106,36 +106,36 @@ Tasks are organized to build incrementally: project setup, core data models, saf
   - Ensure safety validation and execution work correctly
   - Ask the user if questions arise
 
-- [ ] 8. Implement state publication
-  - [ ] 8.1 Implement StatePublisher struct
+- [x] 8. Implement state publication
+  - [x] 8.1 Implement StatePublisher struct
     - Create `rhivos/locking-service/src/publisher.rs`
     - Implement StatePublisher with data_broker_client, max_retries, base_delay
     - Implement publish_lock_state() with exponential backoff retry logic
     - Return PublishError::AllRetriesFailed after max retries exhausted
     - _Requirements: 5.1, 5.3, 5.4_
 
-  - [ ] 8.2 Write property test for state publication consistency
+  - [x] 8.2 Write property test for state publication consistency
     - **Property 5: State Publication Consistency**
     - Verify successful lock publishes IsLocked=true, unlock publishes IsLocked=false
     - **Validates: Requirements 1.5, 2.5, 5.1**
 
-- [ ] 9. Implement logging
-  - [ ] 9.1 Implement structured logging
+- [x] 9. Implement logging
+  - [x] 9.1 Implement structured logging
     - Create `rhivos/locking-service/src/logging.rs`
     - Implement LogEntry struct with timestamp, level, command_id, correlation_id, event_type, door, details
     - Implement EventType enum (CommandReceived, AuthValidation, SafetyValidation, Execution, StatePublish, CommandComplete)
     - Configure tracing subscriber for structured JSON output
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 10. Implement gRPC service
-  - [ ] 10.1 Implement LockingServiceImpl struct
+- [x] 10. Implement gRPC service
+  - [x] 10.1 Implement LockingServiceImpl struct
     - Create `rhivos/locking-service/src/service.rs`
     - Implement LockingServiceImpl with data_broker_client, lock_state, config, logger
     - Wire together auth validation, safety validation, execution, and state publication
     - Implement overall command timeout using tokio::time::timeout
     - _Requirements: 1.1, 1.2, 2.1, 2.2, 6.1, 6.2_
 
-  - [ ] 10.2 Implement Lock RPC handler
+  - [x] 10.2 Implement Lock RPC handler
     - Implement tonic::LockingService::lock() method
     - Validate auth token, then safety constraints (door not open)
     - Execute lock operation and publish state
@@ -143,7 +143,7 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Log all steps with correlation ID
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ] 10.3 Implement Unlock RPC handler
+  - [x] 10.3 Implement Unlock RPC handler
     - Implement tonic::LockingService::unlock() method
     - Validate auth token, then safety constraints (vehicle stationary)
     - Execute unlock operation and publish state
@@ -151,24 +151,24 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Log all steps with correlation ID
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-  - [ ] 10.4 Implement GetLockState RPC handler
+  - [x] 10.4 Implement GetLockState RPC handler
     - Implement tonic::LockingService::get_lock_state() method
     - Return current is_locked and is_open for specified door
     - Return error for invalid door identifier
     - _Requirements: 3.1, 3.2, 3.3_
 
-  - [ ] 10.5 Write property test for GetLockState completeness
+  - [x] 10.5 Write property test for GetLockState completeness
     - **Property 6: GetLockState Returns Complete State**
     - Verify response contains both is_locked and is_open for valid doors
     - **Validates: Requirements 3.1, 3.2**
 
-  - [ ] 10.6 Write property test for invalid door handling
+  - [x] 10.6 Write property test for invalid door handling
     - **Property 7: Invalid Door Returns Error**
     - Generate invalid door identifiers and verify INVALID_ARGUMENT error
     - **Validates: Requirements 3.3**
 
-- [ ] 11. Implement gRPC server startup
-  - [ ] 11.1 Implement UDS server listener
+- [x] 11. Implement gRPC server startup
+  - [x] 11.1 Implement UDS server listener
     - Update `rhivos/locking-service/src/main.rs`
     - Create Unix Domain Socket at configured path
     - Initialize DATA_BROKER client connection
@@ -176,27 +176,27 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Handle graceful shutdown on SIGTERM
     - _Requirements: 8.4, 5.2_
 
-- [ ] 12. Checkpoint - Verify gRPC service
+- [x] 12. Checkpoint - Verify gRPC service
   - Run `cargo test` for all tests
   - Verify service starts and listens on UDS
   - Ask the user if questions arise
 
-- [ ] 13. Integration testing
-  - [ ] 13.1 Create mock DATA_BROKER client for testing
+- [x] 13. Integration testing
+  - [x] 13.1 Create mock DATA_BROKER client for testing
     - Create `rhivos/locking-service/src/test_utils.rs`
     - Implement MockDataBrokerClient that simulates signal reads/writes
     - Support configurable responses for speed and door state signals
     - Support failure injection for testing error paths
     - _Requirements: 4.3, 5.3, 5.4_
 
-  - [ ] 13.2 Write integration tests for end-to-end flows
+  - [x] 13.2 Write integration tests for end-to-end flows
     - Test complete lock flow: auth → safety → execute → publish → response
     - Test complete unlock flow with stationary vehicle
     - Test partial success when publish fails
     - Test DATA_BROKER unavailability handling
     - _Requirements: 1.1-1.5, 2.1-2.5, 4.3, 5.4_
 
-- [ ] 14. Final checkpoint - Verify complete implementation
+- [x] 14. Final checkpoint - Verify complete implementation
   - Run `cargo test` for all unit and property tests
   - Run `cargo clippy` for linting
   - Ensure all 8 properties pass
