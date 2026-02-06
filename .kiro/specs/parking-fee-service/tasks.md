@@ -185,8 +185,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Test ready returns 503 when database unavailable
     - _Requirements: 7.1, 7.2, 8.1, 8.2_
 
-- [ ] 12. Implement main server and routing
-  - [ ] 12.1 Create HTTP server with router
+- [x] 12. Implement main server and routing
+  - [x] 12.1 Create HTTP server with router
     - Set up gorilla/mux router
     - Register all API routes:
       - GET /api/v1/zones
@@ -199,8 +199,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
       - GET /ready
     - Apply middleware chain (request ID, logging)
     - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1_
-  
-  - [ ] 12.2 Create main.go entry point
+
+  - [x] 12.2 Create main.go entry point
     - Load configuration from environment
     - Initialize SQLite database connection
     - Initialize stores with demo data from config
@@ -208,8 +208,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Start HTTP server on configured port
     - Log startup information
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 10.2_
-  
-  - [ ] 12.3 Write property test for error response format
+
+  - [x] 12.3 Write property test for error response format
     - **Property 17: Error Response Format Consistency** - all errors have error, message, request_id fields
     - **Validates: Requirements 11.1, 11.3**
 
