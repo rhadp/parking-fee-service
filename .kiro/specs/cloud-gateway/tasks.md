@@ -125,34 +125,34 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - **Property 20: OpenTelemetry Export Resilience**
     - **Validates: Requirements 6.7**
 
-- [ ] 10. Implement command service
-  - [ ] 10.1 Create CommandService with core logic
+- [x] 10. Implement command service
+  - [x] 10.1 Create CommandService with core logic
     - Implement SubmitCommand (generate ID, store, publish to MQTT)
     - Implement GetCommandStatus
     - Implement HandleCommandResponse (update stored command)
     - Integrate audit logging for command operations
     - _Requirements: 2.1, 2.3, 2.4, 2.5, 3.1, 4.2, 4.3, 4.4, 14.1, 14.2, 15.5_
-  
-  - [ ] 10.2 Write property test for unique command ID generation
+
+  - [x] 10.2 Write property test for unique command ID generation
     - **Property 2: Command Creation with Unique ID**
     - **Validates: Requirements 2.1, 2.3, 2.4**
-  
-  - [ ] 10.3 Write property test for command response processing
+
+  - [x] 10.3 Write property test for command response processing
     - **Property 7: Command Response Processing**
     - **Validates: Requirements 4.2, 4.3, 4.4**
-  
-  - [ ] 10.4 Implement command timeout checker
+
+  - [x] 10.4 Implement command timeout checker
     - Start background goroutine to check pending commands
     - Set status to "timeout" for expired commands (30s default)
     - Set error_code "TIMEOUT" and error_message for timeouts
     - Log audit event for status changes
     - _Requirements: 5.1, 5.2, 5.3, 14.2_
-  
-  - [ ] 10.5 Write property test for command timeout handling
+
+  - [x] 10.5 Write property test for command timeout handling
     - **Property 8: Command Timeout Status**
     - **Validates: Requirements 5.2, 5.3**
-  
-  - [ ] 10.6 Write property test for protocol translation correctness
+
+  - [x] 10.6 Write property test for protocol translation correctness
     - **Property 19: Protocol Translation Correctness**
     - **Validates: Requirements 15.5**
 
