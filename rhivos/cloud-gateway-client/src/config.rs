@@ -220,6 +220,7 @@ impl ServiceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_default_config() {
@@ -255,5 +256,74 @@ mod tests {
     fn test_validate_success() {
         let config = ServiceConfig::default();
         assert!(config.validate().is_ok());
+    }
+
+    // Property 15: Configuration Validation
+    // Validates: Requirements 8.3
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_empty_vin_fails_validation(
+            broker_url in "(mqtt|mqtts)://[a-z]+:[0-9]+",
+            token in "[a-zA-Z0-9-]{1,32}"
+        ) {
+            let mut config = ServiceConfig::default();
+            config.vin = "".to_string();
+            config.mqtt.broker_url = broker_url;
+            config.valid_tokens = vec![token];
+
+            // Empty VIN should fail validation
+            prop_assert!(config.validate().is_err());
+            let err = config.validate().unwrap_err().to_string();
+            prop_assert!(err.contains("VIN"));
+        }
+
+        #[test]
+        fn prop_invalid_broker_url_fails_validation(
+            vin in "[A-Z0-9]{17}",
+            protocol in "(http|https|ftp|tcp)",
+            host in "[a-z]+:[0-9]+"
+        ) {
+            let mut config = ServiceConfig::default();
+            config.vin = vin;
+            config.mqtt.broker_url = format!("{}://{}", protocol, host);
+
+            // Invalid broker URL should fail validation
+            prop_assert!(config.validate().is_err());
+            let err = config.validate().unwrap_err().to_string();
+            prop_assert!(err.contains("broker URL") || err.contains("mqtt"));
+        }
+
+        #[test]
+        fn prop_empty_tokens_fails_validation(
+            vin in "[A-Z0-9]{17}",
+            broker_url in "(mqtt|mqtts)://[a-z]+:[0-9]+"
+        ) {
+            let mut config = ServiceConfig::default();
+            config.vin = vin;
+            config.mqtt.broker_url = broker_url;
+            config.valid_tokens = vec![];
+
+            // Empty tokens should fail validation
+            prop_assert!(config.validate().is_err());
+            let err = config.validate().unwrap_err().to_string();
+            prop_assert!(err.contains("token"));
+        }
+
+        #[test]
+        fn prop_valid_config_passes_validation(
+            vin in "[A-Z0-9]{17}",
+            broker_url in "(mqtt|mqtts)://[a-z]+:[0-9]+",
+            token in "[a-zA-Z0-9-]{1,32}"
+        ) {
+            let mut config = ServiceConfig::default();
+            config.vin = vin;
+            config.mqtt.broker_url = broker_url;
+            config.valid_tokens = vec![token];
+
+            // Valid config should pass validation
+            prop_assert!(config.validate().is_ok());
+        }
     }
 }

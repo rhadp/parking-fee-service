@@ -3,7 +3,7 @@
 //! This module defines the JSON message formats for commands received
 //! from CLOUD_GATEWAY and responses published back.
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 /// A lock/unlock command received from the cloud.
@@ -140,6 +140,7 @@ impl Door {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_command_serialization() {
@@ -174,5 +175,61 @@ mod tests {
         assert_eq!(resp.status, ResponseStatus::Failed);
         assert_eq!(resp.error_code.as_deref(), Some("AUTH_FAILED"));
         assert_eq!(resp.error_message.as_deref(), Some("Invalid token"));
+    }
+
+    // Property test strategies
+    fn arb_command_type() -> impl Strategy<Value = CommandType> {
+        prop_oneof![Just(CommandType::Lock), Just(CommandType::Unlock),]
+    }
+
+    fn arb_door() -> impl Strategy<Value = Door> {
+        prop_oneof![
+            Just(Door::Driver),
+            Just(Door::Passenger),
+            Just(Door::RearLeft),
+            Just(Door::RearRight),
+            Just(Door::All),
+        ]
+    }
+
+    fn arb_doors() -> impl Strategy<Value = Vec<Door>> {
+        prop::collection::vec(arb_door(), 1..5)
+    }
+
+    fn arb_command() -> impl Strategy<Value = Command> {
+        (
+            "[a-zA-Z0-9-]{1,36}",
+            arb_command_type(),
+            arb_doors(),
+            "[a-zA-Z0-9-]{1,64}",
+        )
+            .prop_map(|(command_id, command_type, doors, auth_token)| Command {
+                command_id,
+                command_type,
+                doors,
+                auth_token,
+                timestamp: None,
+            })
+    }
+
+    // Property 2: Command JSON Round-Trip
+    // Validates: Requirements 2.2
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_command_json_round_trip(cmd in arb_command()) {
+            // Serialize to JSON
+            let json = serde_json::to_string(&cmd).unwrap();
+
+            // Deserialize back
+            let parsed: Command = serde_json::from_str(&json).unwrap();
+
+            // Verify equivalence
+            prop_assert_eq!(parsed.command_id, cmd.command_id);
+            prop_assert_eq!(parsed.command_type, cmd.command_type);
+            prop_assert_eq!(parsed.doors, cmd.doors);
+            prop_assert_eq!(parsed.auth_token, cmd.auth_token);
+        }
     }
 }

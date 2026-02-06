@@ -8,22 +8,22 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
 
 ## Tasks
 
-- [ ] 1. Set up cloud-gateway-client project structure
-  - [ ] 1.1 Create Rust crate structure for cloud-gateway-client
+- [x] 1. Set up cloud-gateway-client project structure
+  - [x] 1.1 Create Rust crate structure for cloud-gateway-client
     - Create `rhivos/cloud-gateway-client/Cargo.toml` with dependencies (rumqttc, tonic, tokio, serde, serde_json, thiserror, tracing, proptest, notify, chrono, x509-parser)
     - Create `rhivos/cloud-gateway-client/src/lib.rs` as library root
     - Create `rhivos/cloud-gateway-client/src/main.rs` as binary entry point
     - Add crate to `rhivos/Cargo.toml` workspace members
     - _Requirements: 8.1, 8.2_
 
-  - [ ] 1.2 Create proto client bindings for LOCKING_SERVICE
+  - [x] 1.2 Create proto client bindings for LOCKING_SERVICE
     - Create `rhivos/cloud-gateway-client/build.rs` with tonic-build configuration
     - Configure proto path to `proto/services/locking_service.proto`
     - Generate client code for LockingService
     - _Requirements: 4.1, 4.2_
 
-- [ ] 2. Implement core data models and configuration
-  - [ ] 2.1 Implement Command and CommandResponse structs
+- [x] 2. Implement core data models and configuration
+  - [x] 2.1 Implement Command and CommandResponse structs
     - Create `rhivos/cloud-gateway-client/src/command.rs`
     - Implement Command struct with command_id, command_type, doors, auth_token
     - Implement CommandType enum (Lock, Unlock) with serde rename
@@ -32,18 +32,18 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement ResponseStatus enum (Success, Failed)
     - _Requirements: 2.2, 5.2, 5.3_
 
-  - [ ] 2.2 Write property test for Command JSON round-trip
+  - [x] 2.2 Write property test for Command JSON round-trip
     - **Property 2: Command JSON Round-Trip**
     - Generate random valid Commands and verify serialize/deserialize produces equivalent struct
     - **Validates: Requirements 2.2**
 
-  - [ ] 2.3 Implement Telemetry struct
+  - [x] 2.3 Implement Telemetry struct
     - Create `rhivos/cloud-gateway-client/src/telemetry.rs`
     - Implement Telemetry struct with timestamp, latitude, longitude (flat structure), door_locked, door_open, parking_session_active
     - Implement TelemetryState for internal state tracking
     - _Requirements: 7.2_
 
-  - [ ] 2.4 Implement ServiceConfig and MqttConfig structs
+  - [x] 2.4 Implement ServiceConfig and MqttConfig structs
     - Create `rhivos/cloud-gateway-client/src/config.rs`
     - Implement ServiceConfig with vin, mqtt, socket paths, timeouts
     - Implement MqttConfig with broker_url, client_id, TLS paths, keepalive, reconnect params
@@ -51,12 +51,12 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement from_env() to load from environment variables
     - _Requirements: 8.1, 8.2, 8.4_
 
-  - [ ] 2.5 Write property test for configuration validation
+  - [x] 2.5 Write property test for configuration validation
     - **Property 15: Configuration Validation**
     - Generate invalid configurations (empty VIN, invalid broker URL, non-existent cert paths) and verify validation fails with descriptive errors
     - **Validates: Requirements 8.3**
 
-  - [ ] 2.6 Implement error types
+  - [x] 2.6 Implement error types
     - Create `rhivos/cloud-gateway-client/src/error.rs`
     - Implement CloudGatewayError enum
     - Implement ValidationError enum (MalformedJson, MissingField, AuthFailed, InvalidCommandType, InvalidDoor)
@@ -69,13 +69,13 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement From<ForwardError> for CommandResponse
     - _Requirements: 2.3, 2.4, 3.2, 3.3, 3.4, 4.5, 5.4, 1.7_
 
-- [ ] 3. Checkpoint - Verify data models compile
+- [x] 3. Checkpoint - Verify data models compile
   - Run `cargo check` in cloud-gateway-client directory
   - Ensure all types are properly defined with serde derives
   - Ask the user if questions arise
 
-- [ ] 4. Implement command validation
-  - [ ] 4.1 Implement CommandValidator struct
+- [x] 4. Implement command validation
+  - [x] 4.1 Implement CommandValidator struct
     - Create `rhivos/cloud-gateway-client/src/validator.rs`
     - Implement CommandValidator with valid_tokens configuration
     - Implement validate() that parses JSON and validates all fields
@@ -84,38 +84,38 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement validate_doors() that validates door identifiers
     - _Requirements: 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 4.2 Write property test for malformed JSON rejection
+  - [x] 4.2 Write property test for malformed JSON rejection
     - **Property 3: Malformed JSON Rejection**
     - Generate invalid JSON byte sequences and verify MalformedJson error
     - **Validates: Requirements 2.3**
 
-  - [ ] 4.3 Write property test for missing required fields
+  - [x] 4.3 Write property test for missing required fields
     - **Property 4: Missing Required Fields Rejection**
     - Generate JSON objects missing command_id, type, or auth_token and verify MissingField error
     - **Validates: Requirements 2.4**
 
-  - [ ] 4.4 Write property test for invalid auth token rejection
+  - [x] 4.4 Write property test for invalid auth token rejection
     - **Property 5: Invalid Auth Token Rejection**
     - Generate commands with tokens not in valid_tokens and verify AuthFailed error
     - **Validates: Requirements 3.2**
 
-  - [ ] 4.5 Write property test for invalid command type rejection
+  - [x] 4.5 Write property test for invalid command type rejection
     - **Property 6: Invalid Command Type Rejection**
     - Generate commands with type not "lock" or "unlock" and verify InvalidCommandType error
     - **Validates: Requirements 3.3**
 
-  - [ ] 4.6 Write property test for invalid door rejection
+  - [x] 4.6 Write property test for invalid door rejection
     - **Property 7: Invalid Door Rejection**
     - Generate commands with invalid door identifiers and verify InvalidDoor error
     - **Validates: Requirements 3.4**
 
-- [ ] 5. Checkpoint - Verify validation logic
+- [x] 5. Checkpoint - Verify validation logic
   - Run `cargo test` for validation unit and property tests
   - Ensure all validation error paths work correctly
   - Ask the user if questions arise
 
-- [ ] 6. Implement certificate watcher for hot-reload
-  - [ ] 6.1 Implement CertificateWatcher struct
+- [x] 6. Implement certificate watcher for hot-reload
+  - [x] 6.1 Implement CertificateWatcher struct
     - Create `rhivos/cloud-gateway-client/src/cert_watcher.rs`
     - Implement CertificatePaths struct with ca_cert_path, client_cert_path, client_key_path
     - Implement LoadedCertificates struct with cert data, expiry_date, loaded_at
@@ -126,7 +126,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement start() that begins watching certificate files
     - _Requirements: 1.6, 1.7, 1.8_
 
-  - [ ] 6.2 Implement certificate loading and validation
+  - [x] 6.2 Implement certificate loading and validation
     - Implement load_certificate() that reads and validates certificate file
     - Implement extract_expiry_date() using x509-parser to get certificate expiry
     - Implement handle_cert_change() that processes file system notifications
@@ -134,23 +134,23 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - On invalid cert: keep existing cert, log error
     - _Requirements: 1.6, 1.7, 1.8_
 
-  - [ ] 6.3 Write property test for certificate hot-reload on file change
+  - [x] 6.3 Write property test for certificate hot-reload on file change
     - **Property 17: Certificate Hot-Reload on File Change**
     - Generate valid certificate updates and verify reload succeeds without restart
     - **Validates: Requirements 1.6**
 
-  - [ ] 6.4 Write property test for certificate reload failure resilience
+  - [x] 6.4 Write property test for certificate reload failure resilience
     - **Property 18: Certificate Reload Failure Resilience**
     - Generate invalid certificates and verify existing cert is retained
     - **Validates: Requirements 1.7**
 
-  - [ ] 6.5 Write property test for certificate reload event logging
+  - [x] 6.5 Write property test for certificate reload event logging
     - **Property 19: Certificate Reload Event Logging**
     - Generate reload events and verify log contains timestamp, status, path, expiry date
     - **Validates: Requirements 1.8**
 
-- [ ] 7. Implement MQTT client with certificate hot-reload
-  - [ ] 7.1 Implement MqttClient struct with TLS connection
+- [x] 7. Implement MQTT client with certificate hot-reload
+  - [x] 7.1 Implement MqttClient struct with TLS connection
     - Create `rhivos/cloud-gateway-client/src/mqtt.rs`
     - Implement MqttClient with rumqttc AsyncClient, EventLoop, and CertificateWatcher
     - Implement ConnectionState enum (Disconnected, Connecting, Connected, Reconnecting)
@@ -161,25 +161,25 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement is_connected() for connection state checking
     - _Requirements: 1.1, 1.2, 1.5, 1.6_
 
-  - [ ] 7.2 Implement exponential backoff reconnection
+  - [x] 7.2 Implement exponential backoff reconnection
     - Implement reconnect_with_backoff() in MqttClient
     - Calculate delay as min(initial_delay * 2^attempt, max_delay)
     - Initial delay: 1 second, max delay: 60 seconds
     - Resubscribe to all topics after successful reconnection
     - _Requirements: 1.3, 1.4_
 
-  - [ ] 7.3 Write property test for exponential backoff calculation
+  - [x] 7.3 Write property test for exponential backoff calculation
     - **Property 1: Exponential Backoff Calculation**
     - Generate attempt numbers and verify delay calculation matches formula min(1s * 2^N, 60s)
     - **Validates: Requirements 1.3**
 
-- [ ] 8. Checkpoint - Verify MQTT client and certificate watcher
+- [x] 8. Checkpoint - Verify MQTT client and certificate watcher
   - Run `cargo test` for MQTT and certificate watcher tests
   - Ensure TLS connection and certificate hot-reload work correctly
   - Ask the user if questions arise
 
-- [ ] 9. Implement command forwarding
-  - [ ] 9.1 Implement CommandForwarder struct
+- [x] 9. Implement command forwarding
+  - [x] 9.1 Implement CommandForwarder struct
     - Create `rhivos/cloud-gateway-client/src/forwarder.rs`
     - Implement CommandForwarder with LockingServiceClient and timeout
     - Implement forward_lock() that calls LOCKING_SERVICE Lock RPC via gRPC over UDS
@@ -188,18 +188,18 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement timeout handling with tokio::time::timeout
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 9.2 Write property test for command forwarding by type
+  - [x] 9.2 Write property test for command forwarding by type
     - **Property 8: Command Forwarding by Type**
     - Generate valid lock/unlock commands and verify correct RPC is called
     - **Validates: Requirements 4.1, 4.2**
 
-  - [ ] 9.3 Write property test for response status mapping
+  - [x] 9.3 Write property test for response status mapping
     - **Property 9: Response Status Matches LOCKING_SERVICE Result**
     - Generate LOCKING_SERVICE success/error responses and verify correct status mapping
     - **Validates: Requirements 4.3, 4.4**
 
-- [ ] 10. Implement response publishing
-  - [ ] 10.1 Implement ResponsePublisher struct
+- [x] 10. Implement response publishing
+  - [x] 10.1 Implement ResponsePublisher struct
     - Create `rhivos/cloud-gateway-client/src/response.rs`
     - Implement ResponsePublisher with mqtt_client and vin
     - Implement publish_success() that publishes success response with timestamp
@@ -207,19 +207,19 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Serialize CommandResponse to JSON and publish to vehicles/{VIN}/command_responses
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 10.2 Write property test for response command_id correlation
+  - [x] 10.2 Write property test for response command_id correlation
     - **Property 10: Response Command ID Correlation**
     - Generate commands and verify response contains same command_id
     - **Validates: Requirements 5.2**
 
-  - [ ] 10.3 Write property test for response structure completeness
+  - [x] 10.3 Write property test for response structure completeness
     - **Property 11: Response Structure Completeness**
     - Generate success/failure responses and verify required fields present
     - For failed responses, verify error_code and error_message are present and non-empty
     - **Validates: Requirements 5.3, 5.4**
 
-- [ ] 11. Implement command handler
-  - [ ] 11.1 Implement CommandHandler struct
+- [x] 11. Implement command handler
+  - [x] 11.1 Implement CommandHandler struct
     - Create `rhivos/cloud-gateway-client/src/handler.rs`
     - Implement CommandHandler with validator, forwarder, response_publisher, logger
     - Implement handle_message() that orchestrates command processing
@@ -228,18 +228,18 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Log every received command with timestamp, command_id, command type, source topic
     - _Requirements: 2.1, 2.2, 3.1, 4.1, 4.2, 5.1, 5.5, 10.1_
 
-  - [ ] 11.2 Write property test for command timeout enforcement
+  - [x] 11.2 Write property test for command timeout enforcement
     - **Property 12: Command Timeout Enforcement**
     - Simulate slow LOCKING_SERVICE and verify timeout response published within 5 seconds
     - **Validates: Requirements 5.5**
 
-- [ ] 12. Checkpoint - Verify command processing
+- [x] 12. Checkpoint - Verify command processing
   - Run `cargo test` for command handler tests
   - Ensure end-to-end command flow works with mocks
   - Ask the user if questions arise
 
-- [ ] 13. Implement offline telemetry buffer
-  - [ ] 13.1 Implement OfflineTelemetryBuffer struct
+- [x] 13. Implement offline telemetry buffer
+  - [x] 13.1 Implement OfflineTelemetryBuffer struct
     - Create `rhivos/cloud-gateway-client/src/offline_buffer.rs`
     - Implement BufferedTelemetry struct with telemetry and buffered_at timestamp
     - Implement OfflineTelemetryBuffer with VecDeque, max_messages (100), max_age (60s)
@@ -247,24 +247,24 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Implement Default trait with 100 messages / 60 seconds limits
     - _Requirements: 7.6, 7.7_
 
-  - [ ] 13.2 Implement buffer operations with FIFO eviction
+  - [x] 13.2 Implement buffer operations with FIFO eviction
     - Implement push() that adds telemetry, evicts expired, evicts oldest if full (FIFO)
     - Implement drain() that returns all messages in chronological order and clears buffer
     - Implement evict_expired() that removes messages older than max_age
     - Implement len() and is_empty() helper methods
     - _Requirements: 7.6, 7.7, 7.8_
 
-  - [ ] 13.3 Write property test for offline buffer limits
+  - [x] 13.3 Write property test for offline buffer limits
     - **Property 20: Offline Telemetry Buffer Limits**
     - Generate sequences of messages and verify buffer never exceeds 100 messages or 60 seconds
     - **Validates: Requirements 7.6**
 
-  - [ ] 13.4 Write property test for FIFO eviction
+  - [x] 13.4 Write property test for FIFO eviction
     - **Property 21: Offline Buffer FIFO Eviction**
     - Generate overflow scenarios and verify oldest messages are evicted first
     - **Validates: Requirements 7.7**
 
-  - [ ] 13.5 Write property test for chronological publishing
+  - [x] 13.5 Write property test for chronological publishing
     - **Property 22: Buffered Message Chronological Publishing**
     - Generate buffered messages and verify drain returns them in chronological order (oldest first)
     - **Validates: Requirements 7.8**

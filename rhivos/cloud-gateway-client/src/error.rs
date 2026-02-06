@@ -3,6 +3,8 @@
 //! This module defines all error types used throughout the service,
 //! with proper From implementations for error response generation.
 
+use std::path::PathBuf;
+
 use crate::command::{CommandResponse, ResponseStatus};
 use chrono::Utc;
 
@@ -82,18 +84,18 @@ pub enum CertWatcherError {
     #[error("Failed to initialize file watcher: {0}")]
     WatcherInitFailed(String),
 
-    #[error("Failed to watch path: {0}")]
-    WatchPathFailed(String),
+    #[error("Failed to watch path {path}: {error}")]
+    WatchPathFailed { path: PathBuf, error: String },
 }
 
 /// Errors during certificate loading.
 #[derive(Debug, thiserror::Error)]
 pub enum CertLoadError {
     #[error("Certificate file not found: {0}")]
-    FileNotFound(String),
+    FileNotFound(PathBuf),
 
     #[error("Permission denied: {0}")]
-    PermissionDenied(String),
+    PermissionDenied(PathBuf),
 
     #[error("Invalid certificate format: {0}")]
     InvalidFormat(String),
@@ -122,13 +124,15 @@ impl From<ValidationError> for CommandResponse {
     fn from(err: ValidationError) -> Self {
         let (error_code, error_message) = match &err {
             ValidationError::MalformedJson(msg) => ("MALFORMED_JSON", msg.clone()),
-            ValidationError::MissingField(field) => {
-                ("MISSING_FIELD", format!("Missing required field: {}", field))
-            }
+            ValidationError::MissingField(field) => (
+                "MISSING_FIELD",
+                format!("Missing required field: {}", field),
+            ),
             ValidationError::AuthFailed => ("AUTH_FAILED", "Authentication failed".to_string()),
-            ValidationError::InvalidCommandType(t) => {
-                ("INVALID_COMMAND_TYPE", format!("Invalid command type: {}", t))
-            }
+            ValidationError::InvalidCommandType(t) => (
+                "INVALID_COMMAND_TYPE",
+                format!("Invalid command type: {}", t),
+            ),
             ValidationError::InvalidDoor(d) => ("INVALID_DOOR", format!("Invalid door: {}", d)),
         };
 

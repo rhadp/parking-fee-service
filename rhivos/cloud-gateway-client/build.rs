@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(false) // We only need the client
         .build_client(true)
         .out_dir("src/proto")
-        .compile_protos(
+        .compile(
             &["../../proto/services/locking_service.proto"],
             &["../../proto"],
         )?;
