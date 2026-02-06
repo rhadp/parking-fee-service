@@ -19,6 +19,7 @@
 pub mod auth;
 pub mod config;
 pub mod error;
+pub mod executor;
 pub mod state;
 pub mod validator;
 
@@ -30,5 +31,6 @@ pub mod proto {
 // Re-export commonly used types
 pub use config::ServiceConfig;
 pub use error::{LockingError, Result, SafetyViolation};
+pub use executor::{ExecutionResult, LockExecutor};
 pub use state::{DoorState, LockState};
 pub use validator::{SafetyValidator, SignalReader};

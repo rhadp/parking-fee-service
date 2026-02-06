@@ -82,8 +82,8 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Verify lock state remains unchanged after rejection
     - **Validates: Requirements 2.3**
 
-- [ ] 6. Implement lock execution
-  - [ ] 6.1 Implement LockExecutor struct
+- [x] 6. Implement lock execution
+  - [x] 6.1 Implement LockExecutor struct
     - Create `rhivos/locking-service/src/executor.rs`
     - Implement LockExecutor with lock_state (Arc<RwLock<LockState>>) and execution_timeout
     - Implement execute_lock() that sets is_locked=true for specified door
@@ -91,12 +91,12 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Implement timeout handling with tokio::time::timeout
     - _Requirements: 1.2, 2.2, 6.1, 6.2, 6.3_
 
-  - [ ] 6.2 Write property test for command ID consistency
+  - [x] 6.2 Write property test for command ID consistency
     - **Property 4: Valid Commands Return Correct Command_ID**
     - Generate valid commands and verify response contains same Command_ID
     - **Validates: Requirements 1.2, 2.2**
 
-  - [ ] 6.3 Write property test for timeout state consistency
+  - [x] 6.3 Write property test for timeout state consistency
     - **Property 8: Timeout Preserves State Consistency**
     - Simulate timeout scenarios and verify no partial state changes
     - **Validates: Requirements 6.3**
