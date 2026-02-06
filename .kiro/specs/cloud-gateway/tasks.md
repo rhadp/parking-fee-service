@@ -39,14 +39,14 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Define error codes as constants
     - _Requirements: 2.2, 3.2, 6.2, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 16.2_
 
-- [ ] 4. Implement middleware
-  - [ ] 4.1 Create request ID middleware
+- [x] 4. Implement middleware
+  - [x] 4.1 Create request ID middleware
     - Generate unique request ID for each request
     - Store request ID in context (used as correlation_id for audit logs)
     - Implement GetRequestID helper function
     - _Requirements: 11.3, 14.5_
-  
-  - [ ] 4.2 Create logging middleware
+
+  - [x] 4.2 Create logging middleware
     - Log timestamp, method, path for each request
     - Log response status and duration
     - Use structured JSON logging with slog
