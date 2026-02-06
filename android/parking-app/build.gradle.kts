@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.application") version "8.2.0"
+    id("com.android.application") version "8.13.2"
     id("org.jetbrains.kotlin.android") version "1.9.21"
     id("com.google.protobuf") version "0.9.4"
 }
@@ -81,12 +81,16 @@ protobuf {
     }
     generateProtoTasks {
         all().forEach { task ->
-            task.plugins {
-                create("grpc")
-                create("grpckt")
-            }
             task.builtins {
-                create("kotlin")
+                create("java") {
+                    option("lite")
+                }
+            }
+            task.plugins {
+                create("grpc") {
+                    option("lite")
+                }
+                create("grpckt")
             }
         }
     }
@@ -117,9 +121,8 @@ dependencies {
     implementation("io.grpc:grpc-stub:1.60.0")
     implementation("io.grpc:grpc-kotlin-stub:1.4.1")
 
-    // Protocol Buffers
+    // Protocol Buffers (lite version for Android)
     implementation("com.google.protobuf:protobuf-kotlin-lite:3.25.1")
-    implementation("com.google.protobuf:protobuf-java-util:3.25.1")
 
     // TLS/Security for gRPC connections
     implementation("io.grpc:grpc-netty-shaded:1.60.0")
