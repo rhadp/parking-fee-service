@@ -213,19 +213,6 @@ stop_infrastructure() {
 # RHIVOS Service Management (Native Processes)
 #------------------------------------------------------------------------------
 
-build_rhivos() {
-    log_info "Building RHIVOS services..."
-
-    cd "$RHIVOS_DIR"
-    if ! cargo build --workspace 2>&1; then
-        log_error "Failed to build RHIVOS services"
-        return 1
-    fi
-    cd "$PROJECT_ROOT"
-
-    log_success "RHIVOS services built"
-}
-
 # Generic function to start a RHIVOS service
 start_rhivos_service() {
     local service="$1"
@@ -378,11 +365,6 @@ stop_rhivos_services() {
 cmd_start() {
     log_info "Starting local development environment..."
     ensure_dirs
-
-    # Build RHIVOS if needed
-    if [[ ! -x "${RHIVOS_DIR}/target/debug/locking-service" ]]; then
-        build_rhivos || exit 1
-    fi
 
     # Start infrastructure
     start_infrastructure || exit 1

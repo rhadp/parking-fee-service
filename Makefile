@@ -176,7 +176,7 @@ infra-down:
 #------------------------------------------------------------------------------
 
 # Start complete local development environment (infrastructure + RHIVOS services)
-dev-up:
+dev-up: build
 	@./scripts/local-dev.sh start
 
 # Stop complete local development environment
