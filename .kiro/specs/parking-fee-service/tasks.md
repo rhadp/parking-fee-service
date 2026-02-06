@@ -125,8 +125,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Test Ping verifies database connection
     - _Requirements: 4.5, 8.3_
 
-- [ ] 9. Implement mock parking operations
-  - [ ] 9.1 Implement ParkingService
+- [x] 9. Implement mock parking operations
+  - [x] 9.1 Implement ParkingService
     - Implement StartSession with unique session_id generation (UUID)
     - Implement idempotent start: return existing active session for same vehicle_id
     - Implement StopSession with cost calculation
@@ -135,8 +135,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Implement GetActiveSessionByVehicle
     - Implement CalculateCost: (duration_seconds / 3600) * hourly_rate, rounded to 2 decimals
     - _Requirements: 4.1, 4.4, 4.7, 5.1, 5.4, 5.5, 5.7, 6.1, 6.3, 6.4_
-  
-  - [ ] 9.2 Implement ParkingHandler
+
+  - [x] 9.2 Implement ParkingHandler
     - Handle POST /api/v1/parking/start
       - Validate required fields (vehicle_id, zone_id, timestamp, lat, lng)
       - Return existing session if active for vehicle_id (idempotent)
@@ -149,8 +149,8 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
       - Return session_id, state, start_time, duration_seconds, current_cost, zone_id
     - Return 400 for validation errors, 404 for session not found
     - _Requirements: 4.1, 4.2, 4.3, 4.6, 4.7, 5.1, 5.2, 5.3, 5.6, 5.7, 6.1, 6.2, 6.5_
-  
-  - [ ] 9.3 Write property tests for parking operations
+
+  - [x] 9.3 Write property tests for parking operations
     - **Property 8: Session Creation Round-Trip** - created session retrievable via status endpoint
     - **Property 9: Session Start Idempotency** - duplicate start returns existing session
     - **Property 10: Session Stop Response Completeness** - all fields present, end_time > start_time
@@ -161,7 +161,7 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - **Property 15: Session Status Consistency** - state is "active" or "stopped" appropriately
     - **Validates: Requirements 4.1, 4.3, 4.4, 4.5, 4.7, 5.1, 5.3, 5.4, 5.5, 5.6, 5.7, 6.1, 6.2, 6.4, 6.5**
 
-- [ ] 10. Checkpoint - Ensure parking operation tests pass
+- [x] 10. Checkpoint - Ensure parking operation tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 11. Implement health endpoints
