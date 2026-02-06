@@ -13,15 +13,15 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
   - Create main.go entry point skeleton
   - _Requirements: 9.1, 9.2, 15.1, 15.2_
 
-- [ ] 2. Implement configuration management
-  - [ ] 2.1 Create config struct with environment variable loading
+- [x] 2. Implement configuration management
+  - [x] 2.1 Create config struct with environment variable loading
     - Define Config struct with all fields (Port, MQTT settings, VIN, timeouts, OTLP endpoint, PARKING_FEE_SERVICE URL)
     - Implement LoadConfig() with environment variable parsing
     - Add validation for required fields (MQTT_BROKER_URL, CONFIGURED_VIN)
     - Implement sensible defaults for optional fields (OTLP endpoint optional)
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.6_
-  
-  - [ ] 2.2 Write unit tests for configuration loading
+
+  - [x] 2.2 Write unit tests for configuration loading
     - Test required field validation
     - Test default value application
     - Test environment variable parsing
