@@ -11,6 +11,9 @@ Cargo.lock
 # Go build artifacts
 **/bin/
 
+# Local development logs
+logs/
+
 # Android build artifacts
 **/.gradle
 **/build/

@@ -8,6 +8,7 @@
 .PHONY: test-rhivos test-android test-backend
 .PHONY: test-parking-fee-service
 .PHONY: infra-up infra-down
+.PHONY: dev-up dev-down dev-status dev-test dev-logs
 .PHONY: certs certs-clean
 .PHONY: git-clean-branches
 
@@ -171,6 +172,30 @@ infra-down:
 	@echo "Local infrastructure stopped"
 
 #------------------------------------------------------------------------------
+# Local Development Environment Targets
+#------------------------------------------------------------------------------
+
+# Start complete local development environment (infrastructure + RHIVOS services)
+dev-up:
+	@./scripts/local-dev.sh start
+
+# Stop complete local development environment
+dev-down:
+	@./scripts/local-dev.sh stop
+
+# Check health status of all services
+dev-status:
+	@./scripts/local-dev.sh status
+
+# Run integration tests against local environment
+dev-test:
+	@./scripts/local-dev.sh test
+
+# Tail logs from all services
+dev-logs:
+	@./scripts/local-dev.sh logs
+
+#------------------------------------------------------------------------------
 # Clean Targets
 #------------------------------------------------------------------------------
 
@@ -253,6 +278,13 @@ help:
 	@echo "Infrastructure targets:"
 	@echo "  infra-up         - Start local development infrastructure"
 	@echo "  infra-down       - Stop local development infrastructure"
+	@echo ""
+	@echo "Local development environment:"
+	@echo "  dev-up           - Start complete local dev environment (infrastructure + RHIVOS)"
+	@echo "  dev-down         - Stop complete local dev environment"
+	@echo "  dev-status       - Check health status of all services"
+	@echo "  dev-test         - Run integration tests against local environment"
+	@echo "  dev-logs         - Tail logs from all services"
 	@echo ""
 	@echo "Git maintenance targets:"
 	@echo "  git-clean-branches - Delete all local branches except main, develop, release"

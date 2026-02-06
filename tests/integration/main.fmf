@@ -1,0 +1,41 @@
+# TMT Test Plan: SDV Parking Demo Integration Tests
+#
+# This test plan validates the local development environment.
+# Requires all services to be running via `make dev-up`.
+#
+# Usage:
+#   tmt run --all
+#
+# Requirements: 5.5
+
+summary: SDV Parking Demo Integration Tests
+
+description: |
+    Integration tests for the local development environment.
+    Tests validate service health, CLI connectivity, and basic workflows.
+
+    Prerequisites:
+    - Local development environment running (`make dev-up`)
+    - CLI simulators built (`make build-cli`)
+
+discover:
+    how: fmf
+    filter: tier:1
+
+execute:
+    how: tmt
+
+prepare:
+    - how: shell
+      script: |
+        # Verify services are healthy before running tests
+        ./scripts/local-dev.sh status || exit 1
+
+environment:
+    CLOUD_GATEWAY_URL: http://localhost:8082
+    PARKING_FEE_SERVICE_URL: http://localhost:8081
+    DATA_BROKER_ADDR: localhost:55556
+    UPDATE_SERVICE_ADDR: localhost:50051
+    PARKING_ADAPTOR_ADDR: localhost:50052
+    LOCKING_SERVICE_ADDR: localhost:50053
+    VIN: DEMO_VIN_001

@@ -33,14 +33,43 @@ sudo apt-get install podman podman-compose
 
 ## Quick Start
 
+### Complete Development Environment
+
+The recommended way to start the complete local development environment:
+
 ```bash
-# Start all services
+# Start infrastructure containers + RHIVOS native services
+make dev-up
+
+# Check all services are healthy
+make dev-status
+
+# Use CLI simulators for testing
+./backend/bin/companion-cli    # Remote vehicle control
+./backend/bin/parking-cli      # Parking session management
+
+# Tail service logs
+make dev-logs
+
+# Run integration tests
+make dev-test
+
+# Stop everything
+make dev-down
+```
+
+### Infrastructure Only
+
+If you only need the containerized infrastructure services:
+
+```bash
+# Start infrastructure containers only
 make infra-up
 
 # Verify services are running
 cd infra/compose && podman-compose ps
 
-# Stop all services
+# Stop infrastructure
 make infra-down
 ```
 
@@ -113,13 +142,15 @@ curl -X POST http://localhost:8080/api/v1/sessions \
 
 | Service | Protocol | Port | Description |
 |---------|----------|------|-------------|
-| Mosquitto | MQTT | 1883 | Plain MQTT (dev only) |
-| Mosquitto | MQTT/TLS | 8883 | Encrypted MQTT |
-| Kuksa Databroker | gRPC | 55556 | VSS signal API |
-| Mock Parking Operator | HTTP | 8080 | Test parking API |
+| MOSQUITTO | MQTT | 1883 | Plain MQTT (dev only) |
+| MOSQUITTO | MQTT/TLS | 8883 | Encrypted MQTT |
+| KUKSA_DATABROKER | gRPC | 55556 | VSS signal API |
+| MOCK_PARKING_OPERATOR | HTTP | 8080 | Test parking API |
+| PARKING_FEE_SERVICE | HTTP | 8081 | Parking operations |
+| CLOUD_GATEWAY | HTTP | 8082 | Companion app REST API |
 | UPDATE_SERVICE | gRPC | 50051 | Container lifecycle |
-| PARKING_ADAPTOR | gRPC | 50052 | Parking sessions |
-| LOCKING_SERVICE | gRPC | 50053 | Door locking (dev) |
+| PARKING_OPERATOR_ADAPTOR | gRPC | 50052 | Parking sessions |
+| LOCKING_SERVICE | gRPC | 50053 | Door locking |
 
 ### Production Socket Paths (RHIVOS)
 
@@ -306,6 +337,8 @@ make infra-up
 
 ## Environment Variables
 
+### Service Configuration
+
 Services can be configured via environment variables:
 
 | Variable | Service | Description |
@@ -313,6 +346,34 @@ Services can be configured via environment variables:
 | `LOG_LEVEL` | All | Logging verbosity (debug/info/warn/error) |
 | `MOCK_DELAY_MS` | Mock Parking | Simulated response delay |
 | `TLS_ENABLED` | All | Enable/disable TLS |
+
+### CLI Simulator Configuration
+
+Configure CLI simulators to connect to local services:
+
+```bash
+# Set environment for CLI simulators
+source scripts/dev-env.sh local_insecure
+
+# Or set manually:
+export CLOUD_GATEWAY_URL=http://localhost:8082
+export DATA_BROKER_ADDR=localhost:55556
+export PARKING_FEE_SERVICE_URL=http://localhost:8081
+export UPDATE_SERVICE_ADDR=localhost:50051
+export PARKING_ADAPTOR_ADDR=localhost:50052
+export LOCKING_SERVICE_ADDR=localhost:50053
+export VIN=DEMO_VIN_001
+```
+
+| Variable | CLI | Description |
+|----------|-----|-------------|
+| `CLOUD_GATEWAY_URL` | companion-cli | CLOUD_GATEWAY REST API |
+| `DATA_BROKER_ADDR` | parking-cli | KUKSA_DATABROKER gRPC |
+| `PARKING_FEE_SERVICE_URL` | parking-cli | PARKING_FEE_SERVICE REST API |
+| `UPDATE_SERVICE_ADDR` | parking-cli | UPDATE_SERVICE gRPC |
+| `PARKING_ADAPTOR_ADDR` | parking-cli | PARKING_OPERATOR_ADAPTOR gRPC |
+| `LOCKING_SERVICE_ADDR` | parking-cli | LOCKING_SERVICE gRPC |
+| `VIN` | companion-cli | Vehicle identification number |
 
 ## Development Mode
 
