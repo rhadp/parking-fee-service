@@ -50,31 +50,31 @@ This plan implements the PARKING_FEE_SERVICE as a Go backend service providing R
     - Create ValidateStopSessionRequest
     - _Requirements: 1.5, 1.6, 4.6, 5.2_
 
-- [ ] 4. Implement zone lookup functionality
-  - [ ] 4.1 Implement ZoneStore
+- [x] 4. Implement zone lookup functionality
+  - [x] 4.1 Implement ZoneStore
     - Create in-memory store initialized with demo zone from config
     - Implement FindByLocation with bounds checking
     - Implement ContainsPoint method for Bounds struct
     - _Requirements: 1.1, 1.3_
-  
-  - [ ] 4.2 Implement ZoneService
+
+  - [x] 4.2 Implement ZoneService
     - Create FindZoneByLocation business logic
     - Return nil if no zone contains the location
     - _Requirements: 1.1, 1.3, 1.4_
-  
-  - [ ] 4.3 Implement ZoneHandler
+
+  - [x] 4.3 Implement ZoneHandler
     - Handle GET /api/v1/zones?lat=X&lng=Y
     - Parse and validate lat/lng query parameters
     - Return zone response or appropriate error (400 for invalid/missing params, 404 for not found)
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 1.6_
-  
-  - [ ] 4.4 Write property tests for zone lookup
+
+  - [x] 4.4 Write property tests for zone lookup
     - **Property 1: Zone Containment** - coordinates within bounds return zone, outside return nil
     - **Property 2: Zone Response Completeness** - all required fields present and non-empty
     - **Property 3: Invalid Coordinate Validation** - out-of-range coordinates return 400
     - **Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.6**
 
-- [ ] 5. Checkpoint - Ensure zone lookup tests pass
+- [x] 5. Checkpoint - Ensure zone lookup tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 6. Implement adapter registry functionality
