@@ -28,7 +28,7 @@ pub struct Command {
 }
 
 /// Command type enumeration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CommandType {
     /// Lock the specified doors

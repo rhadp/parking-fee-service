@@ -19,11 +19,14 @@ pub mod config;
 pub mod error;
 pub mod forwarder;
 pub mod handler;
+pub mod logging;
 pub mod mqtt;
 pub mod offline_buffer;
 pub mod response;
 pub mod subscriber;
 pub mod telemetry;
+#[cfg(test)]
+pub mod test_utils;
 pub mod validator;
 
 // Proto-generated code
@@ -46,6 +49,7 @@ pub use error::{
 };
 pub use forwarder::{CommandForwarder, ForwardResult};
 pub use handler::{CommandHandler, CommandProcessingResult};
+pub use logging::{init_tracing, init_tracing_pretty, EventType, LogEntry, LogLevel, Logger};
 pub use mqtt::{calculate_backoff_delay, ConnectionState, MqttClient, MqttMessage};
 pub use offline_buffer::{BufferedTelemetry, OfflineTelemetryBuffer};
 pub use response::ResponsePublisher;

@@ -307,8 +307,8 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
   - Ensure buffering and draining work correctly
   - Ask the user if questions arise
 
-- [ ] 16. Implement logging
-  - [ ] 16.1 Implement structured logging
+- [x] 16. Implement logging
+  - [x] 16.1 Implement structured logging
     - Create `rhivos/cloud-gateway-client/src/logging.rs`
     - Implement LogEntry struct with timestamp, level, command_id, correlation_id, event_type, details
     - Implement EventType enum for all loggable events:
@@ -323,8 +323,8 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Include correlation identifiers for end-to-end tracing
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 1.8_
 
-- [ ] 17. Implement main service and graceful shutdown
-  - [ ] 17.1 Implement service startup and main loop
+- [x] 17. Implement main service and graceful shutdown
+  - [x] 17.1 Implement service startup and main loop
     - Update `rhivos/cloud-gateway-client/src/main.rs`
     - Load configuration from environment and validate on startup
     - Initialize MQTT client with CertificateWatcher and connect with TLS
@@ -335,7 +335,7 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Spawn telemetry publisher task with offline buffer
     - _Requirements: 1.1, 1.6, 2.1, 6.1, 8.1, 8.3_
 
-  - [ ] 17.2 Implement graceful shutdown handler
+  - [x] 17.2 Implement graceful shutdown handler
     - Register SIGTERM signal handler
     - Track in-flight command count
     - Wait for in-flight operations to complete (up to 10 seconds)
@@ -343,45 +343,45 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Log shutdown initiated and completed events
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 17.3 Write property test for shutdown timeout enforcement
+  - [x] 17.3 Write property test for shutdown timeout enforcement
     - **Property 16: Shutdown Timeout Enforcement**
     - Simulate slow in-flight operations and verify shutdown completes within 10 seconds
     - **Validates: Requirements 9.4**
 
-- [ ] 18. Checkpoint - Verify service startup and shutdown
+- [x] 18. Checkpoint - Verify service startup and shutdown
   - Run `cargo test` for all tests
   - Verify service starts, connects, and shuts down cleanly
   - Ask the user if questions arise
 
-- [ ] 19. Integration testing
-  - [ ] 19.1 Create mock LOCKING_SERVICE for testing
+- [x] 19. Integration testing
+  - [x] 19.1 Create mock LOCKING_SERVICE for testing
     - Create `rhivos/cloud-gateway-client/src/test_utils.rs`
     - Implement MockLockingService that simulates Lock/Unlock responses
     - Support configurable success/failure responses
     - Support delay injection for timeout testing
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 19.2 Create mock DATA_BROKER for testing
+  - [x] 19.2 Create mock DATA_BROKER for testing
     - Add MockDataBrokerClient to test_utils.rs
     - Implement signal subscription simulation
     - Support configurable signal updates
     - Support disconnection simulation
     - _Requirements: 6.1, 7.4, 7.5_
 
-  - [ ] 19.3 Create mock certificate files for testing
+  - [x] 19.3 Create mock certificate files for testing
     - Add certificate generation utilities to test_utils.rs
     - Support creating valid and invalid test certificates
     - Support simulating file system changes for hot-reload testing
     - _Requirements: 1.6, 1.7, 1.8_
 
-  - [ ] 19.4 Write integration tests for command flow
+  - [x] 19.4 Write integration tests for command flow
     - Test complete flow: MQTT receive → validate → forward → respond
     - Test validation error responses (malformed JSON, missing fields, invalid auth, invalid type, invalid door)
     - Test LOCKING_SERVICE error propagation
     - Test timeout handling
     - _Requirements: 2.1-2.4, 3.1-3.4, 4.1-4.5, 5.1-5.5_
 
-  - [ ] 19.5 Write integration tests for telemetry flow with offline buffering
+  - [x] 19.5 Write integration tests for telemetry flow with offline buffering
     - Test signal subscription and telemetry publishing
     - Test rate limiting behavior (at most once per second)
     - Test DATA_BROKER disconnection handling
@@ -390,19 +390,19 @@ Tasks are organized to build incrementally: project setup, data models, MQTT cli
     - Test chronological order of buffered messages
     - _Requirements: 6.1-6.6, 7.1-7.8_
 
-  - [ ] 19.6 Write integration tests for certificate hot-reload
+  - [x] 19.6 Write integration tests for certificate hot-reload
     - Test certificate reload on file change
     - Test continued operation with invalid certificate update
     - Test logging of reload events with timestamp, status, path, expiry date
     - _Requirements: 1.6, 1.7, 1.8_
 
-  - [ ] 19.7 Write integration tests for MQTT reconnection
+  - [x] 19.7 Write integration tests for MQTT reconnection
     - Test exponential backoff on connection loss
     - Test resubscription to topics after reconnection
     - Test keepalive/heartbeat behavior
     - _Requirements: 1.3, 1.4, 1.5_
 
-- [ ] 20. Final checkpoint - Verify complete implementation
+- [x] 20. Final checkpoint - Verify complete implementation
   - Run `cargo test` for all unit and property tests
   - Run `cargo clippy` for linting
   - Ensure all 22 properties pass with minimum 100 iterations each
