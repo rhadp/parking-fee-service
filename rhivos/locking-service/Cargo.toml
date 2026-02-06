@@ -10,6 +10,10 @@ description = "ASIL-B door locking service for RHIVOS safety partition"
 name = "locking-service"
 path = "src/main.rs"
 
+[lib]
+name = "locking_service"
+path = "src/lib.rs"
+
 [dependencies]
 shared.workspace = true
 tokio.workspace = true
@@ -18,7 +22,10 @@ prost.workspace = true
 prost-types.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+thiserror.workspace = true
 anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
