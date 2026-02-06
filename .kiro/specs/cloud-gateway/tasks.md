@@ -171,21 +171,21 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - **Property 10: Telemetry Not Exposed via REST**
     - **Validates: Requirements 6.5, 15.6**
 
-- [ ] 12. Implement parking session service
-  - [ ] 12.1 Create ParkingSessionService with proxy logic
+- [x] 12. Implement parking session service
+  - [x] 12.1 Create ParkingSessionService with proxy logic
     - Implement GetParkingSession (proxy to PARKING_FEE_SERVICE)
     - Implement response caching with 5-second TTL
     - Handle PARKING_FEE_SERVICE unavailability gracefully
     - _Requirements: 16.1, 16.2, 16.3, 16.5_
-  
-  - [ ] 12.2 Write unit tests for parking session proxy
+
+  - [x] 12.2 Write unit tests for parking session proxy
     - Test successful session retrieval
     - Test no active session (404 response)
     - Test VIN validation
     - Test cache behavior (5-second TTL)
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 13. Checkpoint - Ensure all tests pass
+- [x] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 14. Implement REST API handlers (Northbound interface)
