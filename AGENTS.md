@@ -151,8 +151,15 @@ When implementing a task, always update the `.kiro/specs/{feature-name}/task.md`
 For Claude: @.kiro/steering/requirements-engineering.md
 
 1. Start from a clean `develop` branch
+2. Create a git worktree from `develop`: `git worktree add ../parking-fee-service-<task-name> develop`
 2. Create feature branch from `develop`: `git checkout -b feature/<task-name> develop`
-3. Implement changes
+3. Implement changes, run tests and quality gates
+4. "Land the session", as described below
+5. Cleanup the worktree: `git worktree remove ../parking-fee-service-<task-name>`
+
+**CRITICAL RULES:**
+
+- Never checkout the same branch in two worktrees 
 
 ### Before Committing
 
