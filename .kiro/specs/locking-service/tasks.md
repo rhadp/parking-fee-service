@@ -61,8 +61,8 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Generate random invalid tokens and verify rejection with UNAUTHENTICATED status
     - **Validates: Requirements 1.4, 2.4**
 
-- [ ] 5. Implement safety validation
-  - [ ] 5.1 Implement SafetyValidator struct
+- [x] 5. Implement safety validation
+  - [x] 5.1 Implement SafetyValidator struct
     - Create `rhivos/locking-service/src/validator.rs`
     - Implement SafetyValidator with data_broker_client and validation_timeout
     - Implement validate_lock() that reads IsOpen signal and rejects if door is open
@@ -70,13 +70,13 @@ Tasks are organized to build incrementally: project setup, core data models, saf
     - Handle DATA_BROKER unavailability with appropriate error
     - _Requirements: 1.3, 2.3, 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 5.2 Write property test for lock safety constraint
+  - [x] 5.2 Write property test for lock safety constraint
     - **Property 2: Lock Fails When Door Is Open**
     - Generate lock commands with door open state and verify rejection
     - Verify lock state remains unchanged after rejection
     - **Validates: Requirements 1.3**
 
-  - [ ] 5.3 Write property test for unlock safety constraint
+  - [x] 5.3 Write property test for unlock safety constraint
     - **Property 3: Unlock Fails When Vehicle Is Moving**
     - Generate unlock commands with non-zero speed and verify rejection
     - Verify lock state remains unchanged after rejection

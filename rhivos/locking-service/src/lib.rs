@@ -20,6 +20,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod state;
+pub mod validator;
 
 /// Re-export proto types from shared crate for convenience
 pub mod proto {
@@ -30,3 +31,4 @@ pub mod proto {
 pub use config::ServiceConfig;
 pub use error::{LockingError, Result, SafetyViolation};
 pub use state::{DoorState, LockState};
+pub use validator::{SafetyValidator, SignalReader};
