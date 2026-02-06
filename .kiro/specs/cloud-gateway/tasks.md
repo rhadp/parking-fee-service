@@ -52,15 +52,15 @@ This plan implements the CLOUD_GATEWAY Go backend service with dual interfaces: 
     - Use structured JSON logging with slog
     - _Requirements: 10.1, 10.4, 10.5_
 
-- [ ] 5. Implement in-memory command store
-  - [ ] 5.1 Implement CommandStore
+- [x] 5. Implement in-memory command store
+  - [x] 5.1 Implement CommandStore
     - Create thread-safe map with mutex
     - Implement Save, Get, Update methods
     - Implement GetPendingCommands for timeout checking
     - Implement FIFO eviction when max size (100) exceeded
     - _Requirements: 12.1, 12.2_
-  
-  - [ ] 5.2 Write property test for CommandStore FIFO eviction
+
+  - [x] 5.2 Write property test for CommandStore FIFO eviction
     - **Property 12: Command Store FIFO Eviction**
     - **Validates: Requirements 12.1, 12.2**
 
