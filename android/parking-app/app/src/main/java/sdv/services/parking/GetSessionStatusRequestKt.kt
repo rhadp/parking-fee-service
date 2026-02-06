@@ -11,6 +11,10 @@ package sdv.services.parking;
 public inline fun getSessionStatusRequest(block: sdv.services.parking.GetSessionStatusRequestKt.Dsl.() -> kotlin.Unit): sdv.services.parking.GetSessionStatusRequest =
   sdv.services.parking.GetSessionStatusRequestKt.Dsl._create(sdv.services.parking.GetSessionStatusRequest.newBuilder()).apply { block() }._build()
 /**
+ * ```
+ * Request to get session status.
+ * ```
+ *
  * Protobuf type `sdv.services.parking.GetSessionStatusRequest`
  */
 public object GetSessionStatusRequestKt {
@@ -28,23 +32,6 @@ public object GetSessionStatusRequestKt {
     @kotlin.jvm.JvmSynthetic
   @kotlin.PublishedApi
     internal fun _build(): sdv.services.parking.GetSessionStatusRequest = _builder.build()
-
-    /**
-     * `string session_id = 1;`
-     */
-    public var sessionId: kotlin.String
-      @kotlin.jvm.JvmName("getSessionId")
-        get() = _builder.sessionId
-      @kotlin.jvm.JvmName("setSessionId")
-        set(value) {
-        _builder.sessionId = value
-      }
-    /**
-     * `string session_id = 1;`
-     */
-    public fun clearSessionId() {
-      _builder.clearSessionId()
-    }
   }
 }
 @kotlin.jvm.JvmSynthetic

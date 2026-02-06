@@ -11,38 +11,22 @@ public interface StartSessionRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string vehicle_id = 1;</code>
-   * @return The vehicleId.
-   */
-  java.lang.String getVehicleId();
-  /**
-   * <code>string vehicle_id = 1;</code>
-   * @return The bytes for vehicleId.
-   */
-  com.google.protobuf.ByteString
-      getVehicleIdBytes();
-
-  /**
-   * <code>string zone_id = 2;</code>
+   * <pre>
+   * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+   * </pre>
+   *
+   * <code>string zone_id = 1;</code>
    * @return The zoneId.
    */
   java.lang.String getZoneId();
   /**
-   * <code>string zone_id = 2;</code>
+   * <pre>
+   * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+   * </pre>
+   *
+   * <code>string zone_id = 1;</code>
    * @return The bytes for zoneId.
    */
   com.google.protobuf.ByteString
       getZoneIdBytes();
-
-  /**
-   * <code>double latitude = 3;</code>
-   * @return The latitude.
-   */
-  double getLatitude();
-
-  /**
-   * <code>double longitude = 4;</code>
-   * @return The longitude.
-   */
-  double getLongitude();
 }

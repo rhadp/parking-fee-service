@@ -13,11 +13,14 @@ import (
 
 // SessionInfo represents parking session information.
 type SessionInfo struct {
-	SessionID     string
-	Active        bool
-	CurrentAmount float64
-	Currency      string
-	StartTime     string
+	SessionID       string
+	HasActiveSession bool
+	State           string
+	CurrentCost     float64
+	StartTimeUnix   int64
+	DurationSeconds int64
+	ZoneID          string
+	ErrorMessage    string
 }
 
 // StartSessionResult represents the result of starting a session.
@@ -25,17 +28,16 @@ type StartSessionResult struct {
 	SessionID    string
 	Success      bool
 	ErrorMessage string
-	OperatorName string
-	HourlyRate   float64
-	Currency     string
+	State        string
 }
 
 // StopSessionResult represents the result of stopping a session.
 type StopSessionResult struct {
 	Success         bool
 	ErrorMessage    string
-	TotalAmount     float64
-	Currency        string
+	SessionID       string
+	State           string
+	FinalCost       float64
 	DurationSeconds int64
 }
 
@@ -79,9 +81,7 @@ func (c *ParkingAdaptorClient) StartSession(ctx context.Context, zoneID string) 
 		SessionID:    resp.SessionId,
 		Success:      resp.Success,
 		ErrorMessage: resp.ErrorMessage,
-		OperatorName: resp.OperatorName,
-		HourlyRate:   resp.HourlyRate,
-		Currency:     resp.Currency,
+		State:        resp.State.String(),
 	}, nil
 }
 
@@ -95,8 +95,9 @@ func (c *ParkingAdaptorClient) StopSession(ctx context.Context) (*StopSessionRes
 	return &StopSessionResult{
 		Success:         resp.Success,
 		ErrorMessage:    resp.ErrorMessage,
-		TotalAmount:     resp.TotalAmount,
-		Currency:        resp.Currency,
+		SessionID:       resp.SessionId,
+		State:           resp.State.String(),
+		FinalCost:       resp.FinalCost,
 		DurationSeconds: resp.DurationSeconds,
 	}, nil
 }
@@ -108,17 +109,15 @@ func (c *ParkingAdaptorClient) GetSessionStatus(ctx context.Context) (*SessionIn
 		return nil, fmt.Errorf("failed to get session status: %w", err)
 	}
 
-	startTime := ""
-	if resp.StartTime != nil {
-		startTime = resp.StartTime.AsTime().Format(time.RFC3339)
-	}
-
 	return &SessionInfo{
-		SessionID:     resp.SessionId,
-		Active:        resp.Active,
-		CurrentAmount: resp.CurrentAmount,
-		Currency:      resp.Currency,
-		StartTime:     startTime,
+		SessionID:        resp.SessionId,
+		HasActiveSession: resp.HasActiveSession,
+		State:            resp.State.String(),
+		CurrentCost:      resp.CurrentCost,
+		StartTimeUnix:    resp.StartTimeUnix,
+		DurationSeconds:  resp.DurationSeconds,
+		ZoneID:           resp.ZoneId,
+		ErrorMessage:     resp.ErrorMessage,
 	}, nil
 }
 

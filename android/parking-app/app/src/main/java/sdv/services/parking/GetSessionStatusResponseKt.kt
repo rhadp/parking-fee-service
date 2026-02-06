@@ -11,6 +11,10 @@ package sdv.services.parking;
 public inline fun getSessionStatusResponse(block: sdv.services.parking.GetSessionStatusResponseKt.Dsl.() -> kotlin.Unit): sdv.services.parking.GetSessionStatusResponse =
   sdv.services.parking.GetSessionStatusResponseKt.Dsl._create(sdv.services.parking.GetSessionStatusResponse.newBuilder()).apply { block() }._build()
 /**
+ * ```
+ * Response with session status information.
+ * ```
+ *
  * Protobuf type `sdv.services.parking.GetSessionStatusResponse`
  */
 public object GetSessionStatusResponseKt {
@@ -30,7 +34,36 @@ public object GetSessionStatusResponseKt {
     internal fun _build(): sdv.services.parking.GetSessionStatusResponse = _builder.build()
 
     /**
-     * `string session_id = 1;`
+     * ```
+     * Whether there is an active session
+     * ```
+     *
+     * `bool has_active_session = 1;`
+     */
+    public var hasActiveSession: kotlin.Boolean
+      @kotlin.jvm.JvmName("getHasActiveSession")
+        get() = _builder.hasActiveSession
+      @kotlin.jvm.JvmName("setHasActiveSession")
+        set(value) {
+        _builder.hasActiveSession = value
+      }
+    /**
+     * ```
+     * Whether there is an active session
+     * ```
+     *
+     * `bool has_active_session = 1;`
+     */
+    public fun clearHasActiveSession() {
+      _builder.clearHasActiveSession()
+    }
+
+    /**
+     * ```
+     * Session ID (empty if no session)
+     * ```
+     *
+     * `string session_id = 2;`
      */
     public var sessionId: kotlin.String
       @kotlin.jvm.JvmName("getSessionId")
@@ -40,95 +73,225 @@ public object GetSessionStatusResponseKt {
         _builder.sessionId = value
       }
     /**
-     * `string session_id = 1;`
+     * ```
+     * Session ID (empty if no session)
+     * ```
+     *
+     * `string session_id = 2;`
      */
     public fun clearSessionId() {
       _builder.clearSessionId()
     }
 
     /**
-     * `bool active = 2;`
+     * ```
+     * Current session state
+     * ```
+     *
+     * `.sdv.services.parking.SessionState state = 3;`
      */
-    public var active: kotlin.Boolean
-      @kotlin.jvm.JvmName("getActive")
-        get() = _builder.active
-      @kotlin.jvm.JvmName("setActive")
+    public var state: sdv.services.parking.SessionState
+      @kotlin.jvm.JvmName("getState")
+        get() = _builder.state
+      @kotlin.jvm.JvmName("setState")
         set(value) {
-        _builder.active = value
+        _builder.state = value
+      }
+    public var stateValue: kotlin.Int
+      @kotlin.jvm.JvmName("getStateValue")
+        get() = _builder.stateValue
+      @kotlin.jvm.JvmName("setStateValue")
+        set(value) {
+        _builder.stateValue = value
       }
     /**
-     * `bool active = 2;`
+     * ```
+     * Current session state
+     * ```
+     *
+     * `.sdv.services.parking.SessionState state = 3;`
      */
-    public fun clearActive() {
-      _builder.clearActive()
+    public fun clearState() {
+      _builder.clearState()
     }
 
     /**
-     * `.google.protobuf.Timestamp start_time = 3;`
+     * ```
+     * Session start time as Unix timestamp
+     * ```
+     *
+     * `int64 start_time_unix = 4;`
      */
-    public var startTime: com.google.protobuf.Timestamp
-      @kotlin.jvm.JvmName("getStartTime")
-        get() = _builder.startTime
-      @kotlin.jvm.JvmName("setStartTime")
+    public var startTimeUnix: kotlin.Long
+      @kotlin.jvm.JvmName("getStartTimeUnix")
+        get() = _builder.startTimeUnix
+      @kotlin.jvm.JvmName("setStartTimeUnix")
         set(value) {
-        _builder.startTime = value
+        _builder.startTimeUnix = value
       }
     /**
-     * `.google.protobuf.Timestamp start_time = 3;`
+     * ```
+     * Session start time as Unix timestamp
+     * ```
+     *
+     * `int64 start_time_unix = 4;`
      */
-    public fun clearStartTime() {
-      _builder.clearStartTime()
-    }
-    /**
-     * `.google.protobuf.Timestamp start_time = 3;`
-     * @return Whether the startTime field is set.
-     */
-    public fun hasStartTime(): kotlin.Boolean {
-      return _builder.hasStartTime()
-    }
-
-    public val GetSessionStatusResponseKt.Dsl.startTimeOrNull: com.google.protobuf.Timestamp?
-      get() = _builder.startTimeOrNull
-
-    /**
-     * `double current_amount = 4;`
-     */
-    public var currentAmount: kotlin.Double
-      @kotlin.jvm.JvmName("getCurrentAmount")
-        get() = _builder.currentAmount
-      @kotlin.jvm.JvmName("setCurrentAmount")
-        set(value) {
-        _builder.currentAmount = value
-      }
-    /**
-     * `double current_amount = 4;`
-     */
-    public fun clearCurrentAmount() {
-      _builder.clearCurrentAmount()
+    public fun clearStartTimeUnix() {
+      _builder.clearStartTimeUnix()
     }
 
     /**
-     * `string currency = 5;`
+     * ```
+     * Duration of the session in seconds
+     * ```
+     *
+     * `int64 duration_seconds = 5;`
      */
-    public var currency: kotlin.String
-      @kotlin.jvm.JvmName("getCurrency")
-        get() = _builder.currency
-      @kotlin.jvm.JvmName("setCurrency")
+    public var durationSeconds: kotlin.Long
+      @kotlin.jvm.JvmName("getDurationSeconds")
+        get() = _builder.durationSeconds
+      @kotlin.jvm.JvmName("setDurationSeconds")
         set(value) {
-        _builder.currency = value
+        _builder.durationSeconds = value
       }
     /**
-     * `string currency = 5;`
+     * ```
+     * Duration of the session in seconds
+     * ```
+     *
+     * `int64 duration_seconds = 5;`
      */
-    public fun clearCurrency() {
-      _builder.clearCurrency()
+    public fun clearDurationSeconds() {
+      _builder.clearDurationSeconds()
+    }
+
+    /**
+     * ```
+     * Current cost of the session
+     * ```
+     *
+     * `double current_cost = 6;`
+     */
+    public var currentCost: kotlin.Double
+      @kotlin.jvm.JvmName("getCurrentCost")
+        get() = _builder.currentCost
+      @kotlin.jvm.JvmName("setCurrentCost")
+        set(value) {
+        _builder.currentCost = value
+      }
+    /**
+     * ```
+     * Current cost of the session
+     * ```
+     *
+     * `double current_cost = 6;`
+     */
+    public fun clearCurrentCost() {
+      _builder.clearCurrentCost()
+    }
+
+    /**
+     * ```
+     * Zone ID where parked
+     * ```
+     *
+     * `string zone_id = 7;`
+     */
+    public var zoneId: kotlin.String
+      @kotlin.jvm.JvmName("getZoneId")
+        get() = _builder.zoneId
+      @kotlin.jvm.JvmName("setZoneId")
+        set(value) {
+        _builder.zoneId = value
+      }
+    /**
+     * ```
+     * Zone ID where parked
+     * ```
+     *
+     * `string zone_id = 7;`
+     */
+    public fun clearZoneId() {
+      _builder.clearZoneId()
+    }
+
+    /**
+     * ```
+     * Error message if state is ERROR
+     * ```
+     *
+     * `string error_message = 8;`
+     */
+    public var errorMessage: kotlin.String
+      @kotlin.jvm.JvmName("getErrorMessage")
+        get() = _builder.errorMessage
+      @kotlin.jvm.JvmName("setErrorMessage")
+        set(value) {
+        _builder.errorMessage = value
+      }
+    /**
+     * ```
+     * Error message if state is ERROR
+     * ```
+     *
+     * `string error_message = 8;`
+     */
+    public fun clearErrorMessage() {
+      _builder.clearErrorMessage()
+    }
+
+    /**
+     * ```
+     * Latitude where session started
+     * ```
+     *
+     * `double latitude = 9;`
+     */
+    public var latitude: kotlin.Double
+      @kotlin.jvm.JvmName("getLatitude")
+        get() = _builder.latitude
+      @kotlin.jvm.JvmName("setLatitude")
+        set(value) {
+        _builder.latitude = value
+      }
+    /**
+     * ```
+     * Latitude where session started
+     * ```
+     *
+     * `double latitude = 9;`
+     */
+    public fun clearLatitude() {
+      _builder.clearLatitude()
+    }
+
+    /**
+     * ```
+     * Longitude where session started
+     * ```
+     *
+     * `double longitude = 10;`
+     */
+    public var longitude: kotlin.Double
+      @kotlin.jvm.JvmName("getLongitude")
+        get() = _builder.longitude
+      @kotlin.jvm.JvmName("setLongitude")
+        set(value) {
+        _builder.longitude = value
+      }
+    /**
+     * ```
+     * Longitude where session started
+     * ```
+     *
+     * `double longitude = 10;`
+     */
+    public fun clearLongitude() {
+      _builder.clearLongitude()
     }
   }
 }
 @kotlin.jvm.JvmSynthetic
 public inline fun sdv.services.parking.GetSessionStatusResponse.copy(block: `sdv.services.parking`.GetSessionStatusResponseKt.Dsl.() -> kotlin.Unit): sdv.services.parking.GetSessionStatusResponse =
   `sdv.services.parking`.GetSessionStatusResponseKt.Dsl._create(this.toBuilder()).apply { block() }._build()
-
-public val sdv.services.parking.GetSessionStatusResponseOrBuilder.startTimeOrNull: com.google.protobuf.Timestamp?
-  get() = if (hasStartTime()) getStartTime() else null
 

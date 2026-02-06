@@ -11,17 +11,29 @@ public interface StopSessionResponseOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
+   * <pre>
+   * Whether the operation succeeded
+   * </pre>
+   *
    * <code>bool success = 1;</code>
    * @return The success.
    */
   boolean getSuccess();
 
   /**
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
    * <code>string error_message = 2;</code>
    * @return The errorMessage.
    */
   java.lang.String getErrorMessage();
   /**
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
    * <code>string error_message = 2;</code>
    * @return The bytes for errorMessage.
    */
@@ -29,25 +41,60 @@ public interface StopSessionResponseOrBuilder extends
       getErrorMessageBytes();
 
   /**
-   * <code>double total_amount = 3;</code>
-   * @return The totalAmount.
+   * <pre>
+   * Session ID that was stopped
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The sessionId.
    */
-  double getTotalAmount();
-
+  java.lang.String getSessionId();
   /**
-   * <code>string currency = 4;</code>
-   * @return The currency.
-   */
-  java.lang.String getCurrency();
-  /**
-   * <code>string currency = 4;</code>
-   * @return The bytes for currency.
+   * <pre>
+   * Session ID that was stopped
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The bytes for sessionId.
    */
   com.google.protobuf.ByteString
-      getCurrencyBytes();
+      getSessionIdBytes();
 
   /**
-   * <code>int64 duration_seconds = 5;</code>
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The enum numeric value on the wire for state.
+   */
+  int getStateValue();
+  /**
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The state.
+   */
+  sdv.services.parking.SessionState getState();
+
+  /**
+   * <pre>
+   * Final cost of the session
+   * </pre>
+   *
+   * <code>double final_cost = 5;</code>
+   * @return The finalCost.
+   */
+  double getFinalCost();
+
+  /**
+   * <pre>
+   * Duration of the session in seconds
+   * </pre>
+   *
+   * <code>int64 duration_seconds = 6;</code>
    * @return The durationSeconds.
    */
   long getDurationSeconds();

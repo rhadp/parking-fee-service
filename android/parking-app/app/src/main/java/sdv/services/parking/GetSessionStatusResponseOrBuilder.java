@@ -11,53 +11,141 @@ public interface GetSessionStatusResponseOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string session_id = 1;</code>
+   * <pre>
+   * Whether there is an active session
+   * </pre>
+   *
+   * <code>bool has_active_session = 1;</code>
+   * @return The hasActiveSession.
+   */
+  boolean getHasActiveSession();
+
+  /**
+   * <pre>
+   * Session ID (empty if no session)
+   * </pre>
+   *
+   * <code>string session_id = 2;</code>
    * @return The sessionId.
    */
   java.lang.String getSessionId();
   /**
-   * <code>string session_id = 1;</code>
+   * <pre>
+   * Session ID (empty if no session)
+   * </pre>
+   *
+   * <code>string session_id = 2;</code>
    * @return The bytes for sessionId.
    */
   com.google.protobuf.ByteString
       getSessionIdBytes();
 
   /**
-   * <code>bool active = 2;</code>
-   * @return The active.
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 3;</code>
+   * @return The enum numeric value on the wire for state.
    */
-  boolean getActive();
+  int getStateValue();
+  /**
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 3;</code>
+   * @return The state.
+   */
+  sdv.services.parking.SessionState getState();
 
   /**
-   * <code>.google.protobuf.Timestamp start_time = 3;</code>
-   * @return Whether the startTime field is set.
+   * <pre>
+   * Session start time as Unix timestamp
+   * </pre>
+   *
+   * <code>int64 start_time_unix = 4;</code>
+   * @return The startTimeUnix.
    */
-  boolean hasStartTime();
-  /**
-   * <code>.google.protobuf.Timestamp start_time = 3;</code>
-   * @return The startTime.
-   */
-  com.google.protobuf.Timestamp getStartTime();
-  /**
-   * <code>.google.protobuf.Timestamp start_time = 3;</code>
-   */
-  com.google.protobuf.TimestampOrBuilder getStartTimeOrBuilder();
+  long getStartTimeUnix();
 
   /**
-   * <code>double current_amount = 4;</code>
-   * @return The currentAmount.
+   * <pre>
+   * Duration of the session in seconds
+   * </pre>
+   *
+   * <code>int64 duration_seconds = 5;</code>
+   * @return The durationSeconds.
    */
-  double getCurrentAmount();
+  long getDurationSeconds();
 
   /**
-   * <code>string currency = 5;</code>
-   * @return The currency.
+   * <pre>
+   * Current cost of the session
+   * </pre>
+   *
+   * <code>double current_cost = 6;</code>
+   * @return The currentCost.
    */
-  java.lang.String getCurrency();
+  double getCurrentCost();
+
   /**
-   * <code>string currency = 5;</code>
-   * @return The bytes for currency.
+   * <pre>
+   * Zone ID where parked
+   * </pre>
+   *
+   * <code>string zone_id = 7;</code>
+   * @return The zoneId.
+   */
+  java.lang.String getZoneId();
+  /**
+   * <pre>
+   * Zone ID where parked
+   * </pre>
+   *
+   * <code>string zone_id = 7;</code>
+   * @return The bytes for zoneId.
    */
   com.google.protobuf.ByteString
-      getCurrencyBytes();
+      getZoneIdBytes();
+
+  /**
+   * <pre>
+   * Error message if state is ERROR
+   * </pre>
+   *
+   * <code>string error_message = 8;</code>
+   * @return The errorMessage.
+   */
+  java.lang.String getErrorMessage();
+  /**
+   * <pre>
+   * Error message if state is ERROR
+   * </pre>
+   *
+   * <code>string error_message = 8;</code>
+   * @return The bytes for errorMessage.
+   */
+  com.google.protobuf.ByteString
+      getErrorMessageBytes();
+
+  /**
+   * <pre>
+   * Latitude where session started
+   * </pre>
+   *
+   * <code>double latitude = 9;</code>
+   * @return The latitude.
+   */
+  double getLatitude();
+
+  /**
+   * <pre>
+   * Longitude where session started
+   * </pre>
+   *
+   * <code>double longitude = 10;</code>
+   * @return The longitude.
+   */
+  double getLongitude();
 }

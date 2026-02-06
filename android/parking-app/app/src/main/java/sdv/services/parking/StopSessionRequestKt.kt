@@ -11,6 +11,10 @@ package sdv.services.parking;
 public inline fun stopSessionRequest(block: sdv.services.parking.StopSessionRequestKt.Dsl.() -> kotlin.Unit): sdv.services.parking.StopSessionRequest =
   sdv.services.parking.StopSessionRequestKt.Dsl._create(sdv.services.parking.StopSessionRequest.newBuilder()).apply { block() }._build()
 /**
+ * ```
+ * Request to stop the current parking session.
+ * ```
+ *
  * Protobuf type `sdv.services.parking.StopSessionRequest`
  */
 public object StopSessionRequestKt {
@@ -28,23 +32,6 @@ public object StopSessionRequestKt {
     @kotlin.jvm.JvmSynthetic
   @kotlin.PublishedApi
     internal fun _build(): sdv.services.parking.StopSessionRequest = _builder.build()
-
-    /**
-     * `string session_id = 1;`
-     */
-    public var sessionId: kotlin.String
-      @kotlin.jvm.JvmName("getSessionId")
-        get() = _builder.sessionId
-      @kotlin.jvm.JvmName("setSessionId")
-        set(value) {
-        _builder.sessionId = value
-      }
-    /**
-     * `string session_id = 1;`
-     */
-    public fun clearSessionId() {
-      _builder.clearSessionId()
-    }
   }
 }
 @kotlin.jvm.JvmSynthetic

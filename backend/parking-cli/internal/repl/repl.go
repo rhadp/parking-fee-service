@@ -643,18 +643,16 @@ func (r *REPL) handleStart(args []string) error {
 	}
 
 	result := map[string]interface{}{
-		"session_id":    resp.SessionID,
-		"operator_name": resp.OperatorName,
-		"hourly_rate":   resp.HourlyRate,
-		"currency":      resp.Currency,
+		"session_id": resp.SessionID,
+		"state":      resp.State,
+		"success":    resp.Success,
 	}
 	if r.jsonOutput {
 		r.outputJSON("start", result, nil)
 	} else {
 		fmt.Fprintln(r.output, "Parking session started")
 		fmt.Fprintf(r.output, "  Session ID: %s\n", resp.SessionID)
-		fmt.Fprintf(r.output, "  Operator: %s\n", resp.OperatorName)
-		fmt.Fprintf(r.output, "  Rate: %.2f %s/hour\n", resp.HourlyRate, resp.Currency)
+		fmt.Fprintf(r.output, "  State: %s\n", resp.State)
 	}
 	return nil
 }
@@ -691,8 +689,9 @@ func (r *REPL) handleStop(args []string) error {
 	}
 
 	result := map[string]interface{}{
-		"total_amount":     resp.TotalAmount,
-		"currency":         resp.Currency,
+		"session_id":       resp.SessionID,
+		"state":            resp.State,
+		"final_cost":       resp.FinalCost,
 		"duration_seconds": resp.DurationSeconds,
 	}
 	if r.jsonOutput {
@@ -700,7 +699,7 @@ func (r *REPL) handleStop(args []string) error {
 	} else {
 		fmt.Fprintln(r.output, "Parking session stopped")
 		fmt.Fprintf(r.output, "  Duration: %s\n", formatDuration(resp.DurationSeconds))
-		fmt.Fprintf(r.output, "  Total: %.2f %s\n", resp.TotalAmount, resp.Currency)
+		fmt.Fprintf(r.output, "  Final Cost: %.2f\n", resp.FinalCost)
 	}
 	return nil
 }
@@ -728,17 +727,20 @@ func (r *REPL) handleSession(args []string) error {
 	if r.jsonOutput {
 		r.outputJSON("session", session, nil)
 	} else {
-		if !session.Active {
+		if !session.HasActiveSession {
 			fmt.Fprintln(r.output, "No active parking session")
 			return nil
 		}
 		fmt.Fprintln(r.output, "Session Status:")
 		fmt.Fprintf(r.output, "  Session ID: %s\n", session.SessionID)
-		fmt.Fprintf(r.output, "  Active: %v\n", session.Active)
-		if session.StartTime != "" {
-			fmt.Fprintf(r.output, "  Start Time: %s\n", session.StartTime)
+		fmt.Fprintf(r.output, "  State: %s\n", session.State)
+		if session.StartTimeUnix > 0 {
+			fmt.Fprintf(r.output, "  Start Time: %d\n", session.StartTimeUnix)
 		}
-		fmt.Fprintf(r.output, "  Current Amount: %.2f %s\n", session.CurrentAmount, session.Currency)
+		fmt.Fprintf(r.output, "  Current Cost: %.2f\n", session.CurrentCost)
+		if session.ZoneID != "" {
+			fmt.Fprintf(r.output, "  Zone ID: %s\n", session.ZoneID)
+		}
 	}
 	return nil
 }

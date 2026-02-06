@@ -11,6 +11,10 @@ package sdv.services.parking;
 public inline fun stopSessionResponse(block: sdv.services.parking.StopSessionResponseKt.Dsl.() -> kotlin.Unit): sdv.services.parking.StopSessionResponse =
   sdv.services.parking.StopSessionResponseKt.Dsl._create(sdv.services.parking.StopSessionResponse.newBuilder()).apply { block() }._build()
 /**
+ * ```
+ * Response from stopping a parking session.
+ * ```
+ *
  * Protobuf type `sdv.services.parking.StopSessionResponse`
  */
 public object StopSessionResponseKt {
@@ -30,6 +34,10 @@ public object StopSessionResponseKt {
     internal fun _build(): sdv.services.parking.StopSessionResponse = _builder.build()
 
     /**
+     * ```
+     * Whether the operation succeeded
+     * ```
+     *
      * `bool success = 1;`
      */
     public var success: kotlin.Boolean
@@ -40,6 +48,10 @@ public object StopSessionResponseKt {
         _builder.success = value
       }
     /**
+     * ```
+     * Whether the operation succeeded
+     * ```
+     *
      * `bool success = 1;`
      */
     public fun clearSuccess() {
@@ -47,6 +59,10 @@ public object StopSessionResponseKt {
     }
 
     /**
+     * ```
+     * Error message if failed
+     * ```
+     *
      * `string error_message = 2;`
      */
     public var errorMessage: kotlin.String
@@ -57,6 +73,10 @@ public object StopSessionResponseKt {
         _builder.errorMessage = value
       }
     /**
+     * ```
+     * Error message if failed
+     * ```
+     *
      * `string error_message = 2;`
      */
     public fun clearErrorMessage() {
@@ -64,41 +84,93 @@ public object StopSessionResponseKt {
     }
 
     /**
-     * `double total_amount = 3;`
+     * ```
+     * Session ID that was stopped
+     * ```
+     *
+     * `string session_id = 3;`
      */
-    public var totalAmount: kotlin.Double
-      @kotlin.jvm.JvmName("getTotalAmount")
-        get() = _builder.totalAmount
-      @kotlin.jvm.JvmName("setTotalAmount")
+    public var sessionId: kotlin.String
+      @kotlin.jvm.JvmName("getSessionId")
+        get() = _builder.sessionId
+      @kotlin.jvm.JvmName("setSessionId")
         set(value) {
-        _builder.totalAmount = value
+        _builder.sessionId = value
       }
     /**
-     * `double total_amount = 3;`
+     * ```
+     * Session ID that was stopped
+     * ```
+     *
+     * `string session_id = 3;`
      */
-    public fun clearTotalAmount() {
-      _builder.clearTotalAmount()
+    public fun clearSessionId() {
+      _builder.clearSessionId()
     }
 
     /**
-     * `string currency = 4;`
+     * ```
+     * Current session state
+     * ```
+     *
+     * `.sdv.services.parking.SessionState state = 4;`
      */
-    public var currency: kotlin.String
-      @kotlin.jvm.JvmName("getCurrency")
-        get() = _builder.currency
-      @kotlin.jvm.JvmName("setCurrency")
+    public var state: sdv.services.parking.SessionState
+      @kotlin.jvm.JvmName("getState")
+        get() = _builder.state
+      @kotlin.jvm.JvmName("setState")
         set(value) {
-        _builder.currency = value
+        _builder.state = value
+      }
+    public var stateValue: kotlin.Int
+      @kotlin.jvm.JvmName("getStateValue")
+        get() = _builder.stateValue
+      @kotlin.jvm.JvmName("setStateValue")
+        set(value) {
+        _builder.stateValue = value
       }
     /**
-     * `string currency = 4;`
+     * ```
+     * Current session state
+     * ```
+     *
+     * `.sdv.services.parking.SessionState state = 4;`
      */
-    public fun clearCurrency() {
-      _builder.clearCurrency()
+    public fun clearState() {
+      _builder.clearState()
     }
 
     /**
-     * `int64 duration_seconds = 5;`
+     * ```
+     * Final cost of the session
+     * ```
+     *
+     * `double final_cost = 5;`
+     */
+    public var finalCost: kotlin.Double
+      @kotlin.jvm.JvmName("getFinalCost")
+        get() = _builder.finalCost
+      @kotlin.jvm.JvmName("setFinalCost")
+        set(value) {
+        _builder.finalCost = value
+      }
+    /**
+     * ```
+     * Final cost of the session
+     * ```
+     *
+     * `double final_cost = 5;`
+     */
+    public fun clearFinalCost() {
+      _builder.clearFinalCost()
+    }
+
+    /**
+     * ```
+     * Duration of the session in seconds
+     * ```
+     *
+     * `int64 duration_seconds = 6;`
      */
     public var durationSeconds: kotlin.Long
       @kotlin.jvm.JvmName("getDurationSeconds")
@@ -108,7 +180,11 @@ public object StopSessionResponseKt {
         _builder.durationSeconds = value
       }
     /**
-     * `int64 duration_seconds = 5;`
+     * ```
+     * Duration of the session in seconds
+     * ```
+     *
+     * `int64 duration_seconds = 6;`
      */
     public fun clearDurationSeconds() {
       _builder.clearDurationSeconds()

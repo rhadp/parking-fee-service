@@ -11,62 +11,71 @@ public interface StartSessionResponseOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string session_id = 1;</code>
-   * @return The sessionId.
-   */
-  java.lang.String getSessionId();
-  /**
-   * <code>string session_id = 1;</code>
-   * @return The bytes for sessionId.
-   */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
-
-  /**
-   * <code>bool success = 2;</code>
+   * <pre>
+   * Whether the operation succeeded
+   * </pre>
+   *
+   * <code>bool success = 1;</code>
    * @return The success.
    */
   boolean getSuccess();
 
   /**
-   * <code>string error_message = 3;</code>
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
+   * <code>string error_message = 2;</code>
    * @return The errorMessage.
    */
   java.lang.String getErrorMessage();
   /**
-   * <code>string error_message = 3;</code>
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
+   * <code>string error_message = 2;</code>
    * @return The bytes for errorMessage.
    */
   com.google.protobuf.ByteString
       getErrorMessageBytes();
 
   /**
-   * <code>string operator_name = 4;</code>
-   * @return The operatorName.
+   * <pre>
+   * Session ID from PARKING_OPERATOR
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The sessionId.
    */
-  java.lang.String getOperatorName();
+  java.lang.String getSessionId();
   /**
-   * <code>string operator_name = 4;</code>
-   * @return The bytes for operatorName.
+   * <pre>
+   * Session ID from PARKING_OPERATOR
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The bytes for sessionId.
    */
   com.google.protobuf.ByteString
-      getOperatorNameBytes();
+      getSessionIdBytes();
 
   /**
-   * <code>double hourly_rate = 5;</code>
-   * @return The hourlyRate.
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The enum numeric value on the wire for state.
    */
-  double getHourlyRate();
-
+  int getStateValue();
   /**
-   * <code>string currency = 6;</code>
-   * @return The currency.
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The state.
    */
-  java.lang.String getCurrency();
-  /**
-   * <code>string currency = 6;</code>
-   * @return The bytes for currency.
-   */
-  com.google.protobuf.ByteString
-      getCurrencyBytes();
+  sdv.services.parking.SessionState getState();
 }

@@ -11,6 +11,10 @@ package sdv.services.parking;
 public inline fun startSessionRequest(block: sdv.services.parking.StartSessionRequestKt.Dsl.() -> kotlin.Unit): sdv.services.parking.StartSessionRequest =
   sdv.services.parking.StartSessionRequestKt.Dsl._create(sdv.services.parking.StartSessionRequest.newBuilder()).apply { block() }._build()
 /**
+ * ```
+ * Request to start a parking session.
+ * ```
+ *
  * Protobuf type `sdv.services.parking.StartSessionRequest`
  */
 public object StartSessionRequestKt {
@@ -30,24 +34,11 @@ public object StartSessionRequestKt {
     internal fun _build(): sdv.services.parking.StartSessionRequest = _builder.build()
 
     /**
-     * `string vehicle_id = 1;`
-     */
-    public var vehicleId: kotlin.String
-      @kotlin.jvm.JvmName("getVehicleId")
-        get() = _builder.vehicleId
-      @kotlin.jvm.JvmName("setVehicleId")
-        set(value) {
-        _builder.vehicleId = value
-      }
-    /**
-     * `string vehicle_id = 1;`
-     */
-    public fun clearVehicleId() {
-      _builder.clearVehicleId()
-    }
-
-    /**
-     * `string zone_id = 2;`
+     * ```
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * ```
+     *
+     * `string zone_id = 1;`
      */
     public var zoneId: kotlin.String
       @kotlin.jvm.JvmName("getZoneId")
@@ -57,44 +48,14 @@ public object StartSessionRequestKt {
         _builder.zoneId = value
       }
     /**
-     * `string zone_id = 2;`
+     * ```
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * ```
+     *
+     * `string zone_id = 1;`
      */
     public fun clearZoneId() {
       _builder.clearZoneId()
-    }
-
-    /**
-     * `double latitude = 3;`
-     */
-    public var latitude: kotlin.Double
-      @kotlin.jvm.JvmName("getLatitude")
-        get() = _builder.latitude
-      @kotlin.jvm.JvmName("setLatitude")
-        set(value) {
-        _builder.latitude = value
-      }
-    /**
-     * `double latitude = 3;`
-     */
-    public fun clearLatitude() {
-      _builder.clearLatitude()
-    }
-
-    /**
-     * `double longitude = 4;`
-     */
-    public var longitude: kotlin.Double
-      @kotlin.jvm.JvmName("getLongitude")
-        get() = _builder.longitude
-      @kotlin.jvm.JvmName("setLongitude")
-        set(value) {
-        _builder.longitude = value
-      }
-    /**
-     * `double longitude = 4;`
-     */
-    public fun clearLongitude() {
-      _builder.clearLongitude()
     }
   }
 }

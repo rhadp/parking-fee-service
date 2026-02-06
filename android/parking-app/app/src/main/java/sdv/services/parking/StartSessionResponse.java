@@ -6,6 +6,10 @@
 package sdv.services.parking;
 
 /**
+ * <pre>
+ * Response from starting a parking session.
+ * </pre>
+ *
  * Protobuf type {@code sdv.services.parking.StartSessionResponse}
  */
 @com.google.protobuf.Generated
@@ -28,10 +32,9 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private StartSessionResponse() {
-    sessionId_ = "";
     errorMessage_ = "";
-    operatorName_ = "";
-    currency_ = "";
+    sessionId_ = "";
+    state_ = 0;
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -47,49 +50,14 @@ private static final long serialVersionUID = 0L;
             sdv.services.parking.StartSessionResponse.class, sdv.services.parking.StartSessionResponse.Builder.class);
   }
 
-  public static final int SESSION_ID_FIELD_NUMBER = 1;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object sessionId_ = "";
-  /**
-   * <code>string session_id = 1;</code>
-   * @return The sessionId.
-   */
-  @java.lang.Override
-  public java.lang.String getSessionId() {
-    java.lang.Object ref = sessionId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      sessionId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string session_id = 1;</code>
-   * @return The bytes for sessionId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
-    java.lang.Object ref = sessionId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      sessionId_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
-  public static final int SUCCESS_FIELD_NUMBER = 2;
+  public static final int SUCCESS_FIELD_NUMBER = 1;
   private boolean success_ = false;
   /**
-   * <code>bool success = 2;</code>
+   * <pre>
+   * Whether the operation succeeded
+   * </pre>
+   *
+   * <code>bool success = 1;</code>
    * @return The success.
    */
   @java.lang.Override
@@ -97,11 +65,15 @@ private static final long serialVersionUID = 0L;
     return success_;
   }
 
-  public static final int ERROR_MESSAGE_FIELD_NUMBER = 3;
+  public static final int ERROR_MESSAGE_FIELD_NUMBER = 2;
   @SuppressWarnings("serial")
   private volatile java.lang.Object errorMessage_ = "";
   /**
-   * <code>string error_message = 3;</code>
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
+   * <code>string error_message = 2;</code>
    * @return The errorMessage.
    */
   @java.lang.Override
@@ -118,7 +90,11 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string error_message = 3;</code>
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
+   * <code>string error_message = 2;</code>
    * @return The bytes for errorMessage.
    */
   @java.lang.Override
@@ -136,93 +112,77 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int OPERATOR_NAME_FIELD_NUMBER = 4;
+  public static final int SESSION_ID_FIELD_NUMBER = 3;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object operatorName_ = "";
+  private volatile java.lang.Object sessionId_ = "";
   /**
-   * <code>string operator_name = 4;</code>
-   * @return The operatorName.
+   * <pre>
+   * Session ID from PARKING_OPERATOR
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The sessionId.
    */
   @java.lang.Override
-  public java.lang.String getOperatorName() {
-    java.lang.Object ref = operatorName_;
+  public java.lang.String getSessionId() {
+    java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      operatorName_ = s;
+      sessionId_ = s;
       return s;
     }
   }
   /**
-   * <code>string operator_name = 4;</code>
-   * @return The bytes for operatorName.
+   * <pre>
+   * Session ID from PARKING_OPERATOR
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The bytes for sessionId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getOperatorNameBytes() {
-    java.lang.Object ref = operatorName_;
+      getSessionIdBytes() {
+    java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      operatorName_ = b;
+      sessionId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int HOURLY_RATE_FIELD_NUMBER = 5;
-  private double hourlyRate_ = 0D;
+  public static final int STATE_FIELD_NUMBER = 4;
+  private int state_ = 0;
   /**
-   * <code>double hourly_rate = 5;</code>
-   * @return The hourlyRate.
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The enum numeric value on the wire for state.
    */
-  @java.lang.Override
-  public double getHourlyRate() {
-    return hourlyRate_;
-  }
-
-  public static final int CURRENCY_FIELD_NUMBER = 6;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object currency_ = "";
-  /**
-   * <code>string currency = 6;</code>
-   * @return The currency.
-   */
-  @java.lang.Override
-  public java.lang.String getCurrency() {
-    java.lang.Object ref = currency_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      currency_ = s;
-      return s;
-    }
+  @java.lang.Override public int getStateValue() {
+    return state_;
   }
   /**
-   * <code>string currency = 6;</code>
-   * @return The bytes for currency.
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The state.
    */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getCurrencyBytes() {
-    java.lang.Object ref = currency_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      currency_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
+  @java.lang.Override public sdv.services.parking.SessionState getState() {
+    sdv.services.parking.SessionState result = sdv.services.parking.SessionState.forNumber(state_);
+    return result == null ? sdv.services.parking.SessionState.UNRECOGNIZED : result;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -239,23 +199,17 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 1, sessionId_);
-    }
     if (success_ != false) {
-      output.writeBool(2, success_);
+      output.writeBool(1, success_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(errorMessage_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 3, errorMessage_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, errorMessage_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(operatorName_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 4, operatorName_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, sessionId_);
     }
-    if (java.lang.Double.doubleToRawLongBits(hourlyRate_) != 0) {
-      output.writeDouble(5, hourlyRate_);
-    }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(currency_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 6, currency_);
+    if (state_ != sdv.services.parking.SessionState.SESSION_STATE_NONE.getNumber()) {
+      output.writeEnum(4, state_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -266,25 +220,19 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, sessionId_);
-    }
     if (success_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(2, success_);
+        .computeBoolSize(1, success_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(errorMessage_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, errorMessage_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, errorMessage_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(operatorName_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, operatorName_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, sessionId_);
     }
-    if (java.lang.Double.doubleToRawLongBits(hourlyRate_) != 0) {
+    if (state_ != sdv.services.parking.SessionState.SESSION_STATE_NONE.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(5, hourlyRate_);
-    }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(currency_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, currency_);
+        .computeEnumSize(4, state_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -301,19 +249,13 @@ private static final long serialVersionUID = 0L;
     }
     sdv.services.parking.StartSessionResponse other = (sdv.services.parking.StartSessionResponse) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
     if (getSuccess()
         != other.getSuccess()) return false;
     if (!getErrorMessage()
         .equals(other.getErrorMessage())) return false;
-    if (!getOperatorName()
-        .equals(other.getOperatorName())) return false;
-    if (java.lang.Double.doubleToLongBits(getHourlyRate())
-        != java.lang.Double.doubleToLongBits(
-            other.getHourlyRate())) return false;
-    if (!getCurrency()
-        .equals(other.getCurrency())) return false;
+    if (!getSessionId()
+        .equals(other.getSessionId())) return false;
+    if (state_ != other.state_) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -325,20 +267,15 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getSessionId().hashCode();
     hash = (37 * hash) + SUCCESS_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getSuccess());
     hash = (37 * hash) + ERROR_MESSAGE_FIELD_NUMBER;
     hash = (53 * hash) + getErrorMessage().hashCode();
-    hash = (37 * hash) + OPERATOR_NAME_FIELD_NUMBER;
-    hash = (53 * hash) + getOperatorName().hashCode();
-    hash = (37 * hash) + HOURLY_RATE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getHourlyRate()));
-    hash = (37 * hash) + CURRENCY_FIELD_NUMBER;
-    hash = (53 * hash) + getCurrency().hashCode();
+    hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getSessionId().hashCode();
+    hash = (37 * hash) + STATE_FIELD_NUMBER;
+    hash = (53 * hash) + state_;
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -437,6 +374,10 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
+   * <pre>
+   * Response from starting a parking session.
+   * </pre>
+   *
    * Protobuf type {@code sdv.services.parking.StartSessionResponse}
    */
   public static final class Builder extends
@@ -470,12 +411,10 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
-      sessionId_ = "";
       success_ = false;
       errorMessage_ = "";
-      operatorName_ = "";
-      hourlyRate_ = 0D;
-      currency_ = "";
+      sessionId_ = "";
+      state_ = 0;
       return this;
     }
 
@@ -510,22 +449,16 @@ private static final long serialVersionUID = 0L;
     private void buildPartial0(sdv.services.parking.StartSessionResponse result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.sessionId_ = sessionId_;
-      }
-      if (((from_bitField0_ & 0x00000002) != 0)) {
         result.success_ = success_;
       }
-      if (((from_bitField0_ & 0x00000004) != 0)) {
+      if (((from_bitField0_ & 0x00000002) != 0)) {
         result.errorMessage_ = errorMessage_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.sessionId_ = sessionId_;
+      }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.operatorName_ = operatorName_;
-      }
-      if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.hourlyRate_ = hourlyRate_;
-      }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
-        result.currency_ = currency_;
+        result.state_ = state_;
       }
     }
 
@@ -541,31 +474,21 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(sdv.services.parking.StartSessionResponse other) {
       if (other == sdv.services.parking.StartSessionResponse.getDefaultInstance()) return this;
-      if (!other.getSessionId().isEmpty()) {
-        sessionId_ = other.sessionId_;
-        bitField0_ |= 0x00000001;
-        onChanged();
-      }
       if (other.getSuccess() != false) {
         setSuccess(other.getSuccess());
       }
       if (!other.getErrorMessage().isEmpty()) {
         errorMessage_ = other.errorMessage_;
+        bitField0_ |= 0x00000002;
+        onChanged();
+      }
+      if (!other.getSessionId().isEmpty()) {
+        sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000004;
         onChanged();
       }
-      if (!other.getOperatorName().isEmpty()) {
-        operatorName_ = other.operatorName_;
-        bitField0_ |= 0x00000008;
-        onChanged();
-      }
-      if (java.lang.Double.doubleToRawLongBits(other.getHourlyRate()) != 0) {
-        setHourlyRate(other.getHourlyRate());
-      }
-      if (!other.getCurrency().isEmpty()) {
-        currency_ = other.currency_;
-        bitField0_ |= 0x00000020;
-        onChanged();
+      if (other.state_ != 0) {
+        setStateValue(other.getStateValue());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -593,36 +516,26 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
+            case 8: {
+              success_ = input.readBool();
               bitField0_ |= 0x00000001;
               break;
-            } // case 10
-            case 16: {
-              success_ = input.readBool();
+            } // case 8
+            case 18: {
+              errorMessage_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000002;
               break;
-            } // case 16
+            } // case 18
             case 26: {
-              errorMessage_ = input.readStringRequireUtf8();
+              sessionId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000004;
               break;
             } // case 26
-            case 34: {
-              operatorName_ = input.readStringRequireUtf8();
+            case 32: {
+              state_ = input.readEnum();
               bitField0_ |= 0x00000008;
               break;
-            } // case 34
-            case 41: {
-              hourlyRate_ = input.readDouble();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 41
-            case 50: {
-              currency_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 50
+            } // case 32
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -640,81 +553,13 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private java.lang.Object sessionId_ = "";
-    /**
-     * <code>string session_id = 1;</code>
-     * @return The sessionId.
-     */
-    public java.lang.String getSessionId() {
-      java.lang.Object ref = sessionId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        sessionId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @return The bytes for sessionId.
-     */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
-      java.lang.Object ref = sessionId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sessionId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @param value The sessionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      sessionId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearSessionId() {
-      sessionId_ = getDefaultInstance().getSessionId();
-      bitField0_ = (bitField0_ & ~0x00000001);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @param value The bytes for sessionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      sessionId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
-      return this;
-    }
-
     private boolean success_ ;
     /**
-     * <code>bool success = 2;</code>
+     * <pre>
+     * Whether the operation succeeded
+     * </pre>
+     *
+     * <code>bool success = 1;</code>
      * @return The success.
      */
     @java.lang.Override
@@ -722,23 +567,31 @@ private static final long serialVersionUID = 0L;
       return success_;
     }
     /**
-     * <code>bool success = 2;</code>
+     * <pre>
+     * Whether the operation succeeded
+     * </pre>
+     *
+     * <code>bool success = 1;</code>
      * @param value The success to set.
      * @return This builder for chaining.
      */
     public Builder setSuccess(boolean value) {
 
       success_ = value;
-      bitField0_ |= 0x00000002;
+      bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
     /**
-     * <code>bool success = 2;</code>
+     * <pre>
+     * Whether the operation succeeded
+     * </pre>
+     *
+     * <code>bool success = 1;</code>
      * @return This builder for chaining.
      */
     public Builder clearSuccess() {
-      bitField0_ = (bitField0_ & ~0x00000002);
+      bitField0_ = (bitField0_ & ~0x00000001);
       success_ = false;
       onChanged();
       return this;
@@ -746,7 +599,11 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object errorMessage_ = "";
     /**
-     * <code>string error_message = 3;</code>
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
+     * <code>string error_message = 2;</code>
      * @return The errorMessage.
      */
     public java.lang.String getErrorMessage() {
@@ -762,7 +619,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string error_message = 3;</code>
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
+     * <code>string error_message = 2;</code>
      * @return The bytes for errorMessage.
      */
     public com.google.protobuf.ByteString
@@ -779,7 +640,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string error_message = 3;</code>
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
+     * <code>string error_message = 2;</code>
      * @param value The errorMessage to set.
      * @return This builder for chaining.
      */
@@ -787,22 +652,30 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       errorMessage_ = value;
-      bitField0_ |= 0x00000004;
+      bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
     /**
-     * <code>string error_message = 3;</code>
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
+     * <code>string error_message = 2;</code>
      * @return This builder for chaining.
      */
     public Builder clearErrorMessage() {
       errorMessage_ = getDefaultInstance().getErrorMessage();
-      bitField0_ = (bitField0_ & ~0x00000004);
+      bitField0_ = (bitField0_ & ~0x00000002);
       onChanged();
       return this;
     }
     /**
-     * <code>string error_message = 3;</code>
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
+     * <code>string error_message = 2;</code>
      * @param value The bytes for errorMessage to set.
      * @return This builder for chaining.
      */
@@ -811,183 +684,170 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       errorMessage_ = value;
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object sessionId_ = "";
+    /**
+     * <pre>
+     * Session ID from PARKING_OPERATOR
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @return The sessionId.
+     */
+    public java.lang.String getSessionId() {
+      java.lang.Object ref = sessionId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sessionId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Session ID from PARKING_OPERATOR
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @return The bytes for sessionId.
+     */
+    public com.google.protobuf.ByteString
+        getSessionIdBytes() {
+      java.lang.Object ref = sessionId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sessionId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Session ID from PARKING_OPERATOR
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @param value The sessionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sessionId_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Session ID from PARKING_OPERATOR
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSessionId() {
+      sessionId_ = getDefaultInstance().getSessionId();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Session ID from PARKING_OPERATOR
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @param value The bytes for sessionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sessionId_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
 
-    private java.lang.Object operatorName_ = "";
+    private int state_ = 0;
     /**
-     * <code>string operator_name = 4;</code>
-     * @return The operatorName.
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @return The enum numeric value on the wire for state.
      */
-    public java.lang.String getOperatorName() {
-      java.lang.Object ref = operatorName_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        operatorName_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
+    @java.lang.Override public int getStateValue() {
+      return state_;
     }
     /**
-     * <code>string operator_name = 4;</code>
-     * @return The bytes for operatorName.
-     */
-    public com.google.protobuf.ByteString
-        getOperatorNameBytes() {
-      java.lang.Object ref = operatorName_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        operatorName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string operator_name = 4;</code>
-     * @param value The operatorName to set.
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @param value The enum numeric value on the wire for state to set.
      * @return This builder for chaining.
      */
-    public Builder setOperatorName(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      operatorName_ = value;
+    public Builder setStateValue(int value) {
+      state_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
     /**
-     * <code>string operator_name = 4;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearOperatorName() {
-      operatorName_ = getDefaultInstance().getOperatorName();
-      bitField0_ = (bitField0_ & ~0x00000008);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string operator_name = 4;</code>
-     * @param value The bytes for operatorName to set.
-     * @return This builder for chaining.
-     */
-    public Builder setOperatorNameBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      operatorName_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-
-    private double hourlyRate_ ;
-    /**
-     * <code>double hourly_rate = 5;</code>
-     * @return The hourlyRate.
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @return The state.
      */
     @java.lang.Override
-    public double getHourlyRate() {
-      return hourlyRate_;
+    public sdv.services.parking.SessionState getState() {
+      sdv.services.parking.SessionState result = sdv.services.parking.SessionState.forNumber(state_);
+      return result == null ? sdv.services.parking.SessionState.UNRECOGNIZED : result;
     }
     /**
-     * <code>double hourly_rate = 5;</code>
-     * @param value The hourlyRate to set.
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @param value The state to set.
      * @return This builder for chaining.
      */
-    public Builder setHourlyRate(double value) {
-
-      hourlyRate_ = value;
-      bitField0_ |= 0x00000010;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double hourly_rate = 5;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearHourlyRate() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      hourlyRate_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object currency_ = "";
-    /**
-     * <code>string currency = 6;</code>
-     * @return The currency.
-     */
-    public java.lang.String getCurrency() {
-      java.lang.Object ref = currency_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        currency_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string currency = 6;</code>
-     * @return The bytes for currency.
-     */
-    public com.google.protobuf.ByteString
-        getCurrencyBytes() {
-      java.lang.Object ref = currency_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        currency_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string currency = 6;</code>
-     * @param value The currency to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCurrency(
-        java.lang.String value) {
+    public Builder setState(sdv.services.parking.SessionState value) {
       if (value == null) { throw new NullPointerException(); }
-      currency_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000008;
+      state_ = value.getNumber();
       onChanged();
       return this;
     }
     /**
-     * <code>string currency = 6;</code>
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
      * @return This builder for chaining.
      */
-    public Builder clearCurrency() {
-      currency_ = getDefaultInstance().getCurrency();
-      bitField0_ = (bitField0_ & ~0x00000020);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string currency = 6;</code>
-     * @param value The bytes for currency to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCurrencyBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      currency_ = value;
-      bitField0_ |= 0x00000020;
+    public Builder clearState() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      state_ = 0;
       onChanged();
       return this;
     }

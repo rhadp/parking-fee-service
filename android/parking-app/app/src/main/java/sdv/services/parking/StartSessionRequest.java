@@ -6,6 +6,10 @@
 package sdv.services.parking;
 
 /**
+ * <pre>
+ * Request to start a parking session.
+ * </pre>
+ *
  * Protobuf type {@code sdv.services.parking.StartSessionRequest}
  */
 @com.google.protobuf.Generated
@@ -28,7 +32,6 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private StartSessionRequest() {
-    vehicleId_ = "";
     zoneId_ = "";
   }
 
@@ -45,50 +48,15 @@ private static final long serialVersionUID = 0L;
             sdv.services.parking.StartSessionRequest.class, sdv.services.parking.StartSessionRequest.Builder.class);
   }
 
-  public static final int VEHICLE_ID_FIELD_NUMBER = 1;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object vehicleId_ = "";
-  /**
-   * <code>string vehicle_id = 1;</code>
-   * @return The vehicleId.
-   */
-  @java.lang.Override
-  public java.lang.String getVehicleId() {
-    java.lang.Object ref = vehicleId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      vehicleId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string vehicle_id = 1;</code>
-   * @return The bytes for vehicleId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getVehicleIdBytes() {
-    java.lang.Object ref = vehicleId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      vehicleId_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
-  public static final int ZONE_ID_FIELD_NUMBER = 2;
+  public static final int ZONE_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object zoneId_ = "";
   /**
-   * <code>string zone_id = 2;</code>
+   * <pre>
+   * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+   * </pre>
+   *
+   * <code>string zone_id = 1;</code>
    * @return The zoneId.
    */
   @java.lang.Override
@@ -105,7 +73,11 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string zone_id = 2;</code>
+   * <pre>
+   * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+   * </pre>
+   *
+   * <code>string zone_id = 1;</code>
    * @return The bytes for zoneId.
    */
   @java.lang.Override
@@ -123,28 +95,6 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int LATITUDE_FIELD_NUMBER = 3;
-  private double latitude_ = 0D;
-  /**
-   * <code>double latitude = 3;</code>
-   * @return The latitude.
-   */
-  @java.lang.Override
-  public double getLatitude() {
-    return latitude_;
-  }
-
-  public static final int LONGITUDE_FIELD_NUMBER = 4;
-  private double longitude_ = 0D;
-  /**
-   * <code>double longitude = 4;</code>
-   * @return The longitude.
-   */
-  @java.lang.Override
-  public double getLongitude() {
-    return longitude_;
-  }
-
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -159,17 +109,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(vehicleId_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 1, vehicleId_);
-    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(zoneId_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 2, zoneId_);
-    }
-    if (java.lang.Double.doubleToRawLongBits(latitude_) != 0) {
-      output.writeDouble(3, latitude_);
-    }
-    if (java.lang.Double.doubleToRawLongBits(longitude_) != 0) {
-      output.writeDouble(4, longitude_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 1, zoneId_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -180,19 +121,8 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(vehicleId_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, vehicleId_);
-    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(zoneId_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, zoneId_);
-    }
-    if (java.lang.Double.doubleToRawLongBits(latitude_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(3, latitude_);
-    }
-    if (java.lang.Double.doubleToRawLongBits(longitude_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(4, longitude_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, zoneId_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -209,16 +139,8 @@ private static final long serialVersionUID = 0L;
     }
     sdv.services.parking.StartSessionRequest other = (sdv.services.parking.StartSessionRequest) obj;
 
-    if (!getVehicleId()
-        .equals(other.getVehicleId())) return false;
     if (!getZoneId()
         .equals(other.getZoneId())) return false;
-    if (java.lang.Double.doubleToLongBits(getLatitude())
-        != java.lang.Double.doubleToLongBits(
-            other.getLatitude())) return false;
-    if (java.lang.Double.doubleToLongBits(getLongitude())
-        != java.lang.Double.doubleToLongBits(
-            other.getLongitude())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -230,16 +152,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + VEHICLE_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getVehicleId().hashCode();
     hash = (37 * hash) + ZONE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getZoneId().hashCode();
-    hash = (37 * hash) + LATITUDE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getLatitude()));
-    hash = (37 * hash) + LONGITUDE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getLongitude()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -338,6 +252,10 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
+   * <pre>
+   * Request to start a parking session.
+   * </pre>
+   *
    * Protobuf type {@code sdv.services.parking.StartSessionRequest}
    */
   public static final class Builder extends
@@ -371,10 +289,7 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
-      vehicleId_ = "";
       zoneId_ = "";
-      latitude_ = 0D;
-      longitude_ = 0D;
       return this;
     }
 
@@ -409,16 +324,7 @@ private static final long serialVersionUID = 0L;
     private void buildPartial0(sdv.services.parking.StartSessionRequest result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.vehicleId_ = vehicleId_;
-      }
-      if (((from_bitField0_ & 0x00000002) != 0)) {
         result.zoneId_ = zoneId_;
-      }
-      if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.latitude_ = latitude_;
-      }
-      if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.longitude_ = longitude_;
       }
     }
 
@@ -434,21 +340,10 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(sdv.services.parking.StartSessionRequest other) {
       if (other == sdv.services.parking.StartSessionRequest.getDefaultInstance()) return this;
-      if (!other.getVehicleId().isEmpty()) {
-        vehicleId_ = other.vehicleId_;
-        bitField0_ |= 0x00000001;
-        onChanged();
-      }
       if (!other.getZoneId().isEmpty()) {
         zoneId_ = other.zoneId_;
-        bitField0_ |= 0x00000002;
+        bitField0_ |= 0x00000001;
         onChanged();
-      }
-      if (java.lang.Double.doubleToRawLongBits(other.getLatitude()) != 0) {
-        setLatitude(other.getLatitude());
-      }
-      if (java.lang.Double.doubleToRawLongBits(other.getLongitude()) != 0) {
-        setLongitude(other.getLongitude());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -477,25 +372,10 @@ private static final long serialVersionUID = 0L;
               done = true;
               break;
             case 10: {
-              vehicleId_ = input.readStringRequireUtf8();
+              zoneId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000001;
               break;
             } // case 10
-            case 18: {
-              zoneId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 25: {
-              latitude_ = input.readDouble();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 25
-            case 33: {
-              longitude_ = input.readDouble();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 33
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -513,81 +393,13 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private java.lang.Object vehicleId_ = "";
-    /**
-     * <code>string vehicle_id = 1;</code>
-     * @return The vehicleId.
-     */
-    public java.lang.String getVehicleId() {
-      java.lang.Object ref = vehicleId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        vehicleId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string vehicle_id = 1;</code>
-     * @return The bytes for vehicleId.
-     */
-    public com.google.protobuf.ByteString
-        getVehicleIdBytes() {
-      java.lang.Object ref = vehicleId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        vehicleId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string vehicle_id = 1;</code>
-     * @param value The vehicleId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setVehicleId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      vehicleId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string vehicle_id = 1;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearVehicleId() {
-      vehicleId_ = getDefaultInstance().getVehicleId();
-      bitField0_ = (bitField0_ & ~0x00000001);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string vehicle_id = 1;</code>
-     * @param value The bytes for vehicleId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setVehicleIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      vehicleId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
-      return this;
-    }
-
     private java.lang.Object zoneId_ = "";
     /**
-     * <code>string zone_id = 2;</code>
+     * <pre>
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * </pre>
+     *
+     * <code>string zone_id = 1;</code>
      * @return The zoneId.
      */
     public java.lang.String getZoneId() {
@@ -603,7 +415,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string zone_id = 2;</code>
+     * <pre>
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * </pre>
+     *
+     * <code>string zone_id = 1;</code>
      * @return The bytes for zoneId.
      */
     public com.google.protobuf.ByteString
@@ -620,7 +436,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string zone_id = 2;</code>
+     * <pre>
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * </pre>
+     *
+     * <code>string zone_id = 1;</code>
      * @param value The zoneId to set.
      * @return This builder for chaining.
      */
@@ -628,22 +448,30 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       zoneId_ = value;
-      bitField0_ |= 0x00000002;
+      bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
     /**
-     * <code>string zone_id = 2;</code>
+     * <pre>
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * </pre>
+     *
+     * <code>string zone_id = 1;</code>
      * @return This builder for chaining.
      */
     public Builder clearZoneId() {
       zoneId_ = getDefaultInstance().getZoneId();
-      bitField0_ = (bitField0_ & ~0x00000002);
+      bitField0_ = (bitField0_ & ~0x00000001);
       onChanged();
       return this;
     }
     /**
-     * <code>string zone_id = 2;</code>
+     * <pre>
+     * Zone_ID provided by PARKING_APP (obtained from PARKING_FEE_SERVICE based on location)
+     * </pre>
+     *
+     * <code>string zone_id = 1;</code>
      * @param value The bytes for zoneId to set.
      * @return This builder for chaining.
      */
@@ -652,71 +480,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       zoneId_ = value;
-      bitField0_ |= 0x00000002;
-      onChanged();
-      return this;
-    }
-
-    private double latitude_ ;
-    /**
-     * <code>double latitude = 3;</code>
-     * @return The latitude.
-     */
-    @java.lang.Override
-    public double getLatitude() {
-      return latitude_;
-    }
-    /**
-     * <code>double latitude = 3;</code>
-     * @param value The latitude to set.
-     * @return This builder for chaining.
-     */
-    public Builder setLatitude(double value) {
-
-      latitude_ = value;
-      bitField0_ |= 0x00000004;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double latitude = 3;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearLatitude() {
-      bitField0_ = (bitField0_ & ~0x00000004);
-      latitude_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private double longitude_ ;
-    /**
-     * <code>double longitude = 4;</code>
-     * @return The longitude.
-     */
-    @java.lang.Override
-    public double getLongitude() {
-      return longitude_;
-    }
-    /**
-     * <code>double longitude = 4;</code>
-     * @param value The longitude to set.
-     * @return This builder for chaining.
-     */
-    public Builder setLongitude(double value) {
-
-      longitude_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double longitude = 4;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearLongitude() {
-      bitField0_ = (bitField0_ & ~0x00000008);
-      longitude_ = 0D;
+      bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }

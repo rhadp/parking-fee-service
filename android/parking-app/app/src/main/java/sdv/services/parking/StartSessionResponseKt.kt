@@ -11,6 +11,10 @@ package sdv.services.parking;
 public inline fun startSessionResponse(block: sdv.services.parking.StartSessionResponseKt.Dsl.() -> kotlin.Unit): sdv.services.parking.StartSessionResponse =
   sdv.services.parking.StartSessionResponseKt.Dsl._create(sdv.services.parking.StartSessionResponse.newBuilder()).apply { block() }._build()
 /**
+ * ```
+ * Response from starting a parking session.
+ * ```
+ *
  * Protobuf type `sdv.services.parking.StartSessionResponse`
  */
 public object StartSessionResponseKt {
@@ -30,24 +34,11 @@ public object StartSessionResponseKt {
     internal fun _build(): sdv.services.parking.StartSessionResponse = _builder.build()
 
     /**
-     * `string session_id = 1;`
-     */
-    public var sessionId: kotlin.String
-      @kotlin.jvm.JvmName("getSessionId")
-        get() = _builder.sessionId
-      @kotlin.jvm.JvmName("setSessionId")
-        set(value) {
-        _builder.sessionId = value
-      }
-    /**
-     * `string session_id = 1;`
-     */
-    public fun clearSessionId() {
-      _builder.clearSessionId()
-    }
-
-    /**
-     * `bool success = 2;`
+     * ```
+     * Whether the operation succeeded
+     * ```
+     *
+     * `bool success = 1;`
      */
     public var success: kotlin.Boolean
       @kotlin.jvm.JvmName("getSuccess")
@@ -57,14 +48,22 @@ public object StartSessionResponseKt {
         _builder.success = value
       }
     /**
-     * `bool success = 2;`
+     * ```
+     * Whether the operation succeeded
+     * ```
+     *
+     * `bool success = 1;`
      */
     public fun clearSuccess() {
       _builder.clearSuccess()
     }
 
     /**
-     * `string error_message = 3;`
+     * ```
+     * Error message if failed
+     * ```
+     *
+     * `string error_message = 2;`
      */
     public var errorMessage: kotlin.String
       @kotlin.jvm.JvmName("getErrorMessage")
@@ -74,61 +73,71 @@ public object StartSessionResponseKt {
         _builder.errorMessage = value
       }
     /**
-     * `string error_message = 3;`
+     * ```
+     * Error message if failed
+     * ```
+     *
+     * `string error_message = 2;`
      */
     public fun clearErrorMessage() {
       _builder.clearErrorMessage()
     }
 
     /**
-     * `string operator_name = 4;`
+     * ```
+     * Session ID from PARKING_OPERATOR
+     * ```
+     *
+     * `string session_id = 3;`
      */
-    public var operatorName: kotlin.String
-      @kotlin.jvm.JvmName("getOperatorName")
-        get() = _builder.operatorName
-      @kotlin.jvm.JvmName("setOperatorName")
+    public var sessionId: kotlin.String
+      @kotlin.jvm.JvmName("getSessionId")
+        get() = _builder.sessionId
+      @kotlin.jvm.JvmName("setSessionId")
         set(value) {
-        _builder.operatorName = value
+        _builder.sessionId = value
       }
     /**
-     * `string operator_name = 4;`
+     * ```
+     * Session ID from PARKING_OPERATOR
+     * ```
+     *
+     * `string session_id = 3;`
      */
-    public fun clearOperatorName() {
-      _builder.clearOperatorName()
+    public fun clearSessionId() {
+      _builder.clearSessionId()
     }
 
     /**
-     * `double hourly_rate = 5;`
+     * ```
+     * Current session state
+     * ```
+     *
+     * `.sdv.services.parking.SessionState state = 4;`
      */
-    public var hourlyRate: kotlin.Double
-      @kotlin.jvm.JvmName("getHourlyRate")
-        get() = _builder.hourlyRate
-      @kotlin.jvm.JvmName("setHourlyRate")
+    public var state: sdv.services.parking.SessionState
+      @kotlin.jvm.JvmName("getState")
+        get() = _builder.state
+      @kotlin.jvm.JvmName("setState")
         set(value) {
-        _builder.hourlyRate = value
+        _builder.state = value
+      }
+    public var stateValue: kotlin.Int
+      @kotlin.jvm.JvmName("getStateValue")
+        get() = _builder.stateValue
+      @kotlin.jvm.JvmName("setStateValue")
+        set(value) {
+        _builder.stateValue = value
       }
     /**
-     * `double hourly_rate = 5;`
+     * ```
+     * Current session state
+     * ```
+     *
+     * `.sdv.services.parking.SessionState state = 4;`
      */
-    public fun clearHourlyRate() {
-      _builder.clearHourlyRate()
-    }
-
-    /**
-     * `string currency = 6;`
-     */
-    public var currency: kotlin.String
-      @kotlin.jvm.JvmName("getCurrency")
-        get() = _builder.currency
-      @kotlin.jvm.JvmName("setCurrency")
-        set(value) {
-        _builder.currency = value
-      }
-    /**
-     * `string currency = 6;`
-     */
-    public fun clearCurrency() {
-      _builder.clearCurrency()
+    public fun clearState() {
+      _builder.clearState()
     }
   }
 }

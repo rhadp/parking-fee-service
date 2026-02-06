@@ -6,6 +6,10 @@
 package sdv.services.parking;
 
 /**
+ * <pre>
+ * Request to get session status.
+ * </pre>
+ *
  * Protobuf type {@code sdv.services.parking.GetSessionStatusRequest}
  */
 @com.google.protobuf.Generated
@@ -28,7 +32,6 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private GetSessionStatusRequest() {
-    sessionId_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -42,45 +45,6 @@ private static final long serialVersionUID = 0L;
     return sdv.services.parking.ParkingAdaptorOuterClass.internal_static_sdv_services_parking_GetSessionStatusRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
             sdv.services.parking.GetSessionStatusRequest.class, sdv.services.parking.GetSessionStatusRequest.Builder.class);
-  }
-
-  public static final int SESSION_ID_FIELD_NUMBER = 1;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object sessionId_ = "";
-  /**
-   * <code>string session_id = 1;</code>
-   * @return The sessionId.
-   */
-  @java.lang.Override
-  public java.lang.String getSessionId() {
-    java.lang.Object ref = sessionId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      sessionId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string session_id = 1;</code>
-   * @return The bytes for sessionId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
-    java.lang.Object ref = sessionId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      sessionId_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -97,9 +61,6 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 1, sessionId_);
-    }
     getUnknownFields().writeTo(output);
   }
 
@@ -109,9 +70,6 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, sessionId_);
-    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -127,8 +85,6 @@ private static final long serialVersionUID = 0L;
     }
     sdv.services.parking.GetSessionStatusRequest other = (sdv.services.parking.GetSessionStatusRequest) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -140,8 +96,6 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getSessionId().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -240,6 +194,10 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
+   * <pre>
+   * Request to get session status.
+   * </pre>
+   *
    * Protobuf type {@code sdv.services.parking.GetSessionStatusRequest}
    */
   public static final class Builder extends
@@ -272,8 +230,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      bitField0_ = 0;
-      sessionId_ = "";
       return this;
     }
 
@@ -300,16 +256,8 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public sdv.services.parking.GetSessionStatusRequest buildPartial() {
       sdv.services.parking.GetSessionStatusRequest result = new sdv.services.parking.GetSessionStatusRequest(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
-    }
-
-    private void buildPartial0(sdv.services.parking.GetSessionStatusRequest result) {
-      int from_bitField0_ = bitField0_;
-      if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.sessionId_ = sessionId_;
-      }
     }
 
     @java.lang.Override
@@ -324,11 +272,6 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(sdv.services.parking.GetSessionStatusRequest other) {
       if (other == sdv.services.parking.GetSessionStatusRequest.getDefaultInstance()) return this;
-      if (!other.getSessionId().isEmpty()) {
-        sessionId_ = other.sessionId_;
-        bitField0_ |= 0x00000001;
-        onChanged();
-      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -355,11 +298,6 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -373,79 +311,6 @@ private static final long serialVersionUID = 0L;
       } finally {
         onChanged();
       } // finally
-      return this;
-    }
-    private int bitField0_;
-
-    private java.lang.Object sessionId_ = "";
-    /**
-     * <code>string session_id = 1;</code>
-     * @return The sessionId.
-     */
-    public java.lang.String getSessionId() {
-      java.lang.Object ref = sessionId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        sessionId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @return The bytes for sessionId.
-     */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
-      java.lang.Object ref = sessionId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sessionId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @param value The sessionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      sessionId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearSessionId() {
-      sessionId_ = getDefaultInstance().getSessionId();
-      bitField0_ = (bitField0_ & ~0x00000001);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string session_id = 1;</code>
-     * @param value The bytes for sessionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      sessionId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
       return this;
     }
 

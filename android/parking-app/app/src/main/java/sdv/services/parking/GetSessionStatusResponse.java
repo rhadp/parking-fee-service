@@ -6,6 +6,10 @@
 package sdv.services.parking;
 
 /**
+ * <pre>
+ * Response with session status information.
+ * </pre>
+ *
  * Protobuf type {@code sdv.services.parking.GetSessionStatusResponse}
  */
 @com.google.protobuf.Generated
@@ -29,7 +33,9 @@ private static final long serialVersionUID = 0L;
   }
   private GetSessionStatusResponse() {
     sessionId_ = "";
-    currency_ = "";
+    state_ = 0;
+    zoneId_ = "";
+    errorMessage_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -45,12 +51,30 @@ private static final long serialVersionUID = 0L;
             sdv.services.parking.GetSessionStatusResponse.class, sdv.services.parking.GetSessionStatusResponse.Builder.class);
   }
 
-  private int bitField0_;
-  public static final int SESSION_ID_FIELD_NUMBER = 1;
+  public static final int HAS_ACTIVE_SESSION_FIELD_NUMBER = 1;
+  private boolean hasActiveSession_ = false;
+  /**
+   * <pre>
+   * Whether there is an active session
+   * </pre>
+   *
+   * <code>bool has_active_session = 1;</code>
+   * @return The hasActiveSession.
+   */
+  @java.lang.Override
+  public boolean getHasActiveSession() {
+    return hasActiveSession_;
+  }
+
+  public static final int SESSION_ID_FIELD_NUMBER = 2;
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
   /**
-   * <code>string session_id = 1;</code>
+   * <pre>
+   * Session ID (empty if no session)
+   * </pre>
+   *
+   * <code>string session_id = 2;</code>
    * @return The sessionId.
    */
   @java.lang.Override
@@ -67,7 +91,11 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string session_id = 1;</code>
+   * <pre>
+   * Session ID (empty if no session)
+   * </pre>
+   *
+   * <code>string session_id = 2;</code>
    * @return The bytes for sessionId.
    */
   @java.lang.Override
@@ -85,91 +113,199 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int ACTIVE_FIELD_NUMBER = 2;
-  private boolean active_ = false;
+  public static final int STATE_FIELD_NUMBER = 3;
+  private int state_ = 0;
   /**
-   * <code>bool active = 2;</code>
-   * @return The active.
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 3;</code>
+   * @return The enum numeric value on the wire for state.
    */
-  @java.lang.Override
-  public boolean getActive() {
-    return active_;
+  @java.lang.Override public int getStateValue() {
+    return state_;
+  }
+  /**
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 3;</code>
+   * @return The state.
+   */
+  @java.lang.Override public sdv.services.parking.SessionState getState() {
+    sdv.services.parking.SessionState result = sdv.services.parking.SessionState.forNumber(state_);
+    return result == null ? sdv.services.parking.SessionState.UNRECOGNIZED : result;
   }
 
-  public static final int START_TIME_FIELD_NUMBER = 3;
-  private com.google.protobuf.Timestamp startTime_;
+  public static final int START_TIME_UNIX_FIELD_NUMBER = 4;
+  private long startTimeUnix_ = 0L;
   /**
-   * <code>.google.protobuf.Timestamp start_time = 3;</code>
-   * @return Whether the startTime field is set.
+   * <pre>
+   * Session start time as Unix timestamp
+   * </pre>
+   *
+   * <code>int64 start_time_unix = 4;</code>
+   * @return The startTimeUnix.
    */
   @java.lang.Override
-  public boolean hasStartTime() {
-    return ((bitField0_ & 0x00000001) != 0);
-  }
-  /**
-   * <code>.google.protobuf.Timestamp start_time = 3;</code>
-   * @return The startTime.
-   */
-  @java.lang.Override
-  public com.google.protobuf.Timestamp getStartTime() {
-    return startTime_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : startTime_;
-  }
-  /**
-   * <code>.google.protobuf.Timestamp start_time = 3;</code>
-   */
-  @java.lang.Override
-  public com.google.protobuf.TimestampOrBuilder getStartTimeOrBuilder() {
-    return startTime_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : startTime_;
+  public long getStartTimeUnix() {
+    return startTimeUnix_;
   }
 
-  public static final int CURRENT_AMOUNT_FIELD_NUMBER = 4;
-  private double currentAmount_ = 0D;
+  public static final int DURATION_SECONDS_FIELD_NUMBER = 5;
+  private long durationSeconds_ = 0L;
   /**
-   * <code>double current_amount = 4;</code>
-   * @return The currentAmount.
+   * <pre>
+   * Duration of the session in seconds
+   * </pre>
+   *
+   * <code>int64 duration_seconds = 5;</code>
+   * @return The durationSeconds.
    */
   @java.lang.Override
-  public double getCurrentAmount() {
-    return currentAmount_;
+  public long getDurationSeconds() {
+    return durationSeconds_;
   }
 
-  public static final int CURRENCY_FIELD_NUMBER = 5;
+  public static final int CURRENT_COST_FIELD_NUMBER = 6;
+  private double currentCost_ = 0D;
+  /**
+   * <pre>
+   * Current cost of the session
+   * </pre>
+   *
+   * <code>double current_cost = 6;</code>
+   * @return The currentCost.
+   */
+  @java.lang.Override
+  public double getCurrentCost() {
+    return currentCost_;
+  }
+
+  public static final int ZONE_ID_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object currency_ = "";
+  private volatile java.lang.Object zoneId_ = "";
   /**
-   * <code>string currency = 5;</code>
-   * @return The currency.
+   * <pre>
+   * Zone ID where parked
+   * </pre>
+   *
+   * <code>string zone_id = 7;</code>
+   * @return The zoneId.
    */
   @java.lang.Override
-  public java.lang.String getCurrency() {
-    java.lang.Object ref = currency_;
+  public java.lang.String getZoneId() {
+    java.lang.Object ref = zoneId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      currency_ = s;
+      zoneId_ = s;
       return s;
     }
   }
   /**
-   * <code>string currency = 5;</code>
-   * @return The bytes for currency.
+   * <pre>
+   * Zone ID where parked
+   * </pre>
+   *
+   * <code>string zone_id = 7;</code>
+   * @return The bytes for zoneId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getCurrencyBytes() {
-    java.lang.Object ref = currency_;
+      getZoneIdBytes() {
+    java.lang.Object ref = zoneId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      currency_ = b;
+      zoneId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
+  }
+
+  public static final int ERROR_MESSAGE_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object errorMessage_ = "";
+  /**
+   * <pre>
+   * Error message if state is ERROR
+   * </pre>
+   *
+   * <code>string error_message = 8;</code>
+   * @return The errorMessage.
+   */
+  @java.lang.Override
+  public java.lang.String getErrorMessage() {
+    java.lang.Object ref = errorMessage_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      errorMessage_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Error message if state is ERROR
+   * </pre>
+   *
+   * <code>string error_message = 8;</code>
+   * @return The bytes for errorMessage.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getErrorMessageBytes() {
+    java.lang.Object ref = errorMessage_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      errorMessage_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int LATITUDE_FIELD_NUMBER = 9;
+  private double latitude_ = 0D;
+  /**
+   * <pre>
+   * Latitude where session started
+   * </pre>
+   *
+   * <code>double latitude = 9;</code>
+   * @return The latitude.
+   */
+  @java.lang.Override
+  public double getLatitude() {
+    return latitude_;
+  }
+
+  public static final int LONGITUDE_FIELD_NUMBER = 10;
+  private double longitude_ = 0D;
+  /**
+   * <pre>
+   * Longitude where session started
+   * </pre>
+   *
+   * <code>double longitude = 10;</code>
+   * @return The longitude.
+   */
+  @java.lang.Override
+  public double getLongitude() {
+    return longitude_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -186,20 +322,35 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    if (hasActiveSession_ != false) {
+      output.writeBool(1, hasActiveSession_);
+    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 1, sessionId_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, sessionId_);
     }
-    if (active_ != false) {
-      output.writeBool(2, active_);
+    if (state_ != sdv.services.parking.SessionState.SESSION_STATE_NONE.getNumber()) {
+      output.writeEnum(3, state_);
     }
-    if (((bitField0_ & 0x00000001) != 0)) {
-      output.writeMessage(3, getStartTime());
+    if (startTimeUnix_ != 0L) {
+      output.writeInt64(4, startTimeUnix_);
     }
-    if (java.lang.Double.doubleToRawLongBits(currentAmount_) != 0) {
-      output.writeDouble(4, currentAmount_);
+    if (durationSeconds_ != 0L) {
+      output.writeInt64(5, durationSeconds_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(currency_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 5, currency_);
+    if (java.lang.Double.doubleToRawLongBits(currentCost_) != 0) {
+      output.writeDouble(6, currentCost_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(zoneId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, zoneId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(errorMessage_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, errorMessage_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(latitude_) != 0) {
+      output.writeDouble(9, latitude_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(longitude_) != 0) {
+      output.writeDouble(10, longitude_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -210,23 +361,42 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
+    if (hasActiveSession_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(1, hasActiveSession_);
+    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, sessionId_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, sessionId_);
     }
-    if (active_ != false) {
+    if (state_ != sdv.services.parking.SessionState.SESSION_STATE_NONE.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(2, active_);
+        .computeEnumSize(3, state_);
     }
-    if (((bitField0_ & 0x00000001) != 0)) {
+    if (startTimeUnix_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(3, getStartTime());
+        .computeInt64Size(4, startTimeUnix_);
     }
-    if (java.lang.Double.doubleToRawLongBits(currentAmount_) != 0) {
+    if (durationSeconds_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(4, currentAmount_);
+        .computeInt64Size(5, durationSeconds_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(currency_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, currency_);
+    if (java.lang.Double.doubleToRawLongBits(currentCost_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(6, currentCost_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(zoneId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, zoneId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(errorMessage_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, errorMessage_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(latitude_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(9, latitude_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(longitude_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(10, longitude_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -243,20 +413,28 @@ private static final long serialVersionUID = 0L;
     }
     sdv.services.parking.GetSessionStatusResponse other = (sdv.services.parking.GetSessionStatusResponse) obj;
 
+    if (getHasActiveSession()
+        != other.getHasActiveSession()) return false;
     if (!getSessionId()
         .equals(other.getSessionId())) return false;
-    if (getActive()
-        != other.getActive()) return false;
-    if (hasStartTime() != other.hasStartTime()) return false;
-    if (hasStartTime()) {
-      if (!getStartTime()
-          .equals(other.getStartTime())) return false;
-    }
-    if (java.lang.Double.doubleToLongBits(getCurrentAmount())
+    if (state_ != other.state_) return false;
+    if (getStartTimeUnix()
+        != other.getStartTimeUnix()) return false;
+    if (getDurationSeconds()
+        != other.getDurationSeconds()) return false;
+    if (java.lang.Double.doubleToLongBits(getCurrentCost())
         != java.lang.Double.doubleToLongBits(
-            other.getCurrentAmount())) return false;
-    if (!getCurrency()
-        .equals(other.getCurrency())) return false;
+            other.getCurrentCost())) return false;
+    if (!getZoneId()
+        .equals(other.getZoneId())) return false;
+    if (!getErrorMessage()
+        .equals(other.getErrorMessage())) return false;
+    if (java.lang.Double.doubleToLongBits(getLatitude())
+        != java.lang.Double.doubleToLongBits(
+            other.getLatitude())) return false;
+    if (java.lang.Double.doubleToLongBits(getLongitude())
+        != java.lang.Double.doubleToLongBits(
+            other.getLongitude())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -268,20 +446,32 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
+    hash = (37 * hash) + HAS_ACTIVE_SESSION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasActiveSession());
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
-    hash = (37 * hash) + ACTIVE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getActive());
-    if (hasStartTime()) {
-      hash = (37 * hash) + START_TIME_FIELD_NUMBER;
-      hash = (53 * hash) + getStartTime().hashCode();
-    }
-    hash = (37 * hash) + CURRENT_AMOUNT_FIELD_NUMBER;
+    hash = (37 * hash) + STATE_FIELD_NUMBER;
+    hash = (53 * hash) + state_;
+    hash = (37 * hash) + START_TIME_UNIX_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getCurrentAmount()));
-    hash = (37 * hash) + CURRENCY_FIELD_NUMBER;
-    hash = (53 * hash) + getCurrency().hashCode();
+        getStartTimeUnix());
+    hash = (37 * hash) + DURATION_SECONDS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getDurationSeconds());
+    hash = (37 * hash) + CURRENT_COST_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCurrentCost()));
+    hash = (37 * hash) + ZONE_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getZoneId().hashCode();
+    hash = (37 * hash) + ERROR_MESSAGE_FIELD_NUMBER;
+    hash = (53 * hash) + getErrorMessage().hashCode();
+    hash = (37 * hash) + LATITUDE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getLatitude()));
+    hash = (37 * hash) + LONGITUDE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getLongitude()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -380,6 +570,10 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
+   * <pre>
+   * Response with session status information.
+   * </pre>
+   *
    * Protobuf type {@code sdv.services.parking.GetSessionStatusResponse}
    */
   public static final class Builder extends
@@ -401,33 +595,28 @@ private static final long serialVersionUID = 0L;
 
     // Construct using sdv.services.parking.GetSessionStatusResponse.newBuilder()
     private Builder() {
-      maybeForceBuilderInitialization();
+
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-      maybeForceBuilderInitialization();
-    }
-    private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessage
-              .alwaysUseFieldBuilders) {
-        internalGetStartTimeFieldBuilder();
-      }
+
     }
     @java.lang.Override
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      hasActiveSession_ = false;
       sessionId_ = "";
-      active_ = false;
-      startTime_ = null;
-      if (startTimeBuilder_ != null) {
-        startTimeBuilder_.dispose();
-        startTimeBuilder_ = null;
-      }
-      currentAmount_ = 0D;
-      currency_ = "";
+      state_ = 0;
+      startTimeUnix_ = 0L;
+      durationSeconds_ = 0L;
+      currentCost_ = 0D;
+      zoneId_ = "";
+      errorMessage_ = "";
+      latitude_ = 0D;
+      longitude_ = 0D;
       return this;
     }
 
@@ -462,25 +651,35 @@ private static final long serialVersionUID = 0L;
     private void buildPartial0(sdv.services.parking.GetSessionStatusResponse result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.sessionId_ = sessionId_;
+        result.hasActiveSession_ = hasActiveSession_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.active_ = active_;
+        result.sessionId_ = sessionId_;
       }
-      int to_bitField0_ = 0;
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.startTime_ = startTimeBuilder_ == null
-            ? startTime_
-            : startTimeBuilder_.build();
-        to_bitField0_ |= 0x00000001;
+        result.state_ = state_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.currentAmount_ = currentAmount_;
+        result.startTimeUnix_ = startTimeUnix_;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.currency_ = currency_;
+        result.durationSeconds_ = durationSeconds_;
       }
-      result.bitField0_ |= to_bitField0_;
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.currentCost_ = currentCost_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.zoneId_ = zoneId_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.errorMessage_ = errorMessage_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.latitude_ = latitude_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.longitude_ = longitude_;
+      }
     }
 
     @java.lang.Override
@@ -495,24 +694,41 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(sdv.services.parking.GetSessionStatusResponse other) {
       if (other == sdv.services.parking.GetSessionStatusResponse.getDefaultInstance()) return this;
+      if (other.getHasActiveSession() != false) {
+        setHasActiveSession(other.getHasActiveSession());
+      }
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
-        bitField0_ |= 0x00000001;
+        bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (other.getActive() != false) {
-        setActive(other.getActive());
+      if (other.state_ != 0) {
+        setStateValue(other.getStateValue());
       }
-      if (other.hasStartTime()) {
-        mergeStartTime(other.getStartTime());
+      if (other.getStartTimeUnix() != 0L) {
+        setStartTimeUnix(other.getStartTimeUnix());
       }
-      if (java.lang.Double.doubleToRawLongBits(other.getCurrentAmount()) != 0) {
-        setCurrentAmount(other.getCurrentAmount());
+      if (other.getDurationSeconds() != 0L) {
+        setDurationSeconds(other.getDurationSeconds());
       }
-      if (!other.getCurrency().isEmpty()) {
-        currency_ = other.currency_;
-        bitField0_ |= 0x00000010;
+      if (java.lang.Double.doubleToRawLongBits(other.getCurrentCost()) != 0) {
+        setCurrentCost(other.getCurrentCost());
+      }
+      if (!other.getZoneId().isEmpty()) {
+        zoneId_ = other.zoneId_;
+        bitField0_ |= 0x00000040;
         onChanged();
+      }
+      if (!other.getErrorMessage().isEmpty()) {
+        errorMessage_ = other.errorMessage_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getLatitude()) != 0) {
+        setLatitude(other.getLatitude());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getLongitude()) != 0) {
+        setLongitude(other.getLongitude());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -540,33 +756,56 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
+            case 8: {
+              hasActiveSession_ = input.readBool();
               bitField0_ |= 0x00000001;
               break;
-            } // case 10
-            case 16: {
-              active_ = input.readBool();
+            } // case 8
+            case 18: {
+              sessionId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000002;
               break;
-            } // case 16
-            case 26: {
-              input.readMessage(
-                  internalGetStartTimeFieldBuilder().getBuilder(),
-                  extensionRegistry);
+            } // case 18
+            case 24: {
+              state_ = input.readEnum();
               bitField0_ |= 0x00000004;
               break;
-            } // case 26
-            case 33: {
-              currentAmount_ = input.readDouble();
+            } // case 24
+            case 32: {
+              startTimeUnix_ = input.readInt64();
               bitField0_ |= 0x00000008;
               break;
-            } // case 33
-            case 42: {
-              currency_ = input.readStringRequireUtf8();
+            } // case 32
+            case 40: {
+              durationSeconds_ = input.readInt64();
               bitField0_ |= 0x00000010;
               break;
-            } // case 42
+            } // case 40
+            case 49: {
+              currentCost_ = input.readDouble();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 49
+            case 58: {
+              zoneId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              errorMessage_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 73: {
+              latitude_ = input.readDouble();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 73
+            case 81: {
+              longitude_ = input.readDouble();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 81
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -584,9 +823,57 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
+    private boolean hasActiveSession_ ;
+    /**
+     * <pre>
+     * Whether there is an active session
+     * </pre>
+     *
+     * <code>bool has_active_session = 1;</code>
+     * @return The hasActiveSession.
+     */
+    @java.lang.Override
+    public boolean getHasActiveSession() {
+      return hasActiveSession_;
+    }
+    /**
+     * <pre>
+     * Whether there is an active session
+     * </pre>
+     *
+     * <code>bool has_active_session = 1;</code>
+     * @param value The hasActiveSession to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasActiveSession(boolean value) {
+
+      hasActiveSession_ = value;
+      bitField0_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether there is an active session
+     * </pre>
+     *
+     * <code>bool has_active_session = 1;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasActiveSession() {
+      bitField0_ = (bitField0_ & ~0x00000001);
+      hasActiveSession_ = false;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object sessionId_ = "";
     /**
-     * <code>string session_id = 1;</code>
+     * <pre>
+     * Session ID (empty if no session)
+     * </pre>
+     *
+     * <code>string session_id = 2;</code>
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
@@ -602,7 +889,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string session_id = 1;</code>
+     * <pre>
+     * Session ID (empty if no session)
+     * </pre>
+     *
+     * <code>string session_id = 2;</code>
      * @return The bytes for sessionId.
      */
     public com.google.protobuf.ByteString
@@ -619,7 +910,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string session_id = 1;</code>
+     * <pre>
+     * Session ID (empty if no session)
+     * </pre>
+     *
+     * <code>string session_id = 2;</code>
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
@@ -627,22 +922,30 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       sessionId_ = value;
-      bitField0_ |= 0x00000001;
+      bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
     /**
-     * <code>string session_id = 1;</code>
+     * <pre>
+     * Session ID (empty if no session)
+     * </pre>
+     *
+     * <code>string session_id = 2;</code>
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
       sessionId_ = getDefaultInstance().getSessionId();
-      bitField0_ = (bitField0_ & ~0x00000001);
+      bitField0_ = (bitField0_ & ~0x00000002);
       onChanged();
       return this;
     }
     /**
-     * <code>string session_id = 1;</code>
+     * <pre>
+     * Session ID (empty if no session)
+     * </pre>
+     *
+     * <code>string session_id = 2;</code>
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
@@ -651,264 +954,482 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
-      bitField0_ |= 0x00000001;
-      onChanged();
-      return this;
-    }
-
-    private boolean active_ ;
-    /**
-     * <code>bool active = 2;</code>
-     * @return The active.
-     */
-    @java.lang.Override
-    public boolean getActive() {
-      return active_;
-    }
-    /**
-     * <code>bool active = 2;</code>
-     * @param value The active to set.
-     * @return This builder for chaining.
-     */
-    public Builder setActive(boolean value) {
-
-      active_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
+    private int state_ = 0;
     /**
-     * <code>bool active = 2;</code>
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 3;</code>
+     * @return The enum numeric value on the wire for state.
+     */
+    @java.lang.Override public int getStateValue() {
+      return state_;
+    }
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 3;</code>
+     * @param value The enum numeric value on the wire for state to set.
      * @return This builder for chaining.
      */
-    public Builder clearActive() {
-      bitField0_ = (bitField0_ & ~0x00000002);
-      active_ = false;
-      onChanged();
-      return this;
-    }
-
-    private com.google.protobuf.Timestamp startTime_;
-    private com.google.protobuf.SingleFieldBuilder<
-        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> startTimeBuilder_;
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     * @return Whether the startTime field is set.
-     */
-    public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000004) != 0);
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     * @return The startTime.
-     */
-    public com.google.protobuf.Timestamp getStartTime() {
-      if (startTimeBuilder_ == null) {
-        return startTime_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : startTime_;
-      } else {
-        return startTimeBuilder_.getMessage();
-      }
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    public Builder setStartTime(com.google.protobuf.Timestamp value) {
-      if (startTimeBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        startTime_ = value;
-      } else {
-        startTimeBuilder_.setMessage(value);
-      }
+    public Builder setStateValue(int value) {
+      state_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
     /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    public Builder setStartTime(
-        com.google.protobuf.Timestamp.Builder builderForValue) {
-      if (startTimeBuilder_ == null) {
-        startTime_ = builderForValue.build();
-      } else {
-        startTimeBuilder_.setMessage(builderForValue.build());
-      }
-      bitField0_ |= 0x00000004;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    public Builder mergeStartTime(com.google.protobuf.Timestamp value) {
-      if (startTimeBuilder_ == null) {
-        if (((bitField0_ & 0x00000004) != 0) &&
-          startTime_ != null &&
-          startTime_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
-          getStartTimeBuilder().mergeFrom(value);
-        } else {
-          startTime_ = value;
-        }
-      } else {
-        startTimeBuilder_.mergeFrom(value);
-      }
-      if (startTime_ != null) {
-        bitField0_ |= 0x00000004;
-        onChanged();
-      }
-      return this;
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    public Builder clearStartTime() {
-      bitField0_ = (bitField0_ & ~0x00000004);
-      startTime_ = null;
-      if (startTimeBuilder_ != null) {
-        startTimeBuilder_.dispose();
-        startTimeBuilder_ = null;
-      }
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    public com.google.protobuf.Timestamp.Builder getStartTimeBuilder() {
-      bitField0_ |= 0x00000004;
-      onChanged();
-      return internalGetStartTimeFieldBuilder().getBuilder();
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    public com.google.protobuf.TimestampOrBuilder getStartTimeOrBuilder() {
-      if (startTimeBuilder_ != null) {
-        return startTimeBuilder_.getMessageOrBuilder();
-      } else {
-        return startTime_ == null ?
-            com.google.protobuf.Timestamp.getDefaultInstance() : startTime_;
-      }
-    }
-    /**
-     * <code>.google.protobuf.Timestamp start_time = 3;</code>
-     */
-    private com.google.protobuf.SingleFieldBuilder<
-        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
-        internalGetStartTimeFieldBuilder() {
-      if (startTimeBuilder_ == null) {
-        startTimeBuilder_ = new com.google.protobuf.SingleFieldBuilder<
-            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
-                getStartTime(),
-                getParentForChildren(),
-                isClean());
-        startTime_ = null;
-      }
-      return startTimeBuilder_;
-    }
-
-    private double currentAmount_ ;
-    /**
-     * <code>double current_amount = 4;</code>
-     * @return The currentAmount.
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 3;</code>
+     * @return The state.
      */
     @java.lang.Override
-    public double getCurrentAmount() {
-      return currentAmount_;
+    public sdv.services.parking.SessionState getState() {
+      sdv.services.parking.SessionState result = sdv.services.parking.SessionState.forNumber(state_);
+      return result == null ? sdv.services.parking.SessionState.UNRECOGNIZED : result;
     }
     /**
-     * <code>double current_amount = 4;</code>
-     * @param value The currentAmount to set.
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 3;</code>
+     * @param value The state to set.
      * @return This builder for chaining.
      */
-    public Builder setCurrentAmount(double value) {
+    public Builder setState(sdv.services.parking.SessionState value) {
+      if (value == null) { throw new NullPointerException(); }
+      bitField0_ |= 0x00000004;
+      state_ = value.getNumber();
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 3;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearState() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      state_ = 0;
+      onChanged();
+      return this;
+    }
 
-      currentAmount_ = value;
+    private long startTimeUnix_ ;
+    /**
+     * <pre>
+     * Session start time as Unix timestamp
+     * </pre>
+     *
+     * <code>int64 start_time_unix = 4;</code>
+     * @return The startTimeUnix.
+     */
+    @java.lang.Override
+    public long getStartTimeUnix() {
+      return startTimeUnix_;
+    }
+    /**
+     * <pre>
+     * Session start time as Unix timestamp
+     * </pre>
+     *
+     * <code>int64 start_time_unix = 4;</code>
+     * @param value The startTimeUnix to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartTimeUnix(long value) {
+
+      startTimeUnix_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
     /**
-     * <code>double current_amount = 4;</code>
+     * <pre>
+     * Session start time as Unix timestamp
+     * </pre>
+     *
+     * <code>int64 start_time_unix = 4;</code>
      * @return This builder for chaining.
      */
-    public Builder clearCurrentAmount() {
+    public Builder clearStartTimeUnix() {
       bitField0_ = (bitField0_ & ~0x00000008);
-      currentAmount_ = 0D;
+      startTimeUnix_ = 0L;
       onChanged();
       return this;
     }
 
-    private java.lang.Object currency_ = "";
+    private long durationSeconds_ ;
     /**
-     * <code>string currency = 5;</code>
-     * @return The currency.
+     * <pre>
+     * Duration of the session in seconds
+     * </pre>
+     *
+     * <code>int64 duration_seconds = 5;</code>
+     * @return The durationSeconds.
      */
-    public java.lang.String getCurrency() {
-      java.lang.Object ref = currency_;
+    @java.lang.Override
+    public long getDurationSeconds() {
+      return durationSeconds_;
+    }
+    /**
+     * <pre>
+     * Duration of the session in seconds
+     * </pre>
+     *
+     * <code>int64 duration_seconds = 5;</code>
+     * @param value The durationSeconds to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDurationSeconds(long value) {
+
+      durationSeconds_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Duration of the session in seconds
+     * </pre>
+     *
+     * <code>int64 duration_seconds = 5;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDurationSeconds() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      durationSeconds_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private double currentCost_ ;
+    /**
+     * <pre>
+     * Current cost of the session
+     * </pre>
+     *
+     * <code>double current_cost = 6;</code>
+     * @return The currentCost.
+     */
+    @java.lang.Override
+    public double getCurrentCost() {
+      return currentCost_;
+    }
+    /**
+     * <pre>
+     * Current cost of the session
+     * </pre>
+     *
+     * <code>double current_cost = 6;</code>
+     * @param value The currentCost to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCurrentCost(double value) {
+
+      currentCost_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Current cost of the session
+     * </pre>
+     *
+     * <code>double current_cost = 6;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCurrentCost() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      currentCost_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object zoneId_ = "";
+    /**
+     * <pre>
+     * Zone ID where parked
+     * </pre>
+     *
+     * <code>string zone_id = 7;</code>
+     * @return The zoneId.
+     */
+    public java.lang.String getZoneId() {
+      java.lang.Object ref = zoneId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        currency_ = s;
+        zoneId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string currency = 5;</code>
-     * @return The bytes for currency.
+     * <pre>
+     * Zone ID where parked
+     * </pre>
+     *
+     * <code>string zone_id = 7;</code>
+     * @return The bytes for zoneId.
      */
     public com.google.protobuf.ByteString
-        getCurrencyBytes() {
-      java.lang.Object ref = currency_;
+        getZoneIdBytes() {
+      java.lang.Object ref = zoneId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        currency_ = b;
+        zoneId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string currency = 5;</code>
-     * @param value The currency to set.
+     * <pre>
+     * Zone ID where parked
+     * </pre>
+     *
+     * <code>string zone_id = 7;</code>
+     * @param value The zoneId to set.
      * @return This builder for chaining.
      */
-    public Builder setCurrency(
+    public Builder setZoneId(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      currency_ = value;
-      bitField0_ |= 0x00000010;
+      zoneId_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
     /**
-     * <code>string currency = 5;</code>
+     * <pre>
+     * Zone ID where parked
+     * </pre>
+     *
+     * <code>string zone_id = 7;</code>
      * @return This builder for chaining.
      */
-    public Builder clearCurrency() {
-      currency_ = getDefaultInstance().getCurrency();
-      bitField0_ = (bitField0_ & ~0x00000010);
+    public Builder clearZoneId() {
+      zoneId_ = getDefaultInstance().getZoneId();
+      bitField0_ = (bitField0_ & ~0x00000040);
       onChanged();
       return this;
     }
     /**
-     * <code>string currency = 5;</code>
-     * @param value The bytes for currency to set.
+     * <pre>
+     * Zone ID where parked
+     * </pre>
+     *
+     * <code>string zone_id = 7;</code>
+     * @param value The bytes for zoneId to set.
      * @return This builder for chaining.
      */
-    public Builder setCurrencyBytes(
+    public Builder setZoneIdBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      currency_ = value;
-      bitField0_ |= 0x00000010;
+      zoneId_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object errorMessage_ = "";
+    /**
+     * <pre>
+     * Error message if state is ERROR
+     * </pre>
+     *
+     * <code>string error_message = 8;</code>
+     * @return The errorMessage.
+     */
+    public java.lang.String getErrorMessage() {
+      java.lang.Object ref = errorMessage_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        errorMessage_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Error message if state is ERROR
+     * </pre>
+     *
+     * <code>string error_message = 8;</code>
+     * @return The bytes for errorMessage.
+     */
+    public com.google.protobuf.ByteString
+        getErrorMessageBytes() {
+      java.lang.Object ref = errorMessage_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        errorMessage_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Error message if state is ERROR
+     * </pre>
+     *
+     * <code>string error_message = 8;</code>
+     * @param value The errorMessage to set.
+     * @return This builder for chaining.
+     */
+    public Builder setErrorMessage(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      errorMessage_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Error message if state is ERROR
+     * </pre>
+     *
+     * <code>string error_message = 8;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearErrorMessage() {
+      errorMessage_ = getDefaultInstance().getErrorMessage();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Error message if state is ERROR
+     * </pre>
+     *
+     * <code>string error_message = 8;</code>
+     * @param value The bytes for errorMessage to set.
+     * @return This builder for chaining.
+     */
+    public Builder setErrorMessageBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      errorMessage_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private double latitude_ ;
+    /**
+     * <pre>
+     * Latitude where session started
+     * </pre>
+     *
+     * <code>double latitude = 9;</code>
+     * @return The latitude.
+     */
+    @java.lang.Override
+    public double getLatitude() {
+      return latitude_;
+    }
+    /**
+     * <pre>
+     * Latitude where session started
+     * </pre>
+     *
+     * <code>double latitude = 9;</code>
+     * @param value The latitude to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLatitude(double value) {
+
+      latitude_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Latitude where session started
+     * </pre>
+     *
+     * <code>double latitude = 9;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLatitude() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      latitude_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double longitude_ ;
+    /**
+     * <pre>
+     * Longitude where session started
+     * </pre>
+     *
+     * <code>double longitude = 10;</code>
+     * @return The longitude.
+     */
+    @java.lang.Override
+    public double getLongitude() {
+      return longitude_;
+    }
+    /**
+     * <pre>
+     * Longitude where session started
+     * </pre>
+     *
+     * <code>double longitude = 10;</code>
+     * @param value The longitude to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLongitude(double value) {
+
+      longitude_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Longitude where session started
+     * </pre>
+     *
+     * <code>double longitude = 10;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLongitude() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      longitude_ = 0D;
       onChanged();
       return this;
     }

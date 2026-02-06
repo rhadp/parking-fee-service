@@ -6,6 +6,10 @@
 package sdv.services.parking;
 
 /**
+ * <pre>
+ * Response from stopping a parking session.
+ * </pre>
+ *
  * Protobuf type {@code sdv.services.parking.StopSessionResponse}
  */
 @com.google.protobuf.Generated
@@ -29,7 +33,8 @@ private static final long serialVersionUID = 0L;
   }
   private StopSessionResponse() {
     errorMessage_ = "";
-    currency_ = "";
+    sessionId_ = "";
+    state_ = 0;
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -48,6 +53,10 @@ private static final long serialVersionUID = 0L;
   public static final int SUCCESS_FIELD_NUMBER = 1;
   private boolean success_ = false;
   /**
+   * <pre>
+   * Whether the operation succeeded
+   * </pre>
+   *
    * <code>bool success = 1;</code>
    * @return The success.
    */
@@ -60,6 +69,10 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object errorMessage_ = "";
   /**
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
    * <code>string error_message = 2;</code>
    * @return The errorMessage.
    */
@@ -77,6 +90,10 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
+   * <pre>
+   * Error message if failed
+   * </pre>
+   *
    * <code>string error_message = 2;</code>
    * @return The bytes for errorMessage.
    */
@@ -95,60 +112,102 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TOTAL_AMOUNT_FIELD_NUMBER = 3;
-  private double totalAmount_ = 0D;
-  /**
-   * <code>double total_amount = 3;</code>
-   * @return The totalAmount.
-   */
-  @java.lang.Override
-  public double getTotalAmount() {
-    return totalAmount_;
-  }
-
-  public static final int CURRENCY_FIELD_NUMBER = 4;
+  public static final int SESSION_ID_FIELD_NUMBER = 3;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object currency_ = "";
+  private volatile java.lang.Object sessionId_ = "";
   /**
-   * <code>string currency = 4;</code>
-   * @return The currency.
+   * <pre>
+   * Session ID that was stopped
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The sessionId.
    */
   @java.lang.Override
-  public java.lang.String getCurrency() {
-    java.lang.Object ref = currency_;
+  public java.lang.String getSessionId() {
+    java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      currency_ = s;
+      sessionId_ = s;
       return s;
     }
   }
   /**
-   * <code>string currency = 4;</code>
-   * @return The bytes for currency.
+   * <pre>
+   * Session ID that was stopped
+   * </pre>
+   *
+   * <code>string session_id = 3;</code>
+   * @return The bytes for sessionId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getCurrencyBytes() {
-    java.lang.Object ref = currency_;
+      getSessionIdBytes() {
+    java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      currency_ = b;
+      sessionId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int DURATION_SECONDS_FIELD_NUMBER = 5;
+  public static final int STATE_FIELD_NUMBER = 4;
+  private int state_ = 0;
+  /**
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The enum numeric value on the wire for state.
+   */
+  @java.lang.Override public int getStateValue() {
+    return state_;
+  }
+  /**
+   * <pre>
+   * Current session state
+   * </pre>
+   *
+   * <code>.sdv.services.parking.SessionState state = 4;</code>
+   * @return The state.
+   */
+  @java.lang.Override public sdv.services.parking.SessionState getState() {
+    sdv.services.parking.SessionState result = sdv.services.parking.SessionState.forNumber(state_);
+    return result == null ? sdv.services.parking.SessionState.UNRECOGNIZED : result;
+  }
+
+  public static final int FINAL_COST_FIELD_NUMBER = 5;
+  private double finalCost_ = 0D;
+  /**
+   * <pre>
+   * Final cost of the session
+   * </pre>
+   *
+   * <code>double final_cost = 5;</code>
+   * @return The finalCost.
+   */
+  @java.lang.Override
+  public double getFinalCost() {
+    return finalCost_;
+  }
+
+  public static final int DURATION_SECONDS_FIELD_NUMBER = 6;
   private long durationSeconds_ = 0L;
   /**
-   * <code>int64 duration_seconds = 5;</code>
+   * <pre>
+   * Duration of the session in seconds
+   * </pre>
+   *
+   * <code>int64 duration_seconds = 6;</code>
    * @return The durationSeconds.
    */
   @java.lang.Override
@@ -176,14 +235,17 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(errorMessage_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, errorMessage_);
     }
-    if (java.lang.Double.doubleToRawLongBits(totalAmount_) != 0) {
-      output.writeDouble(3, totalAmount_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, sessionId_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(currency_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 4, currency_);
+    if (state_ != sdv.services.parking.SessionState.SESSION_STATE_NONE.getNumber()) {
+      output.writeEnum(4, state_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(finalCost_) != 0) {
+      output.writeDouble(5, finalCost_);
     }
     if (durationSeconds_ != 0L) {
-      output.writeInt64(5, durationSeconds_);
+      output.writeInt64(6, durationSeconds_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -201,16 +263,20 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(errorMessage_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, errorMessage_);
     }
-    if (java.lang.Double.doubleToRawLongBits(totalAmount_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(3, totalAmount_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, sessionId_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(currency_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, currency_);
+    if (state_ != sdv.services.parking.SessionState.SESSION_STATE_NONE.getNumber()) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeEnumSize(4, state_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(finalCost_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(5, finalCost_);
     }
     if (durationSeconds_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt64Size(5, durationSeconds_);
+        .computeInt64Size(6, durationSeconds_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -231,11 +297,12 @@ private static final long serialVersionUID = 0L;
         != other.getSuccess()) return false;
     if (!getErrorMessage()
         .equals(other.getErrorMessage())) return false;
-    if (java.lang.Double.doubleToLongBits(getTotalAmount())
+    if (!getSessionId()
+        .equals(other.getSessionId())) return false;
+    if (state_ != other.state_) return false;
+    if (java.lang.Double.doubleToLongBits(getFinalCost())
         != java.lang.Double.doubleToLongBits(
-            other.getTotalAmount())) return false;
-    if (!getCurrency()
-        .equals(other.getCurrency())) return false;
+            other.getFinalCost())) return false;
     if (getDurationSeconds()
         != other.getDurationSeconds()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
@@ -254,11 +321,13 @@ private static final long serialVersionUID = 0L;
         getSuccess());
     hash = (37 * hash) + ERROR_MESSAGE_FIELD_NUMBER;
     hash = (53 * hash) + getErrorMessage().hashCode();
-    hash = (37 * hash) + TOTAL_AMOUNT_FIELD_NUMBER;
+    hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getSessionId().hashCode();
+    hash = (37 * hash) + STATE_FIELD_NUMBER;
+    hash = (53 * hash) + state_;
+    hash = (37 * hash) + FINAL_COST_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getTotalAmount()));
-    hash = (37 * hash) + CURRENCY_FIELD_NUMBER;
-    hash = (53 * hash) + getCurrency().hashCode();
+        java.lang.Double.doubleToLongBits(getFinalCost()));
     hash = (37 * hash) + DURATION_SECONDS_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         getDurationSeconds());
@@ -360,6 +429,10 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
+   * <pre>
+   * Response from stopping a parking session.
+   * </pre>
+   *
    * Protobuf type {@code sdv.services.parking.StopSessionResponse}
    */
   public static final class Builder extends
@@ -395,8 +468,9 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       success_ = false;
       errorMessage_ = "";
-      totalAmount_ = 0D;
-      currency_ = "";
+      sessionId_ = "";
+      state_ = 0;
+      finalCost_ = 0D;
       durationSeconds_ = 0L;
       return this;
     }
@@ -438,12 +512,15 @@ private static final long serialVersionUID = 0L;
         result.errorMessage_ = errorMessage_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.totalAmount_ = totalAmount_;
+        result.sessionId_ = sessionId_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.currency_ = currency_;
+        result.state_ = state_;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.finalCost_ = finalCost_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
         result.durationSeconds_ = durationSeconds_;
       }
     }
@@ -468,13 +545,16 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (java.lang.Double.doubleToRawLongBits(other.getTotalAmount()) != 0) {
-        setTotalAmount(other.getTotalAmount());
-      }
-      if (!other.getCurrency().isEmpty()) {
-        currency_ = other.currency_;
-        bitField0_ |= 0x00000008;
+      if (!other.getSessionId().isEmpty()) {
+        sessionId_ = other.sessionId_;
+        bitField0_ |= 0x00000004;
         onChanged();
+      }
+      if (other.state_ != 0) {
+        setStateValue(other.getStateValue());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getFinalCost()) != 0) {
+        setFinalCost(other.getFinalCost());
       }
       if (other.getDurationSeconds() != 0L) {
         setDurationSeconds(other.getDurationSeconds());
@@ -515,21 +595,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
-            case 25: {
-              totalAmount_ = input.readDouble();
+            case 26: {
+              sessionId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000004;
               break;
-            } // case 25
-            case 34: {
-              currency_ = input.readStringRequireUtf8();
+            } // case 26
+            case 32: {
+              state_ = input.readEnum();
               bitField0_ |= 0x00000008;
               break;
-            } // case 34
-            case 40: {
-              durationSeconds_ = input.readInt64();
+            } // case 32
+            case 41: {
+              finalCost_ = input.readDouble();
               bitField0_ |= 0x00000010;
               break;
-            } // case 40
+            } // case 41
+            case 48: {
+              durationSeconds_ = input.readInt64();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -549,6 +634,10 @@ private static final long serialVersionUID = 0L;
 
     private boolean success_ ;
     /**
+     * <pre>
+     * Whether the operation succeeded
+     * </pre>
+     *
      * <code>bool success = 1;</code>
      * @return The success.
      */
@@ -557,6 +646,10 @@ private static final long serialVersionUID = 0L;
       return success_;
     }
     /**
+     * <pre>
+     * Whether the operation succeeded
+     * </pre>
+     *
      * <code>bool success = 1;</code>
      * @param value The success to set.
      * @return This builder for chaining.
@@ -569,6 +662,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Whether the operation succeeded
+     * </pre>
+     *
      * <code>bool success = 1;</code>
      * @return This builder for chaining.
      */
@@ -581,6 +678,10 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object errorMessage_ = "";
     /**
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
      * <code>string error_message = 2;</code>
      * @return The errorMessage.
      */
@@ -597,6 +698,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
      * <code>string error_message = 2;</code>
      * @return The bytes for errorMessage.
      */
@@ -614,6 +719,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
      * <code>string error_message = 2;</code>
      * @param value The errorMessage to set.
      * @return This builder for chaining.
@@ -627,6 +736,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
      * <code>string error_message = 2;</code>
      * @return This builder for chaining.
      */
@@ -637,6 +750,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Error message if failed
+     * </pre>
+     *
      * <code>string error_message = 2;</code>
      * @param value The bytes for errorMessage to set.
      * @return This builder for chaining.
@@ -651,113 +768,220 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private double totalAmount_ ;
+    private java.lang.Object sessionId_ = "";
     /**
-     * <code>double total_amount = 3;</code>
-     * @return The totalAmount.
+     * <pre>
+     * Session ID that was stopped
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @return The sessionId.
      */
-    @java.lang.Override
-    public double getTotalAmount() {
-      return totalAmount_;
-    }
-    /**
-     * <code>double total_amount = 3;</code>
-     * @param value The totalAmount to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTotalAmount(double value) {
-
-      totalAmount_ = value;
-      bitField0_ |= 0x00000004;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double total_amount = 3;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearTotalAmount() {
-      bitField0_ = (bitField0_ & ~0x00000004);
-      totalAmount_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object currency_ = "";
-    /**
-     * <code>string currency = 4;</code>
-     * @return The currency.
-     */
-    public java.lang.String getCurrency() {
-      java.lang.Object ref = currency_;
+    public java.lang.String getSessionId() {
+      java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        currency_ = s;
+        sessionId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string currency = 4;</code>
-     * @return The bytes for currency.
+     * <pre>
+     * Session ID that was stopped
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @return The bytes for sessionId.
      */
     public com.google.protobuf.ByteString
-        getCurrencyBytes() {
-      java.lang.Object ref = currency_;
+        getSessionIdBytes() {
+      java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        currency_ = b;
+        sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string currency = 4;</code>
-     * @param value The currency to set.
+     * <pre>
+     * Session ID that was stopped
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setCurrency(
+    public Builder setSessionId(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      currency_ = value;
-      bitField0_ |= 0x00000008;
+      sessionId_ = value;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
     /**
-     * <code>string currency = 4;</code>
+     * <pre>
+     * Session ID that was stopped
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
      * @return This builder for chaining.
      */
-    public Builder clearCurrency() {
-      currency_ = getDefaultInstance().getCurrency();
-      bitField0_ = (bitField0_ & ~0x00000008);
+    public Builder clearSessionId() {
+      sessionId_ = getDefaultInstance().getSessionId();
+      bitField0_ = (bitField0_ & ~0x00000004);
       onChanged();
       return this;
     }
     /**
-     * <code>string currency = 4;</code>
-     * @param value The bytes for currency to set.
+     * <pre>
+     * Session ID that was stopped
+     * </pre>
+     *
+     * <code>string session_id = 3;</code>
+     * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setCurrencyBytes(
+    public Builder setSessionIdBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      currency_ = value;
+      sessionId_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private int state_ = 0;
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @return The enum numeric value on the wire for state.
+     */
+    @java.lang.Override public int getStateValue() {
+      return state_;
+    }
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @param value The enum numeric value on the wire for state to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStateValue(int value) {
+      state_ = value;
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @return The state.
+     */
+    @java.lang.Override
+    public sdv.services.parking.SessionState getState() {
+      sdv.services.parking.SessionState result = sdv.services.parking.SessionState.forNumber(state_);
+      return result == null ? sdv.services.parking.SessionState.UNRECOGNIZED : result;
+    }
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @param value The state to set.
+     * @return This builder for chaining.
+     */
+    public Builder setState(sdv.services.parking.SessionState value) {
+      if (value == null) { throw new NullPointerException(); }
+      bitField0_ |= 0x00000008;
+      state_ = value.getNumber();
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Current session state
+     * </pre>
+     *
+     * <code>.sdv.services.parking.SessionState state = 4;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearState() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      state_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double finalCost_ ;
+    /**
+     * <pre>
+     * Final cost of the session
+     * </pre>
+     *
+     * <code>double final_cost = 5;</code>
+     * @return The finalCost.
+     */
+    @java.lang.Override
+    public double getFinalCost() {
+      return finalCost_;
+    }
+    /**
+     * <pre>
+     * Final cost of the session
+     * </pre>
+     *
+     * <code>double final_cost = 5;</code>
+     * @param value The finalCost to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFinalCost(double value) {
+
+      finalCost_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Final cost of the session
+     * </pre>
+     *
+     * <code>double final_cost = 5;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFinalCost() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      finalCost_ = 0D;
       onChanged();
       return this;
     }
 
     private long durationSeconds_ ;
     /**
-     * <code>int64 duration_seconds = 5;</code>
+     * <pre>
+     * Duration of the session in seconds
+     * </pre>
+     *
+     * <code>int64 duration_seconds = 6;</code>
      * @return The durationSeconds.
      */
     @java.lang.Override
@@ -765,23 +989,31 @@ private static final long serialVersionUID = 0L;
       return durationSeconds_;
     }
     /**
-     * <code>int64 duration_seconds = 5;</code>
+     * <pre>
+     * Duration of the session in seconds
+     * </pre>
+     *
+     * <code>int64 duration_seconds = 6;</code>
      * @param value The durationSeconds to set.
      * @return This builder for chaining.
      */
     public Builder setDurationSeconds(long value) {
 
       durationSeconds_ = value;
-      bitField0_ |= 0x00000010;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
     /**
-     * <code>int64 duration_seconds = 5;</code>
+     * <pre>
+     * Duration of the session in seconds
+     * </pre>
+     *
+     * <code>int64 duration_seconds = 6;</code>
      * @return This builder for chaining.
      */
     public Builder clearDurationSeconds() {
-      bitField0_ = (bitField0_ & ~0x00000010);
+      bitField0_ = (bitField0_ & ~0x00000020);
       durationSeconds_ = 0L;
       onChanged();
       return this;

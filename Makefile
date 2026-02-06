@@ -1,7 +1,7 @@
 # Root Makefile for SDV Parking Demo System
 # This Makefile orchestrates builds across all technology stacks
 
-.PHONY: all proto build test clean
+.PHONY: all proto build test clean clean-all
 .PHONY: proto-rust proto-kotlin proto-dart proto-go
 .PHONY: build-rhivos build-android build-backend build-containers
 .PHONY: build-parking-fee-service build-cli build-companion-cli build-parking-cli
@@ -46,8 +46,8 @@ proto-go:
 # Build Targets
 #------------------------------------------------------------------------------
 
-# Build all components
-build: build-rhivos build-android build-backend
+# Build all components (generates proto stubs first)
+build: proto build-rhivos build-android build-backend
 	@echo "All components built successfully"
 
 # Build Rust services for RHIVOS
@@ -174,7 +174,7 @@ infra-down:
 # Clean Targets
 #------------------------------------------------------------------------------
 
-# Clean all build artifacts
+# Clean all build artifacts (preserves generated proto stubs)
 clean:
 	@echo "Cleaning all build artifacts..."
 	@# Clean Rust artifacts
@@ -184,13 +184,18 @@ clean:
 	cd android/companion_app && flutter clean 2>/dev/null || true
 	@# Clean Go artifacts
 	cd backend && go clean ./... 2>/dev/null || true
-	@# Clean generated proto files
+	rm -rf backend/bin 2>/dev/null || true
+	@echo "Clean complete"
+
+# Clean everything including generated proto stubs
+clean-all: clean
+	@echo "Cleaning generated proto stubs..."
 	rm -rf rhivos/shared/src/proto 2>/dev/null || true
 	rm -rf android/parking-app/app/src/main/java/sdv/proto 2>/dev/null || true
 	rm -rf android/companion_app/lib/generated 2>/dev/null || true
 	rm -rf android/companion_app/lib/proto 2>/dev/null || true
 	rm -rf backend/gen 2>/dev/null || true
-	@echo "Clean complete"
+	@echo "Full clean complete"
 
 #------------------------------------------------------------------------------
 # Git Maintenance Targets
@@ -214,9 +219,10 @@ help:
 	@echo "Main targets:"
 	@echo "  all              - Generate protos and build all components (default)"
 	@echo "  proto            - Generate all Protocol Buffer bindings"
-	@echo "  build            - Build all components"
+	@echo "  build            - Generate protos and build all components"
 	@echo "  test             - Run all tests"
-	@echo "  clean            - Clean all build artifacts"
+	@echo "  clean            - Clean build artifacts (preserves proto stubs)"
+	@echo "  clean-all        - Clean everything including generated proto stubs"
 	@echo ""
 	@echo "Proto generation targets:"
 	@echo "  proto-rust       - Generate Rust bindings"
