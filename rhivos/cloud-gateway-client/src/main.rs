@@ -5,6 +5,11 @@
 //! for a shutdown signal. No gRPC RPCs are registered because cloud-gateway-client
 //! acts as an MQTT client, not a parking-proto gRPC server.
 
+// Message types are defined now but used by later task groups (MQTT client,
+// command handler, telemetry publisher, etc.).
+#[allow(dead_code)]
+pub(crate) mod messages;
+
 use clap::Parser;
 use tokio::signal;
 use tracing::{error, info};
