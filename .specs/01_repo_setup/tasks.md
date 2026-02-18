@@ -71,48 +71,48 @@ This plan establishes the project foundation in dependency order:
     - [x] All Makefile targets are callable (print placeholder message)
     - [x] Requirements 01-REQ-1.1–1.7, 01-REQ-5.E1 acceptance criteria met
 
-- [ ] 2. Proto Definitions
-  - [ ] 2.1 Write `proto/common/common.proto`
+- [x] 2. Proto Definitions
+  - [x] 2.1 Write `proto/common/common.proto`
     - Define: `Location`, `VehicleId`, `AdapterInfo`, `AdapterState` enum,
       `ErrorDetails`
     - Use `proto3` syntax, set `go_package`
     - Follow the design document proto specification exactly
     - _Requirements: 01-REQ-4.3, 01-REQ-4.6_
 
-  - [ ] 2.2 Write `proto/services/update_service.proto`
+  - [x] 2.2 Write `proto/services/update_service.proto`
     - Define `UpdateService` with RPCs: `InstallAdapter`, `WatchAdapterStates`
       (server streaming), `ListAdapters`, `RemoveAdapter`, `GetAdapterStatus`
     - Define all request/response messages
     - Import `common/common.proto`
     - _Requirements: 01-REQ-4.1, 01-REQ-4.6_
 
-  - [ ] 2.3 Write `proto/services/parking_adapter.proto`
+  - [x] 2.3 Write `proto/services/parking_adapter.proto`
     - Define `ParkingAdapter` with RPCs: `StartSession`, `StopSession`,
       `GetStatus`, `GetRate`
     - Define all request/response messages
     - Import `common/common.proto`
     - _Requirements: 01-REQ-4.2, 01-REQ-4.6_
 
-  - [ ] 2.4 Set up Go proto generation
+  - [x] 2.4 Set up Go proto generation
     - Create `proto/gen/go/` output directory
     - Add `make proto` target that invokes `protoc` with `--go_out` and
       `--go-grpc_out` for all `.proto` files
     - Verify generated Go packages compile
     - _Requirements: 01-REQ-4.4, 01-REQ-5.3_
 
-  - [ ] 2.5 Write proto syntax validation test
+  - [x] 2.5 Write proto syntax validation test
     - Create `tests/test_proto.sh` that runs `protoc` in lint/check mode on all
       `.proto` files
     - **Validates: Property 2 (Proto-Binding Consistency)**
     - _Requirements: 01-REQ-4.4, 01-REQ-4.5_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `protoc` compiles all `.proto` files without errors
-    - [ ] `make proto` generates Go packages under `proto/gen/go/`
-    - [ ] Generated Go packages compile: `cd proto/gen/go && go build ./...`
+  - [x] 2.V Verify task group 2
+    - [x] `protoc` compiles all `.proto` files without errors
+    - [x] `make proto` generates Go packages under `proto/gen/go/`
+    - [x] Generated Go packages compile: `cd proto/gen/go && go build ./...`
       (or equivalent)
-    - [ ] `tests/test_proto.sh` passes
-    - [ ] Requirements 01-REQ-4.1–4.6 acceptance criteria met
+    - [x] `tests/test_proto.sh` passes
+    - [x] Requirements 01-REQ-4.1–4.6 acceptance criteria met
 
 - [ ] 3. Checkpoint — Proto Definitions Complete
   - All proto files written, Go generation working

@@ -22,3 +22,35 @@ Implemented task group 1 (Project Foundation) for specification 01_repo_setup. C
 ### Tests Added or Modified
 
 - `tests/test_structure.sh`: Validates Property 7 (Directory Completeness) — asserts all required directories and files exist per requirements 01-REQ-1.1 through 01-REQ-1.7.
+
+---
+
+## Session 2
+
+- **Spec:** 01_repo_setup
+- **Task Group:** 2
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 2 (Proto Definitions) for specification 01_repo_setup. Created all three proto files (common.proto, update_service.proto, parking_adapter.proto) exactly matching the design document, set up Go proto generation via `make proto` with proper package layout, created a Go module for generated packages, and wrote a comprehensive proto validation test suite (31 checks).
+
+### Files Changed
+
+- Added: `proto/common/common.proto`
+- Added: `proto/services/update_service.proto`
+- Added: `proto/services/parking_adapter.proto`
+- Added: `proto/gen/go/go.mod`
+- Added: `proto/gen/go/go.sum`
+- Added: `proto/gen/go/common/common.pb.go`
+- Added: `proto/gen/go/services/update/update_service.pb.go`
+- Added: `proto/gen/go/services/update/update_service_grpc.pb.go`
+- Added: `proto/gen/go/services/adapter/parking_adapter.pb.go`
+- Added: `proto/gen/go/services/adapter/parking_adapter_grpc.pb.go`
+- Added: `tests/test_proto.sh`
+- Modified: `Makefile`
+- Modified: `.specs/01_repo_setup/tasks.md`
+
+### Tests Added or Modified
+
+- `tests/test_proto.sh`: Comprehensive 31-check validation test verifying proto file existence, proto3 syntax, required messages/enums/RPCs, protoc compilation, generated Go file existence, and Go package compilation. Validates Property 2 (Proto-Binding Consistency) and requirements 01-REQ-4.1 through 01-REQ-4.6.
