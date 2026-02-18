@@ -154,7 +154,7 @@ order:
     - [x] `go vet ./...` clean
     - [x] Requirements 03-REQ-2.1–2.5 acceptance criteria met
 
-- [ ] 4. Checkpoint — CLOUD_GATEWAY Complete
+- [x] 4. Checkpoint — CLOUD_GATEWAY Complete
   - REST API and MQTT client working
   - Commit and verify clean state
 

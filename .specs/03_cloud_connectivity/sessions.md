@@ -92,3 +92,24 @@ Implemented task group 3 (CLOUD_GATEWAY MQTT Client) for specification 03_cloud_
 - `backend/cloud-gateway/mqtt/client_test.go`: 2 unit tests covering invalid broker connection and message routing verification
 - `backend/cloud-gateway/mqtt/integration_test.go`: 6 integration tests covering connect and subscribe, publish/subscribe round-trip, registration via MQTT, telemetry state updates, publish command verification, and QoS compliance (all skip gracefully when Mosquitto is unavailable)
 - `backend/cloud-gateway/main_test.go`: Updated `newServeMux` calls to pass publisher parameter
+
+---
+
+## Session 25
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 4
+- **Date:** 2026-02-18
+
+### Summary
+
+Checkpoint verification for task group 4 (CLOUD_GATEWAY Complete) of specification 03_cloud_connectivity. Ran the full test suite (`make test`), linters (`make lint`), and build (`make build`) — all passed with zero failures. Marked the checkpoint checkbox as complete in tasks.md.
+
+### Files Changed
+
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+None.
