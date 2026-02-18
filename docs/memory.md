@@ -8,6 +8,8 @@
 - Proto packages (`parking.common`, `parking.services.update`, `parking.services.adapter`) map to a nested Rust module hierarchy in `parking-proto/src/lib.rs`: `common`, `services::update`, `services::adapter`.
 - `update-service` and `parking-operator-adaptor` are gRPC servers that register service handlers from `parking-proto`.
 - `locking-service` and `cloud-gateway-client` are **not** gRPC servers — they are clients (Kuksa Databroker and MQTT respectively) whose skeletons just log and wait for shutdown.
+- Go backend services (`parking-fee-service`, `cloud-gateway`) are separate Go modules (not a Go workspace) with independent `go.mod` files, each using `github.com/rhadp/parking-fee-service/backend/{service}` as its module path.
+- The root Makefile iterates over `GO_BACKEND_DIRS` to run Go commands; new Go modules must be added to this list.
 
 ## Conventions
 
@@ -18,6 +20,9 @@
 - The `clap` dependency must include the `"env"` feature (in addition to `"derive"`) to support `env = "..."` attributes on CLI args.
 - Each service binary name matches the crate/directory name (e.g., `locking-service` crate produces `locking-service` binary) via an explicit `[[bin]]` section.
 - Skeleton contract tests use `TcpListener::bind("127.0.0.1:0")` for random port allocation and `tokio_stream::wrappers::TcpListenerStream` for `serve_with_incoming`.
+- Go skeleton services use `net/http` stdlib with Go 1.22+ method-prefixed route patterns (e.g., `"GET /healthz"`). Stub handlers return `{"error":"not implemented","route":"..."}` with HTTP 501.
+- Go tests use `httptest.NewServer(newServeMux())`, testing the mux directly without starting the real server.
+- The `envOrDefault` helper pattern is used across Go services for configurable listen addresses with env var fallback.
 
 ## Decisions
 
@@ -26,6 +31,9 @@
 - Module hierarchy in `parking-proto/src/lib.rs` mirrors proto package nesting (not flat). This is required because prost generates cross-package references using `super::super::` relative paths that depend on module depth matching package depth.
 - We use `tokio-stream` as a workspace dependency (not just dev-dependency) because `update-service` needs `ReceiverStream` for the `WatchAdapterStates` server-streaming RPC type alias.
 - `.gitkeep` files are removed from service directories once real source files are added.
+- Go services use stdlib `net/http` (not gin/echo) because the design specifies `net/http` and the services are REST-only skeletons.
+- Go binaries built in-place by `go build ./...` need explicit `.gitignore` entries since they appear in the module directory.
+- Rust and Go build/test/lint targets are wired into the Makefile together in task group 7.
 
 ## Fragile Areas
 
@@ -33,6 +41,8 @@
 - The `build.rs` proto path resolution uses `CARGO_MANIFEST_DIR` + relative paths (`../../proto/`). If the workspace layout changes, these paths will break.
 - `tonic-build` version must match `tonic` version (e.g., tonic-build 0.12 with tonic 0.12). Mixing versions causes compile failures.
 - The streaming RPC `WatchAdapterStates` requires a `type WatchAdapterStatesStream` associated type in the `UpdateService` impl — this is a tonic requirement for server-streaming RPCs. The standard pattern is to use `ReceiverStream`.
+- `GO_BACKEND_DIRS` in the Makefile must be manually updated when new Go modules are added (e.g., task group 8 mock CLI modules).
+- Go 1.22+ method-prefixed route patterns (`"GET /healthz"`) require Go 1.22 minimum; the `go.mod` files must reflect at least this version.
 
 ## Failed Approaches
 
