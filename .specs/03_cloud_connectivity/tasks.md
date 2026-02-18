@@ -112,8 +112,8 @@ order:
     - [x] REST endpoints return correct responses (tested via httptest)
     - [x] Requirements 03-REQ-1.1–1.6, 03-REQ-5.3–5.5 acceptance criteria met
 
-- [ ] 3. CLOUD_GATEWAY MQTT Client
-  - [ ] 3.1 Create MQTT client module
+- [x] 3. CLOUD_GATEWAY MQTT Client
+  - [x] 3.1 Create MQTT client module
     - Create `backend/cloud-gateway/mqtt/client.go`
     - Connect to Mosquitto with auto-reconnect
     - Subscribe to: `vehicles/+/command_responses` (QoS 2),
@@ -122,7 +122,7 @@ order:
     - Publish method for commands and status requests (QoS 2)
     - _Requirements: 03-REQ-2.1, 03-REQ-2.5_
 
-  - [ ] 3.2 Create MQTT message handlers
+  - [x] 3.2 Create MQTT message handlers
     - Create `backend/cloud-gateway/mqtt/handlers.go`
     - On `command_responses`: parse JSON, find command in state store by
       command_id, update result
@@ -132,7 +132,7 @@ order:
     - Write unit tests for each handler
     - _Requirements: 03-REQ-2.3, 03-REQ-2.4, 03-REQ-5.3_
 
-  - [ ] 3.3 Integrate MQTT with REST handlers
+  - [x] 3.3 Integrate MQTT with REST handlers
     - Lock/unlock handlers: after creating command entry, publish
       `CommandMessage` to MQTT
     - Status handler: return cached state (updated by telemetry/status
@@ -140,7 +140,7 @@ order:
     - Error handling: if MQTT publish fails, return 503
     - _Requirements: 03-REQ-2.2, 03-REQ-1.E3_
 
-  - [ ] 3.4 Write MQTT integration tests
+  - [x] 3.4 Write MQTT integration tests
     - Connect to real Mosquitto (`make infra-up`)
     - Verify publish/subscribe round-trip
     - Verify QoS levels
@@ -148,11 +148,11 @@ order:
     - **Property 6: QoS Compliance**
     - _Requirements: 03-REQ-2.1, 03-REQ-2.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] `cd backend/cloud-gateway && go test ./...` passes (unit tests)
-    - [ ] MQTT integration tests pass with `make infra-up`
-    - [ ] `go vet ./...` clean
-    - [ ] Requirements 03-REQ-2.1–2.5 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] `cd backend/cloud-gateway && go test ./...` passes (unit tests)
+    - [x] MQTT integration tests pass with `make infra-up`
+    - [x] `go vet ./...` clean
+    - [x] Requirements 03-REQ-2.1–2.5 acceptance criteria met
 
 - [ ] 4. Checkpoint — CLOUD_GATEWAY Complete
   - REST API and MQTT client working

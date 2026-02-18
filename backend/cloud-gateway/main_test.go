@@ -12,7 +12,7 @@ import (
 
 func TestHealthzReturns200(t *testing.T) {
 	store := state.NewStore()
-	srv := httptest.NewServer(newServeMux(store))
+	srv := httptest.NewServer(newServeMux(store, nil))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/healthz")
@@ -30,7 +30,7 @@ func TestProtectedEndpointsRequireAuth(t *testing.T) {
 	store := state.NewStore()
 	store.RegisterVehicle("WVWZZZ1KZAW123456", "123456")
 
-	srv := httptest.NewServer(newServeMux(store))
+	srv := httptest.NewServer(newServeMux(store, nil))
 	defer srv.Close()
 
 	routes := []struct {
@@ -68,7 +68,7 @@ func TestProtectedEndpointsWorkWithAuth(t *testing.T) {
 	store.RegisterVehicle("WVWZZZ1KZAW123456", "123456")
 	token, _ := store.PairVehicle("WVWZZZ1KZAW123456", "123456")
 
-	srv := httptest.NewServer(newServeMux(store))
+	srv := httptest.NewServer(newServeMux(store, nil))
 	defer srv.Close()
 
 	routes := []struct {
@@ -113,7 +113,7 @@ func TestPairEndpoint(t *testing.T) {
 	store := state.NewStore()
 	store.RegisterVehicle("VIN1", "123456")
 
-	srv := httptest.NewServer(newServeMux(store))
+	srv := httptest.NewServer(newServeMux(store, nil))
 	defer srv.Close()
 
 	body := `{"vin":"VIN1","pin":"123456"}`

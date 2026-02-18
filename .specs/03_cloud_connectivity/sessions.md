@@ -59,3 +59,36 @@ Implemented task group 2 (CLOUD_GATEWAY Vehicle State and REST API) for specific
 - `backend/cloud-gateway/api/middleware_test.go`: 6 tests covering valid token, missing auth header, invalid scheme, wrong token, token for different VIN, and extractBearerToken edge cases
 - `backend/cloud-gateway/api/handlers_test.go`: 16 tests covering healthz, pair (success, unknown VIN, wrong PIN, invalid body, missing fields), lock (accepted, without auth, unknown VIN, MQTT failure), unlock, status (success, with last command, without auth, empty vehicle), and async command pattern verification
 - `backend/cloud-gateway/main_test.go`: Updated from 501-stub tests to real endpoint tests — healthz, protected endpoints require auth, protected endpoints work with auth, and pair endpoint integration
+
+---
+
+## Session 24
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 3
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 3 (CLOUD_GATEWAY MQTT Client) for specification 03_cloud_connectivity. Created the MQTT client module (`mqtt/client.go`) using `eclipse/paho.mqtt.golang` with auto-reconnect and QoS-compliant subscriptions, MQTT message handlers (`mqtt/handlers.go`) for command responses, telemetry, registration, and status responses, and integrated the MQTT client with the REST API handlers via the `MQTTPublisher` interface in `main.go`. Added comprehensive unit tests for all handlers and integration tests that verify publish/subscribe round-trips against a real Mosquitto broker (skipped when unavailable). All tests pass with race detector, `go vet` is clean, and `make test`/`make lint` succeed across the full project.
+
+### Files Changed
+
+- Added: `backend/cloud-gateway/mqtt/client.go`
+- Added: `backend/cloud-gateway/mqtt/handlers.go`
+- Added: `backend/cloud-gateway/mqtt/client_test.go`
+- Added: `backend/cloud-gateway/mqtt/handlers_test.go`
+- Added: `backend/cloud-gateway/mqtt/integration_test.go`
+- Modified: `backend/cloud-gateway/main.go`
+- Modified: `backend/cloud-gateway/main_test.go`
+- Modified: `backend/cloud-gateway/go.mod`
+- Modified: `backend/cloud-gateway/go.sum`
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `backend/cloud-gateway/mqtt/handlers_test.go`: 18 unit tests covering handleCommandResponse (success, unlock, rejected, unknown command_id, invalid JSON), handleTelemetry (full update, partial update, invalid JSON, unknown VIN), handleRegistration (new vehicle, re-registration, invalid JSON, fallback VIN), handleStatusResponse (updates state, invalid JSON), and parseTopic (8 cases)
+- `backend/cloud-gateway/mqtt/client_test.go`: 2 unit tests covering invalid broker connection and message routing verification
+- `backend/cloud-gateway/mqtt/integration_test.go`: 6 integration tests covering connect and subscribe, publish/subscribe round-trip, registration via MQTT, telemetry state updates, publish command verification, and QoS compliance (all skip gracefully when Mosquitto is unavailable)
+- `backend/cloud-gateway/main_test.go`: Updated `newServeMux` calls to pass publisher parameter
