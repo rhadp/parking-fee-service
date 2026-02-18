@@ -108,8 +108,8 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     connects successfully
   - Commit and verify clean state
 
-- [ ] 4. LOCKING_SERVICE Safety Validation
-  - [ ] 4.1 Create `safety.rs` module
+- [x] 4. LOCKING_SERVICE Safety Validation
+  - [x] 4.1 Create `safety.rs` module
     - Implement `LockResult` enum: `Success`, `RejectedSpeed`,
       `RejectedDoorOpen`
     - Implement `validate_lock(command_is_lock, speed_kmh, door_is_open,
@@ -118,13 +118,13 @@ This plan implements the RHIVOS safety-partition core in dependency order:
       (`"SUCCESS"`, `"REJECTED_SPEED"`, `"REJECTED_DOOR_OPEN"`)
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3, 02-REQ-3.4_
 
-  - [ ] 4.2 Create `config.rs` module
+  - [x] 4.2 Create `config.rs` module
     - Define `Config` struct with `databroker_addr` and `max_speed_kmh` fields
     - Parse from CLI args (`clap`) and environment variables
     - Default values: `localhost:55555` and `1.0`
     - _Requirements: 02-REQ-2.3_
 
-  - [ ] 4.3 Write property-based tests for `validate_lock`
+  - [x] 4.3 Write property-based tests for `validate_lock`
     - Use `proptest` crate to generate random inputs
     - Assert: speed >= threshold → RejectedSpeed (regardless of door state)
     - Assert: speed < threshold AND lock AND door_open → RejectedDoorOpen
@@ -135,10 +135,10 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - **Property 4: Safety Function Purity**
     - **Validates: Requirements 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3, 02-REQ-3.4**
 
-  - [ ] 4.V Verify task group 4
-    - [ ] `cargo test -p locking-service -- safety` passes all property tests
-    - [ ] `cargo clippy -p locking-service -- -D warnings` clean
-    - [ ] Requirements 02-REQ-3.1–3.4 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] `cargo test -p locking-service -- safety` passes all property tests
+    - [x] `cargo clippy -p locking-service -- -D warnings` clean
+    - [x] Requirements 02-REQ-3.1–3.4 acceptance criteria met
 
 - [ ] 5. LOCKING_SERVICE Command Handler
   - [ ] 5.1 Create `lock_handler.rs` module
