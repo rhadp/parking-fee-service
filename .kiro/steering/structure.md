@@ -35,10 +35,3 @@ parking-fee-service/
 ├── docs/                           # Documentation
 └── Makefile                        # Root build orchestration
 ```
-
-## Specs Location
-
-Feature specifications live in `.kiro/specs/{feature-name}/` with:
-- `requirements.md` - User stories and acceptance criteria
-- `design.md` - Architecture and interface definitions
-- `tasks.md` - Implementation task list

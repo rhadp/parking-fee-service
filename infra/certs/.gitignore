@@ -1,5 +1,0 @@
-# Ignore all certificate files except .gitkeep and .gitignore
-*
-!.gitkeep
-!.gitignore
-!README.md
