@@ -114,7 +114,7 @@ This plan establishes the project foundation in dependency order:
     - [x] `tests/test_proto.sh` passes
     - [x] Requirements 01-REQ-4.1–4.6 acceptance criteria met
 
-- [ ] 3. Checkpoint — Proto Definitions Complete
+- [x] 3. Checkpoint — Proto Definitions Complete
   - All proto files written, Go generation working
   - Commit and verify clean state before proceeding to Rust workspace
 
