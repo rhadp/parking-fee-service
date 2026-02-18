@@ -4,12 +4,14 @@
 
 - The project has three main technology domains: Go backend services (`backend/`), Rust RHIVOS services (`rhivos/`), and Go mock CLI tools (`mock/`).
 - The vehicle-to-cloud pipeline has 5 components: COMPANION_APP CLI (Go REST client) → CLOUD_GATEWAY (Go REST+MQTT server) → Mosquitto MQTT broker → CLOUD_GATEWAY_CLIENT (Rust MQTT+gRPC client) → Kuksa DATA_BROKER (gRPC) → LOCKING_SERVICE (Rust gRPC).
+- The Rust workspace under `rhivos/` contains all Rust services: `parking-proto` (generated gRPC/protobuf), `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`.
+- `parking-proto` provides generated types, a `KuksaClient` helper for Databroker operations, and VSS signal path constants in `signals.rs`.
 - CLOUD_GATEWAY uses `paho.mqtt.golang` with async subscription setup — `SubscribeMultiple` runs in a goroutine, so subscriptions may not be established immediately after connection.
 - CLOUD_GATEWAY_CLIENT uses `rumqttc` (async Rust) and publishes a non-retained registration message on every startup via QoS 2.
 - CLOUD_GATEWAY_CLIENT uses trait-based abstraction (`DataBrokerWriter`, `DataBrokerReader`, `LockResultSubscriber`) for all Kuksa interactions; `KuksaAdapter` is the concrete implementation, enabling unit testing without real infrastructure.
 - The telemetry publisher reuses `status_handler::read_vehicle_state()` and the `DataBrokerReader` trait for signal reads, avoiding duplicated signal-reading logic.
 - Background tasks (result forwarder, telemetry publisher) are spawned via `tokio::spawn` only after Kuksa connects successfully. If Kuksa is unavailable, the MQTT event loop still runs but commands fail gracefully.
-- Mock services live under `mock/` with each service as a separate Go module (flat structure: `go.mod`, `main.go`, `main_test.go` in package `main`). The mock PARKING_OPERATOR is a standalone HTTP server.
+- Mock services live under `mock/` with each service as a separate Go module (flat structure: `go.mod`, `main.go`, `main_test.go` in package `main`). The mock PARKING_OPERATOR is a standalone HTTP server that the adaptor's `OperatorClient` communicates with.
 - The `mock/companion-app-cli` is a pure HTTP client — it has no MQTT or Kuksa dependencies, only stdlib `net/http`.
 
 ## Conventions
@@ -18,6 +20,9 @@
 - Each module has a top-level doc comment listing the requirements it satisfies (e.g. `//! - 03-REQ-4.1: ...`).
 - Rust tests are inline (`#[cfg(test)] mod tests`) within each source file, not in separate test files.
 - Integration tests requiring infrastructure (Mosquitto, Kuksa) use `#[ignore]` and are run manually with `--ignored`.
+- Config modules use `clap::Parser` with `#[arg(long, env = "ENV_VAR")]` for combined CLI/env var support. Follow `locking-service/src/config.rs` as the reference pattern.
+- Services use `tracing` for structured logging and `thiserror` for error types.
+- Workspace-level deps are declared in `rhivos/Cargo.toml` `[workspace.dependencies]`; crates reference them with `{ workspace = true }`.
 - `chrono_timestamp()` is a local helper duplicated across modules (mqtt.rs, status_handler.rs, result_forwarder.rs, telemetry.rs) — returns Unix seconds as `i64`.
 - Go version is 1.25.7 across all modules. Module paths use the `github.com/rhadp/parking-fee-service/` prefix.
 - Go mock CLIs use `flag` package with env var fallbacks via `envOrDefault()`. The companion-app-cli historically used manual flag parsing but the `flag`+`envOrDefault` pattern is now standard.
@@ -46,6 +51,10 @@
 - The mock PARKING_OPERATOR uses stdlib `net/http` only (no external router) because Go 1.22+ mux supports method-based routing natively.
 - Mock session IDs use a simple monotonic counter (`sess-001`, `sess-002`) because the mock only needs unique IDs for testing, not cryptographic randomness.
 - Fee calculation uses `math.Ceil` for per-minute rounding: `rate_amount × ceil(duration_seconds / 60)`.
+- We use `wiremock` (not `mockito`) for HTTP mocking in operator_client tests because it supports async and integrates well with tokio.
+- We use `reqwest` 0.12 with `json` feature for the REST client, matching the design doc specification.
+- The `RateType` enum uses `serde(rename_all = "snake_case")` to match the Go mock's JSON format (`"per_minute"`, `"flat"`).
+- The `OperatorClient` takes a base URL (not individual endpoint URLs), following the design doc pattern.
 
 ## Fragile Areas
 
@@ -55,6 +64,8 @@
 - **MQTT registration timing**: The CGC publishes a non-retained registration message at startup. If CLOUD_GATEWAY has not yet subscribed (async subscription), the message is lost. The E2E test mitigates this with a 2s sleep after GW healthz and a polling retry loop (up to 20 retries).
 - **Port 55555 on macOS/podman**: The default Kuksa Databroker port (55555) can become stuck due to stale `gvproxy` port forwards in podman's VM networking layer. Workaround: start Kuksa on an alternate port (e.g., 55556) and pass `DATABROKER_ADDR=http://localhost:55556` to the test.
 - **Python boolean output in E2E tests**: Python's `json.load` prints booleans as `True`/`False` (capitalized), not JSON `true`/`false`. The `json_get` helper normalizes this to lowercase.
+- The proto `GetRateResponse` has a field `rate_per_hour` which doesn't directly match the mock operator's `rate_amount` (per-minute). The gRPC server will need to convert between these representations.
+- The `ParkingSession.complete()` method takes explicit fee/duration values from the stop response rather than recalculating, ensuring consistency with the operator's calculation.
 
 ## Failed Approaches
 
@@ -63,4 +74,4 @@
 
 ## Open Questions
 
-_(No entries yet.)_
+- The `get_rate` endpoint on the mock operator doesn't take a `zone_id` query parameter — it returns the configured rate for whatever zone the server was started with. The `OperatorClient.get_rate()` accepts `zone_id` for future use but currently ignores it in the URL.
