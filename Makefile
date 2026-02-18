@@ -3,7 +3,7 @@
 # Orchestrates builds, tests, proto generation, linting, infrastructure,
 # and container builds across all technology domains.
 
-.PHONY: all build test proto lint clean clean-proto \
+.PHONY: all build test proto lint clean clean-rust clean-go clean-proto \
         check-tools \
         build-rust test-rust lint-rust \
         build-go test-go lint-go \
@@ -93,14 +93,26 @@ lint-go:
 
 # ─── Clean ───────────────────────────────────────────────────────────────────
 
-clean:
-	@echo "[make clean] Not yet implemented — will remove all build artifacts."
-	@echo "[make clean] Note: 'make clean-proto' is available to remove generated Go proto files."
+clean: clean-rust clean-go clean-proto
+	@echo "[make clean] All build artifacts removed."
+
+clean-rust:
+	@echo "[make clean] Cleaning Rust build artifacts..."
+	cd rhivos && cargo clean
+	@echo "[make clean] Rust clean complete."
+
+clean-go:
+	@echo "[make clean] Cleaning Go build artifacts..."
+	@for dir in $(GO_ALL_DIRS); do \
+		echo "[make clean]   $$dir"; \
+		(cd $$dir && go clean ./...) || true; \
+	done
+	@echo "[make clean] Go clean complete."
 
 clean-proto:
-	@echo "[make clean-proto] Removing generated Go proto files..."
-	find $(GO_GEN_DIR) -name '*.pb.go' -delete
-	@echo "[make clean-proto] Done."
+	@echo "[make clean] Removing generated Go proto files..."
+	find $(GO_GEN_DIR) -name '*.pb.go' -delete 2>/dev/null || true
+	@echo "[make clean] Generated Go proto files removed."
 
 # ─── Infrastructure ─────────────────────────────────────────────────────────
 

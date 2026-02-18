@@ -20,34 +20,34 @@ flowchart TB
     subgraph AAOS["Android Automotive OS"]
         PA[PARKING_APP]
     end
-    
+
     subgraph RHIVOS_Safety["RHIVOS Safety Partition"]
         LS[LOCKING_SERVICE]
         DB[DATA_BROKER<br/>Eclipse Kuksa]
         CGC[CLOUD_GATEWAY_CLIENT]
     end
-    
+
     subgraph RHIVOS_QM["RHIVOS QM Partition"]
         POA[PARKING_OPERATOR_ADAPTOR]
         US[UPDATE_SERVICE]
     end
-    
+
     subgraph Cloud["Backend Services"]
         PFS[PARKING_FEE_SERVICE]
         CG[CLOUD_GATEWAY]
         REG[REGISTRY]
     end
-    
+
     PA -->|"gRPC/TLS"| DB
     PA -->|"gRPC/TLS"| US
     PA -->|"gRPC/TLS"| POA
     PA -->|"HTTPS/REST"| PFS
-    
+
     LS -->|"gRPC/UDS"| DB
     CGC -->|"gRPC/UDS"| LS
     CGC -->|"gRPC/UDS"| DB
     CGC -->|"MQTT/TLS"| CG
-    
+
     POA -->|"gRPC/UDS"| DB
     US -->|"HTTPS/OCI"| REG
 ```
@@ -56,36 +56,55 @@ flowchart TB
 
 ```
 parking-fee-service/
-├── rhivos/                    # Rust services for RHIVOS
-│   ├── locking-service/       # ASIL-B door locking (safety partition)
-│   ├── cloud-gateway-client/  # MQTT client (safety partition)
-│   ├── parking-operator-adaptor/  # Dynamic adapter (QM partition)
-│   ├── update-service/        # Container lifecycle (QM partition)
-│   └── shared/                # Shared Rust libraries
-├── android/
-│   ├── parking-app/           # Kotlin AAOS application
-│   └── companion_app/         # Flutter/Dart mobile app
+├── Makefile                        # Root build orchestrator
+├── rhivos/                         # Rust services for RHIVOS
+│   ├── Cargo.toml                  # Workspace manifest
+│   ├── parking-proto/              # Shared proto bindings crate
+│   ├── locking-service/            # ASIL-B door locking (safety partition)
+│   ├── cloud-gateway-client/       # MQTT client (safety partition)
+│   ├── parking-operator-adaptor/   # Dynamic adapter (QM partition)
+│   └── update-service/             # Container lifecycle (QM partition)
 ├── backend/
-│   ├── parking-fee-service/   # Go service for parking operations
-│   └── cloud-gateway/         # Go MQTT broker/router
-├── proto/                     # Shared Protocol Buffer definitions
-├── containers/                # Containerfiles for building images
-├── infra/                     # Local development infrastructure
-├── scripts/                   # Build and utility scripts
-├── docs/                      # Documentation
-└── tests/                     # Property-based and integration tests
+│   ├── parking-fee-service/        # Go REST service for parking operations
+│   └── cloud-gateway/              # Go REST gateway for vehicle-to-cloud
+├── mock/
+│   ├── parking-app-cli/            # Go CLI simulating Android parking app
+│   ├── companion-app-cli/          # Go CLI simulating companion mobile app
+│   └── sensors/                    # Rust CLI for mock VSS sensor data
+├── android/
+│   ├── parking-app/                # AAOS application (placeholder)
+│   └── companion-app/              # Mobile companion app (placeholder)
+├── proto/                          # Shared Protocol Buffer definitions
+│   ├── common/                     # Shared message types
+│   ├── services/                   # Service interface definitions
+│   └── gen/go/                     # Generated Go proto packages
+├── containers/                     # Containerfiles for OCI images
+│   ├── rhivos/                     # Rust service containers
+│   ├── backend/                    # Go service containers
+│   └── mock/                       # Mock tool containers
+├── infra/                          # Local development infrastructure
+│   ├── compose.yaml                # Podman/Docker Compose for Kuksa + Mosquitto
+│   └── config/                     # Service configuration files
+├── scripts/                        # Build and utility scripts
+├── docs/                           # Documentation
+└── tests/                          # Verification test scripts
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Rust** 1.70+ with cargo
-- **Go** 1.21+
-- **Protocol Buffers** compiler (protoc)
-- **Podman** or Docker for container builds
-- **Flutter** 3.x for companion app
-- **Android Studio** with Kotlin support for parking app
+- **Rust** 1.75+ with cargo
+- **Go** 1.22+
+- **Protocol Buffers** compiler (`protoc` 3.x+)
+- **protoc-gen-go** and **protoc-gen-go-grpc** (Go proto plugins)
+- **Podman** (preferred) or Docker for containers and local infrastructure
+
+Verify all tools are installed:
+
+```bash
+./scripts/check-tools.sh
+```
 
 ### Clone and Build
 
@@ -94,20 +113,25 @@ parking-fee-service/
 git clone https://github.com/rhadp/parking-fee-service.git
 cd parking-fee-service
 
-# Generate Protocol Buffer bindings
+# Generate Protocol Buffer Go bindings
 make proto
 
-# Build all components
+# Build all components (Rust + Go)
 make build
 
-# Run tests
+# Run all tests
 make test
+
+# Run linters (clippy for Rust, go vet for Go)
+make lint
 ```
 
 ### Start Local Infrastructure
 
+Local development uses Eclipse Kuksa Databroker (VSS signal broker) and Eclipse Mosquitto (MQTT broker):
+
 ```bash
-# Start local development services (Mosquitto, Kuksa Databroker)
+# Start local development services
 make infra-up
 
 # Verify services are running
@@ -117,15 +141,112 @@ make infra-status
 make infra-down
 ```
 
-### Build Containers
+| Service | Port | Protocol |
+|---------|------|----------|
+| Kuksa Databroker | 55555 | gRPC |
+| Mosquitto | 1883 | MQTT |
+
+### Build Container Images
 
 ```bash
 # Build all container images
 make build-containers
+```
 
-# Build specific service
-make build-rhivos
-make build-backend
+### Clean Build Artifacts
+
+```bash
+# Remove all build artifacts (Rust, Go, generated proto files)
+make clean
+```
+
+## Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make build` | Build all Rust and Go components |
+| `make test` | Run all unit tests across Rust and Go |
+| `make lint` | Run linters (clippy for Rust, go vet for Go) |
+| `make proto` | Generate Go proto bindings from `.proto` files |
+| `make clean` | Remove all build artifacts |
+| `make infra-up` | Start local Kuksa Databroker and Mosquitto |
+| `make infra-down` | Stop and remove infrastructure containers |
+| `make infra-status` | Show infrastructure container status |
+| `make build-containers` | Build OCI container images for all services |
+| `make check-tools` | Verify all required development tools are installed |
+
+## Service Ports (Local Development)
+
+| Service | Port | Protocol |
+|---------|------|----------|
+| locking-service | 50051 | gRPC |
+| cloud-gateway-client | 50052 | gRPC |
+| update-service | 50053 | gRPC |
+| parking-operator-adaptor | 50054 | gRPC |
+| parking-fee-service | 8080 | HTTP/REST |
+| cloud-gateway | 8081 | HTTP/REST |
+| Kuksa Databroker (infra) | 55555 | gRPC |
+| Mosquitto (infra) | 1883 | MQTT |
+
+## Mock CLI Tools
+
+Mock CLI applications are provided for integration testing without real Android builds.
+
+### parking-app-cli
+
+Simulates the Android parking app, calling gRPC services:
+
+```bash
+parking-app-cli [flags] <command>
+
+Commands:
+  install-adapter   Call UpdateService.InstallAdapter
+  list-adapters     Call UpdateService.ListAdapters
+  remove-adapter    Call UpdateService.RemoveAdapter
+  adapter-status    Call UpdateService.GetAdapterStatus
+  watch-adapters    Call UpdateService.WatchAdapterStates (streaming)
+  start-session     Call ParkingAdapter.StartSession
+  stop-session      Call ParkingAdapter.StopSession
+  get-status        Call ParkingAdapter.GetStatus
+  get-rate          Call ParkingAdapter.GetRate
+
+Flags:
+  --update-service-addr   Address of UpdateService (default: localhost:50053)
+  --adapter-addr          Address of ParkingAdapter (default: localhost:50054)
+```
+
+### companion-app-cli
+
+Simulates the companion mobile app, calling REST endpoints:
+
+```bash
+companion-app-cli [flags] <command>
+
+Commands:
+  lock     POST /api/v1/vehicles/{vin}/lock
+  unlock   POST /api/v1/vehicles/{vin}/unlock
+  status   GET  /api/v1/vehicles/{vin}/status
+
+Flags:
+  --gateway-addr   Address of CloudGateway (default: http://localhost:8081)
+  --vin            Vehicle VIN (required)
+  --token          Bearer token (default: demo-token)
+```
+
+### mock-sensors
+
+Publishes mock VSS sensor data to Kuksa Databroker:
+
+```bash
+mock-sensors [flags] <command>
+
+Commands:
+  set-location   Set Vehicle.CurrentLocation (lat, lon)
+  set-speed      Set Vehicle.Speed
+  set-door       Set Vehicle.Cabin.Door.Row1.DriverSide.IsOpen (true/false)
+
+Flags:
+  --databroker-addr   Address of Kuksa Databroker (default: localhost:55555)
 ```
 
 ## Communication Protocols
@@ -139,27 +260,19 @@ make build-backend
 | CLOUD_GATEWAY_CLIENT | CLOUD_GATEWAY | MQTT/TLS | Vehicle-to-cloud |
 | UPDATE_SERVICE | REGISTRY | HTTPS/OCI | Pull adapters |
 
-## Development Guides
+## Proto Definitions
 
-- [Rust Development Setup](docs/setup-rust.md)
-- [Android/Kotlin Development Setup](docs/setup-android.md)
-- [Flutter/Dart Development Setup](docs/setup-flutter.md)
-- [Go Development Setup](docs/setup-go.md)
-- [Local Infrastructure Guide](docs/local-infrastructure.md)
+The `proto/` directory contains shared Protocol Buffer definitions:
 
-## Demo Scenarios
+- **`common/common.proto`** — Shared message types: `Location`, `VehicleId`, `AdapterInfo`, `AdapterState`, `ErrorDetails`
+- **`services/update_service.proto`** — UpdateService gRPC interface (adapter lifecycle)
+- **`services/parking_adapter.proto`** — ParkingAdapter gRPC interface (parking sessions)
 
-### Scenario 1: Happy Path
-1. Vehicle arrives at parking zone
-2. Adapter downloads automatically based on location
-3. User locks vehicle → parking session starts
-4. User unlocks vehicle → session ends, fee calculated
+Generated Go bindings are committed under `proto/gen/go/`. Rust bindings are generated at build time via `tonic-build` in `rhivos/parking-proto/`.
 
-### Scenario 2: Adapter Already Installed
-- Return to same zone, no download needed
+## Current Status
 
-### Scenario 3: Error Handling
-- Simulated registry unavailability with retry logic
+All services are currently skeleton implementations returning `UNIMPLEMENTED` (gRPC code 12) or HTTP 501. Business logic will be added in subsequent specifications.
 
 ## License
 
