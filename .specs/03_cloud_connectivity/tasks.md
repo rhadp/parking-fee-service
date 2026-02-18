@@ -35,7 +35,7 @@ order:
 - Rust linter: `cd rhivos && cargo clippy --workspace -- -D warnings`
 - All linters: `make lint`
 - Build all: `make build`
-- Integration tests: requires `make infra-up` + running services (see group 9)
+- E2E integration tests: `make test-e2e` (requires `make infra-up` for Kuksa + Mosquitto)
 
 ## Tasks
 
@@ -306,8 +306,8 @@ order:
     - [x] `go vet ./...` clean
     - [x] Requirements 03-REQ-6.1–6.5 acceptance criteria met
 
-- [ ] 10. Integration Tests
-  - [ ] 10.1 Create integration test harness
+- [x] 10. Integration Tests
+  - [x] 10.1 Create integration test harness
     - Script or test file that starts all required services:
       `make infra-up` (Kuksa + Mosquitto), LOCKING_SERVICE,
       CLOUD_GATEWAY, CLOUD_GATEWAY_CLIENT
@@ -315,7 +315,7 @@ order:
     - Clean up on test completion
     - _Requirements: 03-REQ-7.E1_
 
-  - [ ] 10.2 Test pairing flow
+  - [x] 10.2 Test pairing flow
     - Start CLOUD_GATEWAY_CLIENT → extract VIN and PIN from logs
     - Verify CLOUD_GATEWAY received registration
     - Call `POST /api/v1/pair` with correct VIN and PIN → verify token
@@ -323,7 +323,7 @@ order:
     - **Property 4: Pairing Authorization**
     - _Requirements: 03-REQ-7.1_
 
-  - [ ] 10.3 Test lock command end-to-end
+  - [x] 10.3 Test lock command end-to-end
     - Set safe vehicle conditions via mock-sensors
     - Send lock via REST → verify 202 with command_id
     - Wait for command to propagate through MQTT → Kuksa → LOCKING_SERVICE
@@ -333,14 +333,14 @@ order:
     - **Property 2: Result Propagation**
     - _Requirements: 03-REQ-7.2, 03-REQ-7.3, 03-REQ-7.4_
 
-  - [ ] 10.4 Test telemetry flow
+  - [x] 10.4 Test telemetry flow
     - Set known values via mock-sensors
     - Wait for telemetry interval
     - GET /status → verify values match what was set
     - **Property 5: Telemetry Accuracy**
     - _Requirements: 03-REQ-7.5_
 
-  - [ ] 10.5 Test rejection propagation
+  - [x] 10.5 Test rejection propagation
     - Set unsafe speed via mock-sensors
     - Send lock via REST
     - Wait for rejection to propagate
@@ -348,10 +348,10 @@ order:
       REJECTED_SPEED
     - _Requirements: 03-REQ-7.2, 03-REQ-7.3_
 
-  - [ ] 10.V Verify task group 10
-    - [ ] All integration tests pass with infrastructure running
-    - [ ] Tests skip cleanly when infrastructure is unavailable
-    - [ ] Requirements 03-REQ-7.1–7.5 acceptance criteria met
+  - [x] 10.V Verify task group 10
+    - [x] All integration tests pass with infrastructure running
+    - [x] Tests skip cleanly when infrastructure is unavailable
+    - [x] Requirements 03-REQ-7.1–7.5 acceptance criteria met
 
 - [ ] 11. Final Verification and Documentation
   - [ ] 11.1 Run full test suite
@@ -435,12 +435,12 @@ order:
 | 03-REQ-6.4 | 9.2 | CLI unit test (9.4) |
 | 03-REQ-6.5 | 9.1, 9.2 | CLI unit test (9.4) |
 | 03-REQ-6.E1 | 9.3 | CLI unit test (9.4) |
-| 03-REQ-7.1 | 10.2 | Integration test `test_pairing_flow` |
-| 03-REQ-7.2 | 10.3 | Integration test `test_lock_e2e` |
-| 03-REQ-7.3 | 10.3 | Integration test `test_lock_e2e` |
-| 03-REQ-7.4 | 10.3 | Integration test `test_lock_e2e` |
-| 03-REQ-7.5 | 10.4 | Integration test `test_telemetry` |
-| 03-REQ-7.E1 | 10.1 | Test skip behavior |
+| 03-REQ-7.1 | 10.2 | E2E test `tests/test_cloud_e2e.sh` — Pairing Flow |
+| 03-REQ-7.2 | 10.3, 10.5 | E2E test `tests/test_cloud_e2e.sh` — Lock E2E + Rejection |
+| 03-REQ-7.3 | 10.3, 10.5 | E2E test `tests/test_cloud_e2e.sh` — Lock E2E + Rejection |
+| 03-REQ-7.4 | 10.3 | E2E test `tests/test_cloud_e2e.sh` — Lock E2E |
+| 03-REQ-7.5 | 10.4 | E2E test `tests/test_cloud_e2e.sh` — Telemetry Flow |
+| 03-REQ-7.E1 | 10.1 | E2E test `tests/test_cloud_e2e.sh` — Skip behavior |
 
 ## Notes
 
