@@ -274,14 +274,14 @@ order:
   - VIN, MQTT, command processing, result forwarding, telemetry all working
   - Commit and verify clean state
 
-- [ ] 9. Mock COMPANION_APP CLI and Pairing
-  - [ ] 9.1 Implement `pair` subcommand
+- [x] 9. Mock COMPANION_APP CLI and Pairing
+  - [x] 9.1 Implement `pair` subcommand
     - Replace spec 01 skeleton `mock/companion-app-cli/main.go`
     - `pair --vin VIN --pin PIN --gateway-addr ADDR`
     - POST /api/v1/pair with JSON body, print returned token
     - _Requirements: 03-REQ-6.1, 03-REQ-6.5_
 
-  - [ ] 9.2 Implement `lock`, `unlock`, `status` subcommands
+  - [x] 9.2 Implement `lock`, `unlock`, `status` subcommands
     - `lock --vin VIN --token TOKEN --gateway-addr ADDR`
     - `unlock --vin VIN --token TOKEN --gateway-addr ADDR`
     - `status --vin VIN --token TOKEN --gateway-addr ADDR`
@@ -289,22 +289,22 @@ order:
       response
     - _Requirements: 03-REQ-6.2, 03-REQ-6.3, 03-REQ-6.4, 03-REQ-6.5_
 
-  - [ ] 9.3 Add error handling
+  - [x] 9.3 Add error handling
     - Gateway unreachable → error message + non-zero exit
     - 401/403/404 responses → meaningful error messages
     - _Requirements: 03-REQ-6.E1_
 
-  - [ ] 9.4 Write CLI tests
+  - [x] 9.4 Write CLI tests
     - Unit tests: argument parsing for each subcommand
     - Unit tests: HTTP request construction (method, path, headers, body)
       using `httptest.Server`
     - _Requirements: 03-REQ-6.1–6.5_
 
-  - [ ] 9.V Verify task group 9
-    - [ ] `cd mock/companion-app-cli && go test ./...` passes
-    - [ ] `companion-app-cli --help` shows all subcommands
-    - [ ] `go vet ./...` clean
-    - [ ] Requirements 03-REQ-6.1–6.5 acceptance criteria met
+  - [x] 9.V Verify task group 9
+    - [x] `cd mock/companion-app-cli && go test ./...` passes
+    - [x] `companion-app-cli --help` shows all subcommands
+    - [x] `go vet ./...` clean
+    - [x] Requirements 03-REQ-6.1–6.5 acceptance criteria met
 
 - [ ] 10. Integration Tests
   - [ ] 10.1 Create integration test harness
