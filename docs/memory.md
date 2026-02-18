@@ -44,6 +44,9 @@
 - Third-party proto files are vendored into `proto/vendor/` with package paths preserved (e.g., `proto/vendor/kuksa/val/v2/val.proto`). Kuksa v2 protos are compiled with `build_server(false)` since Rust services are only clients.
 - VSS signal path constants live in `parking-proto::signals` for shared use across crates, avoiding hardcoded signal path strings in each service.
 - Integration tests requiring Kuksa Databroker use `#[ignore]` and `DATABROKER_ADDR` env var with default `http://localhost:55555`.
+- Rust service modules follow the design doc structure (e.g., locking-service: `config.rs`, `safety.rs`, `lock_handler.rs`, `main.rs`).
+- Property-based tests use `proptest` and live in a nested `mod prop` inside the main `#[cfg(test)]` module.
+- `prop_assert_eq!` inside `proptest!` blocks does not support Rust inline format captures (`{var}`); use positional/named format args or explicit `format!()` calls instead.
 
 ## Decisions
 
@@ -64,6 +67,10 @@
 - We added `KuksaClient` directly to `parking-proto` (not a separate crate) because it's small and all Rust services already depend on `parking-proto`.
 - We use `thiserror` v2 for error types in the `KuksaClient` helper, added as a workspace dependency.
 - `KuksaClient` type-coerces between float/double transparently in `get_f32`/`get_f64` to handle VSS data type flexibility (some signals report as f32, others as f64).
+- We use `proptest` (not `quickcheck`) because it provides better shrinking and clearer error reports for property-based testing.
+- The `validate_lock` function in locking-service is deliberately pure (no side effects), making it fully testable without mocking infrastructure.
+- Speed threshold is checked first in locking-service validation order (before door-ajar), so `RejectedSpeed` takes priority when both conditions fail.
+- The locking-service `Config` struct defaults `databroker_addr` to `http://localhost:55555` (with scheme), matching the Kuksa tonic client's URL format.
 
 ## Fragile Areas
 
@@ -80,6 +87,7 @@
 - Bash arithmetic with `set -euo pipefail`: `((var++))` returns exit code 1 when pre-increment value is 0. Use `var=$((var + 1))` instead.
 - **Kuksa v2 `PublishValue` vs `Actuate`:** `PublishValue` sets signal values but requires provider permissions if the signal is registered as a sensor (not an actuator). `Actuate` is specifically for actuator signals. This distinction may matter for certain VSS signals.
 - **`subscribe_typed` silent drops:** The `KuksaClient::subscribe_typed` implementation uses `filter_map` which silently drops entries with wrong types. Intentional for the demo but could mask type mismatch issues in production.
+- **`proptest` macro format strings:** The `proptest!` macro expands format strings through `concat!`, which breaks Rust inline captures. Always use positional/named format args or skip custom messages in `prop_assert_eq!`.
 
 ## Failed Approaches
 
