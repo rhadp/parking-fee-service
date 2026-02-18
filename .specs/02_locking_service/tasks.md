@@ -193,8 +193,8 @@ This plan implements the RHIVOS safety-partition core in dependency order:
   - Safety validation tested, command handler tested with mocks
   - Commit and verify clean state before proceeding to mock sensors
 
-- [ ] 7. Mock Sensors Implementation
-  - [ ] 7.1 Implement mock-sensors subcommands
+- [x] 7. Mock Sensors Implementation
+  - [x] 7.1 Implement mock-sensors subcommands
     - Replace spec 01 skeleton with real Kuksa gRPC writes
     - `set-location <lat> <lon>`: write to
       `Vehicle.CurrentLocation.{Latitude,Longitude}`
@@ -206,25 +206,25 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4,
       02-REQ-6.5_
 
-  - [ ] 7.2 Add error handling
+  - [x] 7.2 Add error handling
     - Unreachable DATA_BROKER → error message + non-zero exit
     - Invalid arguments → clap error message + non-zero exit
     - _Requirements: 02-REQ-6.E1_
 
-  - [ ] 7.3 Write mock-sensors tests
+  - [x] 7.3 Write mock-sensors tests
     - Unit tests: argument parsing for each subcommand
     - Integration test (`#[ignore]`): write value via mock-sensors, read back
       from Kuksa client, verify match (for each signal type)
     - **Property 5: Mock Sensor Signal Accuracy**
     - **Validates: Requirements 02-REQ-6.1–6.5**
 
-  - [ ] 7.V Verify task group 7
-    - [ ] `cargo test -p mock-sensors` passes unit tests
-    - [ ] `cargo test -p mock-sensors -- --ignored` passes integration tests
+  - [x] 7.V Verify task group 7
+    - [x] `cargo test -p mock-sensors` passes unit tests
+    - [x] `cargo test -p mock-sensors -- --ignored` passes integration tests
       (with `make infra-up`)
-    - [ ] `mock-sensors --help` shows all subcommands
-    - [ ] `cargo clippy -p mock-sensors -- -D warnings` clean
-    - [ ] Requirements 02-REQ-6.1–6.5 acceptance criteria met
+    - [x] `mock-sensors --help` shows all subcommands
+    - [x] `cargo clippy -p mock-sensors -- -D warnings` clean
+    - [x] Requirements 02-REQ-6.1–6.5 acceptance criteria met
 
 - [ ] 8. Integration Tests
   - [ ] 8.1 Create integration test module

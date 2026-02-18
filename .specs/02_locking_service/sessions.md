@@ -144,3 +144,29 @@ Completed checkpoint 6 (LOCKING_SERVICE Complete) for spec 02_locking_service. R
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 19
+
+- **Spec:** 02_locking_service
+- **Task Group:** 7
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 7 (Mock Sensors Implementation) for spec 02_locking_service. Replaced the spec 01 mock-sensors skeleton (local v1 proto vendoring) with a real implementation using the shared `parking-proto` crate's `KuksaClient` and VSS signal constants. Added the `lock-command <lock|unlock>` subcommand, changed `set-door` to accept human-friendly `open`/`closed` arguments, added comprehensive error handling (connection failures exit non-zero), and wrote 18 unit tests plus 4 integration tests.
+
+### Files Changed
+
+- Modified: `mock/sensors/Cargo.toml`
+- Modified: `mock/sensors/src/main.rs`
+- Deleted: `mock/sensors/build.rs`
+- Deleted: `mock/sensors/proto/kuksa/val/v1/types.proto`
+- Deleted: `mock/sensors/proto/kuksa/val/v1/val.proto`
+- Modified: `.specs/02_locking_service/tasks.md`
+- Modified: `.specs/02_locking_service/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/sensors/src/main.rs`: Rewrote test suite with 18 unit tests (CLI parsing for all 4 subcommands, DoorState parsing/display, LockAction parsing/display, custom databroker addr, default addr) and 4 `#[ignore]` integration tests (set-location roundtrip, set-speed roundtrip, set-door roundtrip, lock-command roundtrip).
