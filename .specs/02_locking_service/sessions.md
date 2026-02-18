@@ -99,3 +99,27 @@ Implemented task group 4 (LOCKING_SERVICE Safety Validation) for spec 02_locking
 - `rhivos/locking-service/src/safety.rs`: Added 17 deterministic unit tests (Display trait, boundary values, custom thresholds) and 7 property-based tests using proptest (speed rejection, door-open rejection, safe lock, safe unlock, determinism, exhaustive decision rules, exact-threshold boundary).
 - `rhivos/locking-service/src/config.rs`: Added 6 unit tests (default config, custom databroker addr, custom max speed, all custom args, clone, debug).
 - `rhivos/locking-service/src/main.rs`: Updated 2 integration tests to use new Config struct.
+
+---
+
+## Session 17
+
+- **Spec:** 02_locking_service
+- **Task Group:** 5
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 5 (LOCKING_SERVICE Command Handler) for spec 02_locking_service. Created `lock_handler.rs` with a trait-based `DataBroker` abstraction, the `process_lock_command` function for safety validation and signal writes, and the `run_lock_handler` subscription loop. Updated `main.rs` with exponential backoff connection retry, SIGTERM/SIGINT handling, and automatic re-subscription on stream interruption. Added 19 unit tests covering all correctness properties and error handling scenarios.
+
+### Files Changed
+
+- Added: `rhivos/locking-service/src/lock_handler.rs`
+- Modified: `rhivos/locking-service/src/main.rs`
+- Modified: `rhivos/locking-service/Cargo.toml`
+- Modified: `.specs/02_locking_service/tasks.md`
+- Modified: `.specs/02_locking_service/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/locking-service/src/lock_handler.rs`: 19 unit tests covering lock/unlock safe conditions (Property 1), speed/door rejection (Property 2), result completeness (Property 3), missing signal defaults (Property 7), read/write error handling, boundary values, and BrokerError display/debug.
