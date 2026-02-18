@@ -471,11 +471,25 @@ The following tech stacks are used to develop the various components.
 ### Infrastructure and Tooling
 
 - Local development: VS Code based IDE (e.g Cursor), with Android and Flutter extensions installed.
-- Local infrastructure: Podman to build and serve containers, containerized MQTT broker (e.g. Eclipse Mosquitto) to simulate the MQTT communication.
+- Local infrastructure: Podman to build and serve containers, containerized MQTT broker (Eclipse Mosquitto) to simulate the MQTT communication.
 - Cloud Development: OpenShift Dev Spaces, with Android and Flutter extensions installed in the Dev Spaces container.
 - OpenShift Automotive Suite (RHAS): OpenShift cluster on Google Cloud, with Jumpstarter and Builder operator installed to build and validate RHIVOS images.
 - Google Compute Engine: ARM bare-metal instance to run Red Hat Jumpstarter exporters and Android Cuttlefish.
 - Google Artifact Registry: OCI compliant container registry to store the PARKING_OPERATOR_ADAPTOR container images.
+
+### Android Development Separation
+
+The two Android applications (PARKING_APP on AAOS and COMPANION_APP on mobile Android) differ fundamentally from the rest of the codebase in toolchain, platform, runtime, and deployment model. To avoid coupling their development lifecycle to the backend-services and RHIVOS components, the following principles apply:
+
+1. **Separate specification and development.** Android app specifications, implementation, and testing are tracked independently from backend-services and RHIVOS work. Each Android app gets its own specification document(s) and can progress on its own schedule without blocking or being blocked by the other domains.
+
+2. **Mock apps for early integration testing.** Until the real Android applications are available, use *mock apps*: lightweight command-line programs that expose the same gRPC interface stubs and follow the same messaging protocols as the real PARKING_APP and COMPANION_APP. These mock apps:
+   - Can be run interactively by a developer to manually trigger actions (e.g., send a lock command, query parking status).
+   - Can be scripted for automated end-to-end tests against the backend-services and RHIVOS components.
+   - Are written in the same language as the component they interact with most closely (e.g., Go for backend-facing mocks, Rust for RHIVOS-facing mocks), keeping toolchain overhead minimal.
+   - Share the same `.proto` definitions and message schemas as the real Android apps, ensuring interface fidelity.
+
+This approach lets backend and RHIVOS development proceed at full speed, with testable integration points, long before any Android UI work begins.
 
 ### Code Repositories
 
@@ -491,10 +505,8 @@ At this point, local and cloud-based development shoult be interchangeable.
 
 ##### Phase 1.1: Requirements Engineering
 
-- Iterate over PRD.md (this document) and translate the "products requirements" into a requirements document.
-- Decompose the requirements document into a design document.
-- Create steering documents for agents based on the design.
-- Create a task list of atomic implementation steps.
+- Iterate over PRD.md (this document) and translate the "products requirements" into a series of specifications.
+- Break it down into reasonable chunks, the scope of the project is too large otherwise.
 
 ##### Phase 1.2: Setup
 
@@ -503,7 +515,8 @@ At this point, local and cloud-based development shoult be interchangeable.
   - Android Automotive OS app: Kotlin
   - Android app: Flutter, Dart
   - Backend-services: Golang
-- Create skeleton implementations for each component
+- Create skeleton implementations for each component, except for the Android Automotive OS and Android app. They will come in a later stage. Just keep the placeholder directories.
+- Create mock CLI apps for PARKING_APP and COMPANION_APP (see *Android Development Separation*) so that backend-services and RHIVOS components can be integration-tested without real Android builds.
 - Create local build capabilities for each toolchain using make/cmake etc
 - Setup local infrastructure, used for local unit and integration testing
 - Setup local unit and integration testing capabilites
@@ -522,7 +535,7 @@ At this point, local and cloud-based development shoult be interchangeable.
 
 - Implementation of the V2X connectivity:
   - CLOUD_GATEWAY
-  - Mock COMPANION_APP service to test the CLOUD_GATEWAY without the COMPANION_APP
+  - Mock COMPANION_APP CLI app to test the CLOUD_GATEWAY without the real COMPANION_APP (see *Android Development Separation*)
   - Integration test of bi-directional CLOUD_GATEWAY - CLOUD_GATEWAY_CLIENT communication
 
 ##### Phase 2.3: RHIVOS QM Partition
@@ -531,7 +544,7 @@ At this point, local and cloud-based development shoult be interchangeable.
   - generic PARKING_OPERATOR_ADAPTOR
   - UPDATE_SERVICE
   - Mock PARKING_OPERATOR to test the PARKING_OPERATOR_ADAPTOR
-  - Mock PARKING_APP to test the UPDATE_SERVICE without the PARKING_APP
+  - Mock PARKING_APP CLI app to test the UPDATE_SERVICE without the real PARKING_APP (see *Android Development Separation*)
   - Integration test of DATA_BROKER to PARKING_OPERATOR_ADAPTOR communication
 
 #### Phase 2.4: Parking app
