@@ -1,0 +1,5 @@
+{
+  "_description": "VSS overlay for local development — Eclipse Kuksa Databroker",
+  "_note": "Kuksa Databroker 0.5 ships with built-in VSS support. This file is a placeholder for custom signal definitions if needed.",
+  "signals": {}
+}

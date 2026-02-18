@@ -104,14 +104,35 @@ clean-proto:
 
 # ─── Infrastructure ─────────────────────────────────────────────────────────
 
+# Detect container runtime: prefer podman, fall back to docker
+CONTAINER_RUNTIME := $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
+COMPOSE_CMD := $(CONTAINER_RUNTIME) compose
+COMPOSE_FILE := infra/compose.yaml
+
 infra-up:
-	@echo "[make infra-up] Not yet implemented — will start local development infrastructure."
+ifndef CONTAINER_RUNTIME
+	$(error Container runtime not found. Install podman or docker to manage local infrastructure)
+endif
+	@echo "[make infra-up] Starting local development infrastructure..."
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) up -d
+	@echo "[make infra-up] Infrastructure started."
+	@echo "[make infra-up]   Kuksa Databroker: localhost:55555 (gRPC)"
+	@echo "[make infra-up]   Mosquitto:        localhost:1883  (MQTT)"
 
 infra-down:
-	@echo "[make infra-down] Not yet implemented — will stop local development infrastructure."
+ifndef CONTAINER_RUNTIME
+	$(error Container runtime not found. Install podman or docker to manage local infrastructure)
+endif
+	@echo "[make infra-down] Stopping local development infrastructure..."
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) down
+	@echo "[make infra-down] Infrastructure stopped and containers removed."
 
 infra-status:
-	@echo "[make infra-status] Not yet implemented — will show infrastructure status."
+ifndef CONTAINER_RUNTIME
+	$(error Container runtime not found. Install podman or docker to manage local infrastructure)
+endif
+	@echo "[make infra-status] Infrastructure status:"
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) ps
 
 # ─── Container Builds ───────────────────────────────────────────────────────
 
