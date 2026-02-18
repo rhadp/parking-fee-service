@@ -66,8 +66,8 @@ order:
     - [x] `cargo test -p cloud-gateway-client` passes
     - [x] Both sides produce identical JSON for the same logical message
 
-- [ ] 2. CLOUD_GATEWAY Vehicle State and REST API
-  - [ ] 2.1 Create vehicle state store
+- [x] 2. CLOUD_GATEWAY Vehicle State and REST API
+  - [x] 2.1 Create vehicle state store
     - Create `backend/cloud-gateway/state/store.go`
     - Implement `Store` with thread-safe `VehicleEntry` map
     - Methods: `RegisterVehicle`, `GetVehicle`, `UpdateState`,
@@ -75,7 +75,7 @@ order:
     - Write unit tests for all methods including concurrent access
     - _Requirements: 03-REQ-5.3, 03-REQ-5.4, 03-REQ-5.5_
 
-  - [ ] 2.2 Create auth middleware
+  - [x] 2.2 Create auth middleware
     - Create `backend/cloud-gateway/api/middleware.go`
     - Extract `Authorization: Bearer` header
     - Validate token against state store for the target VIN
@@ -83,7 +83,7 @@ order:
     - Write unit tests
     - _Requirements: 03-REQ-5.5, 03-REQ-1.E2_
 
-  - [ ] 2.3 Create REST handlers
+  - [x] 2.3 Create REST handlers
     - Create `backend/cloud-gateway/api/handlers.go`
     - Implement: `GET /healthz`, `POST /api/v1/pair`,
       `POST /api/v1/vehicles/{vin}/lock`,
@@ -98,19 +98,19 @@ order:
     - _Requirements: 03-REQ-1.1, 03-REQ-1.2, 03-REQ-1.3, 03-REQ-1.4,
       03-REQ-1.5, 03-REQ-1.6, 03-REQ-5.4_
 
-  - [ ] 2.4 Wire up main.go
+  - [x] 2.4 Wire up main.go
     - Replace spec 01 skeleton with real implementation
     - Parse config (listen-addr, mqtt-addr)
     - Initialize state store, register routes, start HTTP server
     - Graceful shutdown on SIGINT/SIGTERM
     - _Requirements: 03-REQ-1.6_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `cd backend/cloud-gateway && go test ./...` passes
-    - [ ] `cd backend/cloud-gateway && go vet ./...` clean
-    - [ ] `go build` produces binary
-    - [ ] REST endpoints return correct responses (tested via httptest)
-    - [ ] Requirements 03-REQ-1.1–1.6, 03-REQ-5.3–5.5 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] `cd backend/cloud-gateway && go test ./...` passes
+    - [x] `cd backend/cloud-gateway && go vet ./...` clean
+    - [x] `go build` produces binary
+    - [x] REST endpoints return correct responses (tested via httptest)
+    - [x] Requirements 03-REQ-1.1–1.6, 03-REQ-5.3–5.5 acceptance criteria met
 
 - [ ] 3. CLOUD_GATEWAY MQTT Client
   - [ ] 3.1 Create MQTT client module

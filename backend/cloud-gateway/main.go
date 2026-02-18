@@ -1,27 +1,32 @@
-// Package main implements the cloud-gateway skeleton.
+// Package main implements the CLOUD_GATEWAY service.
 //
-// This service provides a REST API for vehicle remote operations (lock,
-// unlock, status). In this skeleton, all endpoints return HTTP 501
-// (Not Implemented).
+// CLOUD_GATEWAY provides a REST API for vehicle remote operations (lock,
+// unlock, status) and vehicle pairing. It maintains an in-memory vehicle
+// state store and will connect to MQTT (Mosquitto) in a future task group.
 package main
 
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/api"
+	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/state"
 )
 
 func main() {
-	listenAddr := flag.String("listen-addr", envOrDefault("LISTEN_ADDR", ":8081"), "Address to listen on")
+	listenAddr := flag.String("listen-addr", envOrDefault("LISTEN_ADDR", ":8081"), "REST API listen address")
+	_ = flag.String("mqtt-addr", envOrDefault("MQTT_ADDR", "localhost:1883"), "MQTT broker address (used in task group 3)")
 	flag.Parse()
 
-	mux := newServeMux()
+	store := state.NewStore()
+
+	mux := newServeMux(store)
 
 	srv := &http.Server{
 		Addr:    *listenAddr,
@@ -54,32 +59,16 @@ func main() {
 	log.Println("cloud-gateway stopped")
 }
 
-// newServeMux creates the HTTP mux with all stub routes.
-func newServeMux() *http.ServeMux {
+// newServeMux creates the HTTP mux with all REST API routes.
+// The MQTT publisher is nil for now (no-op); it will be wired up in
+// task group 3.
+func newServeMux(store *state.Store) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("POST /api/v1/vehicles/{vin}/lock", stubHandler("POST /api/v1/vehicles/{vin}/lock"))
-	mux.HandleFunc("POST /api/v1/vehicles/{vin}/unlock", stubHandler("POST /api/v1/vehicles/{vin}/unlock"))
-	mux.HandleFunc("GET /api/v1/vehicles/{vin}/status", stubHandler("GET /api/v1/vehicles/{vin}/status"))
+	h := api.NewHandlers(store, nil)
+	h.RegisterRoutes(mux)
 
 	return mux
-}
-
-// handleHealthz returns a 200 OK for health checks.
-func handleHealthz(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, `{"status":"ok"}`)
-}
-
-// stubHandler returns an HTTP 501 handler for unimplemented endpoints.
-func stubHandler(route string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotImplemented)
-		fmt.Fprintf(w, `{"error":"not implemented","route":%q}`+"\n", route)
-	}
 }
 
 // envOrDefault returns the value of the given environment variable, or the
