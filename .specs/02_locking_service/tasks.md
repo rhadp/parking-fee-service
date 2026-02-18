@@ -103,7 +103,7 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - [x] Integration test passes with `make infra-up` running
     - [x] No clippy warnings
 
-- [ ] 3. Checkpoint — Kuksa Infrastructure Ready
+- [x] 3. Checkpoint — Kuksa Infrastructure Ready
   - Kuksa starts with custom signals, Rust client library compiles and
     connects successfully
   - Commit and verify clean state
