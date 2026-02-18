@@ -196,8 +196,8 @@ order:
     - [x] Registration message published to MQTT
     - [x] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
 
-- [ ] 6. CLOUD_GATEWAY_CLIENT Command Processing
-  - [ ] 6.1 Create command handler
+- [x] 6. CLOUD_GATEWAY_CLIENT Command Processing
+  - [x] 6.1 Create command handler
     - Create `rhivos/cloud-gateway-client/src/command_handler.rs`
     - Parse incoming MQTT `CommandMessage` JSON
     - Write `Vehicle.Command.Door.Lock` to DATA_BROKER via Kuksa client
@@ -205,14 +205,14 @@ order:
     - Handle invalid JSON gracefully (log and discard)
     - _Requirements: 03-REQ-3.2, 03-REQ-3.3, 03-REQ-3.E3_
 
-  - [ ] 6.2 Create result forwarder
+  - [x] 6.2 Create result forwarder
     - Create `rhivos/cloud-gateway-client/src/result_forwarder.rs`
     - Subscribe to `Vehicle.Command.Door.LockResult` on DATA_BROKER
     - On result change: construct `CommandResponse` JSON with the stored
       `command_id` and publish to MQTT `command_responses` topic (QoS 2)
     - _Requirements: 03-REQ-3.4_
 
-  - [ ] 6.3 Create status handler
+  - [x] 6.3 Create status handler
     - Create `rhivos/cloud-gateway-client/src/status_handler.rs`
     - On receiving MQTT `StatusRequest`: read all signals from DATA_BROKER,
       construct `StatusResponse` JSON, publish to MQTT `status_response`
@@ -220,7 +220,7 @@ order:
     - Handle missing signals gracefully (null/default)
     - _Requirements: 03-REQ-3.5_
 
-  - [ ] 6.4 Write command processing tests
+  - [x] 6.4 Write command processing tests
     - Unit tests with mock MQTT and Kuksa clients:
       - Lock command → Kuksa write with correct value
       - Unlock command → Kuksa write with correct value
@@ -231,10 +231,10 @@ order:
     - **Property 2: Result Propagation**
     - _Requirements: 03-REQ-3.2, 03-REQ-3.3, 03-REQ-3.4, 03-REQ-3.5_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] `cargo test -p cloud-gateway-client` passes all tests
-    - [ ] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
-    - [ ] Requirements 03-REQ-3.1–3.6 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] `cargo test -p cloud-gateway-client` passes all tests
+    - [x] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
+    - [x] Requirements 03-REQ-3.1–3.6 acceptance criteria met
 
 - [ ] 7. CLOUD_GATEWAY_CLIENT Telemetry
   - [ ] 7.1 Create telemetry publisher
