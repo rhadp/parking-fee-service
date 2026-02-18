@@ -1,0 +1,42 @@
+{
+    "Vehicle": {
+        "type": "branch",
+        "description": "Vehicle",
+        "children": {
+            "Command": {
+                "type": "branch",
+                "description": "Vehicle command signals for the SDV Parking Demo.",
+                "children": {
+                    "Door": {
+                        "type": "branch",
+                        "description": "Door command signals.",
+                        "children": {
+                            "Lock": {
+                                "type": "actuator",
+                                "datatype": "boolean",
+                                "description": "Lock/unlock command request. true=lock, false=unlock."
+                            },
+                            "LockResult": {
+                                "type": "sensor",
+                                "datatype": "string",
+                                "description": "Result of the last lock command processed by LOCKING_SERVICE.",
+                                "allowed": ["SUCCESS", "REJECTED_SPEED", "REJECTED_DOOR_OPEN"]
+                            }
+                        }
+                    }
+                }
+            },
+            "Parking": {
+                "type": "branch",
+                "description": "Parking-related signals for the SDV Parking Demo.",
+                "children": {
+                    "SessionActive": {
+                        "type": "sensor",
+                        "datatype": "boolean",
+                        "description": "Whether a parking session is currently active. Managed by PARKING_OPERATOR_ADAPTOR."
+                    }
+                }
+            }
+        }
+    }
+}
