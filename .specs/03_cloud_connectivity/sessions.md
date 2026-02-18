@@ -194,3 +194,24 @@ Implemented CLOUD_GATEWAY_CLIENT telemetry publishing (task group 7) for spec 03
 ### Tests Added or Modified
 
 - `rhivos/cloud-gateway-client/src/telemetry.rs` (inline tests): 7 unit tests (telemetry_message_from_full_state, telemetry_message_from_empty_state, telemetry_message_partial_failure_uses_null, telemetry_message_multiple_failures_uses_null, telemetry_message_includes_all_required_fields, telemetry_serialization_roundtrip, chrono_timestamp_is_reasonable) and 1 ignored integration test (telemetry_integration_with_real_infra)
+
+---
+
+## Session 29
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 8
+- **Date:** 2026-02-18
+
+### Summary
+
+Checkpoint verification for task group 8 (CLOUD_GATEWAY_CLIENT Complete) of specification 03_cloud_connectivity. Ran the full test suite — all Go tests (cloud-gateway: 5 packages, all pass), all Rust tests (81 passed, 1 ignored for cloud-gateway-client; plus all other workspace crates pass), `go vet` clean, `cargo clippy -- -D warnings` clean, and both Go and Rust builds succeed. No failures found; marked the checkpoint checkbox as complete in tasks.md.
+
+### Files Changed
+
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+None.
