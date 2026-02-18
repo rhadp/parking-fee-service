@@ -118,34 +118,34 @@ This plan establishes the project foundation in dependency order:
   - All proto files written, Go generation working
   - Commit and verify clean state before proceeding to Rust workspace
 
-- [ ] 4. Rust Workspace and Proto Crate
-  - [ ] 4.1 Create `rhivos/Cargo.toml` workspace manifest
+- [x] 4. Rust Workspace and Proto Crate
+  - [x] 4.1 Create `rhivos/Cargo.toml` workspace manifest
     - List initial members: `parking-proto`
     - Define `[workspace.dependencies]` for shared crate versions (tonic, prost,
       tokio, clap, tracing)
     - Use resolver = "2"
     - _Requirements: 01-REQ-2.1_
 
-  - [ ] 4.2 Create `rhivos/parking-proto` crate
+  - [x] 4.2 Create `rhivos/parking-proto` crate
     - `Cargo.toml`: depend on `tonic` and `prost` from workspace
     - `build.rs`: invoke `tonic_build::configure().compile_protos()` on all
       `.proto` files under `../../proto/`
     - `src/lib.rs`: re-export generated modules via `tonic::include_proto!()`
     - _Requirements: 01-REQ-4.5_
 
-  - [ ] 4.3 Verify proto crate compilation
+  - [x] 4.3 Verify proto crate compilation
     - Run `cd rhivos && cargo build -p parking-proto`
     - Fix any path or import issues in `build.rs`
     - Verify generated types are accessible (e.g., `parking_proto::common::Location`)
     - **Validates: Property 2 (Proto-Binding Consistency)**
     - _Requirements: 01-REQ-4.5_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] `cd rhivos && cargo build -p parking-proto` succeeds
-    - [ ] `cd rhivos && cargo test -p parking-proto` succeeds (even if no
+  - [x] 4.V Verify task group 4
+    - [x] `cd rhivos && cargo build -p parking-proto` succeeds
+    - [x] `cd rhivos && cargo test -p parking-proto` succeeds (even if no
       tests yet)
-    - [ ] Generated Rust types match proto definitions
-    - [ ] Requirements 01-REQ-2.1, 01-REQ-4.5 acceptance criteria met
+    - [x] Generated Rust types match proto definitions
+    - [x] Requirements 01-REQ-2.1, 01-REQ-4.5 acceptance criteria met
 
 - [ ] 5. Rust Skeleton Services
   - [ ] 5.1 Create `locking-service` skeleton
