@@ -140,8 +140,8 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - [x] `cargo clippy -p locking-service -- -D warnings` clean
     - [x] Requirements 02-REQ-3.1–3.4 acceptance criteria met
 
-- [ ] 5. LOCKING_SERVICE Command Handler
-  - [ ] 5.1 Create `lock_handler.rs` module
+- [x] 5. LOCKING_SERVICE Command Handler
+  - [x] 5.1 Create `lock_handler.rs` module
     - Implement `run_lock_handler(client: KuksaClient, config: Config)`
     - Subscribe to `Vehicle.Command.Door.Lock`
     - On each signal change: read speed and door state, validate, execute if
@@ -150,12 +150,12 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - _Requirements: 02-REQ-2.2, 02-REQ-4.1, 02-REQ-4.2, 02-REQ-5.1,
       02-REQ-5.2, 02-REQ-5.3, 02-REQ-5.4_
 
-  - [ ] 5.2 Define VSS signal path constants
+  - [x] 5.2 Define VSS signal path constants
     - Create a `signals` module (in `parking-proto` or `locking-service`) with
       all VSS path constants from the design document
     - _Requirements: 02-REQ-2.1 (supporting)_
 
-  - [ ] 5.3 Update `main.rs`
+  - [x] 5.3 Update `main.rs`
     - Replace spec 01 skeleton with real implementation
     - Parse config, connect to Kuksa, run lock handler
     - Handle SIGINT/SIGTERM for graceful shutdown
@@ -163,7 +163,7 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - Implement subscription re-establishment on stream interruption (02-REQ-2.E2)
     - _Requirements: 02-REQ-2.1, 02-REQ-2.3, 02-REQ-2.E1, 02-REQ-2.E2_
 
-  - [ ] 5.4 Write unit tests for lock_handler
+  - [x] 5.4 Write unit tests for lock_handler
     - Use a trait-based mock for the Kuksa client
     - Test: lock command with safe conditions → IsLocked written, LockResult
       = SUCCESS
@@ -182,11 +182,11 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - **Validates: Requirements 02-REQ-3.E1, 02-REQ-3.E2, 02-REQ-4.1,
       02-REQ-4.2, 02-REQ-5.1–5.4**
 
-  - [ ] 5.V Verify task group 5
-    - [ ] `cargo test -p locking-service` passes all tests
-    - [ ] `cargo clippy -p locking-service -- -D warnings` clean
-    - [ ] `cargo build -p locking-service` produces binary
-    - [ ] Requirements 02-REQ-2.1–2.3, 02-REQ-3.E1–E2, 02-REQ-4.1–4.2,
+  - [x] 5.V Verify task group 5
+    - [x] `cargo test -p locking-service` passes all tests
+    - [x] `cargo clippy -p locking-service -- -D warnings` clean
+    - [x] `cargo build -p locking-service` produces binary
+    - [x] Requirements 02-REQ-2.1–2.3, 02-REQ-3.E1–E2, 02-REQ-4.1–4.2,
       02-REQ-5.1–5.4 acceptance criteria met
 
 - [ ] 6. Checkpoint — LOCKING_SERVICE Complete

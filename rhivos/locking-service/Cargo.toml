@@ -13,9 +13,11 @@ path = "src/main.rs"
 parking-proto = { path = "../parking-proto" }
 tonic = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 clap = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = "1"
