@@ -586,6 +586,80 @@ In order to keep the scope of the demo in check, the following aspects are out-o
 - Production-grade security/encryption
 - Real GPS or other hardware integration
 
+## Clarifications
+
+The following clarifications were obtained during requirements engineering.
+
+### Architecture
+
+- **A1 (COMPANION_APP protocol):** CLOUD_GATEWAY exposes two interfaces: REST
+  towards mobile apps (COMPANION_APP) and MQTT towards vehicle
+  (CLOUD_GATEWAY_CLIENT). The COMPANION_APP uses REST exclusively.
+
+- **A2 (Command flow to LOCKING_SERVICE):** CLOUD_GATEWAY_CLIENT publishes
+  validated commands to DATA_BROKER. LOCKING_SERVICE subscribes to DATA_BROKER
+  for command signals. There are no direct service calls between
+  CLOUD_GATEWAY_CLIENT and LOCKING_SERVICE.
+
+- **A3 (PARKING_FEE_SERVICE ↔ REGISTRY):** PARKING_FEE_SERVICE acts as a
+  gatekeeper for an external OCI registry (Google Artifact Registry). It does
+  not run its own registry.
+
+- **A4 (Adapter discovery flow):** PARKING_FEE_SERVICE exposes a location-based
+  lookup endpoint. The PARKING_APP sends the vehicle's location and receives a
+  list of feasible parking operators. Once the user/PARKING_APP selects an
+  operator, the PARKING_APP requests adapter metadata (image ref, checksum)
+  needed for secure installation via UPDATE_SERVICE.
+
+- **A5 (Adapter offloading):** Offloading is triggered by either a configurable
+  inactivity timer OR when RHIVOS QM resources become scarce.
+
+### Protocols
+
+- **I1 (COMPANION_APP):** Confirmed: COMPANION_APP uses REST towards
+  CLOUD_GATEWAY.
+
+- **I2 (Cross-partition transport):** Cross-partition gRPC uses network TCP
+  (not UDS). Same-partition uses UDS.
+
+- **I3 (DATA_BROKER):** DATA_BROKER IS Eclipse Kuksa Databroker, deployed as a
+  pre-built binary. No wrapper or reimplementation.
+
+### Interfaces
+
+- **U1 (PARKING_FEE_SERVICE REST API):** Endpoints: lookup operator by location,
+  get adapter info, start session, stop session, get fee, health check.
+
+- **U2 (Adapter common interface):** gRPC methods: StartSession, StopSession,
+  GetStatus, GetRate.
+
+- **U3 (Zone definition):** Geofence polygons (lat/lon). Lookups allow
+  fuzziness — "near" a zone counts as a match. Secondary option (future):
+  address-based with reverse geo-lookup.
+
+- **U4 (Authentication):** Bearer tokens for the demo.
+
+- **U5 (Adapter lifecycle states):** Full state machine: UNKNOWN, DOWNLOADING,
+  INSTALLING, RUNNING, STOPPED, ERROR, OFFLOADING.
+
+- **U7 (UPDATE_SERVICE interface):** InstallAdapter, WatchAdapterStates,
+  ListAdapters, RemoveAdapter, GetAdapterStatus.
+
+### Implementation
+
+- **U6 (Mock services):** CLI tools connecting to DATA_BROKER via gRPC.
+
+- **U8 (Demo adapters):** Pre-built images pushed manually to the registry.
+
+- **IA2 (MQTT):** Containerized Eclipse Mosquitto for local dev.
+
+- **IA4 (Zones):** Hardcoded but realistic geofence polygons. Data TBD.
+
+- **IA5 (Container runtime):** Podman on RHIVOS; OpenShift for cloud.
+
+- **IA6 (Vehicle identity):** Self-created VINs, self-registration on startup.
+  Must support many virtual devices/cars simultaneously.
+
 ## References
 
 - [Standalone MQTT broker architecture on Google Cloud](https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture)
