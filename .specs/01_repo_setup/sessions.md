@@ -159,3 +159,35 @@ Checkpoint verification for task group 6 (Rust Workspace Complete) of specificat
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 7
+
+- **Spec:** 01_repo_setup
+- **Task Group:** 7
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 7 (Go Modules and Backend Skeletons) for specification 01_repo_setup. Created Go modules with `go.mod` and skeleton `main.go` files for `backend/parking-fee-service` (HTTP on :8080) and `backend/cloud-gateway` (HTTP on :8081), each returning HTTP 501 for all stub routes and 200 for `/healthz`. Added comprehensive tests verifying all endpoints. Wired Rust and Go build, test, and lint targets into the root Makefile replacing placeholder messages.
+
+### Files Changed
+
+- Added: `backend/parking-fee-service/go.mod`
+- Added: `backend/parking-fee-service/main.go`
+- Added: `backend/parking-fee-service/main_test.go`
+- Added: `backend/cloud-gateway/go.mod`
+- Added: `backend/cloud-gateway/main.go`
+- Added: `backend/cloud-gateway/main_test.go`
+- Modified: `Makefile`
+- Modified: `.gitignore`
+- Modified: `.specs/01_repo_setup/tasks.md`
+- Modified: `.specs/01_repo_setup/sessions.md`
+- Deleted: `backend/parking-fee-service/.gitkeep`
+- Deleted: `backend/cloud-gateway/.gitkeep`
+
+### Tests Added or Modified
+
+- `backend/parking-fee-service/main_test.go`: Tests healthz returns 200, all 5 stub routes return 501 with JSON content-type, envOrDefault helper. Validates Property 3 (Skeleton Contract) and requirements 01-REQ-7.4, 01-REQ-3.4.
+- `backend/cloud-gateway/main_test.go`: Tests healthz returns 200, all 3 stub routes (lock/unlock/status) return 501 with JSON content-type, envOrDefault helper. Validates Property 3 (Skeleton Contract) and requirements 01-REQ-7.4, 01-REQ-3.4.

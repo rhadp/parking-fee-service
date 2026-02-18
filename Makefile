@@ -5,8 +5,13 @@
 
 .PHONY: all build test proto lint clean clean-proto \
         check-tools \
+        build-rust test-rust lint-rust \
+        build-go test-go lint-go \
         infra-up infra-down infra-status \
         build-containers
+
+# ─── Go Module Directories ────────────────────────────────────────────────
+GO_BACKEND_DIRS := backend/parking-fee-service backend/cloud-gateway
 
 # Default target
 all: build
@@ -18,13 +23,37 @@ check-tools:
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 
-build: check-tools
-	@echo "[make build] Not yet implemented — will build all Rust and Go components."
+build: check-tools build-rust build-go
+
+build-rust:
+	@echo "[make build] Building Rust workspace..."
+	cd rhivos && cargo build --workspace
+	@echo "[make build] Rust build complete."
+
+build-go:
+	@echo "[make build] Building Go services..."
+	@for dir in $(GO_BACKEND_DIRS); do \
+		echo "[make build]   $$dir"; \
+		(cd $$dir && go build ./...) || exit 1; \
+	done
+	@echo "[make build] Go build complete."
 
 # ─── Test ────────────────────────────────────────────────────────────────────
 
-test: check-tools
-	@echo "[make test] Not yet implemented — will run all unit tests."
+test: check-tools test-rust test-go
+
+test-rust:
+	@echo "[make test] Running Rust tests..."
+	cd rhivos && cargo test --workspace
+	@echo "[make test] Rust tests complete."
+
+test-go:
+	@echo "[make test] Running Go tests..."
+	@for dir in $(GO_BACKEND_DIRS); do \
+		echo "[make test]   $$dir"; \
+		(cd $$dir && go test ./...) || exit 1; \
+	done
+	@echo "[make test] Go tests complete."
 
 # ─── Proto Generation ───────────────────────────────────────────────────────
 
@@ -45,8 +74,20 @@ proto: check-tools
 
 # ─── Lint ────────────────────────────────────────────────────────────────────
 
-lint:
-	@echo "[make lint] Not yet implemented — will run linters for all components."
+lint: lint-rust lint-go
+
+lint-rust:
+	@echo "[make lint] Running Rust linter..."
+	cd rhivos && cargo clippy --workspace -- -D warnings
+	@echo "[make lint] Rust lint complete."
+
+lint-go:
+	@echo "[make lint] Running Go linter..."
+	@for dir in $(GO_BACKEND_DIRS); do \
+		echo "[make lint]   $$dir"; \
+		(cd $$dir && go vet ./...) || exit 1; \
+	done
+	@echo "[make lint] Go lint complete."
 
 # ─── Clean ───────────────────────────────────────────────────────────────────
 
