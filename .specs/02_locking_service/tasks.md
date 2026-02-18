@@ -189,7 +189,7 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - [x] Requirements 02-REQ-2.1–2.3, 02-REQ-3.E1–E2, 02-REQ-4.1–4.2,
       02-REQ-5.1–5.4 acceptance criteria met
 
-- [ ] 6. Checkpoint — LOCKING_SERVICE Complete
+- [x] 6. Checkpoint — LOCKING_SERVICE Complete
   - Safety validation tested, command handler tested with mocks
   - Commit and verify clean state before proceeding to mock sensors
 

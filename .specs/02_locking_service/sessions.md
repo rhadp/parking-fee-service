@@ -123,3 +123,24 @@ Implemented task group 5 (LOCKING_SERVICE Command Handler) for spec 02_locking_s
 ### Tests Added or Modified
 
 - `rhivos/locking-service/src/lock_handler.rs`: 19 unit tests covering lock/unlock safe conditions (Property 1), speed/door rejection (Property 2), result completeness (Property 3), missing signal defaults (Property 7), read/write error handling, boundary values, and BrokerError display/debug.
+
+---
+
+## Session 18
+
+- **Spec:** 02_locking_service
+- **Task Group:** 6
+- **Date:** 2026-02-18
+
+### Summary
+
+Completed checkpoint 6 (LOCKING_SERVICE Complete) for spec 02_locking_service. Ran the full test suite (`make build`, `make test`, `make lint`): all 91 Rust unit tests pass (plus 4 ignored integration tests requiring Kuksa), all Go tests pass, clippy and go vet are clean, and builds succeed. Marked checkpoint 6 as complete.
+
+### Files Changed
+
+- Modified: `.specs/02_locking_service/tasks.md`
+- Modified: `.specs/02_locking_service/sessions.md`
+
+### Tests Added or Modified
+
+- None.
