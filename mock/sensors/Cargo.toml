@@ -11,13 +11,8 @@ name = "mock-sensors"
 path = "src/main.rs"
 
 [dependencies]
-tonic = { workspace = true }
-prost = { workspace = true }
+parking-proto = { path = "../../rhivos/parking-proto" }
 tokio = { workspace = true }
 clap = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-prost-types = { workspace = true }
-
-[build-dependencies]
-tonic-build = "0.12"
