@@ -6,6 +6,7 @@ members = [
     "cloud-gateway-client",
     "update-service",
     "parking-operator-adaptor",
+    "../mock/sensors",
 ]
 
 [workspace.dependencies]

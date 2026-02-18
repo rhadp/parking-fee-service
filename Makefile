@@ -12,6 +12,8 @@
 
 # ─── Go Module Directories ────────────────────────────────────────────────
 GO_BACKEND_DIRS := backend/parking-fee-service backend/cloud-gateway
+GO_MOCK_DIRS    := mock/parking-app-cli mock/companion-app-cli
+GO_ALL_DIRS     := $(GO_BACKEND_DIRS) $(GO_MOCK_DIRS)
 
 # Default target
 all: build
@@ -32,7 +34,7 @@ build-rust:
 
 build-go:
 	@echo "[make build] Building Go services..."
-	@for dir in $(GO_BACKEND_DIRS); do \
+	@for dir in $(GO_ALL_DIRS); do \
 		echo "[make build]   $$dir"; \
 		(cd $$dir && go build ./...) || exit 1; \
 	done
@@ -49,7 +51,7 @@ test-rust:
 
 test-go:
 	@echo "[make test] Running Go tests..."
-	@for dir in $(GO_BACKEND_DIRS); do \
+	@for dir in $(GO_ALL_DIRS); do \
 		echo "[make test]   $$dir"; \
 		(cd $$dir && go test ./...) || exit 1; \
 	done
@@ -83,7 +85,7 @@ lint-rust:
 
 lint-go:
 	@echo "[make lint] Running Go linter..."
-	@for dir in $(GO_BACKEND_DIRS); do \
+	@for dir in $(GO_ALL_DIRS); do \
 		echo "[make lint]   $$dir"; \
 		(cd $$dir && go vet ./...) || exit 1; \
 	done

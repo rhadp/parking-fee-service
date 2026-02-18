@@ -12,6 +12,8 @@ Cargo.lock
 **/bin/
 backend/parking-fee-service/parking-fee-service
 backend/cloud-gateway/cloud-gateway
+mock/parking-app-cli/parking-app-cli
+mock/companion-app-cli/companion-app-cli
 
 # Local development logs
 logs/
