@@ -7,22 +7,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join("..")
         .join("proto");
 
-    let proto_files = [
+    // ── Parking-domain protos ───────────────────────────────────────────
+    let parking_protos = [
         proto_dir.join("common/common.proto"),
         proto_dir.join("services/update_service.proto"),
         proto_dir.join("services/parking_adapter.proto"),
     ];
 
-    // Include path is the proto root so imports like "common/common.proto" resolve
-    let include_dirs = [&proto_dir];
-
     tonic_build::configure()
         .build_server(true)
         .build_client(true)
-        .compile_protos(&proto_files, &include_dirs)?;
+        .compile_protos(&parking_protos, &[&proto_dir])?;
 
-    // Re-run build if any proto file changes
-    for proto_file in &proto_files {
+    for proto_file in &parking_protos {
+        println!("cargo:rerun-if-changed={}", proto_file.display());
+    }
+
+    // ── Kuksa val.v2 protos (vendored) ──────────────────────────────────
+    let vendor_dir = proto_dir.join("vendor");
+
+    let kuksa_protos = [
+        vendor_dir.join("kuksa/val/v2/types.proto"),
+        vendor_dir.join("kuksa/val/v2/val.proto"),
+    ];
+
+    tonic_build::configure()
+        .build_server(false)
+        .build_client(true)
+        .compile_protos(&kuksa_protos, &[&vendor_dir])?;
+
+    for proto_file in &kuksa_protos {
         println!("cargo:rerun-if-changed={}", proto_file.display());
     }
 

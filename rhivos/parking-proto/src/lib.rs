@@ -11,6 +11,8 @@
 //! - [`common`] — shared message types (`parking.common`)
 //! - [`services::update`] — UpdateService gRPC interface (`parking.services.update`)
 //! - [`services::adapter`] — ParkingAdapter gRPC interface (`parking.services.adapter`)
+//! - [`kuksa`] — Eclipse Kuksa Databroker `kuksa.val.v2` gRPC client bindings
+//! - [`kuksa_client`] — High-level Kuksa Databroker client helper
 
 /// Shared message types from `proto/common/common.proto`.
 pub mod common {
@@ -29,6 +31,21 @@ pub mod services {
         tonic::include_proto!("parking.services.adapter");
     }
 }
+
+/// Eclipse Kuksa Databroker `kuksa.val.v2` gRPC bindings (vendored proto).
+pub mod kuksa {
+    pub mod val {
+        pub mod v2 {
+            tonic::include_proto!("kuksa.val.v2");
+        }
+    }
+}
+
+/// High-level client helper for Kuksa Databroker `kuksa.val.v2` API.
+pub mod kuksa_client;
+
+/// VSS signal path constants used by services across the workspace.
+pub mod signals;
 
 #[cfg(test)]
 mod tests {
@@ -138,5 +155,82 @@ mod tests {
     fn parking_adapter_trait_is_generated() {
         // Verify the gRPC server trait exists (compile-time check).
         fn _assert_trait_exists<T: services::adapter::parking_adapter_server::ParkingAdapter>() {}
+    }
+
+    #[test]
+    fn kuksa_val_v2_types_are_accessible() {
+        // Verify Kuksa val.v2 generated types compile and are usable.
+        let value = kuksa::val::v2::Value {
+            typed_value: Some(kuksa::val::v2::value::TypedValue::Bool(true)),
+        };
+        match value.typed_value {
+            Some(kuksa::val::v2::value::TypedValue::Bool(b)) => assert!(b),
+            _ => panic!("Expected bool value"),
+        }
+
+        let signal_id = kuksa::val::v2::SignalId {
+            signal: Some(kuksa::val::v2::signal_id::Signal::Path(
+                "Vehicle.Speed".into(),
+            )),
+        };
+        match signal_id.signal {
+            Some(kuksa::val::v2::signal_id::Signal::Path(p)) => {
+                assert_eq!(p, "Vehicle.Speed");
+            }
+            _ => panic!("Expected path signal"),
+        }
+
+        // Verify subscribe request/response types exist.
+        let _req = kuksa::val::v2::SubscribeRequest {
+            signal_paths: vec!["Vehicle.Speed".into()],
+            buffer_size: 0,
+        };
+
+        let _get_req = kuksa::val::v2::GetValueRequest {
+            signal_id: Some(kuksa::val::v2::SignalId {
+                signal: Some(kuksa::val::v2::signal_id::Signal::Path(
+                    "Vehicle.Speed".into(),
+                )),
+            }),
+        };
+    }
+
+    #[test]
+    fn kuksa_val_v2_client_trait_is_generated() {
+        // Verify the gRPC client type exists (compile-time check).
+        fn _assert_type_exists(_: &kuksa::val::v2::val_client::ValClient<tonic::transport::Channel>) {}
+    }
+
+    #[test]
+    fn signal_constants_are_correct() {
+        assert_eq!(
+            signals::DOOR_IS_LOCKED,
+            "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"
+        );
+        assert_eq!(
+            signals::DOOR_IS_OPEN,
+            "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+        );
+        assert_eq!(signals::SPEED, "Vehicle.Speed");
+        assert_eq!(
+            signals::LOCATION_LAT,
+            "Vehicle.CurrentLocation.Latitude"
+        );
+        assert_eq!(
+            signals::LOCATION_LON,
+            "Vehicle.CurrentLocation.Longitude"
+        );
+        assert_eq!(
+            signals::COMMAND_DOOR_LOCK,
+            "Vehicle.Command.Door.Lock"
+        );
+        assert_eq!(
+            signals::LOCK_RESULT,
+            "Vehicle.Command.Door.LockResult"
+        );
+        assert_eq!(
+            signals::PARKING_SESSION_ACTIVE,
+            "Vehicle.Parking.SessionActive"
+        );
     }
 }
