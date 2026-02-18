@@ -13,6 +13,7 @@
 
 ## Conventions
 
+- Protocol and design documentation lives in `docs/` (e.g., `mqtt-protocol.md`, `vehicle-pairing.md`, `vss-signals.md`).
 - Each module has a top-level doc comment listing the requirements it satisfies (e.g. `//! - 03-REQ-4.1: ...`).
 - Rust tests are inline (`#[cfg(test)] mod tests`) within each source file, not in separate test files.
 - Integration tests requiring infrastructure (Mosquitto, Kuksa) use `#[ignore]` and are run manually with `--ignored`.
@@ -25,6 +26,7 @@
 - E2E integration tests live in `tests/` at the project root (e.g., `tests/test_cloud_e2e.sh`). Makefile target `test-e2e` runs E2E tests; `test` runs unit tests only.
 - Infrastructure (Kuksa + Mosquitto) is managed via `make infra-up` / `make infra-down` using podman/docker compose.
 - Integration tests must exit 0 and report "SKIP" when infrastructure is unavailable (03-REQ-7.E1).
+- The README "Current Status" table must be kept up-to-date when services move from skeleton to implemented.
 
 ## Decisions
 
