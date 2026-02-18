@@ -3,7 +3,7 @@
 # Orchestrates builds, tests, proto generation, linting, infrastructure,
 # and container builds across all technology domains.
 
-.PHONY: all build test proto lint clean clean-rust clean-go clean-proto \
+.PHONY: all build test test-e2e proto lint clean clean-rust clean-go clean-proto \
         check-tools \
         build-rust test-rust lint-rust \
         build-go test-go lint-go \
@@ -56,6 +56,14 @@ test-go:
 		(cd $$dir && go test ./...) || exit 1; \
 	done
 	@echo "[make test] Go tests complete."
+
+# ─── E2E / Integration Tests ────────────────────────────────────────────────
+
+test-e2e:
+	@echo "[make test-e2e] Running cloud connectivity E2E integration tests..."
+	@echo "[make test-e2e] Requires 'make infra-up' (Kuksa + Mosquitto)"
+	./tests/test_cloud_e2e.sh
+	@echo "[make test-e2e] E2E tests complete."
 
 # ─── Proto Generation ───────────────────────────────────────────────────────
 

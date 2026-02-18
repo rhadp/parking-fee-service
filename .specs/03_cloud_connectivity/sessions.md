@@ -238,3 +238,26 @@ Implemented task group 9 (Mock COMPANION_APP CLI and Pairing) for specification 
 ### Tests Added or Modified
 
 - `mock/companion-app-cli/main_test.go`: 30 tests covering flag parsing (defaults, custom, env vars, missing values, flag-over-env precedence), CLI dispatch (no args, VIN required, unknown command, help variants, pair requires pin, lock/unlock/status require token), HTTP request construction with httptest.Server (pair, lock, unlock, status — verifying method, path, headers, body), error handling (404, 403, 401, gateway unreachable, 503 service unavailable, non-JSON error body), handleErrorResponse unit tests, envOrDefault, subcommand recognition, and full pair-then-lock integration flow
+
+---
+
+## Session 2
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 10
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 10 (Integration Tests) for specification 03_cloud_connectivity. Created the comprehensive E2E integration test script `tests/test_cloud_e2e.sh` that exercises the full vehicle-to-cloud command pipeline: COMPANION_APP CLI → CLOUD_GATEWAY (REST) → MQTT → CLOUD_GATEWAY_CLIENT → DATA_BROKER (Kuksa) → LOCKING_SERVICE, and the reverse path for responses and telemetry. The script covers all 5 subtasks: infrastructure harness with graceful skip (10.1/03-REQ-7.E1), pairing flow (10.2/03-REQ-7.1), lock command E2E with result propagation (10.3/03-REQ-7.2–7.4), telemetry flow (10.4/03-REQ-7.5), and rejection propagation for speed and door-open conditions (10.5/03-REQ-7.2–7.3). Added `make test-e2e` Makefile target. All 28 E2E tests pass with infrastructure running, and tests skip cleanly (exit 0) when infrastructure is unavailable.
+
+### Files Changed
+
+- Added: `tests/test_cloud_e2e.sh`
+- Modified: `Makefile`
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `tests/test_cloud_e2e.sh`: 28 E2E integration tests covering infrastructure check (03-REQ-7.E1), service builds, service startup with health checks, VIN/PIN extraction, safe condition setup, registration propagation with retry, wrong PIN rejection (403), correct pairing with token, unknown VIN rejection (404), lock command (202 Accepted + command_id), lock result propagation (is_locked=true, last_command.result=SUCCESS, status=success), telemetry flow (speed/latitude/longitude/updated_at reflected in GET /status), rejection propagation (REJECTED_SPEED when speed=50, REJECTED_DOOR_OPEN when door open), unlock E2E (is_locked=false), and auth enforcement (401 without token, 401 with wrong token)
