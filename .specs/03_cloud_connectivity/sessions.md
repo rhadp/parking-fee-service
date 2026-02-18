@@ -215,3 +215,26 @@ Checkpoint verification for task group 8 (CLOUD_GATEWAY_CLIENT Complete) of spec
 ### Tests Added or Modified
 
 None.
+
+---
+
+## Session 30
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 9
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 9 (Mock COMPANION_APP CLI and Pairing) for specification 03_cloud_connectivity. Replaced the spec-01 skeleton `mock/companion-app-cli/main.go` with a full implementation supporting `pair`, `lock`, `unlock`, and `status` subcommands. Added `--pin` flag for the pair command, proper bearer token authentication for lock/unlock/status, JSON request body construction for pairing, pretty-printed status output, and comprehensive error handling for gateway unreachable, HTTP 401/403/404/503 responses, and non-JSON error bodies. Wrote 30 tests covering flag parsing, subcommand dispatch, HTTP request construction using `httptest.Server`, error handling for all error codes, and a full pair-then-lock integration flow.
+
+### Files Changed
+
+- Modified: `mock/companion-app-cli/main.go`
+- Modified: `mock/companion-app-cli/main_test.go`
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/companion-app-cli/main_test.go`: 30 tests covering flag parsing (defaults, custom, env vars, missing values, flag-over-env precedence), CLI dispatch (no args, VIN required, unknown command, help variants, pair requires pin, lock/unlock/status require token), HTTP request construction with httptest.Server (pair, lock, unlock, status — verifying method, path, headers, body), error handling (404, 403, 401, gateway unreachable, 503 service unavailable, non-JSON error body), handleErrorResponse unit tests, envOrDefault, subcommand recognition, and full pair-then-lock integration flow
