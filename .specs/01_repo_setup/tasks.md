@@ -294,25 +294,25 @@ This plan establishes the project foundation in dependency order:
   - `make lint` is clean
   - Commit and verify clean state
 
-- [ ] 10. Local Infrastructure
-  - [ ] 10.1 Create `infra/compose.yaml`
+- [x] 10. Local Infrastructure
+  - [x] 10.1 Create `infra/compose.yaml`
     - Define `databroker` service using `ghcr.io/eclipse-kuksa/kuksa-databroker`
       image, port 55555
     - Define `mosquitto` service using `eclipse-mosquitto:2` image, port 1883
     - _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3_
 
-  - [ ] 10.2 Create infrastructure configuration files
+  - [x] 10.2 Create infrastructure configuration files
     - `infra/config/mosquitto/mosquitto.conf`: listener 1883, allow_anonymous
     - Kuksa configuration if needed (VSS overlay, access control)
     - _Requirements: 01-REQ-6.5_
 
-  - [ ] 10.3 Wire infrastructure targets into Makefile
+  - [x] 10.3 Wire infrastructure targets into Makefile
     - `make infra-up`: `podman compose -f infra/compose.yaml up -d`
     - `make infra-down`: `podman compose -f infra/compose.yaml down`
     - `make infra-status`: `podman compose -f infra/compose.yaml ps`
     - _Requirements: 01-REQ-5.4_
 
-  - [ ] 10.4 Write infrastructure smoke test
+  - [x] 10.4 Write infrastructure smoke test
     - Create `tests/test_infra.sh` that:
       1. Runs `make infra-up`
       2. Waits for services to be ready (poll ports)
@@ -323,12 +323,12 @@ This plan establishes the project foundation in dependency order:
     - **Property 4: Infrastructure Lifecycle Idempotency**
     - **Validates: Requirements 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4**
 
-  - [ ] 10.V Verify task group 10
-    - [ ] `make infra-up` starts both containers
-    - [ ] `make infra-status` shows both running
-    - [ ] `make infra-down` stops and removes both containers
-    - [ ] `tests/test_infra.sh` passes
-    - [ ] Requirements 01-REQ-6.1–6.5 acceptance criteria met
+  - [x] 10.V Verify task group 10
+    - [x] `make infra-up` starts both containers
+    - [x] `make infra-status` shows both running
+    - [x] `make infra-down` stops and removes both containers
+    - [x] `tests/test_infra.sh` passes
+    - [x] Requirements 01-REQ-6.1–6.5 acceptance criteria met
 
 - [ ] 11. Container Build Definitions
   - [ ] 11.1 Create Rust service Containerfiles
