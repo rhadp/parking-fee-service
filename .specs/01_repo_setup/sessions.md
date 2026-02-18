@@ -191,3 +191,44 @@ Implemented task group 7 (Go Modules and Backend Skeletons) for specification 01
 
 - `backend/parking-fee-service/main_test.go`: Tests healthz returns 200, all 5 stub routes return 501 with JSON content-type, envOrDefault helper. Validates Property 3 (Skeleton Contract) and requirements 01-REQ-7.4, 01-REQ-3.4.
 - `backend/cloud-gateway/main_test.go`: Tests healthz returns 200, all 3 stub routes (lock/unlock/status) return 501 with JSON content-type, envOrDefault helper. Validates Property 3 (Skeleton Contract) and requirements 01-REQ-7.4, 01-REQ-3.4.
+
+---
+
+## Session 8
+
+- **Spec:** 01_repo_setup
+- **Task Group:** 8
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 8 (Mock CLI Applications) for specification 01_repo_setup. Created three mock CLI tools: `parking-app-cli` (Go, 9 gRPC subcommands against UpdateService and ParkingAdapter), `companion-app-cli` (Go, 3 REST subcommands against CloudGateway), and `mock-sensors` (Rust, 3 subcommands publishing VSS signals to Kuksa Databroker via vendored proto). All tools include tests, are wired into the root Makefile, and pass build/test/lint quality gates.
+
+### Files Changed
+
+- Added: `mock/parking-app-cli/go.mod`
+- Added: `mock/parking-app-cli/go.sum`
+- Added: `mock/parking-app-cli/main.go`
+- Added: `mock/parking-app-cli/main_test.go`
+- Added: `mock/companion-app-cli/go.mod`
+- Added: `mock/companion-app-cli/main.go`
+- Added: `mock/companion-app-cli/main_test.go`
+- Added: `mock/sensors/Cargo.toml`
+- Added: `mock/sensors/build.rs`
+- Added: `mock/sensors/src/main.rs`
+- Added: `mock/sensors/proto/kuksa/val/v1/types.proto`
+- Added: `mock/sensors/proto/kuksa/val/v1/val.proto`
+- Modified: `rhivos/Cargo.toml`
+- Modified: `Makefile`
+- Modified: `.gitignore`
+- Modified: `.specs/01_repo_setup/tasks.md`
+- Modified: `.specs/01_repo_setup/sessions.md`
+- Deleted: `mock/parking-app-cli/.gitkeep`
+- Deleted: `mock/companion-app-cli/.gitkeep`
+- Deleted: `mock/sensors/.gitkeep`
+
+### Tests Added or Modified
+
+- `mock/parking-app-cli/main_test.go`: Tests global flag parsing (defaults, custom, env), subcommand recognition for all 9 commands, flag extraction utility, help command. Validates Property 5 (Mock Interface Fidelity) and requirements 01-REQ-8.1, 01-REQ-8.3, 01-REQ-8.4.
+- `mock/companion-app-cli/main_test.go`: Tests global flag parsing (defaults, custom, env), VIN required validation, subcommand recognition for lock/unlock/status, help command. Validates requirements 01-REQ-8.2, 01-REQ-8.3.
+- `mock/sensors/src/main.rs` (`#[cfg(test)]`): Tests CLI argument parsing for set-location, set-speed, set-door (open/closed), custom databroker address, entry update construction for double and bool values. Validates requirements 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.3.

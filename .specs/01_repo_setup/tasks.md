@@ -237,8 +237,8 @@ This plan establishes the project foundation in dependency order:
     - [x] Requirements 01-REQ-3.1–3.4, 01-REQ-7.2, 01-REQ-7.4 acceptance
       criteria met
 
-- [ ] 8. Mock CLI Applications
-  - [ ] 8.1 Create `mock/parking-app-cli`
+- [x] 8. Mock CLI Applications
+  - [x] 8.1 Create `mock/parking-app-cli`
     - Go module with `main.go` using a CLI framework (e.g., `cobra` or
       stdlib `flag` with subcommands)
     - Implement subcommands: `install-adapter`, `list-adapters`,
@@ -249,14 +249,14 @@ This plan establishes the project foundation in dependency order:
     - Global flags: `--update-service-addr`, `--adapter-addr`
     - _Requirements: 01-REQ-8.1, 01-REQ-8.3, 01-REQ-8.4_
 
-  - [ ] 8.2 Create `mock/companion-app-cli`
+  - [x] 8.2 Create `mock/companion-app-cli`
     - Go module with `main.go`
     - Implement subcommands: `lock`, `unlock`, `status`
     - Each subcommand sends an HTTP request to the CLOUD_GATEWAY REST API
     - Global flags: `--gateway-addr`, `--vin`, `--token`
     - _Requirements: 01-REQ-8.2, 01-REQ-8.3_
 
-  - [ ] 8.3 Create `mock/sensors` Rust crate
+  - [x] 8.3 Create `mock/sensors` Rust crate
     - Add as workspace member in `rhivos/Cargo.toml` via `"../mock/sensors"`
     - `Cargo.toml`: depend on Kuksa client crate or vendored Kuksa proto, plus
       `clap`, `tokio`, `tonic`
@@ -265,7 +265,7 @@ This plan establishes the project foundation in dependency order:
     - Flag: `--databroker-addr` (default `localhost:55555`)
     - _Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.3_
 
-  - [ ] 8.4 Write mock CLI tests
+  - [x] 8.4 Write mock CLI tests
     - `mock/parking-app-cli/main_test.go`: verify subcommand parsing and flag
       defaults
     - `mock/companion-app-cli/main_test.go`: verify subcommand parsing and flag
@@ -275,18 +275,18 @@ This plan establishes the project foundation in dependency order:
     - **Validates: Requirements 01-REQ-8.1, 01-REQ-8.4**
     - _Requirements: 01-REQ-8.1, 01-REQ-8.2, 01-REQ-9.1_
 
-  - [ ] 8.5 Wire mock targets into root Makefile
+  - [x] 8.5 Wire mock targets into root Makefile
     - `make build` includes mock CLI Go builds and mock-sensors Rust build
     - `make test` includes mock CLI tests
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] `make build` builds all mock tools
-    - [ ] `make test` runs and passes mock CLI tests
-    - [ ] `mock/parking-app-cli --help` shows all subcommands
-    - [ ] `mock/companion-app-cli --help` shows all subcommands
-    - [ ] `mock-sensors --help` shows all subcommands
-    - [ ] Requirements 01-REQ-8.1–8.4, 01-REQ-9.1–9.3 acceptance criteria met
+  - [x] 8.V Verify task group 8
+    - [x] `make build` builds all mock tools
+    - [x] `make test` runs and passes mock CLI tests
+    - [x] `mock/parking-app-cli --help` shows all subcommands
+    - [x] `mock/companion-app-cli --help` shows all subcommands
+    - [x] `mock-sensors --help` shows all subcommands
+    - [x] Requirements 01-REQ-8.1–8.4, 01-REQ-9.1–9.3 acceptance criteria met
 
 - [ ] 9. Checkpoint — All Code Compiles
   - `make build` succeeds for all Rust and Go components
