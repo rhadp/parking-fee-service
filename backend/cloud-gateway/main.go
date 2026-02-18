@@ -1,8 +1,9 @@
 // Package main implements the CLOUD_GATEWAY service.
 //
 // CLOUD_GATEWAY provides a REST API for vehicle remote operations (lock,
-// unlock, status) and vehicle pairing. It maintains an in-memory vehicle
-// state store and will connect to MQTT (Mosquitto) in a future task group.
+// unlock, status) and vehicle pairing. It connects to an MQTT broker
+// (Mosquitto) for vehicle communication and maintains an in-memory vehicle
+// state store.
 package main
 
 import (
@@ -16,17 +17,26 @@ import (
 	"time"
 
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/api"
+	mqttclient "github.com/rhadp/parking-fee-service/backend/cloud-gateway/mqtt"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/state"
 )
 
 func main() {
 	listenAddr := flag.String("listen-addr", envOrDefault("LISTEN_ADDR", ":8081"), "REST API listen address")
-	_ = flag.String("mqtt-addr", envOrDefault("MQTT_ADDR", "localhost:1883"), "MQTT broker address (used in task group 3)")
+	mqttAddr := flag.String("mqtt-addr", envOrDefault("MQTT_ADDR", "localhost:1883"), "MQTT broker address")
 	flag.Parse()
 
 	store := state.NewStore()
 
-	mux := newServeMux(store)
+	// Connect to MQTT broker. The MQTT client subscribes to vehicle
+	// response/telemetry/registration topics and updates the state store.
+	mqttClient, err := mqttclient.NewClient(*mqttAddr, store)
+	if err != nil {
+		log.Fatalf("cloud-gateway: failed to connect to MQTT broker at %s: %v", *mqttAddr, err)
+	}
+	defer mqttClient.Disconnect()
+
+	mux := newServeMux(store, mqttClient)
 
 	srv := &http.Server{
 		Addr:    *listenAddr,
@@ -39,7 +49,7 @@ func main() {
 
 	// Start server in a goroutine.
 	go func() {
-		log.Printf("cloud-gateway starting on %s", *listenAddr)
+		log.Printf("cloud-gateway starting on %s (mqtt=%s)", *listenAddr, *mqttAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("cloud-gateway failed to start: %v", err)
 		}
@@ -60,12 +70,11 @@ func main() {
 }
 
 // newServeMux creates the HTTP mux with all REST API routes.
-// The MQTT publisher is nil for now (no-op); it will be wired up in
-// task group 3.
-func newServeMux(store *state.Store) *http.ServeMux {
+// The publisher is used by lock/unlock handlers to publish MQTT commands.
+func newServeMux(store *state.Store, publisher api.MQTTPublisher) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	h := api.NewHandlers(store, nil)
+	h := api.NewHandlers(store, publisher)
 	h.RegisterRoutes(mux)
 
 	return mux
