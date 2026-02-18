@@ -179,8 +179,8 @@ make clean
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| locking-service | 50051 | gRPC |
-| cloud-gateway-client | 50052 | gRPC |
+| locking-service | — | Kuksa client (no listening port) |
+| cloud-gateway-client | — | Kuksa/MQTT client (no listening port) |
 | update-service | 50053 | gRPC |
 | parking-operator-adaptor | 50054 | gRPC |
 | parking-fee-service | 8080 | HTTP/REST |
@@ -241,12 +241,13 @@ Publishes mock VSS sensor data to Kuksa Databroker:
 mock-sensors [flags] <command>
 
 Commands:
-  set-location   Set Vehicle.CurrentLocation (lat, lon)
-  set-speed      Set Vehicle.Speed
-  set-door       Set Vehicle.Cabin.Door.Row1.DriverSide.IsOpen (true/false)
+  set-location <lat> <lon>     Set Vehicle.CurrentLocation.{Latitude,Longitude}
+  set-speed <km/h>             Set Vehicle.Speed
+  set-door <open|closed>       Set Vehicle.Cabin.Door.Row1.DriverSide.IsOpen
+  lock-command <lock|unlock>   Set Vehicle.Command.Door.Lock
 
 Flags:
-  --databroker-addr   Address of Kuksa Databroker (default: localhost:55555)
+  --databroker-addr   Address of Kuksa Databroker (default: http://localhost:55555)
 ```
 
 ## Communication Protocols
@@ -272,7 +273,17 @@ Generated Go bindings are committed under `proto/gen/go/`. Rust bindings are gen
 
 ## Current Status
 
-All services are currently skeleton implementations returning `UNIMPLEMENTED` (gRPC code 12) or HTTP 501. Business logic will be added in subsequent specifications.
+| Service | Status | Description |
+|---------|--------|-------------|
+| locking-service | **Implemented** | Safety-validated lock/unlock via Kuksa Databroker |
+| mock-sensors | **Implemented** | CLI tool for publishing mock VSS signals |
+| cloud-gateway-client | Skeleton | Logs startup, waits for shutdown |
+| update-service | Skeleton | Returns `UNIMPLEMENTED` for all RPCs |
+| parking-operator-adaptor | Skeleton | Returns `UNIMPLEMENTED` for all RPCs |
+| parking-fee-service | Skeleton | Returns HTTP 501 |
+| cloud-gateway | Skeleton | Returns HTTP 501 |
+
+The **locking-service** subscribes to `Vehicle.Command.Door.Lock` via Kuksa Databroker, validates commands against vehicle speed and door state, and writes `IsLocked` and `LockResult` signals. See [docs/vss-signals.md](docs/vss-signals.md) for custom VSS signal definitions.
 
 ## License
 

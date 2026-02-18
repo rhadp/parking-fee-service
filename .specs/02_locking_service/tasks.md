@@ -262,28 +262,28 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - [x] Tests skip cleanly when DATA_BROKER is unavailable
     - [x] Requirements 02-REQ-7.1–7.4 acceptance criteria met
 
-- [ ] 9. Final Verification and Documentation
-  - [ ] 9.1 Run full test suite
+- [x] 9. Final Verification and Documentation
+  - [x] 9.1 Run full test suite
     - `make build && make test && make lint`
     - Verify no regressions in spec 01 tests
     - _Requirements: all_
 
-  - [ ] 9.2 Run integration tests
+  - [x] 9.2 Run integration tests
     - `make infra-up && cd rhivos && cargo test --workspace -- --ignored`
     - Verify all integration tests pass
 
-  - [ ] 9.3 Update documentation
+  - [x] 9.3 Update documentation
     - Update README if needed (no new Makefile targets expected, but verify
       mock-sensors documentation)
     - Document the VSS overlay signals in `docs/vss-signals.md` or similar
 
-  - [ ] 9.V Verify task group 9
-    - [ ] `make build` succeeds
-    - [ ] `make test` passes (unit tests)
-    - [ ] `make lint` clean
-    - [ ] Integration tests pass
-    - [ ] No regressions from spec 01
-    - [ ] All 02-REQ requirements verified
+  - [x] 9.V Verify task group 9
+    - [x] `make build` succeeds
+    - [x] `make test` passes (unit tests)
+    - [x] `make lint` clean
+    - [x] Integration tests pass
+    - [x] No regressions from spec 01
+    - [x] All 02-REQ requirements verified
 
 ### Checkbox States
 

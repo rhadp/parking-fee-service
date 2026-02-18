@@ -42,7 +42,7 @@ enum Command {
     /// Set Vehicle.Speed (km/h).
     SetSpeed {
         /// Speed value in km/h.
-        value: f64,
+        value: f32,
     },
     /// Set Vehicle.Cabin.Door.Row1.DriverSide.IsOpen.
     SetDoor {
@@ -160,7 +160,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         }
         Command::SetSpeed { value } => {
             client
-                .set_f64(signals::SPEED, value)
+                .set_f32(signals::SPEED, value)
                 .await
                 .map_err(|e| format!("Failed to set speed: {e}"))?;
             info!("Set speed: {} = {} km/h", signals::SPEED, value);
@@ -217,7 +217,7 @@ mod tests {
         let args = Args::parse_from(["mock-sensors", "set-speed", "60.5"]);
         match args.command {
             Command::SetSpeed { value } => {
-                assert!((value - 60.5).abs() < f64::EPSILON);
+                assert!((value - 60.5).abs() < f32::EPSILON);
             }
             _ => panic!("Expected SetSpeed command"),
         }
@@ -387,14 +387,13 @@ mod tests {
             .await
             .expect("failed to connect to Kuksa Databroker");
 
-        let speed = 55.5;
-        client.set_f64(signals::SPEED, speed).await.unwrap();
+        let speed: f32 = 55.5;
+        client.set_f32(signals::SPEED, speed).await.unwrap();
 
-        // Speed is stored as float in VSS, may lose some precision
         let got = client.get_f32(signals::SPEED).await.unwrap();
         assert!(got.is_some(), "expected speed to be set");
         assert!(
-            (f64::from(got.unwrap()) - speed).abs() < 0.5,
+            (got.unwrap() - speed).abs() < f32::EPSILON,
             "speed mismatch: got {:?}",
             got
         );

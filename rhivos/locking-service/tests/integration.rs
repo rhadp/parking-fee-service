@@ -25,6 +25,7 @@ use std::time::Duration;
 
 use parking_proto::kuksa_client::KuksaClient;
 use parking_proto::signals;
+use serial_test::serial;
 use tokio_stream::StreamExt;
 
 use locking_service::config::Config;
@@ -162,6 +163,7 @@ async fn send_command_and_wait(client: &KuksaClient, lock: bool) -> String {
 /// Property: Command-Lock Invariant
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn integration_lock_happy_path() {
     let client = connect_or_skip().await;
     reset_signals(&client).await;
@@ -209,6 +211,7 @@ async fn integration_lock_happy_path() {
 /// Property: Command-Lock Invariant
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn integration_unlock_happy_path() {
     let client = connect_or_skip().await;
     reset_signals(&client).await;
@@ -266,6 +269,7 @@ async fn integration_unlock_happy_path() {
 /// Property: Safety Rejection Guarantee
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn integration_lock_rejected_speed() {
     let client = connect_or_skip().await;
     reset_signals(&client).await;
@@ -315,6 +319,7 @@ async fn integration_lock_rejected_speed() {
 /// Property: Safety Rejection Guarantee
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn integration_lock_rejected_door_open() {
     let client = connect_or_skip().await;
     reset_signals(&client).await;
@@ -370,6 +375,7 @@ async fn integration_lock_rejected_door_open() {
 /// Requirements: 02-REQ-3.4
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn integration_unlock_with_door_open_succeeds() {
     let client = connect_or_skip().await;
     reset_signals(&client).await;
@@ -424,6 +430,7 @@ async fn integration_unlock_with_door_open_succeeds() {
 /// Requirements: 02-REQ-3.3
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn integration_unlock_rejected_speed() {
     let client = connect_or_skip().await;
     reset_signals(&client).await;
