@@ -2,6 +2,8 @@
 
 ## Architecture
 
+- Monorepo with Rust workspace under `rhivos/`, Go modules under `backend/` and `mock/`, shared proto definitions under `proto/`.
+- Local infrastructure uses Podman/Docker Compose with Eclipse Kuksa Databroker (port 55555) and Eclipse Mosquitto (port 1883). Infrastructure config lives in `infra/config/{service}/` (e.g., `mosquitto.conf`, `vss.json`).
 - Proto files live in `proto/common/` and `proto/services/`, with generated Go packages committed under `proto/gen/go/`. Generated Go packages use the module path `github.com/rhadp/parking-fee-service/proto/gen/go` with subdirectory packages: `common`, `services/update`, `services/adapter`.
 - The Rust workspace root is `rhivos/Cargo.toml`; all service crates are direct children of `rhivos/`, with `parking-proto` as the shared bindings crate. The `mock/sensors` crate is included as an external workspace member via `"../mock/sensors"`; external members must set `workspace = "../../rhivos"` in their own `Cargo.toml` for dependency resolution.
 - `parking-proto` generates both server and client gRPC stubs at build time via `tonic-build` in `build.rs`, reading `.proto` files from `../../proto/` relative to the crate manifest. Every service crate depends on it for gRPC types.
@@ -15,6 +17,8 @@
 
 ## Conventions
 
+- Makefile targets auto-detect container runtime: prefers `podman`, falls back to `docker`. Uses `$(shell command -v ...)` for detection.
+- Test scripts under `tests/` use bash with color output (PASS/FAIL/SKIP). They gracefully degrade when dependencies are unavailable (e.g., container daemon not running).
 - Proto generation for Go uses `module=` option to strip the module prefix and produce clean package directories matching `go_package` paths. Generated `.pb.go` files are committed to the repo to avoid requiring `protoc` for Go-only builds.
 - All Makefile targets that need tooling depend on `check-tools` as a prerequisite.
 - Workspace dependencies are pinned in `rhivos/Cargo.toml` under `[workspace.dependencies]` and referenced by member crates with `{ workspace = true }`.
@@ -34,11 +38,13 @@
 - Proto files follow the design document specifications exactly — field numbers, types, and names match the design doc verbatim.
 - Module hierarchy in `parking-proto/src/lib.rs` mirrors proto package nesting (not flat). This is required because prost generates cross-package references using `super::super::` relative paths that depend on module depth matching package depth.
 - We use `tokio-stream` as a workspace dependency (not just dev-dependency) because `update-service` needs `ReceiverStream` for the `WatchAdapterStates` server-streaming RPC type alias.
-- `.gitkeep` files are removed from service directories once real source files are added.
+- `.gitkeep` files are removed from directories once real config or source files are added (applies to both service dirs and `infra/config/` subdirs).
 - Go services use stdlib `net/http` (not gin/echo) because the design specifies `net/http` and the services are REST-only skeletons.
 - Go binaries built in-place by `go build ./...` need explicit `.gitignore` entries since they appear in the module directory.
 - Rust and Go build/test/lint targets are wired into the Makefile together in task group 7.
 - We vendor a minimal subset of Kuksa Databroker proto (`val.proto` + `types.proto`) in `mock/sensors/proto/` rather than depending on `kuksa-rust-sdk`, to avoid heavy transitive dependencies and version conflicts in the workspace.
+- Container runtime detection uses `ifndef CONTAINER_RUNTIME` with `$(error ...)` for clear error reporting when no runtime is installed, matching requirement 01-REQ-6.E2.
+- Infrastructure smoke tests split into static tests (always run) and live tests (skipped when container daemon unavailable), ensuring CI without Docker can still validate config files.
 
 ## Fragile Areas
 
@@ -50,6 +56,7 @@
 - Go 1.22+ method-prefixed route patterns (`"GET /healthz"`) require Go 1.22 minimum; the `go.mod` files must reflect at least this version.
 - The `mock/sensors` crate's `build.rs` depends on vendored proto files at `mock/sensors/proto/kuksa/val/v1/`. If the Kuksa Databroker API changes, these must be updated manually.
 - The `parking-app-cli` gRPC connection tests have a 5-second timeout per attempt, causing the test suite to take ~20s. Consider making the dial timeout configurable or shorter for tests.
+- Bash arithmetic with `set -euo pipefail`: `((var++))` returns exit code 1 when pre-increment value is 0. Use `var=$((var + 1))` instead.
 
 ## Failed Approaches
 
