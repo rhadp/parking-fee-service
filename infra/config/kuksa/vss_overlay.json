@@ -3,6 +3,64 @@
         "type": "branch",
         "description": "Vehicle",
         "children": {
+            "Speed": {
+                "type": "sensor",
+                "datatype": "float",
+                "unit": "km/h",
+                "description": "Vehicle speed."
+            },
+            "CurrentLocation": {
+                "type": "branch",
+                "description": "Current location of the vehicle.",
+                "children": {
+                    "Latitude": {
+                        "type": "sensor",
+                        "datatype": "double",
+                        "unit": "degrees",
+                        "description": "Current latitude."
+                    },
+                    "Longitude": {
+                        "type": "sensor",
+                        "datatype": "double",
+                        "unit": "degrees",
+                        "description": "Current longitude."
+                    }
+                }
+            },
+            "Cabin": {
+                "type": "branch",
+                "description": "Vehicle cabin.",
+                "children": {
+                    "Door": {
+                        "type": "branch",
+                        "description": "Door signals.",
+                        "children": {
+                            "Row1": {
+                                "type": "branch",
+                                "description": "First row doors.",
+                                "children": {
+                                    "DriverSide": {
+                                        "type": "branch",
+                                        "description": "Driver-side door.",
+                                        "children": {
+                                            "IsLocked": {
+                                                "type": "actuator",
+                                                "datatype": "boolean",
+                                                "description": "Whether the driver-side door is locked."
+                                            },
+                                            "IsOpen": {
+                                                "type": "sensor",
+                                                "datatype": "boolean",
+                                                "description": "Whether the driver-side door is open."
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "Command": {
                 "type": "branch",
                 "description": "Vehicle command signals for the SDV Parking Demo.",

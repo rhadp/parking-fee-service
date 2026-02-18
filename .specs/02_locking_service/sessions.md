@@ -170,3 +170,30 @@ Implemented task group 7 (Mock Sensors Implementation) for spec 02_locking_servi
 ### Tests Added or Modified
 
 - `mock/sensors/src/main.rs`: Rewrote test suite with 18 unit tests (CLI parsing for all 4 subcommands, DoorState parsing/display, LockAction parsing/display, custom databroker addr, default addr) and 4 `#[ignore]` integration tests (set-location roundtrip, set-speed roundtrip, set-door roundtrip, lock-command roundtrip).
+
+---
+
+## Session 20
+
+- **Spec:** 02_locking_service
+- **Task Group:** 8
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 8 (Integration Tests) for spec 02_locking_service. Created 6 end-to-end integration tests in `locking-service/tests/integration.rs` that exercise the full lock/unlock pipeline through a real Kuksa Databroker. Added a `lib.rs` to expose locking-service modules for integration tests. Fixed the VSS overlay to include all standard signals needed by the system (Vehicle.Speed, door signals, location signals) since `--vss` replaces the default VSS model entirely. All 6 integration tests pass with infrastructure running and skip cleanly (via `#[ignore]`) when unavailable.
+
+### Files Changed
+
+- Added: `rhivos/locking-service/src/lib.rs`
+- Added: `rhivos/locking-service/tests/integration.rs`
+- Added: `.docs/errata/vss-overlay-standard-signals.md`
+- Modified: `rhivos/locking-service/Cargo.toml`
+- Modified: `rhivos/locking-service/src/main.rs`
+- Modified: `infra/config/kuksa/vss_overlay.json`
+- Modified: `.specs/02_locking_service/tasks.md`
+- Modified: `.specs/02_locking_service/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/locking-service/tests/integration.rs`: 6 integration tests — `integration_lock_happy_path` (02-REQ-7.1), `integration_unlock_happy_path` (02-REQ-7.4), `integration_lock_rejected_speed` (02-REQ-7.2), `integration_lock_rejected_door_open` (02-REQ-7.3), `integration_unlock_with_door_open_succeeds` (02-REQ-3.4), `integration_unlock_rejected_speed` (02-REQ-3.3). All marked `#[ignore]`, require `make infra-up`.

@@ -226,8 +226,8 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - [x] `cargo clippy -p mock-sensors -- -D warnings` clean
     - [x] Requirements 02-REQ-6.1–6.5 acceptance criteria met
 
-- [ ] 8. Integration Tests
-  - [ ] 8.1 Create integration test module
+- [x] 8. Integration Tests
+  - [x] 8.1 Create integration test module
     - Create `tests/integration/` directory or `locking-service/tests/`
       directory for integration tests
     - Test harness: start LOCKING_SERVICE as a background process connected to
@@ -235,14 +235,14 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - Tests are `#[ignore]` by default; require `make infra-up`
     - _Requirements: 02-REQ-7.E1_
 
-  - [ ] 8.2 Test happy path: lock and unlock
+  - [x] 8.2 Test happy path: lock and unlock
     - Set speed = 0.0, door = closed
     - Write lock command → verify IsLocked = true, LockResult = "SUCCESS"
     - Write unlock command → verify IsLocked = false, LockResult = "SUCCESS"
     - **Property 1: Command-Lock Invariant**
     - _Requirements: 02-REQ-7.1, 02-REQ-7.4_
 
-  - [ ] 8.3 Test safety rejections
+  - [x] 8.3 Test safety rejections
     - Set speed = 50.0 → lock command → verify IsLocked unchanged,
       LockResult = "REJECTED_SPEED"
     - Set speed = 0.0, door = open → lock command → verify IsLocked unchanged,
@@ -251,16 +251,16 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - **Property 3: Result Completeness**
     - _Requirements: 02-REQ-7.2, 02-REQ-7.3_
 
-  - [ ] 8.4 Test unlock with door open (allowed)
+  - [x] 8.4 Test unlock with door open (allowed)
     - Set speed = 0.0, door = open, IsLocked = true
     - Write unlock command → verify IsLocked = false, LockResult = "SUCCESS"
     - Validates that door-ajar check is lock-only
     - _Requirements: 02-REQ-3.4_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] All integration tests pass with `make infra-up` running
-    - [ ] Tests skip cleanly when DATA_BROKER is unavailable
-    - [ ] Requirements 02-REQ-7.1–7.4 acceptance criteria met
+  - [x] 8.V Verify task group 8
+    - [x] All integration tests pass with `make infra-up` running
+    - [x] Tests skip cleanly when DATA_BROKER is unavailable
+    - [x] Requirements 02-REQ-7.1–7.4 acceptance criteria met
 
 - [ ] 9. Final Verification and Documentation
   - [ ] 9.1 Run full test suite

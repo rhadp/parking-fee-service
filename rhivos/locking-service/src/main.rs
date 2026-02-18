@@ -22,12 +22,8 @@
 //! - 02-REQ-2.E1: Retry connection with exponential backoff
 //! - 02-REQ-2.E2: Re-subscribe on stream interruption
 
-pub mod config;
-pub mod lock_handler;
-pub mod safety;
-
-use config::Config;
-use lock_handler::{KuksaDataBroker, run_lock_handler};
+use locking_service::config::Config;
+use locking_service::lock_handler::{KuksaDataBroker, run_lock_handler};
 use parking_proto::kuksa_client::KuksaClient;
 
 use clap::Parser;
