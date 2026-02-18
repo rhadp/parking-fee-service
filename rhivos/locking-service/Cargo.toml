@@ -1,0 +1,18 @@
+[package]
+name = "locking-service"
+version = "0.1.0"
+edition = "2021"
+description = "RHIVOS locking service — manages vehicle lock/unlock via Kuksa Databroker"
+publish = false
+
+[[bin]]
+name = "locking-service"
+path = "src/main.rs"
+
+[dependencies]
+parking-proto = { path = "../parking-proto" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

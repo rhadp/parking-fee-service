@@ -1,0 +1,22 @@
+[package]
+name = "parking-operator-adaptor"
+version = "0.1.0"
+edition = "2021"
+description = "RHIVOS parking operator adaptor — manages parking sessions via operator APIs"
+publish = false
+
+[[bin]]
+name = "parking-operator-adaptor"
+path = "src/main.rs"
+
+[dependencies]
+parking-proto = { path = "../parking-proto" }
+tonic = { workspace = true }
+prost = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tokio-stream = { workspace = true }
