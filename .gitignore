@@ -14,6 +14,7 @@ backend/parking-fee-service/parking-fee-service
 backend/cloud-gateway/cloud-gateway
 mock/parking-app-cli/parking-app-cli
 mock/companion-app-cli/companion-app-cli
+mock/parking-operator/parking-operator
 
 # Local development logs
 logs/

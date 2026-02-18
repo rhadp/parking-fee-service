@@ -12,7 +12,7 @@
 
 # ─── Go Module Directories ────────────────────────────────────────────────
 GO_BACKEND_DIRS := backend/parking-fee-service backend/cloud-gateway
-GO_MOCK_DIRS    := mock/parking-app-cli mock/companion-app-cli
+GO_MOCK_DIRS    := mock/parking-app-cli mock/companion-app-cli mock/parking-operator
 GO_ALL_DIRS     := $(GO_BACKEND_DIRS) $(GO_MOCK_DIRS)
 
 # Default target

@@ -41,15 +41,15 @@ This plan implements the QM partition services in dependency order:
 
 ## Tasks
 
-- [ ] 1. Mock PARKING_OPERATOR (Go REST Service)
-  - [ ] 1.1 Create project structure and data models
+- [x] 1. Mock PARKING_OPERATOR (Go REST Service)
+  - [x] 1.1 Create project structure and data models
     - Create `mock/parking-operator/go.mod` (if not already scaffolded)
     - Create `mock/parking-operator/main.go` with CLI flag parsing
       (`--listen-addr`, `--rate-type`, `--rate-amount`, `--currency`)
     - Define session data model, rate config, and in-memory session store
     - _Requirements: 04-REQ-6.6_
 
-  - [ ] 1.2 Implement session endpoints
+  - [x] 1.2 Implement session endpoints
     - `POST /parking/start`: accept `{vehicle_id, zone_id, timestamp}`,
       generate `session_id`, store session, return `{session_id, status, rate}`
     - `POST /parking/stop`: accept `{session_id, timestamp}`, look up session,
@@ -59,32 +59,32 @@ This plan implements the QM partition services in dependency order:
       vehicle → return existing session
     - _Requirements: 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.E1, 04-REQ-6.E2_
 
-  - [ ] 1.3 Implement query endpoints
+  - [x] 1.3 Implement query endpoints
     - `GET /parking/sessions/{id}`: return session details including current
       fee for active sessions
     - `GET /parking/rate`: return configured `{zone_id, rate_type, rate_amount,
       currency}`
     - _Requirements: 04-REQ-6.3, 04-REQ-6.4_
 
-  - [ ] 1.4 Implement fee calculation
+  - [x] 1.4 Implement fee calculation
     - `per_minute`: `rate_amount × ceil(duration_minutes)`
     - `flat`: fixed `rate_amount` regardless of duration
     - Current fee for active sessions: calculate based on elapsed time
     - _Requirements: 04-REQ-6.5_
 
-  - [ ] 1.5 Write unit tests
+  - [x] 1.5 Write unit tests
     - Test each endpoint with `httptest.Server`
     - Test fee calculation with known durations and rates (per_minute and flat)
     - Test edge cases: unknown session 404, duplicate start returns existing
     - **Property 7: Fee Calculation Accuracy**
     - **Validates: 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.3, 04-REQ-6.4, 04-REQ-6.5**
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `cd mock/parking-operator && go test ./...` passes
-    - [ ] `cd mock/parking-operator && go vet ./...` clean
-    - [ ] `go build` produces binary
-    - [ ] Fee calculation correct for per_minute and flat rates
-    - [ ] Requirements 04-REQ-6.1–6.6, 04-REQ-6.E1, 04-REQ-6.E2 met
+  - [x] 1.V Verify task group 1
+    - [x] `cd mock/parking-operator && go test ./...` passes
+    - [x] `cd mock/parking-operator && go vet ./...` clean
+    - [x] `go build` produces binary
+    - [x] Fee calculation correct for per_minute and flat rates
+    - [x] Requirements 04-REQ-6.1–6.6, 04-REQ-6.E1, 04-REQ-6.E2 met
 
 - [ ] 2. PARKING_OPERATOR_ADAPTOR: Config, Session, and REST Client
   - [ ] 2.1 Create config module
