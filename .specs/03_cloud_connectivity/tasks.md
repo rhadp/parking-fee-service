@@ -158,8 +158,8 @@ order:
   - REST API and MQTT client working
   - Commit and verify clean state
 
-- [ ] 5. CLOUD_GATEWAY_CLIENT VIN and Registration
-  - [ ] 5.1 Create VIN management module
+- [x] 5. CLOUD_GATEWAY_CLIENT VIN and Registration
+  - [x] 5.1 Create VIN management module
     - Create `rhivos/cloud-gateway-client/src/vin.rs`
     - Implement `generate_vin()` → 17-char VIN starting with "DEMO"
     - Implement `generate_pairing_pin()` → 6-digit numeric string
@@ -169,13 +169,13 @@ order:
     - **Property 7: VIN Persistence**
     - _Requirements: 03-REQ-5.1, 03-REQ-5.E3_
 
-  - [ ] 5.2 Create config module
+  - [x] 5.2 Create config module
     - Create `rhivos/cloud-gateway-client/src/config.rs`
     - Parse CLI flags and env vars: `--mqtt-addr`, `--databroker-addr`,
       `--data-dir`, `--telemetry-interval`
     - _Requirements: 03-REQ-3.6, 03-REQ-4.3_
 
-  - [ ] 5.3 Create MQTT client wrapper
+  - [x] 5.3 Create MQTT client wrapper
     - Create `rhivos/cloud-gateway-client/src/mqtt.rs`
     - Connect to Mosquitto using `rumqttc` with auto-reconnect
     - Subscribe to `vehicles/{vin}/commands` (QoS 2) and
@@ -183,18 +183,18 @@ order:
     - Publish registration message on startup
     - _Requirements: 03-REQ-3.1, 03-REQ-5.2_
 
-  - [ ] 5.4 Write VIN and MQTT tests
+  - [x] 5.4 Write VIN and MQTT tests
     - Unit tests: VIN generation uniqueness, persistence round-trip,
       PIN format
     - MQTT integration test (`#[ignore]`): connect to Mosquitto, publish
       registration, verify message received
     - _Requirements: 03-REQ-5.1, 03-REQ-5.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] `cargo test -p cloud-gateway-client` passes
-    - [ ] VIN file is created and reused across restarts
-    - [ ] Registration message published to MQTT
-    - [ ] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
+  - [x] 5.V Verify task group 5
+    - [x] `cargo test -p cloud-gateway-client` passes
+    - [x] VIN file is created and reused across restarts
+    - [x] Registration message published to MQTT
+    - [x] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
 
 - [ ] 6. CLOUD_GATEWAY_CLIENT Command Processing
   - [ ] 6.1 Create command handler
