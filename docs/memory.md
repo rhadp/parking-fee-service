@@ -17,6 +17,11 @@
 
 ## Conventions
 
+- Containerfiles use the `.Containerfile` extension (not `Dockerfile`), organized as `containers/{domain}/{service-name}.Containerfile`.
+- Rust Containerfiles copy the full workspace context (all members) because Cargo workspace resolution requires every member to be present even when building a single binary.
+- Go Containerfiles are more targeted since Go modules are independent. Go services use `gcr.io/distroless/static-debian12:nonroot` as runtime; Rust services use `debian:bookworm-slim` with `ca-certificates`.
+- Container images are tagged `{service-name}:latest` with no registry prefix for local development.
+- Go services compile with `CGO_ENABLED=0` for fully static binaries, enabling distroless runtime images.
 - Makefile targets auto-detect container runtime: prefers `podman`, falls back to `docker`. Uses `$(shell command -v ...)` for detection.
 - Test scripts under `tests/` use bash with color output (PASS/FAIL/SKIP). They gracefully degrade when dependencies are unavailable (e.g., container daemon not running).
 - Proto generation for Go uses `module=` option to strip the module prefix and produce clean package directories matching `go_package` paths. Generated `.pb.go` files are committed to the repo to avoid requiring `protoc` for Go-only builds.
@@ -34,6 +39,8 @@
 
 ## Decisions
 
+- We copy the full Rust workspace in Containerfiles (not stub workspace members) because maintaining accurate stub `Cargo.toml` for each member is fragile and breaks when dependencies change.
+- Mock sensor Containerfile includes vendored Kuksa proto files (`mock/sensors/proto/kuksa/val/v1/`) needed by its `build.rs`.
 - We use `--go_opt=module=...` and `--go-grpc_opt=module=...` (not `paths=source_relative`) because it respects the `go_package` option and produces the correct directory hierarchy (e.g., `services/update/` and `services/adapter/` instead of flat `services/`).
 - Proto files follow the design document specifications exactly — field numbers, types, and names match the design doc verbatim.
 - Module hierarchy in `parking-proto/src/lib.rs` mirrors proto package nesting (not flat). This is required because prost generates cross-package references using `super::super::` relative paths that depend on module depth matching package depth.
@@ -48,6 +55,8 @@
 
 ## Fragile Areas
 
+- **Rust Containerfiles ↔ workspace member list:** Adding or removing a workspace member in `rhivos/Cargo.toml` requires updating all Rust Containerfiles.
+- **`mock/parking-app-cli` Containerfile ↔ Go proto layout:** This Containerfile must include `proto/gen/go/` because of the `replace` directive in `go.mod`. Changes to the Go proto generation layout will break it.
 - The `PROTO_FILES` variable in the Makefile uses `$(shell find ...)` which may pick up unexpected `.proto` files if new ones are added outside `common/` and `services/`.
 - The `build.rs` proto path resolution uses `CARGO_MANIFEST_DIR` + relative paths (`../../proto/`). If the workspace layout changes, these paths will break.
 - `tonic-build` version must match `tonic` version (e.g., tonic-build 0.12 with tonic 0.12). Mixing versions causes compile failures.
@@ -64,4 +73,4 @@
 
 ## Open Questions
 
-_(none yet)_
+- Go toolchain version mismatch: `go.mod` files declare Go 1.25.7 but Containerfiles use `golang:1.22`. The Go compiler is forward-compatible, but this may need reconciliation as services grow more complex.
