@@ -288,7 +288,7 @@ This plan establishes the project foundation in dependency order:
     - [x] `mock-sensors --help` shows all subcommands
     - [x] Requirements 01-REQ-8.1–8.4, 01-REQ-9.1–9.3 acceptance criteria met
 
-- [ ] 9. Checkpoint — All Code Compiles
+- [x] 9. Checkpoint — All Code Compiles
   - `make build` succeeds for all Rust and Go components
   - `make test` passes all tests
   - `make lint` is clean
