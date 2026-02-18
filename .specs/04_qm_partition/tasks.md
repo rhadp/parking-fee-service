@@ -86,22 +86,22 @@ This plan implements the QM partition services in dependency order:
     - [x] Fee calculation correct for per_minute and flat rates
     - [x] Requirements 04-REQ-6.1–6.6, 04-REQ-6.E1, 04-REQ-6.E2 met
 
-- [ ] 2. PARKING_OPERATOR_ADAPTOR: Config, Session, and REST Client
-  - [ ] 2.1 Create config module
+- [x] 2. PARKING_OPERATOR_ADAPTOR: Config, Session, and REST Client
+  - [x] 2.1 Create config module
     - Create `rhivos/parking-operator-adaptor/src/config.rs`
     - Parse env vars: `LISTEN_ADDR`, `DATABROKER_ADDR`, `PARKING_OPERATOR_URL`,
       `ZONE_ID`, `VEHICLE_VIN`
     - Defaults: `LISTEN_ADDR=0.0.0.0:50054`, `DATABROKER_ADDR=localhost:55555`
     - _Requirements: 04-REQ-2.6_
 
-  - [ ] 2.2 Create session state module
+  - [x] 2.2 Create session state module
     - Create `rhivos/parking-operator-adaptor/src/session.rs`
     - Define `ParkingSession`, `RateType`, `SessionStatus` structs
     - Session state: `Arc<Mutex<Option<ParkingSession>>>`
     - Methods: `is_active()`, `complete(stop_response)`, `current_fee()`
     - _Requirements: 04-REQ-1.2, 04-REQ-1.4 (prerequisite)_
 
-  - [ ] 2.3 Create PARKING_OPERATOR REST client
+  - [x] 2.3 Create PARKING_OPERATOR REST client
     - Create `rhivos/parking-operator-adaptor/src/operator_client.rs`
     - Use `reqwest` for HTTP calls
     - `start_session(vehicle_id, zone_id, timestamp)` → POST /parking/start
@@ -111,7 +111,7 @@ This plan implements the QM partition services in dependency order:
     - Define request/response JSON structs with serde
     - _Requirements: 04-REQ-1.2, 04-REQ-1.4, 04-REQ-2.5_
 
-  - [ ] 2.4 Write unit tests
+  - [x] 2.4 Write unit tests
     - Config: test defaults, test env var overrides
     - Session: test state transitions, current_fee calculation
     - Operator client: use `mockito` or `wiremock` to mock HTTP responses,
@@ -119,10 +119,10 @@ This plan implements the QM partition services in dependency order:
     - Test operator unreachable → error propagation
     - _Requirements: 04-REQ-2.6, 04-REQ-1.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `cargo test -p parking-operator-adaptor` passes
-    - [ ] `cargo clippy -p parking-operator-adaptor -- -D warnings` clean
-    - [ ] Requirements 04-REQ-2.6, 04-REQ-1.E1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] `cargo test -p parking-operator-adaptor` passes
+    - [x] `cargo clippy -p parking-operator-adaptor -- -D warnings` clean
+    - [x] Requirements 04-REQ-2.6, 04-REQ-1.E1 acceptance criteria met
 
 - [ ] 3. PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Server
   - [ ] 3.1 Create lock watcher

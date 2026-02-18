@@ -1,9 +1,19 @@
-//! Parking Operator Adaptor skeleton.
+//! Parking Operator Adaptor.
 //!
-//! This service manages parking sessions via operator APIs.
-//! In this skeleton, all RPCs return `UNIMPLEMENTED` (gRPC code 12).
+//! This service manages parking sessions via operator APIs. It subscribes to
+//! DATA_BROKER lock events and communicates with a PARKING_OPERATOR's REST API
+//! to start and stop parking sessions automatically.
+//!
+//! In this phase (task group 2), the config, session, and operator client
+//! modules are implemented. The gRPC server still returns UNIMPLEMENTED for
+//! all RPCs — the real implementation comes in task group 3.
+
+pub mod config;
+pub mod operator_client;
+pub mod session;
 
 use clap::Parser;
+use config::Config;
 use tokio::signal;
 use tonic::{Request, Response, Status};
 use tracing::{error, info};
@@ -12,23 +22,13 @@ use parking_proto::services::adapter::parking_adapter_server::{
     ParkingAdapter, ParkingAdapterServer,
 };
 use parking_proto::services::adapter::{
-    GetRateRequest, GetRateResponse, GetStatusRequest, GetStatusResponse,
-    StartSessionRequest, StartSessionResponse, StopSessionRequest, StopSessionResponse,
+    GetRateRequest, GetRateResponse, GetStatusRequest, GetStatusResponse, StartSessionRequest,
+    StartSessionResponse, StopSessionRequest, StopSessionResponse,
 };
 
-/// RHIVOS Parking Operator Adaptor
-#[derive(Parser, Debug)]
-#[command(
-    name = "parking-operator-adaptor",
-    about = "RHIVOS parking operator adaptor skeleton"
-)]
-struct Args {
-    /// Address to listen on
-    #[arg(long, env = "LISTEN_ADDR", default_value = "0.0.0.0:50054")]
-    listen_addr: String,
-}
-
 /// Stub implementation — all RPCs return UNIMPLEMENTED.
+///
+/// The real gRPC server implementation will be added in task group 3.
 #[derive(Debug, Default)]
 pub struct ParkingAdapterStub;
 
@@ -67,14 +67,18 @@ impl ParkingAdapter for ParkingAdapterStub {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
+    let config = Config::parse();
 
-    let addr: std::net::SocketAddr = args.listen_addr.parse().map_err(|e| {
-        error!("Invalid listen address '{}': {}", args.listen_addr, e);
+    let addr: std::net::SocketAddr = config.listen_addr.parse().map_err(|e| {
+        error!("Invalid listen address '{}': {}", config.listen_addr, e);
         e
     })?;
 
     info!("parking-operator-adaptor starting on {}", addr);
+    info!(
+        "config: databroker={}, operator={}, zone={}, vin={}",
+        config.databroker_addr, config.parking_operator_url, config.zone_id, config.vehicle_vin
+    );
 
     tonic::transport::Server::builder()
         .add_service(ParkingAdapterServer::new(ParkingAdapterStub))
@@ -98,19 +102,34 @@ mod tests {
     use tokio::net::TcpListener;
 
     #[test]
-    fn cli_parses_default_args() {
-        let args = Args::parse_from(["parking-operator-adaptor"]);
-        assert_eq!(args.listen_addr, "0.0.0.0:50054");
+    fn cli_parses_default_listen_addr() {
+        // Config requires --parking-operator-url, --zone-id, --vehicle-vin
+        let config = Config::parse_from([
+            "parking-operator-adaptor",
+            "--parking-operator-url",
+            "http://op:8082",
+            "--zone-id",
+            "zone-1",
+            "--vehicle-vin",
+            "VIN1",
+        ]);
+        assert_eq!(config.listen_addr, "0.0.0.0:50054");
     }
 
     #[test]
     fn cli_parses_custom_listen_addr() {
-        let args = Args::parse_from([
+        let config = Config::parse_from([
             "parking-operator-adaptor",
             "--listen-addr",
             "127.0.0.1:9999",
+            "--parking-operator-url",
+            "http://op:8082",
+            "--zone-id",
+            "zone-1",
+            "--vehicle-vin",
+            "VIN1",
         ]);
-        assert_eq!(args.listen_addr, "127.0.0.1:9999");
+        assert_eq!(config.listen_addr, "127.0.0.1:9999");
     }
 
     /// Start the stub gRPC server on a random port and return the address.
@@ -134,10 +153,9 @@ mod tests {
     #[tokio::test]
     async fn start_session_returns_unimplemented() {
         let addr = start_test_server().await;
-        let mut client =
-            ParkingAdapterClient::connect(format!("http://{}", addr))
-                .await
-                .unwrap();
+        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
+            .await
+            .unwrap();
 
         let status = client
             .start_session(StartSessionRequest {
@@ -156,10 +174,9 @@ mod tests {
     #[tokio::test]
     async fn stop_session_returns_unimplemented() {
         let addr = start_test_server().await;
-        let mut client =
-            ParkingAdapterClient::connect(format!("http://{}", addr))
-                .await
-                .unwrap();
+        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
+            .await
+            .unwrap();
 
         let status = client
             .stop_session(StopSessionRequest {
@@ -175,10 +192,9 @@ mod tests {
     #[tokio::test]
     async fn get_status_returns_unimplemented() {
         let addr = start_test_server().await;
-        let mut client =
-            ParkingAdapterClient::connect(format!("http://{}", addr))
-                .await
-                .unwrap();
+        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
+            .await
+            .unwrap();
 
         let status = client
             .get_status(GetStatusRequest {
@@ -193,10 +209,9 @@ mod tests {
     #[tokio::test]
     async fn get_rate_returns_unimplemented() {
         let addr = start_test_server().await;
-        let mut client =
-            ParkingAdapterClient::connect(format!("http://{}", addr))
-                .await
-                .unwrap();
+        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
+            .await
+            .unwrap();
 
         let status = client
             .get_rate(GetRateRequest {
