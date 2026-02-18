@@ -136,5 +136,33 @@ endif
 
 # ─── Container Builds ───────────────────────────────────────────────────────
 
+# Containerfile definitions: service-name=path/to/Containerfile
+CONTAINER_RHIVOS := \
+	locking-service=containers/rhivos/locking-service.Containerfile \
+	cloud-gateway-client=containers/rhivos/cloud-gateway-client.Containerfile \
+	update-service=containers/rhivos/update-service.Containerfile \
+	parking-operator-adaptor=containers/rhivos/parking-operator-adaptor.Containerfile
+
+CONTAINER_BACKEND := \
+	parking-fee-service=containers/backend/parking-fee-service.Containerfile \
+	cloud-gateway=containers/backend/cloud-gateway.Containerfile
+
+CONTAINER_MOCK := \
+	mock-sensors=containers/mock/sensors.Containerfile \
+	parking-app-cli=containers/mock/parking-app-cli.Containerfile \
+	companion-app-cli=containers/mock/companion-app-cli.Containerfile
+
+CONTAINER_ALL := $(CONTAINER_RHIVOS) $(CONTAINER_BACKEND) $(CONTAINER_MOCK)
+
 build-containers:
-	@echo "[make build-containers] Not yet implemented — will build all container images."
+ifndef CONTAINER_RUNTIME
+	$(error Container runtime not found. Install podman or docker to build container images)
+endif
+	@echo "[make build-containers] Building all container images..."
+	@for entry in $(CONTAINER_ALL); do \
+		name=$${entry%%=*}; \
+		file=$${entry##*=}; \
+		echo "[make build-containers]   Building $${name}:latest from $${file}"; \
+		$(CONTAINER_RUNTIME) build -t "$${name}:latest" -f "$${file}" . || exit 1; \
+	done
+	@echo "[make build-containers] All container images built successfully."
