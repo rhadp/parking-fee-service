@@ -66,8 +66,8 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - [x] `make infra-down` cleans up
     - [x] Requirements 02-REQ-1.1–1.5 acceptance criteria met
 
-- [ ] 2. Kuksa Proto Integration
-  - [ ] 2.1 Vendor Kuksa proto files
+- [x] 2. Kuksa Proto Integration
+  - [x] 2.1 Vendor Kuksa proto files
     - Download `kuksa.val.v2` proto files from the Eclipse Kuksa Databroker
       repository
     - Place in `proto/vendor/kuksa/val/v2/` (preserving package paths)
@@ -75,14 +75,14 @@ This plan implements the RHIVOS safety-partition core in dependency order:
       types if not already available)
     - _Requirements: 02-REQ-2.1 (prerequisite)_
 
-  - [ ] 2.2 Extend parking-proto build.rs
+  - [x] 2.2 Extend parking-proto build.rs
     - Add Kuksa proto files to the `tonic_build` compilation list
     - Ensure generated Kuksa types are re-exported from `parking-proto`
     - Verify `cargo build -p parking-proto` succeeds with both parking and
       Kuksa protos
     - _Requirements: 02-REQ-2.1 (prerequisite)_
 
-  - [ ] 2.3 Create Kuksa client helper module
+  - [x] 2.3 Create Kuksa client helper module
     - Add a `kuksa_client` module to `parking-proto` (or create a separate
       `rhivos/kuksa-client/` workspace crate)
     - Implement: `connect`, `get_bool`, `get_f32`, `get_f64`, `get_string`,
@@ -90,18 +90,18 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - See design document for the `KuksaClient` interface
     - _Requirements: 02-REQ-2.1, 02-REQ-6.5_
 
-  - [ ] 2.4 Write Kuksa client unit tests
+  - [x] 2.4 Write Kuksa client unit tests
     - Test client construction and error handling (connection failure → error)
     - Integration test (`#[ignore]`): connect to real Kuksa, set a value,
       get it back, verify match
     - **Property 5: Mock Sensor Signal Accuracy** (partial)
     - _Requirements: 02-REQ-2.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `cargo build -p parking-proto` compiles with Kuksa bindings
-    - [ ] `cargo test -p parking-proto` passes unit tests
-    - [ ] Integration test passes with `make infra-up` running
-    - [ ] No clippy warnings
+  - [x] 2.V Verify task group 2
+    - [x] `cargo build -p parking-proto` compiles with Kuksa bindings
+    - [x] `cargo test -p parking-proto` passes unit tests
+    - [x] Integration test passes with `make infra-up` running
+    - [x] No clippy warnings
 
 - [ ] 3. Checkpoint — Kuksa Infrastructure Ready
   - Kuksa starts with custom signals, Rust client library compiles and

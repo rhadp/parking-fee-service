@@ -1,0 +1,170 @@
+/********************************************************************************
+ * Copyright (c) 2024 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License 2.0 which is available at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+
+// Vendored from https://github.com/eclipse-kuksa/kuksa-databroker
+// Tag: 0.5.0
+
+syntax = "proto3";
+
+package kuksa.val.v2;
+
+import "kuksa/val/v2/types.proto";
+
+service VAL {
+  // Get the latest value of a signal
+  rpc GetValue(GetValueRequest) returns (GetValueResponse);
+
+  // Get the latest values of a set of signals.
+  rpc GetValues(GetValuesRequest) returns (GetValuesResponse);
+
+  // Subscribe to a set of signals using string path parameters
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+
+  // Subscribe to a set of signals using i32 id parameters
+  rpc SubscribeById(SubscribeByIdRequest) returns (stream SubscribeByIdResponse);
+
+  // Actuate a single actuator
+  rpc Actuate(ActuateRequest) returns (ActuateResponse);
+
+  // Actuate simultaneously multiple actuators.
+  rpc BatchActuate(BatchActuateRequest) returns (BatchActuateResponse);
+
+  // List metadata of signals matching the request.
+  rpc ListMetadata(ListMetadataRequest) returns (ListMetadataResponse);
+
+  // Publish a signal value. Used for low frequency signals (e.g. attributes).
+  rpc PublishValue(PublishValueRequest) returns (PublishValueResponse);
+
+  // Open a stream used to provide actuation and/or publishing values.
+  rpc OpenProviderStream(stream OpenProviderStreamRequest) returns (stream OpenProviderStreamResponse);
+
+  // Get server information
+  rpc GetServerInfo(GetServerInfoRequest) returns (GetServerInfoResponse);
+}
+
+message GetValueRequest {
+  SignalID signal_id = 1;
+}
+
+message GetValueResponse {
+  Datapoint data_point = 1;
+}
+
+message GetValuesRequest {
+  repeated SignalID signal_ids = 1;
+}
+
+message GetValuesResponse {
+  repeated Datapoint data_points = 1;
+}
+
+message SubscribeRequest {
+  repeated string signal_paths = 1;
+  uint32 buffer_size           = 2;
+}
+
+message SubscribeResponse {
+  map<string, Datapoint> entries = 1;
+}
+
+message SubscribeByIdRequest {
+  repeated int32 signal_ids = 1;
+  uint32 buffer_size        = 2;
+}
+
+message SubscribeByIdResponse {
+  map<int32, Datapoint> entries = 1;
+}
+
+message ActuateRequest {
+  SignalID signal_id = 1;
+  Value value        = 2;
+}
+
+message ActuateResponse {
+}
+
+message BatchActuateRequest {
+  repeated ActuateRequest actuate_requests = 1;
+}
+
+message BatchActuateResponse {
+}
+
+message ListMetadataRequest {
+  string root   = 1;
+  string filter = 2;
+}
+
+message ListMetadataResponse {
+  repeated Metadata metadata = 1;
+}
+
+message PublishValueRequest {
+  SignalID signal_id   = 1;
+  Datapoint data_point = 2;
+}
+
+message PublishValueResponse {
+}
+
+message PublishValuesRequest {
+  int32 request_id                  = 1;
+  map<int32, Datapoint> data_points = 2;
+}
+
+message PublishValuesResponse {
+  int32 request_id         = 1;
+  map<int32, Error> status = 2;
+}
+
+message ProvideActuationRequest {
+  repeated SignalID actuator_identifiers = 1;
+}
+
+message ProvideActuationResponse {
+}
+
+message BatchActuateStreamRequest {
+  repeated ActuateRequest actuate_requests = 1;
+}
+
+message BatchActuateStreamResponse {
+  SignalID signal_id = 1;
+  Error error        = 2;
+}
+
+message OpenProviderStreamRequest {
+  oneof action {
+    ProvideActuationRequest provide_actuation_request        = 1;
+    PublishValuesRequest publish_values_request               = 2;
+    BatchActuateStreamResponse batch_actuate_stream_response = 3;
+  }
+}
+
+message OpenProviderStreamResponse {
+  oneof action {
+    ProvideActuationResponse provide_actuation_response    = 1;
+    PublishValuesResponse publish_values_response           = 2;
+    BatchActuateStreamRequest batch_actuate_stream_request = 3;
+  }
+}
+
+message GetServerInfoRequest {
+}
+
+message GetServerInfoResponse {
+  string name        = 1;
+  string version     = 2;
+  string commit_hash = 3;
+}
