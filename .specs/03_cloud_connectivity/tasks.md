@@ -236,8 +236,8 @@ order:
     - [x] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
     - [x] Requirements 03-REQ-3.1–3.6 acceptance criteria met
 
-- [ ] 7. CLOUD_GATEWAY_CLIENT Telemetry
-  - [ ] 7.1 Create telemetry publisher
+- [x] 7. CLOUD_GATEWAY_CLIENT Telemetry
+  - [x] 7.1 Create telemetry publisher
     - Create `rhivos/cloud-gateway-client/src/telemetry.rs`
     - Background task on configurable timer (default 5s)
     - Read vehicle signals from DATA_BROKER: `IsLocked`, `IsOpen`, `Speed`,
@@ -247,7 +247,7 @@ order:
     - Handle missing signals (omit or null)
     - _Requirements: 03-REQ-4.1, 03-REQ-4.2, 03-REQ-4.3_
 
-  - [ ] 7.2 Update main.rs
+  - [x] 7.2 Update main.rs
     - Replace spec 01 skeleton with real implementation
     - Initialize: config → VIN → MQTT → Kuksa → spawn command handler,
       result forwarder, status handler, telemetry publisher
@@ -255,7 +255,7 @@ order:
     - Connection retry with exponential backoff for both MQTT and Kuksa
     - _Requirements: 03-REQ-3.E1, 03-REQ-3.E2_
 
-  - [ ] 7.3 Write telemetry tests
+  - [x] 7.3 Write telemetry tests
     - Unit test: mock Kuksa client returning known values → verify JSON
       output matches expected schema and values
     - Unit test: missing signals → verify null/default handling
@@ -264,11 +264,11 @@ order:
     - **Property 5: Telemetry Accuracy**
     - _Requirements: 03-REQ-4.1, 03-REQ-4.2, 03-REQ-4.E1_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] `cargo test -p cloud-gateway-client` passes
-    - [ ] Telemetry integration test passes with `make infra-up`
-    - [ ] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
-    - [ ] Requirements 03-REQ-4.1–4.3 acceptance criteria met
+  - [x] 7.V Verify task group 7
+    - [x] `cargo test -p cloud-gateway-client` passes
+    - [x] Telemetry integration test passes with `make infra-up`
+    - [x] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
+    - [x] Requirements 03-REQ-4.1–4.3 acceptance criteria met
 
 - [ ] 8. Checkpoint — CLOUD_GATEWAY_CLIENT Complete
   - VIN, MQTT, command processing, result forwarding, telemetry all working
