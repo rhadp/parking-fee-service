@@ -13,6 +13,8 @@
 - Proto packages (`parking.common`, `parking.services.update`, `parking.services.adapter`) map to a nested Rust module hierarchy in `parking-proto/src/lib.rs`: `common`, `services::update`, `services::adapter`.
 - `update-service` and `parking-operator-adaptor` are gRPC servers that register service handlers from `parking-proto`.
 - `locking-service` and `cloud-gateway-client` are **not** gRPC servers — they are clients (Kuksa Databroker and MQTT respectively) whose skeletons just log and wait for shutdown.
+- The locking-service is structured as a lib+bin crate: `lib.rs` re-exports `config`, `lock_handler`, and `safety` modules; `main.rs` is the binary entry point. Integration tests in `tests/` import from the library.
+- Integration tests spawn the lock handler as a background Tokio task (via `tokio::spawn`) rather than as a separate process, avoiding process management complexity and giving direct access to the handler's types.
 - Go backend services (`parking-fee-service`, `cloud-gateway`) are separate Go modules (not a Go workspace) with independent `go.mod` files, each using `github.com/rhadp/parking-fee-service/backend/{service}` as its module path.
 - Go mock CLIs use `replace` directives in `go.mod` to reference local proto generated packages at `../../proto/gen/go`, keeping proto as the single source of truth.
 - Kuksa Databroker 0.5 uses the `kuksa.val.v2` API (not v1). The v2 protos are vendored in `proto/vendor/kuksa/val/v2/` and compiled by `parking-proto`. The v1 API uses `Set`/`Get` RPCs; `mock/sensors` still uses v1 protos vendored locally at `mock/sensors/proto/kuksa/val/v1/`.
@@ -43,7 +45,8 @@
 - VSS overlay JSON follows the COVESA VSS tree structure: `{ "Vehicle": { "type": "branch", "children": { ... } } }`. Leaf nodes require `type`, `datatype`, `description`; optional fields: `allowed`, `unit`, `min`, `max`.
 - Third-party proto files are vendored into `proto/vendor/` with package paths preserved (e.g., `proto/vendor/kuksa/val/v2/val.proto`). Kuksa v2 protos are compiled with `build_server(false)` since Rust services are only clients.
 - VSS signal path constants live in `parking-proto::signals` for shared use across crates, avoiding hardcoded signal path strings in each service.
-- Integration tests requiring Kuksa Databroker use `#[ignore]` and `DATABROKER_ADDR` env var with default `http://localhost:55555`.
+- Integration tests requiring Kuksa Databroker use `#[ignore]`, require `make infra-up`, and run with `cargo test -- --ignored --test-threads=1`. Sequential execution is required because tests share a single Kuksa Databroker instance and its signal state.
+- Vehicle conditions (speed, door state, IsLocked) must be set BEFORE spawning the lock handler in integration tests to avoid races with stale subscription values.
 - Rust service modules follow the design doc structure (e.g., locking-service: `config.rs`, `safety.rs`, `lock_handler.rs`, `main.rs`).
 - Property-based tests use `proptest` and live in a nested `mod prop` inside the main `#[cfg(test)]` module.
 - `prop_assert_eq!` inside `proptest!` blocks does not support Rust inline format captures (`{var}`); use positional/named format args or explicit `format!()` calls instead.
@@ -74,6 +77,8 @@
 - The `validate_lock` function in locking-service is deliberately pure (no side effects), making it fully testable without mocking infrastructure.
 - Speed threshold is checked first in locking-service validation order (before door-ajar), so `RejectedSpeed` takes priority when both conditions fail.
 - The locking-service `Config` struct defaults `databroker_addr` to `http://localhost:55555` (with scheme), matching the Kuksa tonic client's URL format.
+- We use `subscribe_string` on LockResult to detect handler completion (not polling) because subscription provides reliable change notification. The initial subscription value must be drained before sending a command.
+- The VSS overlay file (`infra/config/kuksa/vss_overlay.json`) must define ALL signals used by the system, not just custom ones. Kuksa's `--vss` flag replaces the default VSS model entirely.
 
 ## Fragile Areas
 
@@ -91,10 +96,13 @@
 - **Kuksa v2 `PublishValue` vs `Actuate`:** `PublishValue` sets signal values but requires provider permissions if the signal is registered as a sensor (not an actuator). `Actuate` is specifically for actuator signals. This distinction may matter for certain VSS signals.
 - **`subscribe_typed` silent drops:** The `KuksaClient::subscribe_typed` implementation uses `filter_map` which silently drops entries with wrong types. Intentional for the demo but could mask type mismatch issues in production.
 - **`proptest` macro format strings:** The `proptest!` macro expands format strings through `concat!`, which breaks Rust inline captures. Always use positional/named format args or skip custom messages in `prop_assert_eq!`.
+- **Port 55555 binding conflict:** Podman's `gvproxy` may persistently bind port 55555 on the development host. Integration tests may need an alternate port (e.g., 55556) via `DATABROKER_ADDR=http://localhost:55556`.
+- **LockResult signal allowed values:** The VSS overlay constrains LockResult to `SUCCESS`, `REJECTED_SPEED`, `REJECTED_DOOR_OPEN`. Writing any other string (including empty `""`) is rejected by Kuksa with "Value out of allowed bounds".
 
 ## Failed Approaches
 
 - A flat module layout in `parking-proto/src/lib.rs` (with `common`, `update`, `adapter` as sibling modules at crate root) fails because prost's generated `super::super::common` references cannot resolve when services aren't nested under a `services` parent module.
+- Clearing LockResult by writing an empty string `""` as a sentinel before each command does not work because the VSS overlay constrains allowed values. Use subscription stream draining to detect fresh results instead.
 
 ## Open Questions
 
