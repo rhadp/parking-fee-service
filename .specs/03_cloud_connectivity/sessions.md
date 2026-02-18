@@ -171,3 +171,26 @@ Implemented task group 6 (CLOUD_GATEWAY_CLIENT Command Processing) for specifica
 - `rhivos/cloud-gateway-client/src/result_forwarder.rs` (inline tests): 10 tests covering parse_lock_result (SUCCESS, REJECTED_SPEED, REJECTED_DOOR_OPEN, unknown), chrono_timestamp, pending command correlation, command response serialization, command response rejected speed, mock subscriber creation, and mock subscriber with error
 - `rhivos/cloud-gateway-client/src/status_handler.rs` (inline tests): 10 tests covering read_vehicle_state full/empty/partial failure, status response serialization full/null fields, chrono_timestamp, status request parsing valid/invalid, and vehicle state default
 - `rhivos/cloud-gateway-client/src/main.rs` (inline tests): 1 new test for KuksaAdapter clone trait (4 total)
+
+---
+
+## Session 28
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 7
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented CLOUD_GATEWAY_CLIENT telemetry publishing (task group 7) for spec 03_cloud_connectivity. Created the `telemetry.rs` module with a background task that periodically reads vehicle signals from DATA_BROKER via `DataBrokerReader` and publishes `TelemetryMessage` JSON to MQTT (QoS 0). Updated `main.rs` to spawn the telemetry publisher alongside the result forwarder when Kuksa is available, with the configurable interval passed through from the config. Added comprehensive unit tests covering full state, empty state, partial failures, multiple failures, required field presence, and serialization roundtrip, plus one ignored integration test placeholder.
+
+### Files Changed
+
+- Added: `rhivos/cloud-gateway-client/src/telemetry.rs`
+- Modified: `rhivos/cloud-gateway-client/src/main.rs`
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/cloud-gateway-client/src/telemetry.rs` (inline tests): 7 unit tests (telemetry_message_from_full_state, telemetry_message_from_empty_state, telemetry_message_partial_failure_uses_null, telemetry_message_multiple_failures_uses_null, telemetry_message_includes_all_required_fields, telemetry_serialization_roundtrip, chrono_timestamp_is_reasonable) and 1 ignored integration test (telemetry_integration_with_real_infra)

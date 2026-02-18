@@ -3,8 +3,8 @@
 //! This service bridges the vehicle to the cloud via MQTT (Eclipse Mosquitto).
 //! It connects to the MQTT broker, registers the vehicle by publishing its VIN
 //! and pairing PIN, subscribes to command and status request topics, processes
-//! commands via DATA_BROKER, forwards lock results back to MQTT, and handles
-//! status requests.
+//! commands via DATA_BROKER, forwards lock results back to MQTT, handles
+//! status requests, and periodically publishes telemetry.
 //!
 //! # Startup sequence
 //!
@@ -12,7 +12,8 @@
 //! 2. Load or generate VIN and pairing PIN (persisted to data directory).
 //! 3. Connect to MQTT broker and subscribe to vehicle topics.
 //! 4. Publish registration message to CLOUD_GATEWAY.
-//! 5. Spawn command handler (MQTT event loop dispatch) and result forwarder.
+//! 5. Spawn command handler (MQTT event loop dispatch), result forwarder,
+//!    and telemetry publisher.
 //! 6. Run until shutdown.
 //!
 //! # Shutdown
@@ -27,7 +28,12 @@
 //! - 03-REQ-3.4: Subscribe to LockResult, publish CommandResponse.
 //! - 03-REQ-3.5: Handle status requests, read DATA_BROKER, publish response.
 //! - 03-REQ-3.6: Accept MQTT and DATA_BROKER addresses via CLI / env vars.
+//! - 03-REQ-3.E1: DATA_BROKER unreachable → retry with exponential backoff.
+//! - 03-REQ-3.E2: MQTT connection lost → reconnect and re-subscribe.
 //! - 03-REQ-3.E3: Invalid command JSON → log and discard.
+//! - 03-REQ-4.1: Periodically publish telemetry to MQTT (QoS 0).
+//! - 03-REQ-4.2: Telemetry includes all required vehicle signals.
+//! - 03-REQ-4.3: Telemetry interval configurable via CLI / env var.
 //! - 03-REQ-5.1: Generate VIN and PIN on first start, persist, log to stdout.
 //! - 03-REQ-5.2: Publish registration message on every startup.
 //! - 03-REQ-5.E3: Reuse persisted VIN and PIN on subsequent starts.
@@ -38,6 +44,7 @@ pub mod messages;
 pub mod mqtt;
 pub mod result_forwarder;
 pub mod status_handler;
+pub mod telemetry;
 pub mod vin;
 
 use clap::Parser;
@@ -194,11 +201,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let vin = vin_data.vin.clone();
 
     // 4. Run the MQTT event loop with command dispatch, result forwarder,
-    //    and shutdown handler as concurrent tasks.
+    //    telemetry publisher, and shutdown handler as concurrent tasks.
     //
     //    The Kuksa connection is attempted here. If it fails, we still run
     //    the MQTT event loop (commands will fail gracefully). The result
-    //    forwarder is only spawned if Kuksa connects successfully.
+    //    forwarder and telemetry publisher are only spawned if Kuksa connects
+    //    successfully.
     tokio::select! {
         _ = run_mqtt_event_loop_with_dispatch(
             event_loop,
@@ -206,6 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             pending.clone(),
             &vin,
             &config.databroker_addr,
+            config.telemetry_interval,
         ) => {
             error!("MQTT event loop exited unexpectedly");
         }
@@ -221,13 +230,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// handler and status handler.
 ///
 /// Also attempts to connect to Kuksa DATA_BROKER and spawn the result
-/// forwarder as a background task.
+/// forwarder and telemetry publisher as background tasks.
 async fn run_mqtt_event_loop_with_dispatch(
     mut event_loop: rumqttc::EventLoop,
     mqtt_client: mqtt::MqttClient,
     pending: command_handler::PendingCommandState,
     vin: &str,
     databroker_addr: &str,
+    telemetry_interval_secs: u64,
 ) {
     use rumqttc::{Event, Packet};
 
@@ -260,6 +270,24 @@ async fn run_mqtt_event_loop_with_dispatch(
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         });
+    }
+
+    // Spawn telemetry publisher if Kuksa is available.
+    if let Some(ref adapter) = kuksa {
+        let adapter_clone = adapter.clone();
+        let mqtt_clone = mqtt_client.clone();
+        let vin_owned = vin.to_string();
+        tokio::spawn(async move {
+            telemetry::run_telemetry_publisher(
+                &adapter_clone,
+                &mqtt_clone,
+                &vin_owned,
+                telemetry_interval_secs,
+            )
+            .await;
+        });
+    } else {
+        warn!("telemetry publisher not started: DATA_BROKER not connected");
     }
 
     // Commands and status request topics for matching.
