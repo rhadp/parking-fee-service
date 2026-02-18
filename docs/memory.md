@@ -47,6 +47,9 @@
 - Rust service modules follow the design doc structure (e.g., locking-service: `config.rs`, `safety.rs`, `lock_handler.rs`, `main.rs`).
 - Property-based tests use `proptest` and live in a nested `mod prop` inside the main `#[cfg(test)]` module.
 - `prop_assert_eq!` inside `proptest!` blocks does not support Rust inline format captures (`{var}`); use positional/named format args or explicit `format!()` calls instead.
+- Custom CLI value types (e.g., `DoorState`, `LockAction`) implement `FromStr` for clap integration rather than using clap's built-in `value_enum`.
+- `#[allow(clippy::enum_variant_names)]` is needed on `Command` enums where variant names share prefixes matching CLI subcommand naming conventions.
+- Rust service `main()` delegates to a `run()` function for clean error handling: errors are logged via `tracing::error!` and the process exits with code 1, satisfying requirement 02-REQ-6.E1.
 
 ## Decisions
 
