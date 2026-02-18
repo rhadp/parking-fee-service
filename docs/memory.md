@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- Monorepo with Rust workspace under `rhivos/`, Go modules under `backend/` and `mock/`, shared proto definitions under `proto/`.
+- Monorepo with three technology domains: Rust (`rhivos/`), Go (`backend/`, `mock/`), and proto (`proto/`). Root `Makefile` delegates to domain-specific tools.
 - Local infrastructure uses Podman/Docker Compose with Eclipse Kuksa Databroker (port 55555) and Eclipse Mosquitto (port 1883). Infrastructure config lives in `infra/config/{service}/` (e.g., `mosquitto.conf`, `vss.json`).
 - Proto files live in `proto/common/` and `proto/services/`, with generated Go packages committed under `proto/gen/go/`. Generated Go packages use the module path `github.com/rhadp/parking-fee-service/proto/gen/go` with subdirectory packages: `common`, `services/update`, `services/adapter`.
 - The Rust workspace root is `rhivos/Cargo.toml`; all service crates are direct children of `rhivos/`, with `parking-proto` as the shared bindings crate. The `mock/sensors` crate is included as an external workspace member via `"../mock/sensors"`; external members must set `workspace = "../../rhivos"` in their own `Cargo.toml` for dependency resolution.
@@ -19,11 +19,12 @@
 
 - Containerfiles use the `.Containerfile` extension (not `Dockerfile`), organized as `containers/{domain}/{service-name}.Containerfile`.
 - Rust Containerfiles copy the full workspace context (all members) because Cargo workspace resolution requires every member to be present even when building a single binary.
-- Go Containerfiles are more targeted since Go modules are independent. Go services use `gcr.io/distroless/static-debian12:nonroot` as runtime; Rust services use `debian:bookworm-slim` with `ca-certificates`.
+- Containerfiles follow multi-stage build pattern: Rust uses `rust:1.75` builder + `debian:bookworm-slim` runtime; Go uses `golang:1.22` builder + `gcr.io/distroless/static-debian12:nonroot` runtime. Go Containerfiles are more targeted since Go modules are independent.
 - Container images are tagged `{service-name}:latest` with no registry prefix for local development.
 - Go services compile with `CGO_ENABLED=0` for fully static binaries, enabling distroless runtime images.
-- Makefile targets auto-detect container runtime: prefers `podman`, falls back to `docker`. Uses `$(shell command -v ...)` for detection.
-- Test scripts under `tests/` use bash with color output (PASS/FAIL/SKIP). They gracefully degrade when dependencies are unavailable (e.g., container daemon not running).
+- All Makefile targets use bracketed prefix logging (e.g., `[make target]`).
+- Makefile targets auto-detect container runtime: prefers `podman`, falls back to `docker`. Uses `command -v podman || command -v docker` pattern, shared between Makefile and test scripts.
+- Test scripts under `tests/` are standalone bash scripts that can be run independently, using green/red color output with pass/fail counters. They gracefully degrade when dependencies are unavailable (e.g., container daemon not running).
 - Proto generation for Go uses `module=` option to strip the module prefix and produce clean package directories matching `go_package` paths. Generated `.pb.go` files are committed to the repo to avoid requiring `protoc` for Go-only builds.
 - All Makefile targets that need tooling depend on `check-tools` as a prerequisite.
 - Workspace dependencies are pinned in `rhivos/Cargo.toml` under `[workspace.dependencies]` and referenced by member crates with `{ workspace = true }`.
@@ -35,7 +36,7 @@
 - Go tests use `httptest.NewServer(newServeMux())`, testing the mux directly without starting the real server.
 - The `envOrDefault` helper pattern is used across Go services for configurable listen addresses with env var fallback.
 - Go CLI applications use stdlib-only flag parsing (no cobra/urfave). Flag parsing is manual via global flag extraction functions that return remaining args.
-- Go service modules follow the pattern: `go.mod` with module path `github.com/rhadp/parking-fee-service/{subdir}`, using Go 1.25.7.
+- Go service modules follow the pattern: `go.mod` with module path `github.com/rhadp/parking-fee-service/{subdir}`, specifying `go 1.22`.
 
 ## Decisions
 
@@ -51,6 +52,7 @@
 - Rust and Go build/test/lint targets are wired into the Makefile together in task group 7.
 - We vendor a minimal subset of Kuksa Databroker proto (`val.proto` + `types.proto`) in `mock/sensors/proto/` rather than depending on `kuksa-rust-sdk`, to avoid heavy transitive dependencies and version conflicts in the workspace.
 - Container runtime detection uses `ifndef CONTAINER_RUNTIME` with `$(error ...)` for clear error reporting when no runtime is installed, matching requirement 01-REQ-6.E2.
+- We use `go vet` (not `golangci-lint`) for Go linting because it has zero external dependencies and covers the essential checks.
 - Infrastructure smoke tests split into static tests (always run) and live tests (skipped when container daemon unavailable), ensuring CI without Docker can still validate config files.
 
 ## Fragile Areas
@@ -73,4 +75,4 @@
 
 ## Open Questions
 
-- Go toolchain version mismatch: `go.mod` files declare Go 1.25.7 but Containerfiles use `golang:1.22`. The Go compiler is forward-compatible, but this may need reconciliation as services grow more complex.
+- Go toolchain version spread: `go.mod` files specify `go 1.22` minimum, Containerfiles use `golang:1.22`, but the local toolchain is `go1.25.7`. This works due to Go's backward compatibility but may cause unexpected behavior with newer language features.
