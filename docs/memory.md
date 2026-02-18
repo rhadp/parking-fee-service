@@ -3,16 +3,19 @@
 ## Architecture
 
 - Monorepo with three technology domains: Rust (`rhivos/`), Go (`backend/`, `mock/`), and proto (`proto/`). Root `Makefile` delegates to domain-specific tools.
-- Local infrastructure uses Podman/Docker Compose with Eclipse Kuksa Databroker (port 55555) and Eclipse Mosquitto (port 1883). Infrastructure config lives in `infra/config/{service}/` (e.g., `mosquitto.conf`, `vss.json`).
+- Local infrastructure uses Podman/Docker Compose with Eclipse Kuksa Databroker 0.5 (port 55555) and Eclipse Mosquitto (port 1883). Infrastructure config lives in `infra/config/{service}/` (e.g., `mosquitto.conf`, `vss_overlay.json`).
+- Kuksa Databroker 0.5 uses `--vss` (aliased `--metadata`) to load VSS JSON files (comma-separated for multiple). The compose command also requires `--insecure` (disable TLS) and `--addr 0.0.0.0` (bind to all interfaces, since Kuksa defaults to `127.0.0.1`).
+- Kuksa 0.5 exposes `kuksa.val.v2.VAL` via gRPC reflection by default. The v1 API (`kuksa.val.v1`) is also enabled but does NOT appear in gRPC reflection.
 - Proto files live in `proto/common/` and `proto/services/`, with generated Go packages committed under `proto/gen/go/`. Generated Go packages use the module path `github.com/rhadp/parking-fee-service/proto/gen/go` with subdirectory packages: `common`, `services/update`, `services/adapter`.
 - The Rust workspace root is `rhivos/Cargo.toml`; all service crates are direct children of `rhivos/`, with `parking-proto` as the shared bindings crate. The `mock/sensors` crate is included as an external workspace member via `"../mock/sensors"`; external members must set `workspace = "../../rhivos"` in their own `Cargo.toml` for dependency resolution.
-- `parking-proto` generates both server and client gRPC stubs at build time via `tonic-build` in `build.rs`, reading `.proto` files from `../../proto/` relative to the crate manifest. Every service crate depends on it for gRPC types.
+- `parking-proto` generates both server and client gRPC stubs at build time via `tonic-build` in `build.rs`, reading `.proto` files from `../../proto/` relative to the crate manifest. It re-exports both parking-domain protos and Kuksa `kuksa.val.v2` protos, serving as the single Rust bindings crate for all services.
+- `parking-proto` includes a `KuksaClient` helper module that wraps the Kuksa v2 gRPC API: `PublishValue` for writes, `GetValue` for reads (not the v1 `Set`/`Get` pattern). It also provides typed helpers like `get_f32`/`get_f64` and `subscribe_typed`.
 - Proto packages (`parking.common`, `parking.services.update`, `parking.services.adapter`) map to a nested Rust module hierarchy in `parking-proto/src/lib.rs`: `common`, `services::update`, `services::adapter`.
 - `update-service` and `parking-operator-adaptor` are gRPC servers that register service handlers from `parking-proto`.
 - `locking-service` and `cloud-gateway-client` are **not** gRPC servers — they are clients (Kuksa Databroker and MQTT respectively) whose skeletons just log and wait for shutdown.
 - Go backend services (`parking-fee-service`, `cloud-gateway`) are separate Go modules (not a Go workspace) with independent `go.mod` files, each using `github.com/rhadp/parking-fee-service/backend/{service}` as its module path.
 - Go mock CLIs use `replace` directives in `go.mod` to reference local proto generated packages at `../../proto/gen/go`, keeping proto as the single source of truth.
-- The Kuksa Databroker v1 API uses a `Set` RPC with `EntryUpdate` messages containing `DataEntry` with `Datapoint` values. The proto is vendored locally in `mock/sensors/proto/` rather than pulling the full Kuksa SDK.
+- Kuksa Databroker 0.5 uses the `kuksa.val.v2` API (not v1). The v2 protos are vendored in `proto/vendor/kuksa/val/v2/` and compiled by `parking-proto`. The v1 API uses `Set`/`Get` RPCs; `mock/sensors` still uses v1 protos vendored locally at `mock/sensors/proto/kuksa/val/v1/`.
 - The root Makefile iterates over `GO_BACKEND_DIRS` to run Go commands; new Go modules must be added to this list.
 
 ## Conventions
@@ -37,6 +40,10 @@
 - The `envOrDefault` helper pattern is used across Go services for configurable listen addresses with env var fallback.
 - Go CLI applications use stdlib-only flag parsing (no cobra/urfave). Flag parsing is manual via global flag extraction functions that return remaining args.
 - Go service modules follow the pattern: `go.mod` with module path `github.com/rhadp/parking-fee-service/{subdir}`, specifying `go 1.22`.
+- VSS overlay JSON follows the COVESA VSS tree structure: `{ "Vehicle": { "type": "branch", "children": { ... } } }`. Leaf nodes require `type`, `datatype`, `description`; optional fields: `allowed`, `unit`, `min`, `max`.
+- Third-party proto files are vendored into `proto/vendor/` with package paths preserved (e.g., `proto/vendor/kuksa/val/v2/val.proto`). Kuksa v2 protos are compiled with `build_server(false)` since Rust services are only clients.
+- VSS signal path constants live in `parking-proto::signals` for shared use across crates, avoiding hardcoded signal path strings in each service.
+- Integration tests requiring Kuksa Databroker use `#[ignore]` and `DATABROKER_ADDR` env var with default `http://localhost:55555`.
 
 ## Decisions
 
@@ -50,10 +57,13 @@
 - Go services use stdlib `net/http` (not gin/echo) because the design specifies `net/http` and the services are REST-only skeletons.
 - Go binaries built in-place by `go build ./...` need explicit `.gitignore` entries since they appear in the module directory.
 - Rust and Go build/test/lint targets are wired into the Makefile together in task group 7.
-- We vendor a minimal subset of Kuksa Databroker proto (`val.proto` + `types.proto`) in `mock/sensors/proto/` rather than depending on `kuksa-rust-sdk`, to avoid heavy transitive dependencies and version conflicts in the workspace.
+- We vendor Kuksa v1 protos locally in `mock/sensors/proto/` (not via `kuksa-rust-sdk`) to avoid heavy transitive dependencies. The shared v2 protos live in `proto/vendor/kuksa/val/v2/` and are compiled by `parking-proto` for all other services.
 - Container runtime detection uses `ifndef CONTAINER_RUNTIME` with `$(error ...)` for clear error reporting when no runtime is installed, matching requirement 01-REQ-6.E2.
 - We use `go vet` (not `golangci-lint`) for Go linting because it has zero external dependencies and covers the essential checks.
 - Infrastructure smoke tests split into static tests (always run) and live tests (skipped when container daemon unavailable), ensuring CI without Docker can still validate config files.
+- We added `KuksaClient` directly to `parking-proto` (not a separate crate) because it's small and all Rust services already depend on `parking-proto`.
+- We use `thiserror` v2 for error types in the `KuksaClient` helper, added as a workspace dependency.
+- `KuksaClient` type-coerces between float/double transparently in `get_f32`/`get_f64` to handle VSS data type flexibility (some signals report as f32, others as f64).
 
 ## Fragile Areas
 
@@ -68,6 +78,8 @@
 - The `mock/sensors` crate's `build.rs` depends on vendored proto files at `mock/sensors/proto/kuksa/val/v1/`. If the Kuksa Databroker API changes, these must be updated manually.
 - The `parking-app-cli` gRPC connection tests have a 5-second timeout per attempt, causing the test suite to take ~20s. Consider making the dial timeout configurable or shorter for tests.
 - Bash arithmetic with `set -euo pipefail`: `((var++))` returns exit code 1 when pre-increment value is 0. Use `var=$((var + 1))` instead.
+- **Kuksa v2 `PublishValue` vs `Actuate`:** `PublishValue` sets signal values but requires provider permissions if the signal is registered as a sensor (not an actuator). `Actuate` is specifically for actuator signals. This distinction may matter for certain VSS signals.
+- **`subscribe_typed` silent drops:** The `KuksaClient::subscribe_typed` implementation uses `filter_map` which silently drops entries with wrong types. Intentional for the demo but could mask type mismatch issues in production.
 
 ## Failed Approaches
 
