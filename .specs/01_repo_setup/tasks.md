@@ -196,8 +196,8 @@ This plan establishes the project foundation in dependency order:
   - All Rust crates compile, tests pass, clippy clean
   - Commit and verify clean state before proceeding to Go modules
 
-- [ ] 7. Go Modules and Backend Skeletons
-  - [ ] 7.1 Create `backend/parking-fee-service` Go module
+- [x] 7. Go Modules and Backend Skeletons
+  - [x] 7.1 Create `backend/parking-fee-service` Go module
     - `go.mod` with module path `github.com/rhadp/parking-fee-service/backend/parking-fee-service`
     - `main.go`: parse `--listen-addr` flag (default `:8080`), start
       `net/http` server with stub handlers returning HTTP 501, log listen
@@ -207,7 +207,7 @@ This plan establishes the project foundation in dependency order:
       `DELETE /api/v1/sessions/{id}`, `GET /api/v1/sessions/{id}/fee`
     - _Requirements: 01-REQ-3.1, 01-REQ-3.3, 01-REQ-7.2, 01-REQ-7.4_
 
-  - [ ] 7.2 Create `backend/cloud-gateway` Go module
+  - [x] 7.2 Create `backend/cloud-gateway` Go module
     - `go.mod`, `main.go` with same patterns as 7.1
     - Default port `:8081`
     - Register stub routes: `GET /healthz`,
@@ -216,7 +216,7 @@ This plan establishes the project foundation in dependency order:
       `GET /api/v1/vehicles/{vin}/status`
     - _Requirements: 01-REQ-3.1, 01-REQ-3.3, 01-REQ-7.2, 01-REQ-7.4_
 
-  - [ ] 7.3 Write Go skeleton tests
+  - [x] 7.3 Write Go skeleton tests
     - `backend/parking-fee-service/main_test.go`: start `httptest.Server`, send
       requests to each route, assert HTTP 501 response
     - `backend/cloud-gateway/main_test.go`: same pattern
@@ -224,17 +224,17 @@ This plan establishes the project foundation in dependency order:
     - **Validates: Requirements 01-REQ-7.4**
     - _Requirements: 01-REQ-3.4_
 
-  - [ ] 7.4 Wire Go targets into root Makefile
+  - [x] 7.4 Wire Go targets into root Makefile
     - `make build` compiles both Go services
     - `make test` runs `go test ./...` in each Go module directory
     - `make lint` runs `go vet ./...` in each Go module directory
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.5_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] `make build` builds both Go services
-    - [ ] `make test` runs Go tests (skeleton tests pass)
-    - [ ] `make lint` runs Go linter clean
-    - [ ] Requirements 01-REQ-3.1–3.4, 01-REQ-7.2, 01-REQ-7.4 acceptance
+  - [x] 7.V Verify task group 7
+    - [x] `make build` builds both Go services
+    - [x] `make test` runs Go tests (skeleton tests pass)
+    - [x] `make lint` runs Go linter clean
+    - [x] Requirements 01-REQ-3.1–3.4, 01-REQ-7.2, 01-REQ-7.4 acceptance
       criteria met
 
 - [ ] 8. Mock CLI Applications

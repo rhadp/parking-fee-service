@@ -10,6 +10,8 @@ Cargo.lock
 
 # Go build artifacts
 **/bin/
+backend/parking-fee-service/parking-fee-service
+backend/cloud-gateway/cloud-gateway
 
 # Local development logs
 logs/
