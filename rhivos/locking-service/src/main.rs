@@ -1,37 +1,35 @@
-//! Locking Service skeleton.
+//! RHIVOS Locking Service.
 //!
 //! This service manages vehicle lock/unlock operations via the Kuksa Databroker.
-//! In this skeleton, it starts a process that logs its listen address and waits
-//! for a shutdown signal. No gRPC RPCs are registered because locking-service
-//! acts as a Kuksa client, not a parking-proto gRPC server.
+//! It subscribes to lock commands, validates them against safety rules (speed
+//! and door state), and writes the result back to the databroker.
+//!
+//! Currently a skeleton — the command handler loop will be added in task group 5.
+
+pub mod config;
+pub mod safety;
+
+use config::Config;
 
 use clap::Parser;
 use tokio::signal;
-use tracing::{error, info};
-
-/// RHIVOS Locking Service
-#[derive(Parser, Debug)]
-#[command(name = "locking-service", about = "RHIVOS locking service skeleton")]
-struct Args {
-    /// Address to listen on (for future use)
-    #[arg(long, env = "LISTEN_ADDR", default_value = "0.0.0.0:50051")]
-    listen_addr: String,
-}
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
+    let config = Config::parse();
 
-    // Validate the listen address parses correctly.
-    let addr: std::net::SocketAddr = args.listen_addr.parse().map_err(|e| {
-        error!("Invalid listen address '{}': {}", args.listen_addr, e);
-        e
-    })?;
-
-    info!("locking-service starting on {}", addr);
-    info!("locking-service is a Kuksa Databroker client — no gRPC server registered");
+    info!(
+        "locking-service starting (databroker={})",
+        config.databroker_addr
+    );
+    info!(
+        "safety threshold: max_speed_kmh={}",
+        config.max_speed_kmh
+    );
+    info!("locking-service is a Kuksa Databroker client — command handler not yet implemented");
     info!("Waiting for shutdown signal (Ctrl+C)...");
 
     // Wait for shutdown signal.
@@ -46,14 +44,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cli_parses_default_args() {
-        let args = Args::parse_from(["locking-service"]);
-        assert_eq!(args.listen_addr, "0.0.0.0:50051");
+    fn cli_parses_default_config() {
+        let config = Config::parse_from(["locking-service"]);
+        assert_eq!(config.databroker_addr, "http://localhost:55555");
+        assert!((config.max_speed_kmh - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
-    fn cli_parses_custom_listen_addr() {
-        let args = Args::parse_from(["locking-service", "--listen-addr", "127.0.0.1:9999"]);
-        assert_eq!(args.listen_addr, "127.0.0.1:9999");
+    fn cli_parses_custom_databroker_addr() {
+        let config = Config::parse_from([
+            "locking-service",
+            "--databroker-addr",
+            "http://kuksa:55555",
+        ]);
+        assert_eq!(config.databroker_addr, "http://kuksa:55555");
     }
 }

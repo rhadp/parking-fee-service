@@ -72,3 +72,30 @@ Completed checkpoint 3 (Kuksa Infrastructure Ready) for spec 02_locking_service.
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 16
+
+- **Spec:** 02_locking_service
+- **Task Group:** 4
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 4 (LOCKING_SERVICE Safety Validation) for spec 02_locking_service. Created `safety.rs` with the `LockResult` enum and pure `validate_lock` function, `config.rs` with `Config` struct parsed via clap, and comprehensive tests including 17 deterministic boundary-value tests and 7 property-based tests using `proptest`. All 32 locking-service tests pass with zero clippy warnings.
+
+### Files Changed
+
+- Added: `rhivos/locking-service/src/safety.rs`
+- Added: `rhivos/locking-service/src/config.rs`
+- Modified: `rhivos/locking-service/src/main.rs`
+- Modified: `rhivos/locking-service/Cargo.toml`
+- Modified: `.specs/02_locking_service/tasks.md`
+- Modified: `.specs/02_locking_service/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/locking-service/src/safety.rs`: Added 17 deterministic unit tests (Display trait, boundary values, custom thresholds) and 7 property-based tests using proptest (speed rejection, door-open rejection, safe lock, safe unlock, determinism, exhaustive decision rules, exact-threshold boundary).
+- `rhivos/locking-service/src/config.rs`: Added 6 unit tests (default config, custom databroker addr, custom max speed, all custom args, clone, debug).
+- `rhivos/locking-service/src/main.rs`: Updated 2 integration tests to use new Config struct.
