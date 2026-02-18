@@ -353,30 +353,30 @@ order:
     - [x] Tests skip cleanly when infrastructure is unavailable
     - [x] Requirements 03-REQ-7.1–7.5 acceptance criteria met
 
-- [ ] 11. Final Verification and Documentation
-  - [ ] 11.1 Run full test suite
+- [x] 11. Final Verification and Documentation
+  - [x] 11.1 Run full test suite
     - `make build && make test && make lint`
     - Verify no regressions in spec 01 and spec 02 tests
     - _Requirements: all_
 
-  - [ ] 11.2 Run integration tests
+  - [x] 11.2 Run integration tests
     - Start all infrastructure and services
     - Run all integration tests
     - Verify all pass
 
-  - [ ] 11.3 Update documentation
+  - [x] 11.3 Update documentation
     - Document MQTT topic structure and message schemas in
       `docs/mqtt-protocol.md`
     - Document pairing flow in `docs/vehicle-pairing.md`
     - Update README if needed
 
-  - [ ] 11.V Verify task group 11
-    - [ ] `make build` succeeds
-    - [ ] `make test` passes
-    - [ ] `make lint` clean
-    - [ ] Integration tests pass
-    - [ ] No regressions from specs 01 and 02
-    - [ ] All 03-REQ requirements verified
+  - [x] 11.V Verify task group 11
+    - [x] `make build` succeeds
+    - [x] `make test` passes
+    - [x] `make lint` clean
+    - [x] Integration tests pass
+    - [x] No regressions from specs 01 and 02
+    - [x] All 03-REQ requirements verified
 
 ### Checkbox States
 

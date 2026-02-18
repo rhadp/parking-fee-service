@@ -172,6 +172,7 @@ make clean
 | `make infra-up` | Start local Kuksa Databroker and Mosquitto |
 | `make infra-down` | Stop and remove infrastructure containers |
 | `make infra-status` | Show infrastructure container status |
+| `make test-e2e` | Run end-to-end integration tests (requires `make infra-up`) |
 | `make build-containers` | Build OCI container images for all services |
 | `make check-tools` | Verify all required development tools are installed |
 
@@ -223,15 +224,20 @@ Simulates the companion mobile app, calling REST endpoints:
 companion-app-cli [flags] <command>
 
 Commands:
-  lock     POST /api/v1/vehicles/{vin}/lock
-  unlock   POST /api/v1/vehicles/{vin}/unlock
-  status   GET  /api/v1/vehicles/{vin}/status
+  pair     POST /api/v1/pair — pair with vehicle using VIN and PIN
+  lock     POST /api/v1/vehicles/{vin}/lock — lock the vehicle
+  unlock   POST /api/v1/vehicles/{vin}/unlock — unlock the vehicle
+  status   GET  /api/v1/vehicles/{vin}/status — query vehicle state
 
 Flags:
   --gateway-addr   Address of CloudGateway (default: http://localhost:8081)
   --vin            Vehicle VIN (required)
-  --token          Bearer token (default: demo-token)
+  --token          Bearer token (required for lock/unlock/status)
+  --pin            Pairing PIN (required for pair)
 ```
+
+See [docs/vehicle-pairing.md](docs/vehicle-pairing.md) for the full pairing
+workflow.
 
 ### mock-sensors
 
@@ -277,13 +283,16 @@ Generated Go bindings are committed under `proto/gen/go/`. Rust bindings are gen
 |---------|--------|-------------|
 | locking-service | **Implemented** | Safety-validated lock/unlock via Kuksa Databroker |
 | mock-sensors | **Implemented** | CLI tool for publishing mock VSS signals |
-| cloud-gateway-client | Skeleton | Logs startup, waits for shutdown |
+| cloud-gateway-client | **Implemented** | MQTT-Kuksa bridge with command processing and telemetry |
+| cloud-gateway | **Implemented** | REST API + MQTT gateway with pairing and auth |
+| companion-app-cli | **Implemented** | CLI for pairing, lock/unlock, and status queries |
 | update-service | Skeleton | Returns `UNIMPLEMENTED` for all RPCs |
 | parking-operator-adaptor | Skeleton | Returns `UNIMPLEMENTED` for all RPCs |
 | parking-fee-service | Skeleton | Returns HTTP 501 |
-| cloud-gateway | Skeleton | Returns HTTP 501 |
 
 The **locking-service** subscribes to `Vehicle.Command.Door.Lock` via Kuksa Databroker, validates commands against vehicle speed and door state, and writes `IsLocked` and `LockResult` signals. See [docs/vss-signals.md](docs/vss-signals.md) for custom VSS signal definitions.
+
+The **cloud-gateway** and **cloud-gateway-client** form the vehicle-to-cloud connectivity layer. The cloud-gateway exposes a REST API for companion apps and communicates with vehicles via MQTT. The cloud-gateway-client bridges MQTT commands to Kuksa DATA_BROKER signals and publishes telemetry. See [docs/mqtt-protocol.md](docs/mqtt-protocol.md) for MQTT topic and message documentation, and [docs/vehicle-pairing.md](docs/vehicle-pairing.md) for the pairing flow.
 
 ## License
 
