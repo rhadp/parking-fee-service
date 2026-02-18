@@ -39,8 +39,8 @@ order:
 
 ## Tasks
 
-- [ ] 1. Shared Message Schemas
-  - [ ] 1.1 Define Go message types
+- [x] 1. Shared Message Schemas
+  - [x] 1.1 Define Go message types
     - Create `backend/cloud-gateway/messages/types.go`
     - Define structs for: `CommandMessage`, `CommandResponse`,
       `StatusRequest`, `StatusResponse`, `TelemetryMessage`,
@@ -49,22 +49,22 @@ order:
     - Define MQTT topic pattern constants
     - _Requirements: 03-REQ-2.2 (prerequisite)_
 
-  - [ ] 1.2 Define Rust message types
+  - [x] 1.2 Define Rust message types
     - Create `rhivos/cloud-gateway-client/src/messages.rs`
     - Define structs with `serde` derive for the same message types
     - Define MQTT topic pattern constants
     - _Requirements: 03-REQ-3.1 (prerequisite)_
 
-  - [ ] 1.3 Write schema compatibility tests
+  - [x] 1.3 Write schema compatibility tests
     - Go test: serialize a sample message to JSON, verify expected output
     - Rust test: serialize the same sample, verify identical JSON output
     - Ensures both sides agree on wire format
     - _Requirements: 03-REQ-2.2, 03-REQ-3.2 (prerequisite)_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `go test ./...` in cloud-gateway passes
-    - [ ] `cargo test -p cloud-gateway-client` passes
-    - [ ] Both sides produce identical JSON for the same logical message
+  - [x] 1.V Verify task group 1
+    - [x] `go test ./...` in cloud-gateway passes
+    - [x] `cargo test -p cloud-gateway-client` passes
+    - [x] Both sides produce identical JSON for the same logical message
 
 - [ ] 2. CLOUD_GATEWAY Vehicle State and REST API
   - [ ] 2.1 Create vehicle state store
