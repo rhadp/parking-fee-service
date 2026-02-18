@@ -16,9 +16,9 @@ services:
     image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5
     ports:
       - "55555:55555"
-    environment:
-      - KUKSA_DATA_BROKER_ADDR=0.0.0.0
-      - KUKSA_DATA_BROKER_PORT=55555
+    volumes:
+      - ./config/kuksa/vss_overlay.json:/vss_overlay.json
+    command: ["--insecure", "--vss", "/vss_overlay.json", "--addr", "0.0.0.0"]
 
   mosquitto:
     image: docker.io/library/eclipse-mosquitto:2

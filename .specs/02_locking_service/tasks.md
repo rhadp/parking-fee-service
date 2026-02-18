@@ -37,8 +37,8 @@ This plan implements the RHIVOS safety-partition core in dependency order:
 
 ## Tasks
 
-- [ ] 1. Kuksa VSS Configuration
-  - [ ] 1.1 Create VSS overlay file
+- [x] 1. Kuksa VSS Configuration
+  - [x] 1.1 Create VSS overlay file
     - Create `infra/config/kuksa/vss_overlay.json` with custom signal
       definitions: `Vehicle.Command.Door.Lock` (bool actuator),
       `Vehicle.Command.Door.LockResult` (string sensor),
@@ -46,25 +46,25 @@ This plan implements the RHIVOS safety-partition core in dependency order:
     - Follow Kuksa's overlay JSON schema
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.3, 02-REQ-1.5_
 
-  - [ ] 1.2 Update infrastructure compose file
+  - [x] 1.2 Update infrastructure compose file
     - Update `infra/compose.yaml` to mount `vss_overlay.json` into the Kuksa
       container and pass it via command-line flag
     - Verify the correct Kuksa CLI flag for VSS overlay loading (may be
       `--vss`, `--overlays`, or similar — check Kuksa documentation)
     - _Requirements: 02-REQ-1.4_
 
-  - [ ] 1.3 Verify Kuksa starts with custom signals
+  - [x] 1.3 Verify Kuksa starts with custom signals
     - Run `make infra-up`
     - Use `grpcurl` or a test script to verify that custom signals are
       accessible (Get/Set on `Vehicle.Command.Door.Lock` succeeds)
     - **Property 6: Signal Availability**
     - _Requirements: 02-REQ-1.4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `make infra-up` starts Kuksa with overlay loaded
-    - [ ] Custom signals are readable and writable via gRPC
-    - [ ] `make infra-down` cleans up
-    - [ ] Requirements 02-REQ-1.1–1.5 acceptance criteria met
+  - [x] 1.V Verify task group 1
+    - [x] `make infra-up` starts Kuksa with overlay loaded
+    - [x] Custom signals are readable and writable via gRPC
+    - [x] `make infra-down` cleans up
+    - [x] Requirements 02-REQ-1.1–1.5 acceptance criteria met
 
 - [ ] 2. Kuksa Proto Integration
   - [ ] 2.1 Vendor Kuksa proto files
