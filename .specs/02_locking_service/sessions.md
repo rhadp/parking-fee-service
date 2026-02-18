@@ -197,3 +197,30 @@ Implemented task group 8 (Integration Tests) for spec 02_locking_service. Create
 ### Tests Added or Modified
 
 - `rhivos/locking-service/tests/integration.rs`: 6 integration tests — `integration_lock_happy_path` (02-REQ-7.1), `integration_unlock_happy_path` (02-REQ-7.4), `integration_lock_rejected_speed` (02-REQ-7.2), `integration_lock_rejected_door_open` (02-REQ-7.3), `integration_unlock_with_door_open_succeeds` (02-REQ-3.4), `integration_unlock_rejected_speed` (02-REQ-3.3). All marked `#[ignore]`, require `make infra-up`.
+
+---
+
+## Session 21
+
+- **Spec:** 02_locking_service
+- **Task Group:** 9
+- **Date:** 2026-02-18
+
+### Summary
+
+Completed task group 9 (Final Verification and Documentation) for spec 02_locking_service. Ran full test suite (`make build`, `make test`, `make lint`) confirming all 101 unit tests and Go tests pass with zero regressions. Fixed integration test parallelism issues by adding `serial_test` crate and `#[serial]` annotations. Fixed mock-sensors `set-speed` to use `f32` (matching VSS `Vehicle.Speed` type) instead of `f64` which caused Kuksa type rejection. All 14 integration tests pass. Updated README with mock-sensors `lock-command` subcommand and current service status table. Created `docs/vss-signals.md` documenting all custom VSS overlay signals, safety validation rules, and signal constants.
+
+### Files Changed
+
+- Modified: `rhivos/locking-service/Cargo.toml`
+- Modified: `rhivos/locking-service/tests/integration.rs`
+- Modified: `mock/sensors/src/main.rs`
+- Modified: `README.md`
+- Added: `docs/vss-signals.md`
+- Modified: `.specs/02_locking_service/tasks.md`
+- Modified: `.specs/02_locking_service/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/locking-service/tests/integration.rs`: Added `serial_test` dependency and `#[serial]` annotations to all 6 integration tests to prevent parallel execution race conditions against shared Kuksa Databroker state.
+- `mock/sensors/src/main.rs`: Fixed `integration_set_speed_roundtrip` test to use `f32` instead of `f64` (matching VSS `Vehicle.Speed` signal type).
