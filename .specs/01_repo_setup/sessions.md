@@ -101,3 +101,40 @@ Implemented task group 4 (Rust Workspace and Proto Crate) for specification 01_r
 ### Tests Added or Modified
 
 - `rhivos/parking-proto/src/lib.rs` (`#[cfg(test)]` module): 5 tests verifying generated Rust types match proto definitions — common types accessibility, UpdateService types accessibility, ParkingAdapter types accessibility, UpdateService server trait generation, ParkingAdapter server trait generation. Validates Property 2 (Proto-Binding Consistency) and requirement 01-REQ-4.5.
+
+---
+
+## Session 5
+
+- **Spec:** 01_repo_setup
+- **Task Group:** 5
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 5 (Rust Skeleton Services) for specification 01_repo_setup. Created four Rust service crate skeletons — locking-service, cloud-gateway-client, update-service, and parking-operator-adaptor — as workspace members. The update-service and parking-operator-adaptor register gRPC stub handlers (all RPCs return UNIMPLEMENTED), while locking-service and cloud-gateway-client start processes that log and wait (they are clients, not gRPC servers). Added 22 tests total: CLI argument parsing tests for all four services plus gRPC contract tests for update-service (5 RPCs) and parking-operator-adaptor (4 RPCs) that start the server on a random port and verify UNIMPLEMENTED responses.
+
+### Files Changed
+
+- Added: `rhivos/locking-service/Cargo.toml`
+- Added: `rhivos/locking-service/src/main.rs`
+- Added: `rhivos/cloud-gateway-client/Cargo.toml`
+- Added: `rhivos/cloud-gateway-client/src/main.rs`
+- Added: `rhivos/update-service/Cargo.toml`
+- Added: `rhivos/update-service/src/main.rs`
+- Added: `rhivos/parking-operator-adaptor/Cargo.toml`
+- Added: `rhivos/parking-operator-adaptor/src/main.rs`
+- Modified: `rhivos/Cargo.toml`
+- Modified: `.specs/01_repo_setup/tasks.md`
+- Modified: `.specs/01_repo_setup/sessions.md`
+- Deleted: `rhivos/locking-service/.gitkeep`
+- Deleted: `rhivos/cloud-gateway-client/.gitkeep`
+- Deleted: `rhivos/update-service/.gitkeep`
+- Deleted: `rhivos/parking-operator-adaptor/.gitkeep`
+
+### Tests Added or Modified
+
+- `rhivos/update-service/src/main.rs` (`#[cfg(test)]` module): 7 tests — 2 CLI parsing tests plus 5 gRPC contract tests (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus all return UNIMPLEMENTED). Validates Property 3 (Skeleton Contract) and requirements 01-REQ-7.4, 01-REQ-2.3.
+- `rhivos/parking-operator-adaptor/src/main.rs` (`#[cfg(test)]` module): 6 tests — 2 CLI parsing tests plus 4 gRPC contract tests (StartSession, StopSession, GetStatus, GetRate all return UNIMPLEMENTED). Validates Property 3 (Skeleton Contract) and requirements 01-REQ-7.4, 01-REQ-2.3.
+- `rhivos/locking-service/src/main.rs` (`#[cfg(test)]` module): 2 CLI parsing tests.
+- `rhivos/cloud-gateway-client/src/main.rs` (`#[cfg(test)]` module): 2 CLI parsing tests.

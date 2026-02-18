@@ -147,8 +147,8 @@ This plan establishes the project foundation in dependency order:
     - [x] Generated Rust types match proto definitions
     - [x] Requirements 01-REQ-2.1, 01-REQ-4.5 acceptance criteria met
 
-- [ ] 5. Rust Skeleton Services
-  - [ ] 5.1 Create `locking-service` skeleton
+- [x] 5. Rust Skeleton Services
+  - [x] 5.1 Create `locking-service` skeleton
     - `Cargo.toml`: depend on `parking-proto`, `tonic`, `tokio`, `clap`,
       `tracing`, `tracing-subscriber`
     - `src/main.rs`: parse `--listen-addr` flag (default `0.0.0.0:50051`),
@@ -158,25 +158,25 @@ This plan establishes the project foundation in dependency order:
     - Add crate to workspace members
     - _Requirements: 01-REQ-7.1, 01-REQ-2.4_
 
-  - [ ] 5.2 Create `cloud-gateway-client` skeleton
+  - [x] 5.2 Create `cloud-gateway-client` skeleton
     - Same pattern as 5.1 with default port `0.0.0.0:50052`
     - No RPCs served (it is an MQTT client, not a gRPC server)
     - Add crate to workspace members
     - _Requirements: 01-REQ-7.1, 01-REQ-2.4_
 
-  - [ ] 5.3 Create `update-service` skeleton
+  - [x] 5.3 Create `update-service` skeleton
     - Same pattern as 5.1 with default port `0.0.0.0:50053`
     - Register `UpdateService` with stub handlers returning `UNIMPLEMENTED`
     - Add crate to workspace members
     - _Requirements: 01-REQ-7.1, 01-REQ-7.3, 01-REQ-7.4, 01-REQ-2.4_
 
-  - [ ] 5.4 Create `parking-operator-adaptor` skeleton
+  - [x] 5.4 Create `parking-operator-adaptor` skeleton
     - Same pattern as 5.1 with default port `0.0.0.0:50054`
     - Register `ParkingAdapter` with stub handlers returning `UNIMPLEMENTED`
     - Add crate to workspace members
     - _Requirements: 01-REQ-7.1, 01-REQ-7.3, 01-REQ-7.4, 01-REQ-2.4_
 
-  - [ ] 5.5 Write skeleton contract tests
+  - [x] 5.5 Write skeleton contract tests
     - For `update-service`: start server on random port, send each RPC, assert
       `UNIMPLEMENTED` status
     - For `parking-operator-adaptor`: same pattern
@@ -185,11 +185,11 @@ This plan establishes the project foundation in dependency order:
     - **Validates: Requirements 01-REQ-7.4**
     - _Requirements: 01-REQ-2.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] `cd rhivos && cargo build --workspace` succeeds
-    - [ ] `cd rhivos && cargo test --workspace` succeeds (skeleton tests pass)
-    - [ ] `cd rhivos && cargo clippy --workspace -- -D warnings` clean
-    - [ ] Requirements 01-REQ-2.2, 01-REQ-2.3, 01-REQ-2.4, 01-REQ-7.1,
+  - [x] 5.V Verify task group 5
+    - [x] `cd rhivos && cargo build --workspace` succeeds
+    - [x] `cd rhivos && cargo test --workspace` succeeds (skeleton tests pass)
+    - [x] `cd rhivos && cargo clippy --workspace -- -D warnings` clean
+    - [x] Requirements 01-REQ-2.2, 01-REQ-2.3, 01-REQ-2.4, 01-REQ-7.1,
       01-REQ-7.3, 01-REQ-7.4 acceptance criteria met
 
 - [ ] 6. Checkpoint — Rust Workspace Complete
