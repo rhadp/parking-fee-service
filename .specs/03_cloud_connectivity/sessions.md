@@ -142,3 +142,32 @@ Implemented task group 5 (CLOUD_GATEWAY_CLIENT VIN and Registration) for specifi
 - `rhivos/cloud-gateway-client/src/config.rs` (inline tests): 8 tests covering default config, custom mqtt_addr, custom databroker_addr, custom data_dir, custom telemetry_interval, all custom args, clone, and debug
 - `rhivos/cloud-gateway-client/src/mqtt.rs` (inline tests): 7 tests covering host/port parsing, timestamp validation, error display, and clone trait
 - `rhivos/cloud-gateway-client/src/main.rs` (inline tests): 3 tests covering CLI parsing with defaults, custom mqtt_addr, and all custom args
+
+---
+
+## Session 27
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 6
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 6 (CLOUD_GATEWAY_CLIENT Command Processing) for specification 03_cloud_connectivity. Created the command handler module (`command_handler.rs`) that parses incoming MQTT `CommandMessage` JSON, stores the `command_id` for response correlation, and writes `Vehicle.Command.Door.Lock` to DATA_BROKER via a testable `DataBrokerWriter` trait. Created the result forwarder module (`result_forwarder.rs`) that subscribes to `Vehicle.Command.Door.LockResult` on DATA_BROKER and publishes `CommandResponse` messages to MQTT with the correlated `command_id`. Created the status handler module (`status_handler.rs`) that reads all vehicle signals from DATA_BROKER and publishes `StatusResponse` messages via a testable `DataBrokerReader` trait. Updated `main.rs` with the `KuksaAdapter` struct implementing all three traits, MQTT event loop dispatch to command/status handlers, result forwarder spawned as a background task, and Kuksa connection with exponential backoff. All 74 tests pass, clippy is clean, and `make build`/`make test`/`make lint` succeed with zero regressions.
+
+### Files Changed
+
+- Added: `rhivos/cloud-gateway-client/src/command_handler.rs`
+- Added: `rhivos/cloud-gateway-client/src/result_forwarder.rs`
+- Added: `rhivos/cloud-gateway-client/src/status_handler.rs`
+- Modified: `rhivos/cloud-gateway-client/src/main.rs`
+- Modified: `rhivos/cloud-gateway-client/Cargo.toml`
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/cloud-gateway-client/src/command_handler.rs` (inline tests): 7 tests covering lock command writes true, unlock command writes false, invalid JSON discarded, missing fields discarded, DATA_BROKER failure returns false, subsequent command overwrites pending, and invalid command type discarded
+- `rhivos/cloud-gateway-client/src/result_forwarder.rs` (inline tests): 10 tests covering parse_lock_result (SUCCESS, REJECTED_SPEED, REJECTED_DOOR_OPEN, unknown), chrono_timestamp, pending command correlation, command response serialization, command response rejected speed, mock subscriber creation, and mock subscriber with error
+- `rhivos/cloud-gateway-client/src/status_handler.rs` (inline tests): 10 tests covering read_vehicle_state full/empty/partial failure, status response serialization full/null fields, chrono_timestamp, status request parsing valid/invalid, and vehicle state default
+- `rhivos/cloud-gateway-client/src/main.rs` (inline tests): 1 new test for KuksaAdapter clone trait (4 total)
