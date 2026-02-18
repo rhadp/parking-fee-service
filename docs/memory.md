@@ -8,16 +8,20 @@
 - CLOUD_GATEWAY (`backend/cloud-gateway/`) is a Go service using stdlib `net/http` with Go 1.22+ ServeMux pattern routing (method + path patterns like `"GET /healthz"`).
 - The state store (`state/store.go`) is the central in-memory data structure: thread-safe via `sync.RWMutex`, keyed by VIN, with a reverse token→VIN lookup map for O(1) auth validation.
 - REST handlers in `api/` depend on state store and an `MQTTPublisher` interface, allowing the MQTT layer to be plugged in without changing handler code.
+- CLOUD_GATEWAY uses `eclipse/paho.mqtt.golang` for MQTT. The client is created in `main.go` and injected into REST handlers via the `api.MQTTPublisher` interface.
+- MQTT subscriptions are established on initial connect and on every reconnect via `SetOnConnectHandler`, ensuring recovery from broker restarts (03-REQ-2.E1).
+- The `mqtt.Client` type embeds a reference to `state.Store` and directly updates it from MQTT message handlers — no intermediate channels or queues.
 
 ## Conventions
 
 - **Go modules**: Go 1.25.7, organized as separate modules per service (`backend/cloud-gateway`, `mock/companion-app-cli`, etc.).
 - **Go HTTP**: stdlib `net/http` with Go 1.22+ routing (method prefixes like `"GET /healthz"`), no frameworks.
-- **Go testing**: `httptest.NewServer` with the real mux for integration-style testing rather than calling handlers directly.
+- **Go testing**: `httptest.NewServer` with the real mux for integration-style testing rather than calling handlers directly. MQTT handler unit tests use `newTestClient(store)` to create a handler-only client (no real MQTT connection).
+- **Go integration tests**: use `skipIfNoMQTT(t)` to probe the broker before running; they skip cleanly with an informative message when infrastructure is unavailable.
 - **Go error responses**: follow `{"error": "...", "code": "..."}` JSON format consistently.
 - **Go auth tokens**: Bearer tokens are 32-byte base64url-encoded random strings generated via `crypto/rand`.
 - **Rust stack**: `clap` derive for CLI args, `tracing` for structured logging, `tokio` for async runtime.
-- **MQTT JSON wire format**: snake_case field names. Go uses `json:"snake_case"` struct tags; Rust uses `serde(rename)` when the Rust field name differs from the JSON key (e.g., `command_type` field maps to `"type"` in JSON).
+- **MQTT JSON wire format**: snake_case field names. Go uses `json:"snake_case"` struct tags; Rust uses `serde(rename)` when the Rust field name differs from the JSON key (e.g., `command_type` field maps to `"type"` in JSON). Topic parsing uses `strings.SplitN(topic, "/", 3)` to extract VIN and suffix from `vehicles/{vin}/{suffix}` format.
 - Rust `CommandResult` enum variants use SCREAMING_SNAKE_CASE to match the MQTT wire format directly, requiring `#[allow(non_camel_case_types, clippy::upper_case_acronyms)]`.
 
 ## Decisions
@@ -26,7 +30,9 @@
 - `serde` and `serde_json` are workspace-level dependencies to support JSON serialization across Rust services.
 - New modules in cloud-gateway-client are declared with `#[allow(dead_code)]` at the `mod` level since they define types consumed by later task groups.
 - We use `google/uuid` (not stdlib) for command ID generation because Go stdlib doesn't provide UUID generation.
-- The `MQTTPublisher` interface was defined in `api/handlers.go` with a no-op default, so REST handlers work standalone without MQTT — this avoids blocking task group 2 on task group 3.
+- We use a single `handleMessage` callback for all MQTT subscriptions (not per-topic callbacks) because Paho's `SubscribeMultiple` with a shared callback simplifies routing and ensures consistent error handling.
+- Command response handler updates vehicle lock state (`IsLocked`) based on command result, not just the command status — ensures cached state reflects actual vehicle state after lock/unlock.
+- The `MQTTPublisher` interface was defined in `api/handlers.go` with a no-op default, so REST handlers work standalone without MQTT — this avoids blocking task group 2 on task group 3. The `newServeMux` signature is `(store, publisher)`; tests pass `nil` for the no-op publisher.
 - `GetVehicle` returns a shallow copy (not a pointer to internal state) to prevent callers from accidentally mutating the store.
 
 ## Fragile Areas
@@ -35,6 +41,8 @@
 - `StatusResponse` and `TelemetryMessage` use pointer/Option types for nullable fields; the JSON representation uses `null` for absent values, not field omission. Mismatches cause silent deserialization failures.
 - `main_test.go` tested for HTTP 501 stubs; it had to be rewritten when stubs were replaced with real handlers. Future task groups that change `main.go` wiring may need corresponding `main_test.go` updates.
 - `PairVehicle` uses sentinel errors (`ErrVehicleNotFound`, `ErrPINMismatch`) compared with `==` in handlers; wrapping these errors differently will break handler logic.
+- The `paho.mqtt.golang` dependency pulls in `gorilla/websocket` and `golang.org/x/net` as transitive dependencies — monitor for security updates.
+- The `subscribe` method runs its subscription wait in a goroutine to avoid blocking `OnConnect`. If subscriptions fail, they are only logged — no retry mechanism beyond the next reconnect cycle.
 
 ## Failed Approaches
 
@@ -42,4 +50,4 @@ _(None recorded yet.)_
 
 ## Open Questions
 
-_(None recorded yet.)_
+- The MQTT client in `main.go` uses `log.Fatalf` on initial connection failure. For production, a retry loop before starting the HTTP server would be more resilient.
