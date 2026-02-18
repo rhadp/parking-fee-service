@@ -9,6 +9,7 @@
 - CLOUD_GATEWAY_CLIENT uses trait-based abstraction (`DataBrokerWriter`, `DataBrokerReader`, `LockResultSubscriber`) for all Kuksa interactions; `KuksaAdapter` is the concrete implementation, enabling unit testing without real infrastructure.
 - The telemetry publisher reuses `status_handler::read_vehicle_state()` and the `DataBrokerReader` trait for signal reads, avoiding duplicated signal-reading logic.
 - Background tasks (result forwarder, telemetry publisher) are spawned via `tokio::spawn` only after Kuksa connects successfully. If Kuksa is unavailable, the MQTT event loop still runs but commands fail gracefully.
+- Mock services live under `mock/` with each service as a separate Go module (flat structure: `go.mod`, `main.go`, `main_test.go` in package `main`). The mock PARKING_OPERATOR is a standalone HTTP server.
 - The `mock/companion-app-cli` is a pure HTTP client — it has no MQTT or Kuksa dependencies, only stdlib `net/http`.
 
 ## Conventions
@@ -18,12 +19,16 @@
 - Rust tests are inline (`#[cfg(test)] mod tests`) within each source file, not in separate test files.
 - Integration tests requiring infrastructure (Mosquitto, Kuksa) use `#[ignore]` and are run manually with `--ignored`.
 - `chrono_timestamp()` is a local helper duplicated across modules (mqtt.rs, status_handler.rs, result_forwarder.rs, telemetry.rs) — returns Unix seconds as `i64`.
-- Go mock CLIs use manual flag parsing (not `flag` package) to allow interleaving flags and subcommands.
-- Go test files in `mock/` use `httptest.NewServer` to verify HTTP request construction (method, path, headers, body) — not integration tests against real services.
+- Go version is 1.25.7 across all modules. Module paths use the `github.com/rhadp/parking-fee-service/` prefix.
+- Go mock CLIs use `flag` package with env var fallbacks via `envOrDefault()`. The companion-app-cli historically used manual flag parsing but the `flag`+`envOrDefault` pattern is now standard.
+- Go test files in `mock/` use `httptest.NewRecorder()` and `httptest.NewRequest()` for handler testing (not `httptest.Server`). CLI tools use `httptest.NewServer` to verify HTTP request construction.
+- HTTP routing in Go mock servers uses Go 1.22+ method-based patterns (e.g., `"POST /parking/start"`).
+- Binary names are added to `.gitignore` to prevent committing build artifacts.
 - The `run()` function pattern takes `io.Writer` params for stdout/stderr to enable testability without capturing `os.Stdout`.
 - Config is read from env vars first, then overridden by CLI flags; the `envOrDefault` helper is the standard pattern.
 - The `config` struct pattern (rather than global variables) is used to avoid state leaking between tests.
 - E2E integration tests live in `tests/` at the project root (e.g., `tests/test_cloud_e2e.sh`). Makefile target `test-e2e` runs E2E tests; `test` runs unit tests only.
+- The Makefile's `GO_MOCK_DIRS` variable must be updated when adding a new Go mock module.
 - Infrastructure (Kuksa + Mosquitto) is managed via `make infra-up` / `make infra-down` using podman/docker compose.
 - Integration tests must exit 0 and report "SKIP" when infrastructure is unavailable (03-REQ-7.E1).
 - The README "Current Status" table must be kept up-to-date when services move from skeleton to implemented.
@@ -38,6 +43,9 @@
 - Error responses from the gateway are parsed as JSON `{error, code}` when possible, falling back to `http.StatusText()` for non-JSON responses.
 - We use a shell script (not Go/Rust test) for E2E integration tests because the tests orchestrate multiple independently-built services (Go + Rust binaries) and require process lifecycle management.
 - JSON parsing in E2E test scripts uses `python3 -c` with `json.load` rather than `jq` because `python3` is universally available and `jq` may not be installed.
+- The mock PARKING_OPERATOR uses stdlib `net/http` only (no external router) because Go 1.22+ mux supports method-based routing natively.
+- Mock session IDs use a simple monotonic counter (`sess-001`, `sess-002`) because the mock only needs unique IDs for testing, not cryptographic randomness.
+- Fee calculation uses `math.Ceil` for per-minute rounding: `rate_amount × ceil(duration_seconds / 60)`.
 
 ## Fragile Areas
 
