@@ -270,7 +270,7 @@ order:
     - [x] `cargo clippy -p cloud-gateway-client -- -D warnings` clean
     - [x] Requirements 03-REQ-4.1–4.3 acceptance criteria met
 
-- [ ] 8. Checkpoint — CLOUD_GATEWAY_CLIENT Complete
+- [x] 8. Checkpoint — CLOUD_GATEWAY_CLIENT Complete
   - VIN, MQTT, command processing, result forwarding, telemetry all working
   - Commit and verify clean state
 
