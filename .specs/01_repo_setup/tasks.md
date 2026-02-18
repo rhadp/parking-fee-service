@@ -38,21 +38,21 @@ This plan establishes the project foundation in dependency order:
 
 ## Tasks
 
-- [ ] 1. Project Foundation
-  - [ ] 1.1 Create directory structure
+- [x] 1. Project Foundation
+  - [x] 1.1 Create directory structure
     - Create all directories as specified in the design document project layout
     - Add `.gitkeep` files in placeholder directories: `android/parking-app/`,
       `android/companion-app/`, `docs/`, `tests/`
     - _Requirements: 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4,
       01-REQ-1.5, 01-REQ-1.6, 01-REQ-1.7_
 
-  - [ ] 1.2 Create `scripts/check-tools.sh`
+  - [x] 1.2 Create `scripts/check-tools.sh`
     - Check for: `cargo`, `go`, `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`,
       `podman` (or `docker`)
     - Print version of each found tool; exit non-zero with message for any missing
     - _Requirements: 01-REQ-5.E1_
 
-  - [ ] 1.3 Create root `Makefile` skeleton
+  - [x] 1.3 Create root `Makefile` skeleton
     - Define all target names from the design document (build, test, proto, lint,
       clean, infra-up, infra-down, infra-status, build-containers)
     - Each target initially prints "not yet implemented" and exits 0
@@ -60,16 +60,16 @@ This plan establishes the project foundation in dependency order:
     - Wire `check-tools` as a dependency of `build`, `test`, `proto`
     - _Requirements: 01-REQ-5.1 through 01-REQ-5.6_
 
-  - [ ] 1.4 Write structure verification test
+  - [x] 1.4 Write structure verification test
     - Create `tests/test_structure.sh` that asserts all required directories exist
     - **Validates: Property 7 (Directory Completeness)**
     - _Requirements: 01-REQ-1.1 through 01-REQ-1.7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `tests/test_structure.sh` passes
-    - [ ] `make check-tools` runs without error (given tools are installed)
-    - [ ] All Makefile targets are callable (print placeholder message)
-    - [ ] Requirements 01-REQ-1.1–1.7, 01-REQ-5.E1 acceptance criteria met
+  - [x] 1.V Verify task group 1
+    - [x] `tests/test_structure.sh` passes
+    - [x] `make check-tools` runs without error (given tools are installed)
+    - [x] All Makefile targets are callable (print placeholder message)
+    - [x] Requirements 01-REQ-1.1–1.7, 01-REQ-5.E1 acceptance criteria met
 
 - [ ] 2. Proto Definitions
   - [ ] 2.1 Write `proto/common/common.proto`
