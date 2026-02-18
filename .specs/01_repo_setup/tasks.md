@@ -330,40 +330,40 @@ This plan establishes the project foundation in dependency order:
     - [x] `tests/test_infra.sh` passes
     - [x] Requirements 01-REQ-6.1–6.5 acceptance criteria met
 
-- [ ] 11. Container Build Definitions
-  - [ ] 11.1 Create Rust service Containerfiles
+- [x] 11. Container Build Definitions
+  - [x] 11.1 Create Rust service Containerfiles
     - Multi-stage builds: `rust:1.75` builder stage → `debian:bookworm-slim`
       runtime stage
     - One Containerfile per Rust service in `containers/rhivos/`
     - Copy only the compiled binary into the runtime image
     - _Requirements: 01-REQ-10.1, 01-REQ-10.2_
 
-  - [ ] 11.2 Create Go service Containerfiles
+  - [x] 11.2 Create Go service Containerfiles
     - Multi-stage builds: `golang:1.22` builder stage → `gcr.io/distroless/static`
       or `debian:bookworm-slim` runtime stage
     - One Containerfile per Go service in `containers/backend/`
     - _Requirements: 01-REQ-10.1, 01-REQ-10.2_
 
-  - [ ] 11.3 Create mock tool Containerfiles
+  - [x] 11.3 Create mock tool Containerfiles
     - Same patterns for mock CLIs and sensors in `containers/mock/`
     - _Requirements: 01-REQ-10.1, 01-REQ-10.2_
 
-  - [ ] 11.4 Wire container build target into Makefile
+  - [x] 11.4 Wire container build target into Makefile
     - `make build-containers`: iterate over all Containerfiles and build with
       `podman build`, tagging each as `{service-name}:latest`
     - _Requirements: 01-REQ-10.3, 01-REQ-10.4_
 
-  - [ ] 11.5 Write container build test
+  - [x] 11.5 Write container build test
     - Create `tests/test_containers.sh` that builds each image and verifies it
       starts (container runs, prints startup log, exits or binds to port)
     - **Property 6: Container Image Validity**
     - **Validates: Requirements 01-REQ-10.2, 01-REQ-10.4**
 
-  - [ ] 11.V Verify task group 11
-    - [ ] `make build-containers` completes without errors
-    - [ ] Each image is tagged `{service-name}:latest`
-    - [ ] `tests/test_containers.sh` passes
-    - [ ] Requirements 01-REQ-10.1–10.4 acceptance criteria met
+  - [x] 11.V Verify task group 11
+    - [x] `make build-containers` completes without errors
+    - [x] Each image is tagged `{service-name}:latest`
+    - [x] `tests/test_containers.sh` passes
+    - [x] Requirements 01-REQ-10.1–10.4 acceptance criteria met
 
 - [ ] 12. Final Verification and Documentation
   - [ ] 12.1 Complete root Makefile

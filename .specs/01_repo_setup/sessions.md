@@ -279,3 +279,35 @@ Implemented task group 10 (Local Infrastructure) for specification 01_repo_setup
 ### Tests Added or Modified
 
 - `tests/test_infra.sh`: Infrastructure smoke test validating compose file structure, config files, and live container lifecycle (Kuksa on port 55555, Mosquitto on port 1883, idempotent infra-up, clean infra-down).
+
+---
+
+## Session 11
+
+- **Spec:** 01_repo_setup
+- **Task Group:** 11
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 11 (Container Build Definitions) for specification 01_repo_setup. Created 9 multi-stage Containerfiles — 4 Rust services (locking-service, cloud-gateway-client, update-service, parking-operator-adaptor) using rust:1.75 builder and debian:bookworm-slim runtime, 2 Go backend services (parking-fee-service, cloud-gateway) using golang:1.22 builder and gcr.io/distroless/static runtime, and 3 mock tools (mock-sensors as Rust, parking-app-cli and companion-app-cli as Go). Wired `make build-containers` target in the Makefile with container runtime detection and per-image tagging. Wrote `tests/test_containers.sh` validating Containerfile existence, multi-stage build patterns, image tagging, and container startup.
+
+### Files Changed
+
+- Added: `containers/rhivos/locking-service.Containerfile`
+- Added: `containers/rhivos/cloud-gateway-client.Containerfile`
+- Added: `containers/rhivos/update-service.Containerfile`
+- Added: `containers/rhivos/parking-operator-adaptor.Containerfile`
+- Added: `containers/backend/parking-fee-service.Containerfile`
+- Added: `containers/backend/cloud-gateway.Containerfile`
+- Added: `containers/mock/sensors.Containerfile`
+- Added: `containers/mock/parking-app-cli.Containerfile`
+- Added: `containers/mock/companion-app-cli.Containerfile`
+- Added: `tests/test_containers.sh`
+- Modified: `Makefile`
+- Modified: `.specs/01_repo_setup/tasks.md`
+- Modified: `.specs/01_repo_setup/sessions.md`
+
+### Tests Added or Modified
+
+- `tests/test_containers.sh`: Container build validation test with 18 static checks (Containerfile existence and multi-stage build pattern verification for all 9 services) plus live container tests (image build, tag verification, container startup validation) when a container runtime is available. Validates Property 6 (Container Image Validity) and requirements 01-REQ-10.1 through 01-REQ-10.4.
