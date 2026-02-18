@@ -2,28 +2,32 @@
 
 ## Architecture
 
-- Integration tests that spawn multiple Tokio tasks subscribing to the same Kuksa signal must run serially; parallel execution causes race conditions where one handler processes another test's command.
-- Kuksa Databroker enforces strict VSS signal types: `Vehicle.Speed` is `float` (`f32`), not `double` (`f64`). Using the wrong type produces an `InvalidArgument` gRPC error.
+- The project spans **Go** (backend/cloud services) and **Rust** (RHIVOS vehicle-side services), connected via MQTT through Eclipse Mosquitto.
+- `parking-proto` crate provides generated gRPC/protobuf bindings for Kuksa DATA_BROKER; it's shared across all Rust services.
+- Rust workspace root is `rhivos/Cargo.toml` with shared dependency versions. New dependencies must be added to `[workspace.dependencies]` first, then referenced by individual crates.
 
 ## Conventions
 
-- Integration tests sharing infrastructure (Kuksa) use the `serial_test` crate with `#[serial]` to enforce sequential execution.
-- Mock-sensors CLI arguments use exact VSS type matches (`f32` for speed, `f64` for location coordinates).
+- **Go HTTP**: stdlib `net/http` with Go 1.22+ routing (method prefixes like `"GET /healthz"`), no frameworks.
+- **Rust stack**: `clap` derive for CLI args, `tracing` for structured logging, `tokio` for async runtime.
+- **MQTT JSON wire format**: snake_case field names. Go uses `json:"snake_case"` struct tags; Rust uses `serde(rename)` when the Rust field name differs from the JSON key (e.g., `command_type` field maps to `"type"` in JSON).
+- Rust `CommandResult` enum variants use SCREAMING_SNAKE_CASE to match the MQTT wire format directly, requiring `#[allow(non_camel_case_types, clippy::upper_case_acronyms)]`.
 
 ## Decisions
 
-- We use `serial_test` (not `--test-threads=1`) because it provides per-test-group serialization without slowing down unrelated unit tests.
-- The `SetSpeed` CLI argument uses `f32` (not `f64`) to match the VSS `Vehicle.Speed` datatype exactly, avoiding Kuksa type-mismatch errors.
+- MQTT message schemas are defined independently in Go and Rust (not generated from shared protobuf) because the MQTT transport uses JSON, not protobuf.
+- `serde` and `serde_json` are workspace-level dependencies to support JSON serialization across Rust services.
+- New modules in cloud-gateway-client are declared with `#[allow(dead_code)]` at the `mod` level since they define types consumed by later task groups.
 
 ## Fragile Areas
 
-- Port 55555 (Kuksa default) frequently conflicts with other running instances in multi-worktree setups. Integration tests should use the `DATABROKER_ADDR` env var to support alternative ports.
-- Kuksa Databroker fan-out subscriptions deliver to all subscribers; tests that spawn multiple lock handlers produce non-deterministic results unless serialized.
+- **Go ↔ Rust wire-format parity**: changes to MQTT message schemas require updating both `messages/types.go` (Go) and `src/messages.rs` (Rust) in lockstep — there is no automated check.
+- `StatusResponse` and `TelemetryMessage` use pointer/Option types for nullable fields; the JSON representation uses `null` for absent values, not field omission. Mismatches cause silent deserialization failures.
 
 ## Failed Approaches
 
-_(none yet)_
+_(None recorded yet.)_
 
 ## Open Questions
 
-_(none yet)_
+_(None recorded yet.)_
