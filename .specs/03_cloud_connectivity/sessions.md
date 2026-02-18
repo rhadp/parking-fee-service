@@ -113,3 +113,32 @@ Checkpoint verification for task group 4 (CLOUD_GATEWAY Complete) of specificati
 ### Tests Added or Modified
 
 None.
+
+---
+
+## Session 26
+
+- **Spec:** 03_cloud_connectivity
+- **Task Group:** 5
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 5 (CLOUD_GATEWAY_CLIENT VIN and Registration) for specification 03_cloud_connectivity. Created the VIN management module (`vin.rs`) with VIN generation (DEMO + 13 alphanumeric chars), 6-digit pairing PIN generation, and file-based persistence with load-or-create semantics. Created the config module (`config.rs`) with clap-based parsing of `--mqtt-addr`, `--databroker-addr`, `--data-dir`, and `--telemetry-interval` flags with corresponding environment variables. Created the MQTT client wrapper (`mqtt.rs`) using `rumqttc` with QoS 2 subscriptions to vehicle command and status request topics, and registration message publishing on startup. Updated `main.rs` to wire the full startup sequence: config parsing, VIN loading, MQTT connection, registration, and event loop with graceful shutdown. All 47 tests pass, clippy is clean, and `make build`/`make test`/`make lint` succeed with zero regressions.
+
+### Files Changed
+
+- Added: `rhivos/cloud-gateway-client/src/vin.rs`
+- Added: `rhivos/cloud-gateway-client/src/config.rs`
+- Added: `rhivos/cloud-gateway-client/src/mqtt.rs`
+- Modified: `rhivos/cloud-gateway-client/src/main.rs`
+- Modified: `rhivos/cloud-gateway-client/Cargo.toml`
+- Modified: `.specs/03_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/cloud-gateway-client/src/vin.rs` (inline tests): 11 tests covering VIN format validation, uniqueness, pairing PIN format, zero-padding, load_or_create generation, persistence reuse, nested directory creation, invalid JSON handling, VinData JSON format, roundtrip, and error display
+- `rhivos/cloud-gateway-client/src/config.rs` (inline tests): 8 tests covering default config, custom mqtt_addr, custom databroker_addr, custom data_dir, custom telemetry_interval, all custom args, clone, and debug
+- `rhivos/cloud-gateway-client/src/mqtt.rs` (inline tests): 7 tests covering host/port parsing, timestamp validation, error display, and clone trait
+- `rhivos/cloud-gateway-client/src/main.rs` (inline tests): 3 tests covering CLI parsing with defaults, custom mqtt_addr, and all custom args
