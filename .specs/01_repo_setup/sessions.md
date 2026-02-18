@@ -75,3 +75,29 @@ Checkpoint verification for task group 3 (Proto Definitions Complete) of specifi
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 4
+
+- **Spec:** 01_repo_setup
+- **Task Group:** 4
+- **Date:** 2026-02-18
+
+### Summary
+
+Implemented task group 4 (Rust Workspace and Proto Crate) for specification 01_repo_setup. Created the Cargo workspace manifest at `rhivos/Cargo.toml` with resolver v2 and shared workspace dependencies, and created the `parking-proto` crate with `build.rs` (tonic-build invocation), `Cargo.toml`, and `src/lib.rs` that re-exports generated Rust types matching the proto package hierarchy. Added 5 tests verifying all generated types and gRPC service traits are accessible.
+
+### Files Changed
+
+- Added: `rhivos/Cargo.toml`
+- Added: `rhivos/parking-proto/Cargo.toml`
+- Added: `rhivos/parking-proto/build.rs`
+- Added: `rhivos/parking-proto/src/lib.rs`
+- Deleted: `rhivos/parking-proto/.gitkeep`
+- Modified: `.specs/01_repo_setup/tasks.md`
+- Modified: `.specs/01_repo_setup/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/parking-proto/src/lib.rs` (`#[cfg(test)]` module): 5 tests verifying generated Rust types match proto definitions — common types accessibility, UpdateService types accessibility, ParkingAdapter types accessibility, UpdateService server trait generation, ParkingAdapter server trait generation. Validates Property 2 (Proto-Binding Consistency) and requirement 01-REQ-4.5.
