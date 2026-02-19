@@ -216,29 +216,29 @@ beyond the standard library. All zone data is hardcoded.
     - [x] Tests skip cleanly without infrastructure
     - [x] Requirements 05-REQ-7.1–7.4 met
 
-- [ ] 7. Final Verification and Documentation
-  - [ ] 7.1 Run full test suite
+- [x] 7. Final Verification and Documentation
+  - [x] 7.1 Run full test suite
     - `make build && make test && make lint`
     - Verify no regressions in specs 01–04 tests
     - _Requirements: all_
 
-  - [ ] 7.2 Run integration tests
+  - [x] 7.2 Run integration tests
     - Start all infrastructure and services
     - Run all integration tests
     - Verify all pass
 
-  - [ ] 7.3 Update documentation
+  - [x] 7.3 Update documentation
     - Document PARKING_FEE_SERVICE REST API in `docs/parking-fee-service-api.md`
     - Document demo zones and the discovery flow in `docs/zone-discovery.md`
     - Update README if needed
 
-  - [ ] 7.V Verify task group 7
-    - [ ] `make build` succeeds
-    - [ ] `make test` passes
-    - [ ] `make lint` clean
-    - [ ] Integration tests pass
-    - [ ] No regressions from specs 01–04
-    - [ ] All 05-REQ requirements verified
+  - [x] 7.V Verify task group 7
+    - [x] `make build` succeeds
+    - [x] `make test` passes
+    - [x] `make lint` clean
+    - [x] Integration tests pass
+    - [x] No regressions from specs 01–04
+    - [x] All 05-REQ requirements verified
 
 ### Checkbox States
 
