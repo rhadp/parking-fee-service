@@ -280,7 +280,7 @@ This plan implements the QM partition services in dependency order:
     - [x] `cargo clippy -p update-service -- -D warnings` clean
     - [x] Requirements 04-REQ-3.1–3.6, 04-REQ-4.1–4.6, 04-REQ-5.1–5.4 met
 
-- [ ] 7. Checkpoint — UPDATE_SERVICE Complete
+- [x] 7. Checkpoint — UPDATE_SERVICE Complete
   - UPDATE_SERVICE state machine, podman, offloading, gRPC all working
   - Commit and verify clean state
 

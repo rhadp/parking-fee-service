@@ -178,3 +178,24 @@ Implemented task group 6 (UPDATE_SERVICE: Podman, Offloading, and gRPC Server) f
 - `rhivos/update-service/src/podman.rs`: 7 tests — mock create/start records calls, mock create failure, mock stop/remove, mock is_running for unknown, mock list results, env vars passed correctly, error display formatting
 - `rhivos/update-service/src/offload.rs`: 10 tests — timer fires after timeout, timer does not fire before timeout, cancel prevents firing, cancel nonexistent returns false, replace timer cancels old, cancel all stops all timers, multiple adapters independent timers, offload manager timeout getter, offload manager debug
 - `rhivos/update-service/src/grpc_server.rs`: 14 tests — notifier broadcasts events, notifier no subscriber no panic, install adapter creates container, install adapter passes env vars, install adapter already running returns existing, install adapter podman failure sets error, list adapters empty, list adapters with entries, get adapter status found, get adapter status not found, remove adapter stops and removes, remove adapter not found, watch adapter states receives events, reconcile running container stays running, reconcile dead container transitions to error
+
+---
+
+## Session 12
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 7
+- **Date:** 2026-02-19
+
+### Summary
+
+Completed checkpoint task group 7 (Checkpoint — UPDATE_SERVICE Complete) for specification 04_qm_partition. Ran the full test suite: all 256 Rust workspace tests passed (103 update-service, 61 parking-operator-adaptor, 48 locking-service, 22 mock-sensors, 22 parking-proto), 28 Go mock parking-operator tests passed, clippy clean, go vet clean. No failures found — marked checkpoint as complete.
+
+### Files Changed
+
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- None.
