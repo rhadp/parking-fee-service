@@ -245,3 +245,28 @@ Implemented task group 9 (Integration Tests) for specification 04_qm_partition. 
 ### Tests Added or Modified
 
 - `tests/test_parking_e2e.sh`: 21 integration tests covering infrastructure check (04-REQ-8.E1), session flow lock→start (04-REQ-8.1, Property 1, Property 8), session flow unlock→stop with fee calculation (04-REQ-8.2, Property 7), adapter lifecycle install/list/status/remove via CLI (04-REQ-8.3), and offloading timer verification (04-REQ-8.4, Property 5). Tests skip cleanly when Kuksa Databroker or podman is unavailable.
+
+---
+
+## Session 15
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 10
+- **Date:** 2026-02-19
+
+### Summary
+
+Completed task group 10 (Final Verification and Documentation) for specification 04_qm_partition. Ran full test suite (`make build`, `make test`, `make lint`) with all passing (256 Rust tests, 70+ Go tests, zero linter warnings). Verified integration tests skip cleanly when infrastructure is unavailable (04-REQ-8.E1). Created two documentation files: mock PARKING_OPERATOR REST API reference and adapter lifecycle/offloading guide. Updated README with current implementation status for update-service and parking-operator-adaptor, added mock parking-operator documentation, and corrected VSS signals doc.
+
+### Files Changed
+
+- Added: `docs/parking-operator-api.md`
+- Added: `docs/adapter-lifecycle.md`
+- Modified: `README.md`
+- Modified: `docs/vss-signals.md`
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- None.
