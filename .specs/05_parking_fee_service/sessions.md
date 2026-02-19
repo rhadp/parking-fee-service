@@ -91,3 +91,26 @@ Checkpoint verification for task group 4 (PARKING_FEE_SERVICE Complete). Ran the
 ### Tests Added or Modified
 
 None.
+
+---
+
+## Session 20
+
+- **Spec:** 05_parking_fee_service
+- **Task Group:** 5
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 5 (Mock PARKING_APP CLI Extensions) for the 05_parking_fee_service specification. Added three new subcommands to `mock/parking-app-cli`: `lookup-zones`, `zone-info`, and `adapter-info`, which call the PARKING_FEE_SERVICE REST API. Added the `--parking-fee-service-addr` global flag with env var support and proper error handling for unreachable services and HTTP error responses. Wrote comprehensive tests using `httptest.Server` covering argument parsing, HTTP request construction, error handling, and a full discovery workflow.
+
+### Files Changed
+
+- Modified: `mock/parking-app-cli/main.go`
+- Modified: `mock/parking-app-cli/main_test.go`
+- Modified: `.specs/05_parking_fee_service/tasks.md`
+- Modified: `.specs/05_parking_fee_service/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/parking-app-cli/main_test.go`: Added 23 tests covering `--parking-fee-service-addr` flag parsing (default, custom, env var, CLI override, missing value), `lookup-zones` subcommand (mock PFS, empty results, required lat/lon, invalid lat/lon), `zone-info` subcommand (mock PFS, required zone-id, 404 not found), `adapter-info` subcommand (mock PFS, required zone-id, 404 not found), unreachable service error handling, HTTP 400/500 error handling, subcommand recognition, and full discovery workflow.

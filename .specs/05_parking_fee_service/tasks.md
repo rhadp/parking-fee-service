@@ -158,8 +158,8 @@ beyond the standard library. All zone data is hardcoded.
   - All geo utilities, zone store, and REST handlers working
   - Commit and verify clean state
 
-- [ ] 5. Mock PARKING_APP CLI Extensions
-  - [ ] 5.1 Add PARKING_FEE_SERVICE subcommands
+- [x] 5. Mock PARKING_APP CLI Extensions
+  - [x] 5.1 Add PARKING_FEE_SERVICE subcommands
     - Add to `mock/parking-app-cli/main.go`:
     - `lookup-zones --lat <lat> --lon <lon>` → GET /api/v1/zones?lat=X&lon=Y,
       print results as table
@@ -168,24 +168,24 @@ beyond the standard library. All zone data is hardcoded.
       adapter metadata
     - _Requirements: 05-REQ-6.1, 05-REQ-6.2, 05-REQ-6.3_
 
-  - [ ] 5.2 Add flag and error handling
+  - [x] 5.2 Add flag and error handling
     - `--parking-fee-service-addr` flag (default: `http://localhost:8080`)
     - Service unreachable → error message + non-zero exit
     - HTTP error responses (400, 404) → meaningful error messages
     - _Requirements: 05-REQ-6.4, 05-REQ-6.E1_
 
-  - [ ] 5.3 Write CLI tests
+  - [x] 5.3 Write CLI tests
     - Argument parsing for each new subcommand
     - HTTP request construction using `httptest.Server`
     - Error handling: unreachable service
     - **Validates: 05-REQ-6.1, 05-REQ-6.2, 05-REQ-6.3, 05-REQ-6.4,
       05-REQ-6.E1**
 
-  - [ ] 5.V Verify task group 5
-    - [ ] `cd mock/parking-app-cli && go test ./...` passes
-    - [ ] `go vet ./...` clean
-    - [ ] All new subcommands appear in `--help`
-    - [ ] Requirements 05-REQ-6.1–6.4, 05-REQ-6.E1 met
+  - [x] 5.V Verify task group 5
+    - [x] `cd mock/parking-app-cli && go test ./...` passes
+    - [x] `go vet ./...` clean
+    - [x] All new subcommands appear in `--help`
+    - [x] Requirements 05-REQ-6.1–6.4, 05-REQ-6.E1 met
 
 - [ ] 6. Integration Tests
   - [ ] 6.1 Test zone discovery

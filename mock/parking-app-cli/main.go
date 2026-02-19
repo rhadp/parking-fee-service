@@ -1,8 +1,9 @@
 // Package main implements the parking-app-cli mock application.
 //
 // This CLI simulates the PARKING_APP Android application by invoking gRPC
-// calls against UpdateService and ParkingAdapter. It uses the same .proto
-// definitions and generated Go stubs as the real application will.
+// calls against UpdateService and ParkingAdapter, and REST calls against
+// PARKING_FEE_SERVICE. It uses the same .proto definitions and generated Go
+// stubs as the real application will, and standard net/http for REST calls.
 package main
 
 import (
@@ -10,8 +11,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,8 +28,9 @@ import (
 
 // Global configuration populated from flags / environment.
 var (
-	updateServiceAddr string
-	adapterAddr       string
+	updateServiceAddr      string
+	adapterAddr            string
+	parkingFeeServiceAddr  string
 )
 
 func main() {
@@ -70,6 +75,12 @@ func run(args []string) error {
 		return cmdGetStatus(cmdArgs)
 	case "get-rate":
 		return cmdGetRate(cmdArgs)
+	case "lookup-zones":
+		return cmdLookupZones(cmdArgs)
+	case "zone-info":
+		return cmdZoneInfo(cmdArgs)
+	case "adapter-info":
+		return cmdAdapterInfo(cmdArgs)
 	case "help", "--help", "-h":
 		printUsage()
 		return nil
@@ -83,6 +94,7 @@ func run(args []string) error {
 func parseGlobalFlags(args []string) ([]string, error) {
 	updateServiceAddr = envOrDefault("UPDATE_SERVICE_ADDR", "localhost:50053")
 	adapterAddr = envOrDefault("ADAPTER_ADDR", "localhost:50054")
+	parkingFeeServiceAddr = envOrDefault("PARKING_FEE_SERVICE_ADDR", "http://localhost:8080")
 
 	var remaining []string
 	for i := 0; i < len(args); i++ {
@@ -99,6 +111,12 @@ func parseGlobalFlags(args []string) ([]string, error) {
 			}
 			i++
 			adapterAddr = args[i]
+		case "--parking-fee-service-addr":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--parking-fee-service-addr requires a value")
+			}
+			i++
+			parkingFeeServiceAddr = args[i]
 		default:
 			remaining = append(remaining, args[i])
 		}
@@ -122,9 +140,15 @@ PARKING_OPERATOR_ADAPTOR commands:
   get-status        [--session-id <id>]
   get-rate          --zone-id <zone>
 
+PARKING_FEE_SERVICE commands:
+  lookup-zones      --lat <lat> --lon <lon>
+  zone-info         --zone-id <id>
+  adapter-info      --zone-id <id>
+
 Global Flags:
-  --update-service-addr   Address of UpdateService (default: localhost:50053)
-  --adapter-addr          Address of ParkingAdapter (default: localhost:50054)
+  --update-service-addr        Address of UpdateService (default: localhost:50053)
+  --adapter-addr               Address of ParkingAdapter (default: localhost:50054)
+  --parking-fee-service-addr   Address of ParkingFeeService (default: http://localhost:8080)
 `)
 }
 
@@ -402,6 +426,124 @@ func cmdGetRate(args []string) error {
 		return fmt.Errorf("GetRate RPC failed: %w", err)
 	}
 	printJSON(resp)
+	return nil
+}
+
+// ─── PARKING_FEE_SERVICE subcommands ─────────────────────────────────────────
+
+// pfsErrorResponse represents a JSON error response from PARKING_FEE_SERVICE.
+type pfsErrorResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code"`
+}
+
+// httpClient is the HTTP client used for PARKING_FEE_SERVICE requests.
+// It is a package-level variable to allow tests to inject custom transports.
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
+// pfsGet performs a GET request against the PARKING_FEE_SERVICE and returns the
+// response body. It returns an error if the service is unreachable or returns
+// a non-2xx status code.
+func pfsGet(path string) ([]byte, error) {
+	url := strings.TrimRight(parkingFeeServiceAddr, "/") + path
+
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("PARKING_FEE_SERVICE unreachable at %s: %w", parkingFeeServiceAddr, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		var errResp pfsErrorResponse
+		if json.Unmarshal(body, &errResp) == nil && errResp.Error != "" {
+			return nil, fmt.Errorf("PARKING_FEE_SERVICE error (%d): %s", resp.StatusCode, errResp.Error)
+		}
+		return nil, fmt.Errorf("PARKING_FEE_SERVICE returned HTTP %d", resp.StatusCode)
+	}
+
+	return body, nil
+}
+
+func cmdLookupZones(args []string) error {
+	latStr := flagValue(args, "--lat", "")
+	if latStr == "" {
+		return fmt.Errorf("--lat is required")
+	}
+	lonStr := flagValue(args, "--lon", "")
+	if lonStr == "" {
+		return fmt.Errorf("--lon is required")
+	}
+
+	// Validate that lat and lon are numeric.
+	if _, err := strconv.ParseFloat(latStr, 64); err != nil {
+		return fmt.Errorf("--lat must be a valid number: %s", latStr)
+	}
+	if _, err := strconv.ParseFloat(lonStr, 64); err != nil {
+		return fmt.Errorf("--lon must be a valid number: %s", lonStr)
+	}
+
+	path := fmt.Sprintf("/api/v1/zones?lat=%s&lon=%s", latStr, lonStr)
+	body, err := pfsGet(path)
+	if err != nil {
+		return err
+	}
+
+	// Parse and re-print as indented JSON.
+	var zones []json.RawMessage
+	if err := json.Unmarshal(body, &zones); err != nil {
+		return fmt.Errorf("failed to parse zone lookup response: %w", err)
+	}
+
+	printJSON(zones)
+	return nil
+}
+
+func cmdZoneInfo(args []string) error {
+	zoneID := flagValue(args, "--zone-id", "")
+	if zoneID == "" {
+		return fmt.Errorf("--zone-id is required")
+	}
+
+	path := fmt.Sprintf("/api/v1/zones/%s", zoneID)
+	body, err := pfsGet(path)
+	if err != nil {
+		return err
+	}
+
+	// Parse and re-print as indented JSON.
+	var zone json.RawMessage
+	if err := json.Unmarshal(body, &zone); err != nil {
+		return fmt.Errorf("failed to parse zone info response: %w", err)
+	}
+
+	printJSON(zone)
+	return nil
+}
+
+func cmdAdapterInfo(args []string) error {
+	zoneID := flagValue(args, "--zone-id", "")
+	if zoneID == "" {
+		return fmt.Errorf("--zone-id is required")
+	}
+
+	path := fmt.Sprintf("/api/v1/zones/%s/adapter", zoneID)
+	body, err := pfsGet(path)
+	if err != nil {
+		return err
+	}
+
+	// Parse and re-print as indented JSON.
+	var adapter json.RawMessage
+	if err := json.Unmarshal(body, &adapter); err != nil {
+		return fmt.Errorf("failed to parse adapter info response: %w", err)
+	}
+
+	printJSON(adapter)
 	return nil
 }
 
