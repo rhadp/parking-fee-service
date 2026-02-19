@@ -103,3 +103,24 @@ Strengthened task group 3 (PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Serve
 
 - `rhivos/parking-operator-adaptor/src/lock_watcher.rs`: Added 7 integration-style tests — `lock_event_starts_session_and_sets_signal`, `unlock_event_stops_session_and_clears_signal`, `duplicate_lock_event_does_not_call_operator`, `unlock_no_session_does_not_call_operator`, `operator_error_on_start_does_not_set_signal`, `full_lock_unlock_cycle_writes_correct_signals`, `second_lock_after_complete_starts_new_session`. All use mock Kuksa VAL gRPC server + wiremock HTTP mocks.
 - `rhivos/parking-operator-adaptor/src/grpc_server.rs`: Added 3 tests — `start_session_writes_session_active_true`, `stop_session_writes_session_active_false`, `start_session_while_active_does_not_write_kuksa`. All use mock Kuksa VAL gRPC server to verify SessionActive signal writes.
+
+---
+
+## Session 9
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 4
+- **Date:** 2026-02-19
+
+### Summary
+
+Completed checkpoint task group 4 (Checkpoint — PARKING_OPERATOR_ADAPTOR Complete) for specification 04_qm_partition. Verified that all tests pass (88 Rust workspace tests including 61 parking-operator-adaptor tests, 28 Go mock parking-operator tests, plus all other Go service tests), all linters are clean, and the build succeeds. No failures found — marked checkpoint as complete.
+
+### Files Changed
+
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- None.
