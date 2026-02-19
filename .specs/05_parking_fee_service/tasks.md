@@ -70,22 +70,22 @@ beyond the standard library. All zone data is hardcoded.
     - [x] Haversine symmetry holds for all test cases
     - [x] Point-in-polygon correct for inside/outside/boundary
 
-- [ ] 2. Zone Data Store and Seed Data
-  - [ ] 2.1 Create zone data model
+- [x] 2. Zone Data Store and Seed Data
+  - [x] 2.1 Create zone data model
     - Create `backend/parking-fee-service/zones/store.go`
     - Define `Zone`, `LatLon`, `ZoneMatch`, `AdapterMetadata` structs
     - Define `Store` with `map[string]*Zone` keyed by zone_id
     - `GetByID(zoneID) (*Zone, bool)`
     - _Requirements: 05-REQ-2.1, 05-REQ-3.1 (prerequisite)_
 
-  - [ ] 2.2 Implement zone lookup by location
+  - [x] 2.2 Implement zone lookup by location
     - `FindByLocation(lat, lon float64) []ZoneMatch`
     - Step 1: point-in-polygon test for each zone → exact matches (distance=0)
     - Step 2: if no exact matches, check zones within 200m fuzzy radius
     - Sort results by distance ascending
     - _Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.5_
 
-  - [ ] 2.3 Create hardcoded seed data
+  - [x] 2.3 Create hardcoded seed data
     - Create `backend/parking-fee-service/zones/seed.go`
     - Define 3 Munich demo zones: Marienplatz, Olympiapark, Sendlinger Tor
     - Each with realistic polygon coordinates, rate config, adapter metadata
@@ -94,7 +94,7 @@ beyond the standard library. All zone data is hardcoded.
     - _Requirements: 05-REQ-4.1, 05-REQ-4.2, 05-REQ-4.3, 05-REQ-4.4,
       05-REQ-4.E1_
 
-  - [ ] 2.4 Write store unit tests
+  - [x] 2.4 Write store unit tests
     - FindByLocation: point inside Marienplatz → returns zone with distance=0
     - FindByLocation: point 100m from Marienplatz → returns zone with
       distance ≈ 100m
@@ -107,12 +107,12 @@ beyond the standard library. All zone data is hardcoded.
     - **Property 5: Sort Order Invariant**
     - **Validates: 05-REQ-1.1–1.5, 05-REQ-1.E1, 05-REQ-4.1–4.4**
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `cd backend/parking-fee-service && go test ./zones/...` passes
-    - [ ] `go vet ./...` clean
-    - [ ] All 3 seed zones load correctly
-    - [ ] Location matching correct for inside, fuzzy, and no-match cases
-    - [ ] Results sorted by distance
+  - [x] 2.V Verify task group 2
+    - [x] `cd backend/parking-fee-service && go test ./zones/...` passes
+    - [x] `go vet ./...` clean
+    - [x] All 3 seed zones load correctly
+    - [x] Location matching correct for inside, fuzzy, and no-match cases
+    - [x] Results sorted by distance
 
 - [ ] 3. REST API Handlers
   - [ ] 3.1 Create REST handlers
