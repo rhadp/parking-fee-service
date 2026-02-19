@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -1340,5 +1342,545 @@ func TestRequiredAdapterSubcommands(t *testing.T) {
 				t.Errorf("PARKING_OPERATOR_ADAPTOR subcommand %q not implemented (04-REQ-7.2)", cmd)
 			}
 		})
+	}
+}
+
+// ─── PARKING_FEE_SERVICE flag tests ─────────────────────────────────────────
+
+func TestParkingFeeServiceAddrDefault(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	_, err := parseGlobalFlags([]string{"lookup-zones"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if parkingFeeServiceAddr != "http://localhost:8080" {
+		t.Errorf("expected default parking-fee-service-addr 'http://localhost:8080', got %q", parkingFeeServiceAddr)
+	}
+}
+
+func TestParkingFeeServiceAddrCustomFlag(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	remaining, err := parseGlobalFlags([]string{
+		"--parking-fee-service-addr", "http://10.0.0.5:9090",
+		"lookup-zones",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if parkingFeeServiceAddr != "http://10.0.0.5:9090" {
+		t.Errorf("expected 'http://10.0.0.5:9090', got %q", parkingFeeServiceAddr)
+	}
+	if len(remaining) != 1 || remaining[0] != "lookup-zones" {
+		t.Errorf("expected remaining [lookup-zones], got %v", remaining)
+	}
+}
+
+func TestParkingFeeServiceAddrFromEnv(t *testing.T) {
+	t.Setenv("PARKING_FEE_SERVICE_ADDR", "http://envhost:8080")
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+
+	_, err := parseGlobalFlags([]string{"zone-info"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if parkingFeeServiceAddr != "http://envhost:8080" {
+		t.Errorf("expected 'http://envhost:8080', got %q", parkingFeeServiceAddr)
+	}
+}
+
+func TestParkingFeeServiceAddrCLIOverridesEnv(t *testing.T) {
+	t.Setenv("PARKING_FEE_SERVICE_ADDR", "http://envhost:8080")
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+
+	_, err := parseGlobalFlags([]string{
+		"--parking-fee-service-addr", "http://clihost:9090",
+		"adapter-info",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if parkingFeeServiceAddr != "http://clihost:9090" {
+		t.Errorf("expected CLI override 'http://clihost:9090', got %q", parkingFeeServiceAddr)
+	}
+}
+
+func TestParkingFeeServiceAddrMissingValue(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	_, err := parseGlobalFlags([]string{"--parking-fee-service-addr"})
+	if err == nil {
+		t.Fatal("expected error for missing flag value")
+	}
+	if !strings.Contains(err.Error(), "requires a value") {
+		t.Errorf("expected 'requires a value' error, got %q", err.Error())
+	}
+}
+
+// ─── PARKING_FEE_SERVICE subcommand tests ───────────────────────────────────
+
+// startMockPFS starts a mock PARKING_FEE_SERVICE HTTP server and returns its
+// URL and a cleanup function. The handler receives all requests and can be
+// used to simulate various API responses.
+func startMockPFS(t *testing.T, handler http.Handler) (string, func()) {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	return srv.URL, srv.Close
+}
+
+func TestCmdLookupZonesWithMockPFS(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	var receivedPath string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `[{"zone_id":"zone-marienplatz","name":"Marienplatz Central","operator_name":"München Parking GmbH","rate_type":"per_minute","rate_amount":0.05,"currency":"EUR","distance_meters":0}]`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"lookup-zones",
+		"--lat", "48.137",
+		"--lon", "11.575",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedPath != "/api/v1/zones?lat=48.137&lon=11.575" {
+		t.Errorf("expected path '/api/v1/zones?lat=48.137&lon=11.575', got %q", receivedPath)
+	}
+}
+
+func TestCmdLookupZonesEmptyResult(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `[]`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"lookup-zones",
+		"--lat", "0.0",
+		"--lon", "0.0",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCmdLookupZonesRequiresLat(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	err := run([]string{"lookup-zones", "--lon", "11.575"})
+	if err == nil {
+		t.Fatal("expected error for missing --lat")
+	}
+	if !strings.Contains(err.Error(), "--lat is required") {
+		t.Errorf("expected '--lat is required' error, got %q", err.Error())
+	}
+}
+
+func TestCmdLookupZonesRequiresLon(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	err := run([]string{"lookup-zones", "--lat", "48.137"})
+	if err == nil {
+		t.Fatal("expected error for missing --lon")
+	}
+	if !strings.Contains(err.Error(), "--lon is required") {
+		t.Errorf("expected '--lon is required' error, got %q", err.Error())
+	}
+}
+
+func TestCmdLookupZonesInvalidLat(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	err := run([]string{"lookup-zones", "--lat", "abc", "--lon", "11.575"})
+	if err == nil {
+		t.Fatal("expected error for invalid --lat")
+	}
+	if !strings.Contains(err.Error(), "--lat must be a valid number") {
+		t.Errorf("expected '--lat must be a valid number' error, got %q", err.Error())
+	}
+}
+
+func TestCmdLookupZonesInvalidLon(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	err := run([]string{"lookup-zones", "--lat", "48.137", "--lon", "xyz"})
+	if err == nil {
+		t.Fatal("expected error for invalid --lon")
+	}
+	if !strings.Contains(err.Error(), "--lon must be a valid number") {
+		t.Errorf("expected '--lon must be a valid number' error, got %q", err.Error())
+	}
+}
+
+func TestCmdZoneInfoWithMockPFS(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	var receivedPath string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"zone_id":"zone-marienplatz","name":"Marienplatz Central","operator_name":"München Parking GmbH","polygon":[{"latitude":48.138,"longitude":11.573}],"rate_type":"per_minute","rate_amount":0.05,"currency":"EUR"}`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"zone-info",
+		"--zone-id", "zone-marienplatz",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedPath != "/api/v1/zones/zone-marienplatz" {
+		t.Errorf("expected path '/api/v1/zones/zone-marienplatz', got %q", receivedPath)
+	}
+}
+
+func TestCmdZoneInfoRequiresZoneID(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	err := run([]string{"zone-info"})
+	if err == nil {
+		t.Fatal("expected error for missing --zone-id")
+	}
+	if !strings.Contains(err.Error(), "--zone-id is required") {
+		t.Errorf("expected '--zone-id is required' error, got %q", err.Error())
+	}
+}
+
+func TestCmdZoneInfoNotFound(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"error":"zone not found","code":"NOT_FOUND"}`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"zone-info",
+		"--zone-id", "nonexistent",
+	})
+	if err == nil {
+		t.Fatal("expected error for not-found zone")
+	}
+	if !strings.Contains(err.Error(), "zone not found") {
+		t.Errorf("expected 'zone not found' error, got %q", err.Error())
+	}
+}
+
+func TestCmdAdapterInfoWithMockPFS(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	var receivedPath string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"zone_id":"zone-marienplatz","image_ref":"localhost/parking-operator-adaptor:latest","checksum":"sha256:demo-checksum-marienplatz"}`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"adapter-info",
+		"--zone-id", "zone-marienplatz",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedPath != "/api/v1/zones/zone-marienplatz/adapter" {
+		t.Errorf("expected path '/api/v1/zones/zone-marienplatz/adapter', got %q", receivedPath)
+	}
+}
+
+func TestCmdAdapterInfoRequiresZoneID(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	err := run([]string{"adapter-info"})
+	if err == nil {
+		t.Fatal("expected error for missing --zone-id")
+	}
+	if !strings.Contains(err.Error(), "--zone-id is required") {
+		t.Errorf("expected '--zone-id is required' error, got %q", err.Error())
+	}
+}
+
+func TestCmdAdapterInfoNotFound(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"error":"zone not found","code":"NOT_FOUND"}`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"adapter-info",
+		"--zone-id", "nonexistent",
+	})
+	if err == nil {
+		t.Fatal("expected error for not-found zone")
+	}
+	if !strings.Contains(err.Error(), "zone not found") {
+		t.Errorf("expected 'zone not found' error, got %q", err.Error())
+	}
+}
+
+// ─── PARKING_FEE_SERVICE unreachable tests (05-REQ-6.E1) ────────────────────
+
+func TestPFSUnreachableReturnsError(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	// Use a port that will refuse connections.
+	unreachableAddr := "http://127.0.0.1:1"
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"lookup-zones", []string{"--parking-fee-service-addr", unreachableAddr, "lookup-zones", "--lat", "48.137", "--lon", "11.575"}},
+		{"zone-info", []string{"--parking-fee-service-addr", unreachableAddr, "zone-info", "--zone-id", "zone-1"}},
+		{"adapter-info", []string{"--parking-fee-service-addr", unreachableAddr, "adapter-info", "--zone-id", "zone-1"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := run(tc.args)
+			if err == nil {
+				t.Fatalf("expected error for unreachable service, got nil")
+			}
+			if !strings.Contains(err.Error(), "PARKING_FEE_SERVICE unreachable") {
+				t.Errorf("expected 'PARKING_FEE_SERVICE unreachable' error, got %q", err.Error())
+			}
+		})
+	}
+}
+
+// ─── PARKING_FEE_SERVICE HTTP error handling ─────────────────────────────────
+
+func TestPFSBadRequestError(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"missing required query parameter: lat","code":"BAD_REQUEST"}`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	// The CLI validates lat/lon itself, but let's test that the HTTP error
+	// response is parsed correctly through pfsGet by calling zone-info
+	// against a handler that returns 400.
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"zone-info",
+		"--zone-id", "test",
+	})
+	if err == nil {
+		t.Fatal("expected error for 400 response")
+	}
+	if !strings.Contains(err.Error(), "PARKING_FEE_SERVICE error (400)") {
+		t.Errorf("expected 'PARKING_FEE_SERVICE error (400)' error, got %q", err.Error())
+	}
+}
+
+func TestPFSGenericHTTPError(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `not json`)
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	err := run([]string{
+		"--parking-fee-service-addr", addr,
+		"zone-info",
+		"--zone-id", "test",
+	})
+	if err == nil {
+		t.Fatal("expected error for 500 response")
+	}
+	if !strings.Contains(err.Error(), "PARKING_FEE_SERVICE returned HTTP 500") {
+		t.Errorf("expected 'PARKING_FEE_SERVICE returned HTTP 500' error, got %q", err.Error())
+	}
+}
+
+// ─── New subcommand recognition test ─────────────────────────────────────────
+
+func TestAllPFSSubcommandsRecognized(t *testing.T) {
+	subcommands := []string{
+		"lookup-zones",
+		"zone-info",
+		"adapter-info",
+	}
+
+	for _, cmd := range subcommands {
+		t.Run(cmd, func(t *testing.T) {
+			os.Unsetenv("UPDATE_SERVICE_ADDR")
+			os.Unsetenv("ADAPTER_ADDR")
+			os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+			err := run([]string{cmd})
+			// We expect a required-flag error, not "unknown command".
+			if err == nil {
+				return
+			}
+			if err.Error() == "unknown command: "+cmd {
+				t.Errorf("command %q was not recognized", cmd)
+			}
+		})
+	}
+}
+
+// ─── Ensure all 05-REQ-6 subcommands exist ──────────────────────────────────
+
+func TestRequiredPFSSubcommands(t *testing.T) {
+	// 05-REQ-6.1, 05-REQ-6.2, 05-REQ-6.3: lookup-zones, zone-info, adapter-info.
+	required := []string{
+		"lookup-zones",
+		"zone-info",
+		"adapter-info",
+	}
+	for _, cmd := range required {
+		t.Run(cmd, func(t *testing.T) {
+			err := run([]string{cmd})
+			if err != nil && strings.Contains(err.Error(), fmt.Sprintf("unknown command: %s", cmd)) {
+				t.Errorf("PARKING_FEE_SERVICE subcommand %q not implemented (05-REQ-6)", cmd)
+			}
+		})
+	}
+}
+
+// ─── PFS subcommand with mock HTTP server: full workflow ─────────────────────
+
+func TestPFSFullDiscoveryWorkflow(t *testing.T) {
+	os.Unsetenv("UPDATE_SERVICE_ADDR")
+	os.Unsetenv("ADAPTER_ADDR")
+	os.Unsetenv("PARKING_FEE_SERVICE_ADDR")
+
+	var requestPaths []string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestPaths = append(requestPaths, r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.URL.Path == "/api/v1/zones" && r.URL.Query().Get("lat") != "":
+			fmt.Fprint(w, `[{"zone_id":"zone-marienplatz","name":"Marienplatz Central","operator_name":"München Parking GmbH","rate_type":"per_minute","rate_amount":0.05,"currency":"EUR","distance_meters":0}]`)
+		case strings.HasSuffix(r.URL.Path, "/adapter"):
+			fmt.Fprint(w, `{"zone_id":"zone-marienplatz","image_ref":"localhost/parking-operator-adaptor:latest","checksum":"sha256:demo-checksum-marienplatz"}`)
+		case strings.HasPrefix(r.URL.Path, "/api/v1/zones/"):
+			fmt.Fprint(w, `{"zone_id":"zone-marienplatz","name":"Marienplatz Central","operator_name":"München Parking GmbH","polygon":[{"latitude":48.138,"longitude":11.573}],"rate_type":"per_minute","rate_amount":0.05,"currency":"EUR"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"error":"not found","code":"NOT_FOUND"}`)
+		}
+	})
+
+	addr, cleanup := startMockPFS(t, handler)
+	defer cleanup()
+
+	baseArgs := func(args ...string) []string {
+		return append([]string{
+			"--parking-fee-service-addr", addr,
+		}, args...)
+	}
+
+	// Step 1: Lookup zones.
+	if err := run(baseArgs("lookup-zones", "--lat", "48.137", "--lon", "11.575")); err != nil {
+		t.Fatalf("lookup-zones failed: %v", err)
+	}
+
+	// Step 2: Get zone details.
+	if err := run(baseArgs("zone-info", "--zone-id", "zone-marienplatz")); err != nil {
+		t.Fatalf("zone-info failed: %v", err)
+	}
+
+	// Step 3: Get adapter metadata.
+	if err := run(baseArgs("adapter-info", "--zone-id", "zone-marienplatz")); err != nil {
+		t.Fatalf("adapter-info failed: %v", err)
+	}
+
+	if len(requestPaths) != 3 {
+		t.Errorf("expected 3 requests, got %d: %v", len(requestPaths), requestPaths)
 	}
 }
