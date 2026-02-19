@@ -3,7 +3,7 @@
 # Orchestrates builds, tests, proto generation, linting, infrastructure,
 # and container builds across all technology domains.
 
-.PHONY: all build test test-e2e test-parking-e2e proto lint clean clean-rust clean-go clean-proto \
+.PHONY: all build test test-e2e test-parking-e2e test-zone-discovery-e2e proto lint clean clean-rust clean-go clean-proto \
         check-tools \
         build-rust test-rust lint-rust \
         build-go test-go lint-go \
@@ -71,6 +71,12 @@ test-parking-e2e:
 	@echo "[make test-parking-e2e] Optional: podman for adapter lifecycle/offloading tests"
 	./tests/test_parking_e2e.sh
 	@echo "[make test-parking-e2e] Parking E2E tests complete."
+
+test-zone-discovery-e2e:
+	@echo "[make test-zone-discovery-e2e] Running PARKING_FEE_SERVICE zone discovery integration tests..."
+	@echo "[make test-zone-discovery-e2e] Optional: podman + UPDATE_SERVICE for adapter install flow"
+	./tests/test_zone_discovery_e2e.sh
+	@echo "[make test-zone-discovery-e2e] Zone discovery E2E tests complete."
 
 # ─── Proto Generation ───────────────────────────────────────────────────────
 
