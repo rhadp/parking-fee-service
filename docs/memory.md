@@ -5,7 +5,8 @@
 - The project has three main technology domains: Go backend services (`backend/`), Rust RHIVOS services (`rhivos/`), and Go mock CLI tools (`mock/`).
 - The vehicle-to-cloud pipeline has 5 components: COMPANION_APP CLI (Go REST client) → CLOUD_GATEWAY (Go REST+MQTT server) → Mosquitto MQTT broker → CLOUD_GATEWAY_CLIENT (Rust MQTT+gRPC client) → Kuksa DATA_BROKER (gRPC) → LOCKING_SERVICE (Rust gRPC).
 - The Rust workspace under `rhivos/` contains all Rust services: `parking-proto` (generated gRPC/protobuf), `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`.
-- `parking-proto` provides generated types, a `KuksaClient` helper for Databroker operations, VSS signal path constants in `signals.rs`, and generates both server and client code for all proto files (including vendored Kuksa protos), enabling mock gRPC server creation in tests.
+- `parking-proto` provides generated types, a `KuksaClient` helper for Databroker operations, VSS signal path constants in `signals.rs`, and generates both server and client code for all proto files (including vendored Kuksa protos), enabling mock gRPC server creation in tests. The `common.proto` defines shared types like `AdapterState` (proto enum) and `AdapterInfo`.
+- The update-service's internal `AdapterState` Rust enum (with `Error(String)` variant) is distinct from the protobuf `AdapterState` enum. Conversion is done via `to_proto()` returning `i32`, allowing richer error context in persistence than the proto enum supports.
 - The parking-operator-adaptor shares session state between the lock watcher and gRPC server via `Arc<Mutex<Option<ParkingSession>>>` (type alias `SessionState`).
 - CLOUD_GATEWAY uses `paho.mqtt.golang` with async subscription setup — `SubscribeMultiple` runs in a goroutine, so subscriptions may not be established immediately after connection.
 - CLOUD_GATEWAY_CLIENT uses `rumqttc` (async Rust) and publishes a non-retained registration message on every startup via QoS 2.
@@ -23,7 +24,9 @@
 - Integration tests requiring infrastructure (Mosquitto, Kuksa) use `#[ignore]` and are run manually with `--ignored`.
 - The `MockKuksaVal` pattern for Kuksa tests: implement the full `Val` trait with most methods returning `unimplemented`, record `PublishValue` calls in `Arc<Mutex<Vec<...>>>`, and serve via `tonic::transport::Server` on a random port with `TcpListenerStream`.
 - Config modules use `clap::Parser` with `#[arg(long, env = "ENV_VAR")]` for combined CLI/env var support. Follow `locking-service/src/config.rs` as the reference pattern.
-- Services use `tracing` for structured logging and `thiserror` for error types.
+- Services use `tracing` for structured logging and `thiserror::Error` derive for custom error types with `#[from]` for automatic conversion.
+- Serde serialization conventions: `#[serde(tag = "status", content = "message")]` for tagged enums, `#[serde(default, skip_serializing_if = "Option::is_none")]` for optional fields.
+- Tests use `tempfile::tempdir()` for filesystem tests and `TcpListener::bind("127.0.0.1:0")` for dynamic port allocation in gRPC tests.
 - Workspace-level deps are declared in `rhivos/Cargo.toml` `[workspace.dependencies]`; crates reference them with `{ workspace = true }`.
 - `chrono_timestamp()` is a local helper duplicated across modules (mqtt.rs, status_handler.rs, result_forwarder.rs, telemetry.rs) — returns Unix seconds as `i64`.
 - Go version is 1.25.7 across all modules. Module paths use the `github.com/rhadp/parking-fee-service/` prefix.
@@ -59,11 +62,14 @@
 - We use `reqwest` 0.12 with `json` feature for the REST client, matching the design doc specification.
 - The `RateType` enum uses `serde(rename_all = "snake_case")` to match the Go mock's JSON format (`"per_minute"`, `"flat"`).
 - The `OperatorClient` takes a base URL (not individual endpoint URLs), following the design doc pattern.
+- Update-service persistence is combined into `state.rs` (not a separate module) because the AdapterStore tightly couples state transitions with file I/O.
+- `AdapterState::Error(String)` carries an error message for persistence, unlike the proto `ERROR` which has no payload; see Architecture for conversion details.
+- `Stopped → Installing` is a valid adapter state transition (design doc requirement), enabling reinstallation after manual removal.
 
 ## Fragile Areas
 
 - `PendingCommandState` (`Arc<Mutex<Option<PendingCommand>>>`) only tracks one pending command at a time. Concurrent lock/unlock commands overwrite the pending state. This is a documented simplification for the single-vehicle demo.
-- The worktree CWD may not be the repository root — git and cargo commands must be run from the worktree root, not a subdirectory.
+- The working directory in worktree sessions starts in `rhivos/` (Cargo workspace root), not the project root. Absolute paths are needed for `.specs/` files and other project-root resources; git and cargo commands must account for this.
 - Tests that use `os.Unsetenv` without `t.Setenv` can leak env state between tests. Use `t.Setenv` (which auto-restores) whenever possible.
 - **MQTT registration timing**: The CGC publishes a non-retained registration message at startup. If CLOUD_GATEWAY has not yet subscribed (async subscription), the message is lost. The E2E test mitigates this with a 2s sleep after GW healthz and a polling retry loop (up to 20 retries).
 - **Port 55555 on macOS/podman**: The default Kuksa Databroker port (55555) can become stuck due to stale `gvproxy` port forwards in podman's VM networking layer. Workaround: start Kuksa on an alternate port (e.g., 55556) and pass `DATABROKER_ADDR=http://localhost:55556` to the test.
