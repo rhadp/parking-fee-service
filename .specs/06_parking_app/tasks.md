@@ -112,7 +112,7 @@ This plan implements the PARKING_APP Android application in dependency order:
     - [x] Proto-generated stubs are used correctly
     - [x] Requirements 06-REQ-4.1–4.3 met
 
-- [ ] 3. Checkpoint — Service Clients Complete
+- [x] 3. Checkpoint — Service Clients Complete
   - All service clients working with unit tests
   - Commit and verify clean state
 
