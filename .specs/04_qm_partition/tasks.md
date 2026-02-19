@@ -174,7 +174,7 @@ This plan implements the QM partition services in dependency order:
     - [x] `cargo clippy -p parking-operator-adaptor -- -D warnings` clean
     - [x] Requirements 04-REQ-1.1–1.5, 04-REQ-2.1–2.5, edge cases met
 
-- [ ] 4. Checkpoint — PARKING_OPERATOR_ADAPTOR Complete
+- [x] 4. Checkpoint — PARKING_OPERATOR_ADAPTOR Complete
   - Mock PARKING_OPERATOR and PARKING_OPERATOR_ADAPTOR both working
   - Commit and verify clean state
 
