@@ -174,6 +174,7 @@ make clean
 | `make infra-status` | Show infrastructure container status |
 | `make test-e2e` | Run cloud connectivity E2E tests (requires `make infra-up`) |
 | `make test-parking-e2e` | Run QM partition parking E2E tests (requires `make infra-up`) |
+| `make test-zone-discovery-e2e` | Run zone discovery E2E tests for PARKING_FEE_SERVICE |
 | `make build-containers` | Build OCI container images for all services |
 | `make check-tools` | Verify all required development tools are installed |
 
@@ -197,26 +198,38 @@ Mock CLI applications are provided for integration testing without real Android 
 
 ### parking-app-cli
 
-Simulates the Android parking app, calling gRPC services:
+Simulates the Android parking app, calling gRPC and REST services:
 
 ```bash
 parking-app-cli [flags] <command>
 
-Commands:
+Commands (UpdateService — gRPC):
   install-adapter   Call UpdateService.InstallAdapter
   list-adapters     Call UpdateService.ListAdapters
   remove-adapter    Call UpdateService.RemoveAdapter
   adapter-status    Call UpdateService.GetAdapterStatus
   watch-adapters    Call UpdateService.WatchAdapterStates (streaming)
+
+Commands (ParkingAdapter — gRPC):
   start-session     Call ParkingAdapter.StartSession
   stop-session      Call ParkingAdapter.StopSession
   get-status        Call ParkingAdapter.GetStatus
   get-rate          Call ParkingAdapter.GetRate
 
+Commands (PARKING_FEE_SERVICE — REST):
+  lookup-zones      Look up parking zones by GPS coordinates
+  zone-info         Get full details for a parking zone
+  adapter-info      Get adapter container metadata for a zone
+
 Flags:
-  --update-service-addr   Address of UpdateService (default: localhost:50053)
-  --adapter-addr          Address of ParkingAdapter (default: localhost:50054)
+  --update-service-addr        Address of UpdateService (default: localhost:50053)
+  --adapter-addr               Address of ParkingAdapter (default: localhost:50054)
+  --parking-fee-service-addr   Address of PARKING_FEE_SERVICE (default: http://localhost:8080)
 ```
+
+See [docs/parking-fee-service-api.md](docs/parking-fee-service-api.md) for the
+REST API documentation and [docs/zone-discovery.md](docs/zone-discovery.md) for
+the zone discovery workflow.
 
 ### mock parking-operator
 
@@ -282,7 +295,7 @@ Flags:
 |--------|--------|----------|-------------|
 | PARKING_APP | DATA_BROKER | gRPC/TLS | Read vehicle signals |
 | PARKING_APP | UPDATE_SERVICE | gRPC/TLS | Adapter lifecycle |
-| PARKING_APP | PARKING_FEE_SERVICE | HTTPS/REST | Parking operations |
+| PARKING_APP | PARKING_FEE_SERVICE | HTTPS/REST | Zone lookup and adapter discovery |
 | LOCKING_SERVICE | DATA_BROKER | gRPC/UDS | Write lock events |
 | CLOUD_GATEWAY_CLIENT | CLOUD_GATEWAY | MQTT/TLS | Vehicle-to-cloud |
 | UPDATE_SERVICE | REGISTRY | HTTPS/OCI | Pull adapters |
@@ -310,7 +323,7 @@ Generated Go bindings are committed under `proto/gen/go/`. Rust bindings are gen
 | parking-operator-adaptor | **Implemented** | Event-driven parking session management |
 | parking-app-cli | **Implemented** | gRPC CLI for adapter and session management |
 | mock parking-operator | **Implemented** | Mock REST parking operator backend |
-| parking-fee-service | Skeleton | Returns HTTP 501 |
+| parking-fee-service | **Implemented** | Zone lookup, adapter metadata REST API |
 
 The **locking-service** subscribes to `Vehicle.Command.Door.Lock` via Kuksa Databroker, validates commands against vehicle speed and door state, and writes `IsLocked` and `LockResult` signals. See [docs/vss-signals.md](docs/vss-signals.md) for custom VSS signal definitions.
 
@@ -319,6 +332,8 @@ The **cloud-gateway** and **cloud-gateway-client** form the vehicle-to-cloud con
 The **parking-operator-adaptor** subscribes to `IsLocked` events via Kuksa Databroker and automatically starts/stops parking sessions with the configured PARKING_OPERATOR. It also exposes a gRPC interface for manual session control and rate queries. See [docs/parking-operator-api.md](docs/parking-operator-api.md) for the mock operator's REST API.
 
 The **update-service** manages adapter container lifecycle via podman, including installation, removal, state tracking, persistence, and automatic offloading of unused adapters. See [docs/adapter-lifecycle.md](docs/adapter-lifecycle.md) for the state machine, offloading behavior, and configuration.
+
+The **parking-fee-service** provides a REST API for parking zone discovery and adapter metadata retrieval. It uses hardcoded Munich demo zones with geofence polygons and supports point-in-polygon and fuzzy radius (200m) location matching. See [docs/parking-fee-service-api.md](docs/parking-fee-service-api.md) for the REST API and [docs/zone-discovery.md](docs/zone-discovery.md) for the discovery workflow.
 
 ## License
 
