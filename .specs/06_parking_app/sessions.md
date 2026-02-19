@@ -88,3 +88,32 @@ Checkpoint verification for task group 3 (Service Clients Complete). Ran the ful
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 28
+
+- **Spec:** 06_parking_app
+- **Task Group:** 4
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 4 (ViewModels) for the PARKING_APP specification. Created three ViewModels — ZoneDiscoveryViewModel, AdapterStatusViewModel, and SessionDashboardViewModel — implementing MVVM state management with StateFlow for zone discovery, adapter installation monitoring, and parking session tracking. Added comprehensive unit tests for all ViewModels using MockK and kotlinx-coroutines-test, covering all state transitions, error handling, and correctness properties (Property 1–5).
+
+### Files Changed
+
+- Added: `android/parking-app/app/src/main/kotlin/com/rhadp/parking/ui/zone/ZoneDiscoveryViewModel.kt`
+- Added: `android/parking-app/app/src/main/kotlin/com/rhadp/parking/ui/adapter/AdapterStatusViewModel.kt`
+- Added: `android/parking-app/app/src/main/kotlin/com/rhadp/parking/ui/session/SessionDashboardViewModel.kt`
+- Added: `android/parking-app/app/src/test/kotlin/com/rhadp/parking/ui/ZoneDiscoveryViewModelTest.kt`
+- Added: `android/parking-app/app/src/test/kotlin/com/rhadp/parking/ui/AdapterStatusViewModelTest.kt`
+- Added: `android/parking-app/app/src/test/kotlin/com/rhadp/parking/ui/SessionDashboardViewModelTest.kt`
+- Modified: `.specs/06_parking_app/tasks.md`
+- Modified: `.specs/06_parking_app/sessions.md`
+
+### Tests Added or Modified
+
+- `ZoneDiscoveryViewModelTest.kt`: Tests Loading→ZonesFound, Loading→NoZones, Loading→Error (DB/PFS), selectZone→Installing, Property 1 & 2 verification (11 tests)
+- `AdapterStatusViewModelTest.kt`: Tests InProgress→Ready, InProgress→Error, connection lost, retry, adapter filtering, Property 5 verification (9 tests)
+- `SessionDashboardViewModelTest.kt`: Tests WaitingForSession→SessionActive, SessionActive→SessionCompleted, polling interval, connection lost with indicator, Property 3 verification (10 tests)

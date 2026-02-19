@@ -116,8 +116,8 @@ This plan implements the PARKING_APP Android application in dependency order:
   - All service clients working with unit tests
   - Commit and verify clean state
 
-- [ ] 4. ViewModels
-  - [ ] 4.1 Create ZoneDiscoveryViewModel
+- [x] 4. ViewModels
+  - [x] 4.1 Create ZoneDiscoveryViewModel
     - Create `ui/zone/ZoneDiscoveryViewModel.kt`
     - States: Loading, ZonesFound, NoZones, Error, Installing
     - `loadZones()`: read location → query PFS → update state
@@ -126,7 +126,7 @@ This plan implements the PARKING_APP Android application in dependency order:
     - _Requirements: 06-REQ-1.1, 06-REQ-1.2, 06-REQ-1.3, 06-REQ-1.4,
       06-REQ-1.E1, 06-REQ-1.E2, 06-REQ-1.E3_
 
-  - [ ] 4.2 Create AdapterStatusViewModel
+  - [x] 4.2 Create AdapterStatusViewModel
     - Create `ui/adapter/AdapterStatusViewModel.kt`
     - States: InProgress, Ready, Error
     - `watchAdapter(adapterId)`: stream WatchAdapterStates → update state
@@ -135,7 +135,7 @@ This plan implements the PARKING_APP Android application in dependency order:
     - _Requirements: 06-REQ-2.1, 06-REQ-2.2, 06-REQ-2.3, 06-REQ-2.E1,
       06-REQ-2.E2_
 
-  - [ ] 4.3 Create SessionDashboardViewModel
+  - [x] 4.3 Create SessionDashboardViewModel
     - Create `ui/session/SessionDashboardViewModel.kt`
     - States: WaitingForSession, SessionActive, SessionCompleted, Error
     - `startMonitoring()`: subscribe SessionActive → on true, start polling
@@ -144,7 +144,7 @@ This plan implements the PARKING_APP Android application in dependency order:
     - _Requirements: 06-REQ-3.1, 06-REQ-3.2, 06-REQ-3.3, 06-REQ-3.4,
       06-REQ-3.E1_
 
-  - [ ] 4.4 Write ViewModel unit tests
+  - [x] 4.4 Write ViewModel unit tests
     - ZoneDiscoveryViewModel: test Loading → ZonesFound, Loading → NoZones,
       Loading → Error (DB unreachable), Loading → Error (PFS unreachable),
       selectZone triggers install
@@ -160,11 +160,11 @@ This plan implements the PARKING_APP Android application in dependency order:
     - **Validates: 06-REQ-1.1–1.4, 06-REQ-1.E1–1.E3, 06-REQ-2.1–2.3,
       06-REQ-2.E1–2.E2, 06-REQ-3.1–3.4, 06-REQ-3.E1**
 
-  - [ ] 4.V Verify task group 4
-    - [ ] `./gradlew test` passes all ViewModel tests
-    - [ ] All state transitions covered
-    - [ ] Error states tested for all service failures
-    - [ ] Requirements 06-REQ-1.*, 06-REQ-2.*, 06-REQ-3.* met
+  - [x] 4.V Verify task group 4
+    - [x] `./gradlew test` passes all ViewModel tests
+    - [x] All state transitions covered
+    - [x] Error states tested for all service failures
+    - [x] Requirements 06-REQ-1.*, 06-REQ-2.*, 06-REQ-3.* met
 
 - [ ]* 5. Compose UI and Navigation
   - [ ]* 5.1 Create navigation graph
