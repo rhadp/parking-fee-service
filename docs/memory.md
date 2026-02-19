@@ -16,6 +16,7 @@
 - Background tasks (result forwarder, telemetry publisher) are spawned via `tokio::spawn` only after Kuksa connects successfully. If Kuksa is unavailable, the MQTT event loop still runs but commands fail gracefully.
 - Mock services live under `mock/` with each service as a separate Go module (flat structure: `go.mod`, `main.go`, `main_test.go` in package `main`). The mock PARKING_OPERATOR is a standalone HTTP server that the adaptor's `OperatorClient` communicates with.
 - The `mock/companion-app-cli` is a pure HTTP client — it has no MQTT or Kuksa dependencies, only stdlib `net/http`.
+- The `mock/parking-app-cli` is a Go CLI acting as a gRPC client for UpdateService (port 50053) and ParkingAdapter (port 50054). Global flags (`--update-service-addr`, `--adapter-addr`) support env var fallback (`UPDATE_SERVICE_ADDR`, `ADAPTER_ADDR`); CLI flags take precedence. Uses `grpc.DialContext` with `WithBlock()` and a 5-second timeout for fast failure on unreachable services.
 
 ## Conventions
 
@@ -33,8 +34,9 @@
 - Workspace-level deps are declared in `rhivos/Cargo.toml` `[workspace.dependencies]`; crates reference them with `{ workspace = true }`.
 - `chrono_timestamp()` is a local helper duplicated across modules (mqtt.rs, status_handler.rs, result_forwarder.rs, telemetry.rs) — returns Unix seconds as `i64`.
 - Go version is 1.25.7 across all modules. Module paths use the `github.com/rhadp/parking-fee-service/` prefix.
-- Go mock CLIs use `flag` package with env var fallbacks via `envOrDefault()`. The companion-app-cli historically used manual flag parsing but the `flag`+`envOrDefault` pattern is now standard.
-- Go test files in `mock/` use `httptest.NewRecorder()` and `httptest.NewRequest()` for handler testing (not `httptest.Server`). CLI tools use `httptest.NewServer` to verify HTTP request construction.
+- Go mock CLIs use `flag` package with env var fallbacks via `envOrDefault()`. The companion-app-cli historically used manual flag parsing but the `flag`+`envOrDefault` pattern is now standard. The parking-app-cli uses kebab-case flags with `--` prefix (e.g., `--vehicle-vin`, `--image-ref`, `--adapter-id`).
+- Go CLI subcommand handlers follow the pattern: parse flags → validate required flags → dial gRPC → make RPC → `printJSON(response)`. JSON output uses `json.MarshalIndent` (proto messages serialize with snake_case field names and numeric enum values).
+- Go test files in `mock/` use `httptest.NewRecorder()` and `httptest.NewRequest()` for handler testing (not `httptest.Server`). CLI tools use `httptest.NewServer` to verify HTTP request construction. gRPC CLI tests use mock `grpc.NewServer()` on random ports to verify request construction and response handling without real services.
 - HTTP routing in Go mock servers uses Go 1.22+ method-based patterns (e.g., `"POST /parking/start"`).
 - Binary names are added to `.gitignore` to prevent committing build artifacts.
 - The `run()` function pattern takes `io.Writer` params for stdout/stderr to enable testability without capturing `os.Stdout`.
@@ -71,12 +73,15 @@
 - We use `impl Future + Send` trait syntax (not `#[async_trait]`) for `ContainerRuntime` because it avoids boxing while still satisfying `Send` bounds required by `tokio::spawn`.
 - Adapter ID generation uses timestamp + atomic counter to avoid collisions in rapid succession.
 - Offload timer tests use real short timeouts (50–200ms) instead of `start_paused = true` because paused time with `tokio::time::advance` doesn't properly flush spawned tasks.
+- In the parking-app-cli: `get-status` has an optional `--session-id` (design doc bracket notation `[--session-id <id>]`); `install-adapter` requires `--image-ref` but `--checksum` is optional; `start-session` uses `--vehicle-vin` (not `--vin`) per design doc.
+- Signal handling (SIGINT/SIGTERM) was added to `watch-adapters` for graceful gRPC stream termination.
 
 ## Fragile Areas
 
 - `PendingCommandState` (`Arc<Mutex<Option<PendingCommand>>>`) only tracks one pending command at a time. Concurrent lock/unlock commands overwrite the pending state. This is a documented simplification for the single-vehicle demo.
 - The working directory in worktree sessions starts in `rhivos/` (Cargo workspace root), not the project root. Absolute paths are needed for `.specs/` files and other project-root resources; git and cargo commands must account for this.
-- Tests that use `os.Unsetenv` without `t.Setenv` can leak env state between tests. Use `t.Setenv` (which auto-restores) whenever possible.
+- Tests that use `os.Unsetenv` without `t.Setenv` can leak env state between tests. Use `t.Setenv` (which auto-restores) whenever possible. The parking-app-cli's `updateServiceAddr` and `adapterAddr` are package-level globals, requiring careful `os.Unsetenv` in tests to avoid interference.
+- The parking-app-cli's `TestAllSubcommandsRecognized` and `TestUnreachableServiceReturnsError` connect to `localhost:1` and wait for the 5-second dial timeout, making them slow (~45–65s total). Consider shorter timeouts for test mode if performance becomes an issue.
 - **MQTT registration timing**: The CGC publishes a non-retained registration message at startup. If CLOUD_GATEWAY has not yet subscribed (async subscription), the message is lost. The E2E test mitigates this with a 2s sleep after GW healthz and a polling retry loop (up to 20 retries).
 - **Port 55555 on macOS/podman**: The default Kuksa Databroker port (55555) can become stuck due to stale `gvproxy` port forwards in podman's VM networking layer. Workaround: start Kuksa on an alternate port (e.g., 55556) and pass `DATABROKER_ADDR=http://localhost:55556` to the test.
 - **Python boolean output in E2E tests**: Python's `json.load` prints booleans as `True`/`False` (capitalized), not JSON `true`/`false`. The `json_get` helper normalizes this to lowercase.
