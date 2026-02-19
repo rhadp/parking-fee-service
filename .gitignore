@@ -2,6 +2,7 @@ hack.md
 stuff.md
 **/mcp.json
 .claude/*
+hack/**
 
 # Rust build artifacts
 **/target/
