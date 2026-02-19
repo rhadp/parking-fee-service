@@ -166,50 +166,50 @@ This plan implements the PARKING_APP Android application in dependency order:
     - [ ] Error states tested for all service failures
     - [ ] Requirements 06-REQ-1.*, 06-REQ-2.*, 06-REQ-3.* met
 
-- [ ] 5. Compose UI and Navigation
-  - [ ] 5.1 Create navigation graph
+- [ ]* 5. Compose UI and Navigation
+  - [ ]* 5.1 Create navigation graph
     - Create `navigation/NavGraph.kt`
     - Routes: ZoneDiscovery → AdapterStatus(adapterId) → SessionDashboard
     - Back navigation from SessionDashboard to ZoneDiscovery
     - _Requirements: 06-REQ-2.3 (navigation on RUNNING)_
 
-  - [ ] 5.2 Create ZoneDiscoveryScreen
+  - [ ]* 5.2 Create ZoneDiscoveryScreen
     - Create `ui/zone/ZoneDiscoveryScreen.kt`
     - Compose UI: loading indicator, zone list (name, operator, rate,
       distance), error state with retry button, "no zones" message
     - Collect uiState from ViewModel
     - _Requirements: 06-REQ-1.2, 06-REQ-1.3, 06-REQ-1.E1_
 
-  - [ ] 5.3 Create AdapterStatusScreen
+  - [ ]* 5.3 Create AdapterStatusScreen
     - Create `ui/adapter/AdapterStatusScreen.kt`
     - Compose UI: progress indicator for INSTALLING, status text,
       error state with retry button
     - Navigate to SessionDashboard when Ready
     - _Requirements: 06-REQ-2.2, 06-REQ-2.E1_
 
-  - [ ] 5.4 Create SessionDashboardScreen
+  - [ ]* 5.4 Create SessionDashboardScreen
     - Create `ui/session/SessionDashboardScreen.kt`
     - Compose UI: "Lock to start" message, active session card (fee,
       duration, zone), completed session summary, connection-lost indicator
     - _Requirements: 06-REQ-3.2, 06-REQ-3.3, 06-REQ-3.4, 06-REQ-3.E1_
 
-  - [ ] 5.5 Wire up MainActivity
+  - [ ]* 5.5 Wire up MainActivity
     - Update `MainActivity.kt` with Compose theme and NavHost
     - Initialize service clients with configured addresses
     - Create ViewModels with client dependencies
     - _Requirements: 06-REQ-5.1, 06-REQ-5.2_
 
-  - [ ] 5.V Verify task group 5
+  - [ ]* 5.V Verify task group 5
     - [ ] `./gradlew assembleDebug` succeeds
     - [ ] App launches in emulator (manual verification)
     - [ ] Navigation between screens works
     - [ ] Requirements 06-REQ-5.1, 06-REQ-5.2 met
 
-- [ ] 6. Checkpoint — PARKING_APP Feature Complete
+- [ ]* 6. Checkpoint — PARKING_APP Feature Complete
   - All screens, ViewModels, and service clients working
   - Commit and verify clean state
 
-- [ ] 7. Makefile Integration and Final Verification
+- [ ]* 7. Makefile Integration and Final Verification
   - [ ] 7.1 Add Makefile targets
     - Add `build-android` target to root Makefile
     - Add `test-android` target to root Makefile
@@ -217,18 +217,18 @@ This plan implements the PARKING_APP Android application in dependency order:
     - Update `build` and `test` targets to conditionally include Android
     - _Requirements: 06-REQ-6.3, 06-REQ-6.4, 06-REQ-6.E1_
 
-  - [ ] 7.2 Run full test suite
+  - [ ]* 7.2 Run full test suite
     - `./gradlew test` — all unit tests pass
     - `./gradlew lint` — no warnings
     - `make build && make test` — no regressions in specs 01–05
     - _Requirements: 06-REQ-7.1, 06-REQ-7.2, 06-REQ-7.3_
 
-  - [ ] 7.3 Update documentation
+  - [ ]* 7.3 Update documentation
     - Document Android build setup in `docs/android-setup.md`
     - Document PARKING_APP screens and service addresses
     - Update README with Android build instructions
 
-  - [ ] 7.V Verify task group 7
+  - [ ]* 7.V Verify task group 7
     - [ ] `make build` succeeds (skips Android if no SDK)
     - [ ] `make test` passes (skips Android if no SDK)
     - [ ] `./gradlew test` passes all tests

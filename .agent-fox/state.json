@@ -1,7 +1,7 @@
 {
   "version": 1,
   "started_at": "2026-02-18T14:27:03.575724+00:00",
-  "updated_at": "2026-02-19T13:42:55.503083+00:00",
+  "updated_at": "2026-02-19T13:43:57.242618+00:00",
   "sessions_completed": 27,
   "total_input_tokens": 244896,
   "total_output_tokens": 541545,
@@ -685,11 +685,11 @@
     "06_parking_app/4": {
       "spec_name": "06_parking_app",
       "group_number": 4,
-      "status": "blocked",
+      "status": "pending",
       "is_checkpoint": false,
-      "retries": 2,
+      "retries": 0,
       "completed_at": null,
-      "last_error": "session: Command failed with exit code -2 (exit code: -2)\nError output: Check stderr output for details; harvest: No new commits on feature branch",
+      "last_error": null,
       "has_merged_work": false,
       "input_tokens": 0,
       "output_tokens": 0,
@@ -698,7 +698,7 @@
     "06_parking_app/5": {
       "spec_name": "06_parking_app",
       "group_number": 5,
-      "status": "blocked",
+      "status": "pending",
       "is_checkpoint": false,
       "retries": 0,
       "completed_at": null,
@@ -711,7 +711,7 @@
     "06_parking_app/6": {
       "spec_name": "06_parking_app",
       "group_number": 6,
-      "status": "blocked",
+      "status": "pending",
       "is_checkpoint": true,
       "retries": 0,
       "completed_at": null,
@@ -724,7 +724,7 @@
     "06_parking_app/7": {
       "spec_name": "06_parking_app",
       "group_number": 7,
-      "status": "blocked",
+      "status": "pending",
       "is_checkpoint": false,
       "retries": 0,
       "completed_at": null,

@@ -134,8 +134,8 @@ proto compilation, no complex dependencies.
   - Models, REST client, and state management all working with tests
   - Commit and verify clean state
 
-- [ ] 5. UI Screens
-  - [ ] 5.1 Create pairing screen
+- [ ]* 5. UI Screens
+  - [ ]* 5.1 Create pairing screen
     - Create `lib/screens/pairing_screen.dart`
     - VIN text field, PIN text field (obscured), Pair button
     - Loading indicator during pairing
@@ -144,7 +144,7 @@ proto compilation, no complex dependencies.
     - Optional: gateway address text field for configuration
     - _Requirements: 07-REQ-1.1, 07-REQ-1.E1, 07-REQ-1.E2, 07-REQ-5.1_
 
-  - [ ] 5.2 Create dashboard screen
+  - [ ]* 5.2 Create dashboard screen
     - Create `lib/screens/dashboard_screen.dart`
     - Vehicle status card: locked, door, speed, location, parking, timestamp
     - "Unknown" for null fields
@@ -155,7 +155,7 @@ proto compilation, no complex dependencies.
     - _Requirements: 07-REQ-2.1, 07-REQ-2.3, 07-REQ-2.E1, 07-REQ-2.E2,
       07-REQ-3.1, 07-REQ-3.4, 07-REQ-3.E1, 07-REQ-4.3_
 
-  - [ ] 5.3 Wire up main.dart and navigation
+  - [ ]* 5.3 Wire up main.dart and navigation
     - Create `lib/main.dart`
     - Initialize: SharedPreferences → VehicleProvider → load persisted pairing
     - Provider at root: `ChangeNotifierProvider<VehicleProvider>`
@@ -164,14 +164,14 @@ proto compilation, no complex dependencies.
     - Default gateway address: `http://10.0.2.2:8081`
     - _Requirements: 07-REQ-4.2, 07-REQ-5.2_
 
-  - [ ] 5.V Verify task group 5
+  - [ ]* 5.V Verify task group 5
     - [ ] `flutter build apk --debug` succeeds
     - [ ] App launches in emulator (manual verification)
     - [ ] Pairing screen displays and accepts input
     - [ ] Dashboard displays status and controls
     - [ ] Navigation works (pair → dashboard, unpair → pairing)
 
-- [ ] 6. Makefile Integration and Final Verification
+- [ ]* 6. Makefile Integration and Final Verification
   - [ ] 6.1 Add Makefile targets
     - Add `build-flutter` target to root Makefile
     - Add `test-flutter` target to root Makefile
@@ -179,18 +179,18 @@ proto compilation, no complex dependencies.
     - Update `build` and `test` targets to conditionally include Flutter
     - _Requirements: 07-REQ-6.2, 07-REQ-6.3, 07-REQ-6.E1_
 
-  - [ ] 6.2 Run full test suite
+  - [ ]* 6.2 Run full test suite
     - `flutter test` — all unit tests pass
     - `flutter analyze` — no warnings
     - `make build && make test` — no regressions in specs 01–06
     - _Requirements: 07-REQ-7.1, 07-REQ-7.2, 07-REQ-7.3_
 
-  - [ ] 6.3 Update documentation
+  - [ ]* 6.3 Update documentation
     - Document Flutter build setup in `docs/flutter-setup.md`
     - Document COMPANION_APP screens and gateway configuration
     - Update README with Flutter build instructions
 
-  - [ ] 6.V Verify task group 6
+  - [ ]* 6.V Verify task group 6
     - [ ] `make build` succeeds (skips Flutter if no SDK)
     - [ ] `make test` passes (skips Flutter if no SDK)
     - [ ] `flutter test` passes all tests
