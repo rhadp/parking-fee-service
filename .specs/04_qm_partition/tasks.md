@@ -124,8 +124,8 @@ This plan implements the QM partition services in dependency order:
     - [x] `cargo clippy -p parking-operator-adaptor -- -D warnings` clean
     - [x] Requirements 04-REQ-2.6, 04-REQ-1.E1 acceptance criteria met
 
-- [ ] 3. PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Server
-  - [ ] 3.1 Create lock watcher
+- [x] 3. PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Server
+  - [x] 3.1 Create lock watcher
     - Create `rhivos/parking-operator-adaptor/src/lock_watcher.rs`
     - Subscribe to `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` on DATA_BROKER
     - On `IsLocked = true` AND no active session → call operator `start_session`,
@@ -137,7 +137,7 @@ This plan implements the QM partition services in dependency order:
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4,
       04-REQ-1.5, 04-REQ-1.E1, 04-REQ-1.E2, 04-REQ-1.E3_
 
-  - [ ] 3.2 Create gRPC server
+  - [x] 3.2 Create gRPC server
     - Create `rhivos/parking-operator-adaptor/src/grpc_server.rs`
     - Implement `ParkingAdapter` service from `parking_adapter.proto`
     - `StartSession`: start session with operator, write SessionActive, return
@@ -149,14 +149,14 @@ This plan implements the QM partition services in dependency order:
     - _Requirements: 04-REQ-2.1, 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.4,
       04-REQ-2.5, 04-REQ-2.E1, 04-REQ-2.E2_
 
-  - [ ] 3.3 Wire up main.rs
+  - [x] 3.3 Wire up main.rs
     - Replace spec 01 skeleton with real implementation
     - Initialize: config → Kuksa client → operator client → session state →
       spawn lock watcher task → start gRPC server
     - Graceful shutdown on SIGINT/SIGTERM
     - _Requirements: 04-REQ-1.1, 04-REQ-2.1_
 
-  - [ ] 3.4 Write unit tests
+  - [x] 3.4 Write unit tests
     - Lock watcher: mock Kuksa (trait-based) emitting IsLocked events + mock
       operator client; verify start/stop calls, SessionActive writes,
       duplicate event handling, operator error handling
@@ -169,10 +169,10 @@ This plan implements the QM partition services in dependency order:
     - **Validates: 04-REQ-1.1–1.5, 04-REQ-1.E1–1.E3, 04-REQ-2.1–2.5,
       04-REQ-2.E1–2.E2**
 
-  - [ ] 3.V Verify task group 3
-    - [ ] `cargo test -p parking-operator-adaptor` passes all tests
-    - [ ] `cargo clippy -p parking-operator-adaptor -- -D warnings` clean
-    - [ ] Requirements 04-REQ-1.1–1.5, 04-REQ-2.1–2.5, edge cases met
+  - [x] 3.V Verify task group 3
+    - [x] `cargo test -p parking-operator-adaptor` passes all tests
+    - [x] `cargo clippy -p parking-operator-adaptor -- -D warnings` clean
+    - [x] Requirements 04-REQ-1.1–1.5, 04-REQ-2.1–2.5, edge cases met
 
 - [ ] 4. Checkpoint — PARKING_OPERATOR_ADAPTOR Complete
   - Mock PARKING_OPERATOR and PARKING_OPERATOR_ADAPTOR both working

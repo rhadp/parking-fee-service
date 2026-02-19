@@ -2,66 +2,34 @@
 //!
 //! This service manages parking sessions via operator APIs. It subscribes to
 //! DATA_BROKER lock events and communicates with a PARKING_OPERATOR's REST API
-//! to start and stop parking sessions automatically.
+//! to start and stop parking sessions automatically. It also exposes a gRPC
+//! `ParkingAdapter` service for manual session control and status queries.
 //!
-//! In this phase (task group 2), the config, session, and operator client
-//! modules are implemented. The gRPC server still returns UNIMPLEMENTED for
-//! all RPCs — the real implementation comes in task group 3.
+//! # Requirements
+//!
+//! - 04-REQ-1.1: Subscribe to `IsLocked` on DATA_BROKER via gRPC streaming.
+//! - 04-REQ-2.1: Expose gRPC server implementing `ParkingAdapter` service.
+//! - 04-REQ-2.6: Accept configuration via environment variables.
 
 pub mod config;
+pub mod grpc_server;
+pub mod lock_watcher;
 pub mod operator_client;
 pub mod session;
 
+use std::sync::Arc;
+
 use clap::Parser;
 use config::Config;
+use grpc_server::ParkingAdapterService;
+use lock_watcher::SessionState;
+use operator_client::OperatorClient;
 use tokio::signal;
-use tonic::{Request, Response, Status};
-use tracing::{error, info};
+use tokio::sync::Mutex;
+use tracing::{error, info, warn};
 
-use parking_proto::services::adapter::parking_adapter_server::{
-    ParkingAdapter, ParkingAdapterServer,
-};
-use parking_proto::services::adapter::{
-    GetRateRequest, GetRateResponse, GetStatusRequest, GetStatusResponse, StartSessionRequest,
-    StartSessionResponse, StopSessionRequest, StopSessionResponse,
-};
-
-/// Stub implementation — all RPCs return UNIMPLEMENTED.
-///
-/// The real gRPC server implementation will be added in task group 3.
-#[derive(Debug, Default)]
-pub struct ParkingAdapterStub;
-
-#[tonic::async_trait]
-impl ParkingAdapter for ParkingAdapterStub {
-    async fn start_session(
-        &self,
-        _request: Request<StartSessionRequest>,
-    ) -> Result<Response<StartSessionResponse>, Status> {
-        Err(Status::unimplemented("StartSession not yet implemented"))
-    }
-
-    async fn stop_session(
-        &self,
-        _request: Request<StopSessionRequest>,
-    ) -> Result<Response<StopSessionResponse>, Status> {
-        Err(Status::unimplemented("StopSession not yet implemented"))
-    }
-
-    async fn get_status(
-        &self,
-        _request: Request<GetStatusRequest>,
-    ) -> Result<Response<GetStatusResponse>, Status> {
-        Err(Status::unimplemented("GetStatus not yet implemented"))
-    }
-
-    async fn get_rate(
-        &self,
-        _request: Request<GetRateRequest>,
-    ) -> Result<Response<GetRateResponse>, Status> {
-        Err(Status::unimplemented("GetRate not yet implemented"))
-    }
-}
+use parking_proto::kuksa_client::KuksaClient;
+use parking_proto::services::adapter::parking_adapter_server::ParkingAdapterServer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -80,8 +48,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.databroker_addr, config.parking_operator_url, config.zone_id, config.vehicle_vin
     );
 
+    // Shared session state between lock watcher and gRPC server
+    let session_state: SessionState = Arc::new(Mutex::new(None));
+
+    // Create REST client for the PARKING_OPERATOR
+    let operator = OperatorClient::new(&config.parking_operator_url);
+
+    // Connect to Kuksa Databroker
+    let kuksa = match KuksaClient::connect(&config.databroker_addr).await {
+        Ok(client) => {
+            info!("connected to DATA_BROKER at {}", config.databroker_addr);
+            Some(client)
+        }
+        Err(e) => {
+            warn!(
+                "failed to connect to DATA_BROKER at {}: {} — running without lock watcher",
+                config.databroker_addr, e
+            );
+            None
+        }
+    };
+
+    // Spawn lock watcher task if Kuksa is available
+    if let Some(ref kuksa_client) = kuksa {
+        let watcher_kuksa = kuksa_client.clone();
+        let watcher_operator = operator.clone();
+        let watcher_session = session_state.clone();
+        let watcher_config = config.clone();
+
+        tokio::spawn(async move {
+            lock_watcher::watch_lock_events(
+                watcher_kuksa,
+                watcher_operator,
+                watcher_session,
+                watcher_config,
+            )
+            .await;
+            warn!("lock watcher task exited");
+        });
+    }
+
+    // Create gRPC server
+    let service = ParkingAdapterService::new(
+        session_state,
+        operator,
+        kuksa,
+        config,
+    );
+
+    info!("gRPC server listening on {}", addr);
+
     tonic::transport::Server::builder()
-        .add_service(ParkingAdapterServer::new(ParkingAdapterStub))
+        .add_service(ParkingAdapterServer::new(service))
         .serve_with_shutdown(addr, async {
             signal::ctrl_c()
                 .await
@@ -96,14 +114,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parking_proto::common::VehicleId;
-    use parking_proto::services::adapter::parking_adapter_client::ParkingAdapterClient;
-    use std::net::SocketAddr;
-    use tokio::net::TcpListener;
 
     #[test]
     fn cli_parses_default_listen_addr() {
-        // Config requires --parking-operator-url, --zone-id, --vehicle-vin
         let config = Config::parse_from([
             "parking-operator-adaptor",
             "--parking-operator-url",
@@ -130,96 +143,5 @@ mod tests {
             "VIN1",
         ]);
         assert_eq!(config.listen_addr, "127.0.0.1:9999");
-    }
-
-    /// Start the stub gRPC server on a random port and return the address.
-    async fn start_test_server() -> SocketAddr {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-
-        let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
-
-        tokio::spawn(async move {
-            tonic::transport::Server::builder()
-                .add_service(ParkingAdapterServer::new(ParkingAdapterStub))
-                .serve_with_incoming(incoming)
-                .await
-                .unwrap();
-        });
-
-        addr
-    }
-
-    #[tokio::test]
-    async fn start_session_returns_unimplemented() {
-        let addr = start_test_server().await;
-        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
-            .await
-            .unwrap();
-
-        let status = client
-            .start_session(StartSessionRequest {
-                vehicle_id: Some(VehicleId {
-                    vin: "WBA12345678901234".into(),
-                }),
-                zone_id: "zone-a".into(),
-                timestamp: 1700000000,
-            })
-            .await
-            .unwrap_err();
-
-        assert_eq!(status.code(), tonic::Code::Unimplemented);
-    }
-
-    #[tokio::test]
-    async fn stop_session_returns_unimplemented() {
-        let addr = start_test_server().await;
-        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
-            .await
-            .unwrap();
-
-        let status = client
-            .stop_session(StopSessionRequest {
-                session_id: "session-1".into(),
-                timestamp: 1700001000,
-            })
-            .await
-            .unwrap_err();
-
-        assert_eq!(status.code(), tonic::Code::Unimplemented);
-    }
-
-    #[tokio::test]
-    async fn get_status_returns_unimplemented() {
-        let addr = start_test_server().await;
-        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
-            .await
-            .unwrap();
-
-        let status = client
-            .get_status(GetStatusRequest {
-                session_id: "session-1".into(),
-            })
-            .await
-            .unwrap_err();
-
-        assert_eq!(status.code(), tonic::Code::Unimplemented);
-    }
-
-    #[tokio::test]
-    async fn get_rate_returns_unimplemented() {
-        let addr = start_test_server().await;
-        let mut client = ParkingAdapterClient::connect(format!("http://{}", addr))
-            .await
-            .unwrap();
-
-        let status = client
-            .get_rate(GetRateRequest {
-                zone_id: "zone-a".into(),
-            })
-            .await
-            .unwrap_err();
-
-        assert_eq!(status.code(), tonic::Code::Unimplemented);
     }
 }

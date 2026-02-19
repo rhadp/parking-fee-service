@@ -52,3 +52,31 @@ Implemented task group 2 (PARKING_OPERATOR_ADAPTOR: Config, Session, and REST Cl
 - `rhivos/parking-operator-adaptor/src/session.rs`: 21 tests for session state, fee calculation (per_minute and flat), RateType/SessionStatus, serde round-trip, duration, edge cases
 - `rhivos/parking-operator-adaptor/src/operator_client.rs`: 8 tests for REST client start/stop/rate/session endpoints via wiremock, error handling (404, unreachable), URL trimming
 - `rhivos/parking-operator-adaptor/src/main.rs`: 6 tests (updated from skeleton to use new Config struct)
+
+---
+
+## Session 6
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 3
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 3 (PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Server) for specification 04_qm_partition. Created `lock_watcher.rs` module that subscribes to `IsLocked` on DATA_BROKER and drives parking session start/stop; created `grpc_server.rs` implementing the full `ParkingAdapter` gRPC service (StartSession, StopSession, GetStatus, GetRate); rewired `main.rs` replacing the stub with real initialization of Kuksa client, operator client, lock watcher task, and gRPC server. Added 17 new tests (6 lock watcher + 9 gRPC server + 2 main) covering all correctness properties (Event-Session Invariant, Session Idempotency, SessionActive Signal Accuracy) and edge cases. Enabled Kuksa val.v2 server codegen for mock Kuksa server in tests. All 55 adaptor tests pass, full workspace (234 tests) passes, clippy clean.
+
+### Files Changed
+
+- Added: `rhivos/parking-operator-adaptor/src/lock_watcher.rs`
+- Added: `rhivos/parking-operator-adaptor/src/grpc_server.rs`
+- Modified: `rhivos/parking-operator-adaptor/src/main.rs`
+- Modified: `rhivos/parking-operator-adaptor/Cargo.toml`
+- Modified: `rhivos/parking-proto/build.rs`
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/parking-operator-adaptor/src/lock_watcher.rs`: 6 tests — lock event starts session, unlock event stops session, duplicate lock ignored, duplicate unlock ignored, operator unreachable does not set SessionActive, session active signal accuracy (Property 1, 2, 8)
+- `rhivos/parking-operator-adaptor/src/grpc_server.rs`: 9 tests — start session creates session, start session while active returns existing, stop session completes session, stop session unknown ID returns NOT_FOUND, get status returns active session, get status no session returns NOT_FOUND, get status empty session_id returns current, get rate returns rate info, get rate with empty zone uses config
+- `rhivos/parking-operator-adaptor/src/main.rs`: 2 tests (reduced from 6 — removed stub UNIMPLEMENTED tests, kept config parsing tests)
