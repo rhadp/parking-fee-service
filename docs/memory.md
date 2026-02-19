@@ -3,7 +3,7 @@
 ## Architecture
 
 - The project has four main technology domains: Go backend services (`backend/`), Rust RHIVOS services (`rhivos/`), Go mock CLI tools (`mock/`), and the Android PARKING_APP (`android/parking-app/`).
-- The PARKING_APP lives at `android/parking-app/`, not `aaos/parking-app/` as the design doc specifies, because the repo had a pre-existing `android/` directory structure. Uses AGP 9.0.1 with Gradle 9.1 and built-in Kotlin 2.2.10 support; the `org.jetbrains.kotlin.android` plugin is NOT applied since AGP 9.0 provides it automatically.
+- The PARKING_APP lives at `android/parking-app/`, not `aaos/parking-app/` as the design doc specifies, because the repo had a pre-existing `android/` directory structure. Uses AGP 9.0.1 with Gradle 9.1 and built-in Kotlin 2.2.10 support; the `org.jetbrains.kotlin.android` plugin is NOT applied since AGP 9.0 provides it automatically. Service clients are in the `data/` package, data models in `model/` package, under `com.rhadp.parking`. All service clients throw `ServiceException` (defined in `DataBrokerClient.kt`) to wrap gRPC `StatusException` and HTTP errors with user-friendly messages.
 - The QM partition (04_qm_partition) consists of two Rust services (`parking-operator-adaptor`, `update-service`), one Go mock REST backend (`mock/parking-operator`), and one Go CLI tool (`mock/parking-app-cli`).
 - The vehicle-to-cloud pipeline has 5 components: COMPANION_APP CLI (Go REST client) → CLOUD_GATEWAY (Go REST+MQTT server) → Mosquitto MQTT broker → CLOUD_GATEWAY_CLIENT (Rust MQTT+gRPC client) → Kuksa DATA_BROKER (gRPC) → LOCKING_SERVICE (Rust gRPC).
 - The on-vehicle session flow pipeline is: mock-sensors → Kuksa (`Vehicle.Command.Door.Lock`) → LOCKING_SERVICE → Kuksa (`Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`) → PARKING_OPERATOR_ADAPTOR → mock PARKING_OPERATOR REST API → Kuksa (`Vehicle.Parking.SessionActive`).
@@ -51,7 +51,8 @@
 - Parking-fee-service logging uses `log/slog` structured logging; each handler logs its request, and a `LoggingMiddleware` wraps the entire mux for production use.
 - HTTP routing in Go mock servers and the parking-fee-service uses Go 1.22+ method-based patterns in `http.ServeMux.HandleFunc` (e.g., `"POST /parking/start"`, `"GET /zones"`).
 - Proto files for the Android app are shared via symlinks from `android/parking-app/app/src/main/proto/` to the repo root `proto/` directory, avoiding duplication while keeping the default protobuf-gradle-plugin source layout.
-- The Android project uses `protobuf-javalite` (not `protobuf-kotlin-lite`) because the Kuksa proto package `kuksa.val.v2` contains `val`, a Kotlin keyword that breaks Kotlin protobuf codegen. Java-lite classes are used directly from Kotlin.
+- The Android project uses `protobuf-javalite` (not `protobuf-kotlin-lite`) because the Kuksa proto package `kuksa.val.v2` contains `val`, a Kotlin keyword that breaks Kotlin protobuf codegen. Java-lite classes are used directly from Kotlin. In Kotlin source files, `kuksa.val.v2` requires backtick escaping: `kuksa.\`val\`.v2`.
+- Proto outer class names follow protoc conventions: `update_service.proto` (with service `UpdateService`) generates `UpdateServiceOuterClass` due to name conflict; `parking_adapter.proto` generates `ParkingAdapterOuterClass`. For `val.proto` the outer class is `Val` (no conflict), and for `types.proto` it's `Types`.
 - Binary names are added to `.gitignore` to prevent committing build artifacts.
 - The `run()` function pattern takes `io.Writer` params for stdout/stderr to enable testability without capturing `os.Stdout`.
 - Config is read from env vars first, then overridden by CLI flags; the `envOrDefault` helper is the standard pattern.
@@ -107,6 +108,10 @@
 - We use `json.RawMessage` in the parking-app-cli REST response handling (not typed structs) because the CLI only needs to pretty-print the JSON, not interpret individual fields.
 - The `httpClient` in parking-app-cli is a package-level variable to allow test injection if needed, though current tests use `httptest.Server` which works with the default client.
 - All 3 demo zones use the same adapter image (`localhost/parking-operator-adaptor:latest`) with different checksums. In production, different operators would have different adapters.
+- We use `isReturnDefaultValues = true` in Android `testOptions` so that `android.util.Log` calls don't throw in JVM unit tests.
+- We use `grpc-inprocess` for Android gRPC client tests with fake service implementations (not MockK mocking), as it tests the actual gRPC wire format.
+- We use OkHttp MockWebServer (not MockK) for Android REST client tests to verify real HTTP request construction.
+- `ServiceException` is defined in `DataBrokerClient.kt` rather than a separate file, as it's a simple shared exception class used across all service clients.
 - We use AGP 9.0.1 (not 8.7.3) because only Java 25 is available on the build machine, which requires Gradle 9.1+.
 - We set `android.newDsl=false` in `gradle.properties` because protobuf-gradle-plugin 0.9.6 relies on `BaseExtension` which was removed in AGP 9.0's new DSL mode. Temporary — must be addressed before AGP 10.0.
 - We upgraded protobuf from 3.25.3 to 4.29.4 and gRPC from 1.62.2 to 1.68.2 for Kotlin 2.2 compatibility.
@@ -134,7 +139,7 @@
 - When updating parking-fee-service `main.go`, the `main_test.go` tests must be updated in tandem since `newServeMux` signature changes (now takes `*zones.Store`).
 - Go 1.22+ ServeMux correctly routes `/zones/{zone_id}/adapter` to its own handler before matching `/zones/{zone_id}`, so no guard code is needed in the zone details handler.
 - The `android.newDsl=false` flag is deprecated and will be removed in AGP 10.0. When protobuf-gradle-plugin ships AGP 9 support, this flag should be removed.
-- Kotlin protobuf extensions cannot be generated for any proto with `kuksa.val.v2` in its package path. All Android client code must use Java-lite protobuf classes directly.
+- The Kuksa proto package escaping (`kuksa.\`val\`.v2`) in Kotlin is fragile — any refactoring tool that strips backticks will break compilation. Kotlin protobuf extensions cannot be generated for any proto with `kuksa.val.v2` in its package path; all Android client code must use Java-lite protobuf classes directly.
 - The Android Gradle wrapper files (`gradlew`, `gradle/`) are in `.gitignore` and must be regenerated when cloning. The `settings.gradle.kts` and `build.gradle.kts` files are tracked.
 
 ## Failed Approaches
@@ -151,3 +156,4 @@
 
 - The `get_rate` endpoint on the mock operator doesn't take a `zone_id` query parameter — it returns the configured rate for whatever zone the server was started with. The `OperatorClient.get_rate()` accepts `zone_id` for future use but currently ignores it in the URL.
 - The `parking-fee-service` is not part of the 04_qm_partition specification.
+- No Android SDK or Java runtime available in the CI/agent environment, so Android builds and tests cannot be verified locally. Tests are structurally correct but untested at runtime.
