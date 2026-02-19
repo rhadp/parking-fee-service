@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	commonpb "github.com/rhadp/parking-fee-service/proto/gen/go/common"
@@ -107,16 +109,18 @@ func parseGlobalFlags(args []string) ([]string, error) {
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage: parking-app-cli [flags] <command>
 
-Commands:
-  install-adapter   Call UpdateService.InstallAdapter
-  list-adapters     Call UpdateService.ListAdapters
-  remove-adapter    Call UpdateService.RemoveAdapter
-  adapter-status    Call UpdateService.GetAdapterStatus
-  watch-adapters    Call UpdateService.WatchAdapterStates (streaming)
-  start-session     Call ParkingAdapter.StartSession
-  stop-session      Call ParkingAdapter.StopSession
-  get-status        Call ParkingAdapter.GetStatus
-  get-rate          Call ParkingAdapter.GetRate
+UPDATE_SERVICE commands:
+  install-adapter   --image-ref <ref> [--checksum <sha>]
+  list-adapters
+  remove-adapter    --adapter-id <id>
+  adapter-status    --adapter-id <id>
+  watch-adapters
+
+PARKING_OPERATOR_ADAPTOR commands:
+  start-session     --zone-id <zone> --vehicle-vin <vin>
+  stop-session      --session-id <id>
+  get-status        [--session-id <id>]
+  get-rate          --zone-id <zone>
 
 Global Flags:
   --update-service-addr   Address of UpdateService (default: localhost:50053)
@@ -151,8 +155,11 @@ func printJSON(v any) {
 // ─── UpdateService subcommands ──────────────────────────────────────────────
 
 func cmdInstallAdapter(args []string) error {
-	imageRef := flagValue(args, "--image-ref", "test:latest")
-	checksum := flagValue(args, "--checksum", "sha256:0000")
+	imageRef := flagValue(args, "--image-ref", "")
+	if imageRef == "" {
+		return fmt.Errorf("--image-ref is required")
+	}
+	checksum := flagValue(args, "--checksum", "")
 
 	conn, err := dialGRPC(updateServiceAddr)
 	if err != nil {
@@ -257,17 +264,31 @@ func cmdWatchAdapters(_ []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Handle SIGINT/SIGTERM to cleanly stop streaming.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		cancel()
+	}()
+
 	stream, err := client.WatchAdapterStates(ctx, &updatepb.WatchAdapterStatesRequest{})
 	if err != nil {
 		return fmt.Errorf("WatchAdapterStates RPC failed: %w", err)
 	}
 
+	fmt.Fprintln(os.Stderr, "Watching adapter state events (press Ctrl+C to stop)...")
 	for {
 		event, err := stream.Recv()
 		if err == io.EOF {
 			return nil
 		}
 		if err != nil {
+			// Context cancellation from signal is a clean exit.
+			if ctx.Err() != nil {
+				fmt.Fprintln(os.Stderr, "\nStopped watching.")
+				return nil
+			}
 			return fmt.Errorf("WatchAdapterStates stream error: %w", err)
 		}
 		printJSON(event)
@@ -277,8 +298,14 @@ func cmdWatchAdapters(_ []string) error {
 // ─── ParkingAdapter subcommands ─────────────────────────────────────────────
 
 func cmdStartSession(args []string) error {
-	vin := flagValue(args, "--vin", "WBA00000000000000")
-	zoneID := flagValue(args, "--zone-id", "zone-a")
+	zoneID := flagValue(args, "--zone-id", "")
+	if zoneID == "" {
+		return fmt.Errorf("--zone-id is required")
+	}
+	vin := flagValue(args, "--vehicle-vin", "")
+	if vin == "" {
+		return fmt.Errorf("--vehicle-vin is required")
+	}
 
 	conn, err := dialGRPC(adapterAddr)
 	if err != nil {
@@ -331,9 +358,6 @@ func cmdStopSession(args []string) error {
 
 func cmdGetStatus(args []string) error {
 	sessionID := flagValue(args, "--session-id", "")
-	if sessionID == "" {
-		return fmt.Errorf("--session-id is required")
-	}
 
 	conn, err := dialGRPC(adapterAddr)
 	if err != nil {

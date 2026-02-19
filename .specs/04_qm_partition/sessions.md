@@ -199,3 +199,26 @@ Completed checkpoint task group 7 (Checkpoint — UPDATE_SERVICE Complete) for s
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 13
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 8
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 8 (Mock PARKING_APP CLI) for specification 04_qm_partition. Aligned the existing CLI implementation with the design doc: renamed `--vin` to `--vehicle-vin`, made `--image-ref` required for `install-adapter`, made `--session-id` optional for `get-status`, and added SIGINT/SIGTERM signal handling for `watch-adapters` streaming. Updated usage text to show subcommand grouping and flag requirements. Wrote comprehensive test suite with 42 tests including mock gRPC servers for all 9 subcommands, required flag validation, error propagation, streaming behavior, and a full end-to-end workflow test.
+
+### Files Changed
+
+- Modified: `mock/parking-app-cli/main.go`
+- Modified: `mock/parking-app-cli/main_test.go`
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/parking-app-cli/main_test.go`: 42 tests covering global flag parsing (defaults, custom, env, CLI override, missing value), command dispatch (no args, unknown, help variants), utility functions (flagValue, envOrDefault), required flag validation (7 tests for install-adapter, remove-adapter, adapter-status, start-session zone/vin, stop-session, get-rate, plus get-status optional), subcommand recognition (9 commands), unreachable service error handling (9 commands), mock gRPC server tests for all UpdateService RPCs (install-adapter with/without checksum, list-adapters, remove-adapter, adapter-status, adapter-status NOT_FOUND, watch-adapters streaming), mock gRPC server tests for all ParkingAdapter RPCs (start-session, stop-session, stop-session NOT_FOUND, get-status with/without session-id, get-rate), gRPC error propagation (3 tests), full workflow integration test, dialGRPC tests, and requirement traceability tests (04-REQ-7.1, 04-REQ-7.2)
