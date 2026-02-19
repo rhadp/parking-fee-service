@@ -28,3 +28,11 @@ logs/
 **/gradlew.bat
 **/gradle/wrapper/
 **/.idea/
+
+# Flutter build artifacts
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/*.iml
+**/.pub-cache/
+**/.pub/

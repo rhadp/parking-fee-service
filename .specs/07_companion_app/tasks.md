@@ -31,8 +31,8 @@ proto compilation, no complex dependencies.
 
 ## Tasks
 
-- [ ] 1. Flutter Project Setup
-  - [ ] 1.1 Create Flutter project
+- [x] 1. Flutter Project Setup
+  - [x] 1.1 Create Flutter project
     - Run `flutter create` in `android/companion-app/` or create manually
     - Configure `pubspec.yaml` with dependencies: `http`, `provider`,
       `shared_preferences`
@@ -40,16 +40,16 @@ proto compilation, no complex dependencies.
     - Set app name, package ID (`com.rhadp.companion`)
     - _Requirements: 07-REQ-6.1_
 
-  - [ ] 1.2 Configure Android settings
+  - [x] 1.2 Configure Android settings
     - Set `minSdkVersion` to 21 in `android/app/build.gradle`
     - Add internet permission to `AndroidManifest.xml`
     - Set app label and theme
     - Verify build: `flutter build apk --debug`
     - _Requirements: 07-REQ-6.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `flutter build apk --debug` succeeds
-    - [ ] `flutter analyze` clean
+  - [x] 1.V Verify task group 1
+    - [x] `flutter build apk --debug` succeeds
+    - [x] `flutter analyze` clean
     - [ ] App launches in emulator (blank screen)
 
 - [ ] 2. Models and REST Client
