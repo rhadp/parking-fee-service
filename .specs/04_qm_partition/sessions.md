@@ -222,3 +222,26 @@ Implemented task group 8 (Mock PARKING_APP CLI) for specification 04_qm_partitio
 ### Tests Added or Modified
 
 - `mock/parking-app-cli/main_test.go`: 42 tests covering global flag parsing (defaults, custom, env, CLI override, missing value), command dispatch (no args, unknown, help variants), utility functions (flagValue, envOrDefault), required flag validation (7 tests for install-adapter, remove-adapter, adapter-status, start-session zone/vin, stop-session, get-rate, plus get-status optional), subcommand recognition (9 commands), unreachable service error handling (9 commands), mock gRPC server tests for all UpdateService RPCs (install-adapter with/without checksum, list-adapters, remove-adapter, adapter-status, adapter-status NOT_FOUND, watch-adapters streaming), mock gRPC server tests for all ParkingAdapter RPCs (start-session, stop-session, stop-session NOT_FOUND, get-status with/without session-id, get-rate), gRPC error propagation (3 tests), full workflow integration test, dialGRPC tests, and requirement traceability tests (04-REQ-7.1, 04-REQ-7.2)
+
+---
+
+## Session 14
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 9
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 9 (Integration Tests) for specification 04_qm_partition. Created `tests/test_parking_e2e.sh`, a comprehensive bash-based integration test script covering: (9.1) test harness with infrastructure checks and graceful skip when Kuksa is unavailable, (9.2) end-to-end session flow via lock/unlock commands through the full pipeline (mock-sensors → LOCKING_SERVICE → Kuksa → PARKING_OPERATOR_ADAPTOR → mock PARKING_OPERATOR), (9.3) adapter lifecycle via parking-app-cli (install → list → status → remove), and (9.4) offloading timer verification. Added `test-parking-e2e` Makefile target. All 21 tests pass with infrastructure; suite skips cleanly without it.
+
+### Files Changed
+
+- Added: `tests/test_parking_e2e.sh`
+- Modified: `Makefile`
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- `tests/test_parking_e2e.sh`: 21 integration tests covering infrastructure check (04-REQ-8.E1), session flow lock→start (04-REQ-8.1, Property 1, Property 8), session flow unlock→stop with fee calculation (04-REQ-8.2, Property 7), adapter lifecycle install/list/status/remove via CLI (04-REQ-8.3), and offloading timer verification (04-REQ-8.4, Property 5). Tests skip cleanly when Kuksa Databroker or podman is unavailable.
