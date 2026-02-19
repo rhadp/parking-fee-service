@@ -217,8 +217,8 @@ This plan implements the QM partition services in dependency order:
     - [x] Persistence round-trip verified
     - [x] Requirements 04-REQ-3.4, 04-REQ-3.5, 04-REQ-4.6 met
 
-- [ ] 6. UPDATE_SERVICE: Podman, Offloading, and gRPC Server
-  - [ ] 6.1 Create podman CLI wrapper
+- [x] 6. UPDATE_SERVICE: Podman, Offloading, and gRPC Server
+  - [x] 6.1 Create podman CLI wrapper
     - Create `rhivos/update-service/src/podman.rs`
     - Trait-based design for testability (mock command executor)
     - `create_and_start(name, image, env_vars, network)` → podman create + start
@@ -227,7 +227,7 @@ This plan implements the QM partition services in dependency order:
     - `list(prefix)` → podman ps with filter
     - _Requirements: 04-REQ-3.1, 04-REQ-3.3_
 
-  - [ ] 6.2 Create offload timer manager
+  - [x] 6.2 Create offload timer manager
     - Create `rhivos/update-service/src/offload.rs`
     - `OffloadManager` with configurable timeout (default: 5 minutes)
     - `start_timer(adapter_id, callback)` → start tokio timer
@@ -236,7 +236,7 @@ This plan implements the QM partition services in dependency order:
     - _Requirements: 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.3, 04-REQ-5.4,
       04-REQ-5.E1_
 
-  - [ ] 6.3 Create gRPC server
+  - [x] 6.3 Create gRPC server
     - Create `rhivos/update-service/src/grpc_server.rs`
     - Implement `UpdateService` from `update_service.proto`
     - `InstallAdapter`: create container via podman, transition UNKNOWN →
@@ -254,14 +254,14 @@ This plan implements the QM partition services in dependency order:
       04-REQ-4.5, 04-REQ-3.1, 04-REQ-3.2, 04-REQ-3.3, 04-REQ-3.6,
       04-REQ-3.E1, 04-REQ-3.E2, 04-REQ-3.E3, 04-REQ-4.E1, 04-REQ-4.E2_
 
-  - [ ] 6.4 Wire up main.rs
+  - [x] 6.4 Wire up main.rs
     - Replace spec 01 skeleton with real implementation
     - Initialize: config → load persisted state → reconcile with podman ps →
       start gRPC server → run offload timers for adapters with ended sessions
     - Graceful shutdown: stop offload timers, persist final state
     - _Requirements: 04-REQ-3.6, 04-REQ-4.1_
 
-  - [ ] 6.5 Write unit tests
+  - [x] 6.5 Write unit tests
     - Podman wrapper: mock command executor, verify correct CLI invocations
     - Offload timer: use `tokio::time::pause()` to control time, verify timer
       fires after timeout, verify cancellation prevents firing
@@ -275,10 +275,10 @@ This plan implements the QM partition services in dependency order:
     - **Validates: 04-REQ-3.1–3.6, 04-REQ-3.E1–3.E3, 04-REQ-4.1–4.5,
       04-REQ-4.E1–4.E2, 04-REQ-5.1–5.4, 04-REQ-5.E1**
 
-  - [ ] 6.V Verify task group 6
-    - [ ] `cargo test -p update-service` passes all tests
-    - [ ] `cargo clippy -p update-service -- -D warnings` clean
-    - [ ] Requirements 04-REQ-3.1–3.6, 04-REQ-4.1–4.6, 04-REQ-5.1–5.4 met
+  - [x] 6.V Verify task group 6
+    - [x] `cargo test -p update-service` passes all tests
+    - [x] `cargo clippy -p update-service -- -D warnings` clean
+    - [x] Requirements 04-REQ-3.1–3.6, 04-REQ-4.1–4.6, 04-REQ-5.1–5.4 met
 
 - [ ] 7. Checkpoint — UPDATE_SERVICE Complete
   - UPDATE_SERVICE state machine, podman, offloading, gRPC all working

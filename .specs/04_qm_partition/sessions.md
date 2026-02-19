@@ -150,3 +150,31 @@ Implemented task group 5 (UPDATE_SERVICE: State Machine and Persistence) for spe
 
 - `rhivos/update-service/src/config.rs`: 14 tests covering config defaults, custom args, clone/debug, duration parsing (minutes, seconds, hours, plain number, invalid), and offload_duration conversion
 - `rhivos/update-service/src/state.rs`: 56 tests covering valid/invalid state transitions, AdapterState display/serde/proto conversion, AdapterConfig env vars/serde, AdapterEntry transition chains/serde/proto, AdapterStore CRUD/persistence/lifecycle, and exhaustive property-based tests for state machine integrity and persistence round-trips
+
+---
+
+## Session 11
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 6
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 6 (UPDATE_SERVICE: Podman, Offloading, and gRPC Server) for specification 04_qm_partition. Created three new modules: `podman.rs` (trait-based container runtime abstraction with PodmanRunner for real CLI and MockContainerRuntime for tests), `offload.rs` (OffloadManager with configurable timeout, timer start/cancel/cancel_all), and `grpc_server.rs` (full UpdateService gRPC implementation with InstallAdapter, RemoveAdapter, ListAdapters, GetAdapterStatus, WatchAdapterStates, state reconciliation, and broadcast-based event streaming). Replaced the stub main.rs with real initialization wiring config → store → podman → offload → gRPC server with reconciliation and graceful shutdown. All 103 update-service tests pass, full workspace clean, clippy clean.
+
+### Files Changed
+
+- Added: `rhivos/update-service/src/podman.rs`
+- Added: `rhivos/update-service/src/offload.rs`
+- Added: `rhivos/update-service/src/grpc_server.rs`
+- Modified: `rhivos/update-service/src/main.rs`
+- Modified: `rhivos/update-service/Cargo.toml`
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/update-service/src/podman.rs`: 7 tests — mock create/start records calls, mock create failure, mock stop/remove, mock is_running for unknown, mock list results, env vars passed correctly, error display formatting
+- `rhivos/update-service/src/offload.rs`: 10 tests — timer fires after timeout, timer does not fire before timeout, cancel prevents firing, cancel nonexistent returns false, replace timer cancels old, cancel all stops all timers, multiple adapters independent timers, offload manager timeout getter, offload manager debug
+- `rhivos/update-service/src/grpc_server.rs`: 14 tests — notifier broadcasts events, notifier no subscriber no panic, install adapter creates container, install adapter passes env vars, install adapter already running returns existing, install adapter podman failure sets error, list adapters empty, list adapters with entries, get adapter status found, get adapter status not found, remove adapter stops and removes, remove adapter not found, watch adapter states receives events, reconcile running container stays running, reconcile dead container transitions to error
