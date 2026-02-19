@@ -178,14 +178,14 @@ This plan implements the QM partition services in dependency order:
   - Mock PARKING_OPERATOR and PARKING_OPERATOR_ADAPTOR both working
   - Commit and verify clean state
 
-- [ ] 5. UPDATE_SERVICE: State Machine and Persistence
-  - [ ] 5.1 Create config module
+- [x] 5. UPDATE_SERVICE: State Machine and Persistence
+  - [x] 5.1 Create config module
     - Create `rhivos/update-service/src/config.rs`
     - Parse env vars / CLI flags: `LISTEN_ADDR` (default: `0.0.0.0:50053`),
       `DATA_DIR` (default: `./data`), `OFFLOAD_TIMEOUT` (default: `5m`)
     - _Requirements: 04-REQ-4.6_
 
-  - [ ] 5.2 Create adapter state machine
+  - [x] 5.2 Create adapter state machine
     - Create `rhivos/update-service/src/state.rs`
     - Define `AdapterState` enum: Unknown, Installing, Running, Stopped,
       Error(String), Offloading
@@ -194,13 +194,13 @@ This plan implements the QM partition services in dependency order:
     - Implement `transition()` method that validates and applies transitions
     - _Requirements: 04-REQ-3.4_
 
-  - [ ] 5.3 Create persistence module
+  - [x] 5.3 Create persistence module
     - Persistence in `state.rs` or separate helper
     - Save adapter entries to `{data_dir}/adapters.json`
     - Load on startup, handle missing file gracefully (empty list)
     - _Requirements: 04-REQ-3.5_
 
-  - [ ] 5.4 Write property tests for state machine
+  - [x] 5.4 Write property tests for state machine
     - Valid transitions: verify all edges in the state diagram are accepted
     - Invalid transitions: verify all non-edges are rejected
     - Property-based test: random sequences of transitions, verify only
@@ -210,12 +210,12 @@ This plan implements the QM partition services in dependency order:
     - **Property 6: Persistence Round-Trip**
     - **Validates: 04-REQ-3.4, 04-REQ-3.5**
 
-  - [ ] 5.V Verify task group 5
-    - [ ] `cargo test -p update-service` passes
-    - [ ] `cargo clippy -p update-service -- -D warnings` clean
-    - [ ] All valid state transitions accepted, invalid ones rejected
-    - [ ] Persistence round-trip verified
-    - [ ] Requirements 04-REQ-3.4, 04-REQ-3.5, 04-REQ-4.6 met
+  - [x] 5.V Verify task group 5
+    - [x] `cargo test -p update-service` passes
+    - [x] `cargo clippy -p update-service -- -D warnings` clean
+    - [x] All valid state transitions accepted, invalid ones rejected
+    - [x] Persistence round-trip verified
+    - [x] Requirements 04-REQ-3.4, 04-REQ-3.5, 04-REQ-4.6 met
 
 - [ ] 6. UPDATE_SERVICE: Podman, Offloading, and gRPC Server
   - [ ] 6.1 Create podman CLI wrapper
