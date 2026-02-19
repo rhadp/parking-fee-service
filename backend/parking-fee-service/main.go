@@ -1,30 +1,37 @@
-// Package main implements the parking-fee-service skeleton.
+// Package main implements the PARKING_FEE_SERVICE.
 //
-// This service provides a REST API for parking fee operations. In this
-// skeleton, all endpoints return HTTP 501 (Not Implemented).
+// This service provides a REST API for parking zone discovery and adapter
+// metadata retrieval. On startup it loads hardcoded demo zone data with
+// realistic Munich geofence polygons and serves zone lookup, zone details,
+// and adapter metadata endpoints.
 package main
 
 import (
 	"context"
 	"flag"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/api"
+	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/zones"
 )
 
 func main() {
-	listenAddr := flag.String("listen-addr", envOrDefault("LISTEN_ADDR", ":8080"), "Address to listen on")
+	listenAddr := flag.String("listen-addr", envOrDefault("LISTEN_ADDR", ":8080"), "REST listen address")
 	flag.Parse()
 
-	mux := newServeMux()
+	// Load seed zone data into the in-memory store.
+	store := zones.LoadSeedData()
+
+	mux := newServeMux(store)
 
 	srv := &http.Server{
 		Addr:    *listenAddr,
-		Handler: mux,
+		Handler: api.LoggingMiddleware(mux),
 	}
 
 	// Channel to listen for OS signals.
@@ -33,54 +40,35 @@ func main() {
 
 	// Start server in a goroutine.
 	go func() {
-		log.Printf("parking-fee-service starting on %s", *listenAddr)
+		slog.Info("parking-fee-service starting", "addr", *listenAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("parking-fee-service failed to start: %v", err)
+			slog.Error("parking-fee-service failed to start", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	// Wait for signal.
 	sig := <-sigCh
-	log.Printf("parking-fee-service received signal %v, shutting down", sig)
+	slog.Info("parking-fee-service received signal, shutting down", "signal", sig)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("parking-fee-service shutdown error: %v", err)
+		slog.Error("parking-fee-service shutdown error", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("parking-fee-service stopped")
+	slog.Info("parking-fee-service stopped")
 }
 
-// newServeMux creates the HTTP mux with all stub routes.
-func newServeMux() *http.ServeMux {
+// newServeMux creates the HTTP mux with all routes registered via the api
+// package handler.
+func newServeMux(store *zones.Store) *http.ServeMux {
 	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("POST /api/v1/operators/lookup", stubHandler("POST /api/v1/operators/lookup"))
-	mux.HandleFunc("GET /api/v1/adapters/{id}", stubHandler("GET /api/v1/adapters/{id}"))
-	mux.HandleFunc("POST /api/v1/sessions", stubHandler("POST /api/v1/sessions"))
-	mux.HandleFunc("DELETE /api/v1/sessions/{id}", stubHandler("DELETE /api/v1/sessions/{id}"))
-	mux.HandleFunc("GET /api/v1/sessions/{id}/fee", stubHandler("GET /api/v1/sessions/{id}/fee"))
-
+	h := api.NewHandler(store)
+	h.RegisterRoutes(mux)
 	return mux
-}
-
-// handleHealthz returns a 200 OK for health checks.
-func handleHealthz(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, `{"status":"ok"}`)
-}
-
-// stubHandler returns an HTTP 501 handler for unimplemented endpoints.
-func stubHandler(route string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotImplemented)
-		fmt.Fprintf(w, `{"error":"not implemented","route":%q}`+"\n", route)
-	}
 }
 
 // envOrDefault returns the value of the given environment variable, or the

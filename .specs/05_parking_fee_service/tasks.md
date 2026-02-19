@@ -114,8 +114,8 @@ beyond the standard library. All zone data is hardcoded.
     - [x] Location matching correct for inside, fuzzy, and no-match cases
     - [x] Results sorted by distance
 
-- [ ] 3. REST API Handlers
-  - [ ] 3.1 Create REST handlers
+- [x] 3. REST API Handlers
+  - [x] 3.1 Create REST handlers
     - Create `backend/parking-fee-service/api/handlers.go`
     - `GET /healthz` → 200 `{}`
     - `GET /api/v1/zones?lat=X&lon=Y` → parse params, call
@@ -129,14 +129,14 @@ beyond the standard library. All zone data is hardcoded.
       05-REQ-2.2, 05-REQ-2.E1, 05-REQ-3.1, 05-REQ-3.2, 05-REQ-3.E1,
       05-REQ-5.2, 05-REQ-5.4_
 
-  - [ ] 3.2 Wire up main.go
+  - [x] 3.2 Wire up main.go
     - Replace spec 01 skeleton with real implementation
     - Parse config: `--listen-addr` (default `:8080`)
     - Initialize: seed data → store → register routes → start HTTP server
     - Graceful shutdown on SIGINT/SIGTERM
     - _Requirements: 05-REQ-5.1, 05-REQ-5.3_
 
-  - [ ] 3.3 Write handler unit tests
+  - [x] 3.3 Write handler unit tests
     - Use `httptest.Server` for all endpoint tests
     - Zone lookup: valid coords → 200 with zones, no match → 200 empty array,
       missing lat → 400, invalid lon → 400
@@ -147,12 +147,12 @@ beyond the standard library. All zone data is hardcoded.
     - **Validates: 05-REQ-1.1, 05-REQ-1.E1, 05-REQ-1.E2, 05-REQ-2.1,
       05-REQ-2.E1, 05-REQ-3.1, 05-REQ-3.E1, 05-REQ-5.1, 05-REQ-5.2**
 
-  - [ ] 3.V Verify task group 3
-    - [ ] `cd backend/parking-fee-service && go test ./...` passes
-    - [ ] `go vet ./...` clean
-    - [ ] `go build` produces binary
-    - [ ] All REST endpoints return correct responses
-    - [ ] Requirements 05-REQ-1.1, 05-REQ-2.1, 05-REQ-3.1, 05-REQ-5.1–5.4 met
+  - [x] 3.V Verify task group 3
+    - [x] `cd backend/parking-fee-service && go test ./...` passes
+    - [x] `go vet ./...` clean
+    - [x] `go build` produces binary
+    - [x] All REST endpoints return correct responses
+    - [x] Requirements 05-REQ-1.1, 05-REQ-2.1, 05-REQ-3.1, 05-REQ-5.1–5.4 met
 
 - [ ] 4. Checkpoint — PARKING_FEE_SERVICE Complete
   - All geo utilities, zone store, and REST handlers working
