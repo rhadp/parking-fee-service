@@ -2,7 +2,8 @@
 
 ## Architecture
 
-- The project has three main technology domains: Go backend services (`backend/`), Rust RHIVOS services (`rhivos/`), and Go mock CLI tools (`mock/`).
+- The project has four main technology domains: Go backend services (`backend/`), Rust RHIVOS services (`rhivos/`), Go mock CLI tools (`mock/`), and the Android PARKING_APP (`android/parking-app/`).
+- The PARKING_APP lives at `android/parking-app/`, not `aaos/parking-app/` as the design doc specifies, because the repo had a pre-existing `android/` directory structure. Uses AGP 9.0.1 with Gradle 9.1 and built-in Kotlin 2.2.10 support; the `org.jetbrains.kotlin.android` plugin is NOT applied since AGP 9.0 provides it automatically.
 - The QM partition (04_qm_partition) consists of two Rust services (`parking-operator-adaptor`, `update-service`), one Go mock REST backend (`mock/parking-operator`), and one Go CLI tool (`mock/parking-app-cli`).
 - The vehicle-to-cloud pipeline has 5 components: COMPANION_APP CLI (Go REST client) → CLOUD_GATEWAY (Go REST+MQTT server) → Mosquitto MQTT broker → CLOUD_GATEWAY_CLIENT (Rust MQTT+gRPC client) → Kuksa DATA_BROKER (gRPC) → LOCKING_SERVICE (Rust gRPC).
 - The on-vehicle session flow pipeline is: mock-sensors → Kuksa (`Vehicle.Command.Door.Lock`) → LOCKING_SERVICE → Kuksa (`Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`) → PARKING_OPERATOR_ADAPTOR → mock PARKING_OPERATOR REST API → Kuksa (`Vehicle.Parking.SessionActive`).
@@ -49,6 +50,8 @@
 - Parking-fee-service REST responses use `Content-Type: application/json`. Error responses use `{"error": "...", "code": "..."}` format with codes like `BAD_REQUEST`, `NOT_FOUND`.
 - Parking-fee-service logging uses `log/slog` structured logging; each handler logs its request, and a `LoggingMiddleware` wraps the entire mux for production use.
 - HTTP routing in Go mock servers and the parking-fee-service uses Go 1.22+ method-based patterns in `http.ServeMux.HandleFunc` (e.g., `"POST /parking/start"`, `"GET /zones"`).
+- Proto files for the Android app are shared via symlinks from `android/parking-app/app/src/main/proto/` to the repo root `proto/` directory, avoiding duplication while keeping the default protobuf-gradle-plugin source layout.
+- The Android project uses `protobuf-javalite` (not `protobuf-kotlin-lite`) because the Kuksa proto package `kuksa.val.v2` contains `val`, a Kotlin keyword that breaks Kotlin protobuf codegen. Java-lite classes are used directly from Kotlin.
 - Binary names are added to `.gitignore` to prevent committing build artifacts.
 - The `run()` function pattern takes `io.Writer` params for stdout/stderr to enable testability without capturing `os.Stdout`.
 - Config is read from env vars first, then overridden by CLI flags; the `envOrDefault` helper is the standard pattern.
@@ -104,6 +107,9 @@
 - We use `json.RawMessage` in the parking-app-cli REST response handling (not typed structs) because the CLI only needs to pretty-print the JSON, not interpret individual fields.
 - The `httpClient` in parking-app-cli is a package-level variable to allow test injection if needed, though current tests use `httptest.Server` which works with the default client.
 - All 3 demo zones use the same adapter image (`localhost/parking-operator-adaptor:latest`) with different checksums. In production, different operators would have different adapters.
+- We use AGP 9.0.1 (not 8.7.3) because only Java 25 is available on the build machine, which requires Gradle 9.1+.
+- We set `android.newDsl=false` in `gradle.properties` because protobuf-gradle-plugin 0.9.6 relies on `BaseExtension` which was removed in AGP 9.0's new DSL mode. Temporary — must be addressed before AGP 10.0.
+- We upgraded protobuf from 3.25.3 to 4.29.4 and gRPC from 1.62.2 to 1.68.2 for Kotlin 2.2 compatibility.
 
 ## Fragile Areas
 
@@ -127,6 +133,9 @@
 - The flat-plane projection in `distanceToSegment` (parking-fee-service geo package) loses accuracy for very large polygons or near-polar coordinates. Acceptable for Munich-scale demo data.
 - When updating parking-fee-service `main.go`, the `main_test.go` tests must be updated in tandem since `newServeMux` signature changes (now takes `*zones.Store`).
 - Go 1.22+ ServeMux correctly routes `/zones/{zone_id}/adapter` to its own handler before matching `/zones/{zone_id}`, so no guard code is needed in the zone details handler.
+- The `android.newDsl=false` flag is deprecated and will be removed in AGP 10.0. When protobuf-gradle-plugin ships AGP 9 support, this flag should be removed.
+- Kotlin protobuf extensions cannot be generated for any proto with `kuksa.val.v2` in its package path. All Android client code must use Java-lite protobuf classes directly.
+- The Android Gradle wrapper files (`gradlew`, `gradle/`) are in `.gitignore` and must be regenerated when cloning. The `settings.gradle.kts` and `build.gradle.kts` files are tracked.
 
 ## Failed Approaches
 
@@ -134,6 +143,9 @@
 - Using `"${PIDS_TO_KILL[@]}"` with `set -u` (nounset) when the array is empty causes an "unbound variable" error in bash. Must guard with `${#PIDS_TO_KILL[@]} -gt 0` check first.
 - Using `set -euo pipefail` in integration tests caused the script to abort on the first non-zero exit from gRPC CLI calls (e.g., connection timeout). Removed `-e` to handle errors explicitly per assertion.
 - The mock-sensors output polluted test output when stderr was not redirected. Fixed by redirecting both stdout and stderr to `/dev/null` with `>/dev/null 2>&1`.
+- Attempted to use `android.sourceSets.main.proto.srcDir(...)` in Kotlin DSL to point at repo root protos. The `proto` accessor is not available in Kotlin DSL with AGP 9.0 even with `newDsl=false`; symlinks are the workaround.
+- Attempted to use `the<BaseExtension>().sourceSets` to access proto source dirs. The proto extension is added dynamically by the protobuf plugin and is not visible in the Kotlin DSL type system.
+- Attempted to use `protobuf-kotlin-lite` with `kotlin` builtin. The generated Kotlin code for `map<>` fields uses unescaped `kuksa.val.v2` references causing syntax errors.
 
 ## Open Questions
 
