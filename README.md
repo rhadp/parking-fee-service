@@ -172,7 +172,8 @@ make clean
 | `make infra-up` | Start local Kuksa Databroker and Mosquitto |
 | `make infra-down` | Stop and remove infrastructure containers |
 | `make infra-status` | Show infrastructure container status |
-| `make test-e2e` | Run end-to-end integration tests (requires `make infra-up`) |
+| `make test-e2e` | Run cloud connectivity E2E tests (requires `make infra-up`) |
+| `make test-parking-e2e` | Run QM partition parking E2E tests (requires `make infra-up`) |
 | `make build-containers` | Build OCI container images for all services |
 | `make check-tools` | Verify all required development tools are installed |
 
@@ -186,6 +187,7 @@ make clean
 | parking-operator-adaptor | 50054 | gRPC |
 | parking-fee-service | 8080 | HTTP/REST |
 | cloud-gateway | 8081 | HTTP/REST |
+| mock parking-operator | 8082 | HTTP/REST |
 | Kuksa Databroker (infra) | 55555 | gRPC |
 | Mosquitto (infra) | 1883 | MQTT |
 
@@ -215,6 +217,24 @@ Flags:
   --update-service-addr   Address of UpdateService (default: localhost:50053)
   --adapter-addr          Address of ParkingAdapter (default: localhost:50054)
 ```
+
+### mock parking-operator
+
+Simulates a parking operator REST backend for testing the PARKING_OPERATOR_ADAPTOR:
+
+```bash
+mock/parking-operator/parking-operator [flags]
+
+Flags:
+  -listen-addr    Address to listen on (default: :8082)
+  -rate-type      Rate type: per_minute or flat (default: per_minute)
+  -rate-amount    Rate amount per unit (default: 0.05)
+  -currency       Currency code (default: EUR)
+  -zone-id        Zone identifier (default: zone-1)
+```
+
+See [docs/parking-operator-api.md](docs/parking-operator-api.md) for the full
+REST API documentation.
 
 ### companion-app-cli
 
@@ -286,13 +306,19 @@ Generated Go bindings are committed under `proto/gen/go/`. Rust bindings are gen
 | cloud-gateway-client | **Implemented** | MQTT-Kuksa bridge with command processing and telemetry |
 | cloud-gateway | **Implemented** | REST API + MQTT gateway with pairing and auth |
 | companion-app-cli | **Implemented** | CLI for pairing, lock/unlock, and status queries |
-| update-service | Skeleton | Returns `UNIMPLEMENTED` for all RPCs |
-| parking-operator-adaptor | Skeleton | Returns `UNIMPLEMENTED` for all RPCs |
+| update-service | **Implemented** | Container lifecycle manager with offloading |
+| parking-operator-adaptor | **Implemented** | Event-driven parking session management |
+| parking-app-cli | **Implemented** | gRPC CLI for adapter and session management |
+| mock parking-operator | **Implemented** | Mock REST parking operator backend |
 | parking-fee-service | Skeleton | Returns HTTP 501 |
 
 The **locking-service** subscribes to `Vehicle.Command.Door.Lock` via Kuksa Databroker, validates commands against vehicle speed and door state, and writes `IsLocked` and `LockResult` signals. See [docs/vss-signals.md](docs/vss-signals.md) for custom VSS signal definitions.
 
 The **cloud-gateway** and **cloud-gateway-client** form the vehicle-to-cloud connectivity layer. The cloud-gateway exposes a REST API for companion apps and communicates with vehicles via MQTT. The cloud-gateway-client bridges MQTT commands to Kuksa DATA_BROKER signals and publishes telemetry. See [docs/mqtt-protocol.md](docs/mqtt-protocol.md) for MQTT topic and message documentation, and [docs/vehicle-pairing.md](docs/vehicle-pairing.md) for the pairing flow.
+
+The **parking-operator-adaptor** subscribes to `IsLocked` events via Kuksa Databroker and automatically starts/stops parking sessions with the configured PARKING_OPERATOR. It also exposes a gRPC interface for manual session control and rate queries. See [docs/parking-operator-api.md](docs/parking-operator-api.md) for the mock operator's REST API.
+
+The **update-service** manages adapter container lifecycle via podman, including installation, removal, state tracking, persistence, and automatic offloading of unused adapters. See [docs/adapter-lifecycle.md](docs/adapter-lifecycle.md) for the state machine, offloading behavior, and configuration.
 
 ## License
 

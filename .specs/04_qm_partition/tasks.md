@@ -368,29 +368,29 @@ This plan implements the QM partition services in dependency order:
     - [x] Tests skip cleanly when infrastructure is unavailable
     - [x] Requirements 04-REQ-8.1–8.4 acceptance criteria met
 
-- [ ] 10. Final Verification and Documentation
-  - [ ] 10.1 Run full test suite
+- [x] 10. Final Verification and Documentation
+  - [x] 10.1 Run full test suite
     - `make build && make test && make lint`
     - Verify no regressions in specs 01, 02, and 03 tests
     - _Requirements: all_
 
-  - [ ] 10.2 Run integration tests
+  - [x] 10.2 Run integration tests
     - Start all infrastructure and services
     - Run all integration tests (session flow + lifecycle + offloading)
     - Verify all pass
 
-  - [ ] 10.3 Update documentation
+  - [x] 10.3 Update documentation
     - Document mock PARKING_OPERATOR REST API in `docs/parking-operator-api.md`
     - Document adapter lifecycle and offloading in `docs/adapter-lifecycle.md`
     - Update README if needed
 
-  - [ ] 10.V Verify task group 10
-    - [ ] `make build` succeeds
-    - [ ] `make test` passes
-    - [ ] `make lint` clean
-    - [ ] Integration tests pass
-    - [ ] No regressions from specs 01, 02, and 03
-    - [ ] All 04-REQ requirements verified
+  - [x] 10.V Verify task group 10
+    - [x] `make build` succeeds
+    - [x] `make test` passes
+    - [x] `make lint` clean
+    - [x] Integration tests pass
+    - [x] No regressions from specs 01, 02, and 03
+    - [x] All 04-REQ requirements verified
 
 ### Checkbox States
 

@@ -53,8 +53,8 @@ the standard VSS model with demo-specific signals.
 | **Type** | sensor |
 | **Datatype** | boolean |
 | **Description** | Whether a parking session is currently active. |
-| **Written by** | PARKING_OPERATOR_ADAPTOR (future) |
-| **Read by** | PARKING_APP (future) |
+| **Written by** | PARKING_OPERATOR_ADAPTOR |
+| **Read by** | PARKING_APP (parking-app-cli), CLOUD_GATEWAY_CLIENT (telemetry) |
 
 ## LockResult Values
 
