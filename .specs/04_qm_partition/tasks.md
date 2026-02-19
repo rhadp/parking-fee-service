@@ -284,8 +284,8 @@ This plan implements the QM partition services in dependency order:
   - UPDATE_SERVICE state machine, podman, offloading, gRPC all working
   - Commit and verify clean state
 
-- [ ] 8. Mock PARKING_APP CLI
-  - [ ] 8.1 Implement UPDATE_SERVICE subcommands
+- [x] 8. Mock PARKING_APP CLI
+  - [x] 8.1 Implement UPDATE_SERVICE subcommands
     - Replace spec 01 skeleton `mock/parking-app-cli/main.go` with real
       implementation
     - `install-adapter --image-ref <ref> [--checksum <sha>]` → gRPC
@@ -295,7 +295,7 @@ This plan implements the QM partition services in dependency order:
     - `adapter-status --adapter-id <id>` → gRPC GetAdapterStatus, print info
     - _Requirements: 04-REQ-7.1_
 
-  - [ ] 8.2 Implement PARKING_OPERATOR_ADAPTOR subcommands
+  - [x] 8.2 Implement PARKING_OPERATOR_ADAPTOR subcommands
     - `start-session --zone-id <zone> --vehicle-vin <vin>` → gRPC
       StartSession, print session info
     - `stop-session --session-id <id>` → gRPC StopSession, print fee summary
@@ -303,29 +303,29 @@ This plan implements the QM partition services in dependency order:
     - `get-rate --zone-id <zone>` → gRPC GetRate, print rate info
     - _Requirements: 04-REQ-7.2_
 
-  - [ ] 8.3 Implement watch-adapters streaming
+  - [x] 8.3 Implement watch-adapters streaming
     - `watch-adapters` → gRPC WatchAdapterStates server stream
     - Print each `AdapterStateEvent` as it arrives, until SIGINT
     - _Requirements: 04-REQ-7.3_
 
-  - [ ] 8.4 Add flags and error handling
+  - [x] 8.4 Add flags and error handling
     - Global flags: `--update-service-addr` (default: `localhost:50053`),
       `--adapter-addr` (default: `localhost:50054`)
     - Service unreachable → print error, exit non-zero
     - _Requirements: 04-REQ-7.4, 04-REQ-7.E1_
 
-  - [ ] 8.5 Write tests
+  - [x] 8.5 Write tests
     - Argument parsing for each subcommand
     - gRPC request construction (use a mock gRPC server or verify call params)
     - Error handling: unreachable service → non-zero exit
     - **Validates: 04-REQ-7.1, 04-REQ-7.2, 04-REQ-7.3, 04-REQ-7.4,
       04-REQ-7.E1**
 
-  - [ ] 8.V Verify task group 8
-    - [ ] `cd mock/parking-app-cli && go test ./...` passes
-    - [ ] `cd mock/parking-app-cli && go vet ./...` clean
-    - [ ] `parking-app-cli --help` shows all subcommands
-    - [ ] Requirements 04-REQ-7.1–7.4, 04-REQ-7.E1 met
+  - [x] 8.V Verify task group 8
+    - [x] `cd mock/parking-app-cli && go test ./...` passes
+    - [x] `cd mock/parking-app-cli && go vet ./...` clean
+    - [x] `parking-app-cli --help` shows all subcommands
+    - [x] Requirements 04-REQ-7.1–7.4, 04-REQ-7.E1 met
 
 - [ ] 9. Integration Tests
   - [ ] 9.1 Create integration test harness
