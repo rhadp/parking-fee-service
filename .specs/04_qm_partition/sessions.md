@@ -80,3 +80,26 @@ Implemented task group 3 (PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Server
 - `rhivos/parking-operator-adaptor/src/lock_watcher.rs`: 6 tests — lock event starts session, unlock event stops session, duplicate lock ignored, duplicate unlock ignored, operator unreachable does not set SessionActive, session active signal accuracy (Property 1, 2, 8)
 - `rhivos/parking-operator-adaptor/src/grpc_server.rs`: 9 tests — start session creates session, start session while active returns existing, stop session completes session, stop session unknown ID returns NOT_FOUND, get status returns active session, get status no session returns NOT_FOUND, get status empty session_id returns current, get rate returns rate info, get rate with empty zone uses config
 - `rhivos/parking-operator-adaptor/src/main.rs`: 2 tests (reduced from 6 — removed stub UNIMPLEMENTED tests, kept config parsing tests)
+
+---
+
+## Session 8
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 3
+- **Date:** 2026-02-19
+
+### Summary
+
+Strengthened task group 3 (PARKING_OPERATOR_ADAPTOR: Lock Watcher and gRPC Server) test coverage for specification 04_qm_partition. Added 10 comprehensive integration-style tests using mock Kuksa VAL gRPC servers and wiremock HTTP mocks to exercise `handle_lock_event` and gRPC server methods end-to-end. New tests verify Properties 1 (Event-Session Invariant), 2 (Session Idempotency), and 8 (SessionActive Signal Accuracy) by asserting correct `PublishValue` calls to DATA_BROKER. All 61 adaptor tests pass, full workspace clean, clippy clean with no warnings.
+
+### Files Changed
+
+- Modified: `rhivos/parking-operator-adaptor/src/lock_watcher.rs`
+- Modified: `rhivos/parking-operator-adaptor/src/grpc_server.rs`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/parking-operator-adaptor/src/lock_watcher.rs`: Added 7 integration-style tests — `lock_event_starts_session_and_sets_signal`, `unlock_event_stops_session_and_clears_signal`, `duplicate_lock_event_does_not_call_operator`, `unlock_no_session_does_not_call_operator`, `operator_error_on_start_does_not_set_signal`, `full_lock_unlock_cycle_writes_correct_signals`, `second_lock_after_complete_starts_new_session`. All use mock Kuksa VAL gRPC server + wiremock HTTP mocks.
+- `rhivos/parking-operator-adaptor/src/grpc_server.rs`: Added 3 tests — `start_session_writes_session_active_true`, `stop_session_writes_session_active_false`, `start_session_while_active_does_not_write_kuksa`. All use mock Kuksa VAL gRPC server to verify SessionActive signal writes.
