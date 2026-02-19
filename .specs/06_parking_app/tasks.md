@@ -64,22 +64,22 @@ This plan implements the PARKING_APP Android application in dependency order:
       val.v2 are available
     - [x] Requirements 06-REQ-6.1, 06-REQ-6.2 met
 
-- [ ] 2. Service Clients
-  - [ ] 2.1 Create DataBrokerClient
+- [x] 2. Service Clients
+  - [x] 2.1 Create DataBrokerClient
     - Create `data/DataBrokerClient.kt`
     - `getLocation(): Location?` — reads CurrentLocation.Lat/Lon from Kuksa
     - `subscribeSessionActive(): Flow<Boolean>` — streams SessionActive
     - Use `VALGrpcKt.VALCoroutineStub` from generated Kuksa protos
     - _Requirements: 06-REQ-1.1, 06-REQ-3.1, 06-REQ-4.1_
 
-  - [ ] 2.2 Create ParkingFeeServiceClient
+  - [x] 2.2 Create ParkingFeeServiceClient
     - Create `data/ParkingFeeServiceClient.kt`
     - `lookupZones(lat, lon): List<ZoneMatch>` — GET /api/v1/zones
     - `getZoneAdapter(zoneId): AdapterMetadata` — GET /zones/{id}/adapter
     - Use OkHttp + kotlinx.serialization for JSON parsing
     - _Requirements: 06-REQ-1.2, 06-REQ-1.4, 06-REQ-4.2_
 
-  - [ ] 2.3 Create UpdateServiceClient and ParkingAdapterClient
+  - [x] 2.3 Create UpdateServiceClient and ParkingAdapterClient
     - Create `data/UpdateServiceClient.kt`
     - `installAdapter(imageRef, checksum): InstallAdapterResponse`
     - `watchAdapterStates(): Flow<AdapterStateEvent>`
@@ -88,13 +88,13 @@ This plan implements the PARKING_APP Android application in dependency order:
     - Use generated gRPC Kotlin stubs
     - _Requirements: 06-REQ-1.4, 06-REQ-2.1, 06-REQ-3.2, 06-REQ-4.1_
 
-  - [ ] 2.4 Create data model classes
+  - [x] 2.4 Create data model classes
     - Create `model/Models.kt`
     - `Location`, `ZoneMatch`, `AdapterMetadata`, `SessionInfo`
     - JSON serialization annotations for REST response models
     - _Requirements: 06-REQ-1.3 (prerequisite)_
 
-  - [ ] 2.5 Write service client unit tests
+  - [x] 2.5 Write service client unit tests
     - DataBrokerClient: grpc-testing InProcessServer, verify Get and
       Subscribe calls
     - ParkingFeeServiceClient: MockWebServer (OkHttp), verify URL
@@ -106,11 +106,11 @@ This plan implements the PARKING_APP Android application in dependency order:
     - **Property 2: Adapter Install Trigger** (client correctness)
     - **Validates: 06-REQ-4.1, 06-REQ-4.2, 06-REQ-4.3, 06-REQ-4.E1**
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `./gradlew test` passes all client tests
-    - [ ] All 4 service clients compile and are usable
-    - [ ] Proto-generated stubs are used correctly
-    - [ ] Requirements 06-REQ-4.1–4.3 met
+  - [x] 2.V Verify task group 2
+    - [x] `./gradlew test` passes all client tests
+    - [x] All 4 service clients compile and are usable
+    - [x] Proto-generated stubs are used correctly
+    - [x] Requirements 06-REQ-4.1–4.3 met
 
 - [ ] 3. Checkpoint — Service Clients Complete
   - All service clients working with unit tests

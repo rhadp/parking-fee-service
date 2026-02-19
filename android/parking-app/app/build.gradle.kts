@@ -37,6 +37,12 @@ android {
         compose = true
     }
 
+    @Suppress("UnstableApiUsage")
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 kotlin {
@@ -122,5 +128,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     testImplementation("io.grpc:grpc-testing:1.68.2")
+    testImplementation("io.grpc:grpc-inprocess:1.68.2")
     testImplementation("io.mockk:mockk:1.13.9")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
