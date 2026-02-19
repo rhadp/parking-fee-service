@@ -21,6 +21,7 @@
 - Mock services live under `mock/` with each service as a separate Go module (flat structure: `go.mod`, `main.go`, `main_test.go` in package `main`). The mock PARKING_OPERATOR is a standalone HTTP server that the adaptor's `OperatorClient` communicates with.
 - The `mock/companion-app-cli` is a pure HTTP client — it has no MQTT or Kuksa dependencies, only stdlib `net/http`.
 - The `mock/parking-app-cli` is a Go CLI acting as a gRPC client for UpdateService (port 50053) and ParkingAdapter (port 50054). Global flags (`--update-service-addr`, `--adapter-addr`) support env var fallback (`UPDATE_SERVICE_ADDR`, `ADAPTER_ADDR`); CLI flags take precedence. Uses `grpc.DialContext` with `WithBlock()` and a 5-second timeout for fast failure on unreachable services.
+- **parking-fee-service** (`backend/parking-fee-service/`) is a standalone Go backend using only the standard library (`net/http`, `encoding/json`, `math`, `log/slog`). No external dependencies. The **geo package** (`geo/geo.go`) provides foundational geospatial primitives (`HaversineDistance`, `PointInPolygon`, `DistanceToPolygon`); the zones store and REST handlers depend on it. `main.go` is currently a skeleton with stub routes returning HTTP 501.
 
 ## Conventions
 
@@ -41,7 +42,7 @@
 - Go mock CLIs use `flag` package with env var fallbacks via `envOrDefault()`. The companion-app-cli historically used manual flag parsing but the `flag`+`envOrDefault` pattern is now standard. The parking-app-cli uses kebab-case flags with `--` prefix (e.g., `--vehicle-vin`, `--image-ref`, `--adapter-id`).
 - Go CLI subcommand handlers follow the pattern: parse flags → validate required flags → dial gRPC → make RPC → `printJSON(response)`. JSON output uses `json.MarshalIndent` (proto messages serialize with snake_case field names and numeric enum values).
 - Go test files in `mock/` use `httptest.NewRecorder()` and `httptest.NewRequest()` for handler testing (not `httptest.Server`). CLI tools use `httptest.NewServer` to verify HTTP request construction. gRPC CLI tests use mock `grpc.NewServer()` on random ports to verify request construction and response handling without real services.
-- HTTP routing in Go mock servers uses Go 1.22+ method-based patterns (e.g., `"POST /parking/start"`).
+- HTTP routing in Go mock servers and the parking-fee-service uses Go 1.22+ method-based patterns in `http.ServeMux.HandleFunc` (e.g., `"POST /parking/start"`, `"GET /zones"`).
 - Binary names are added to `.gitignore` to prevent committing build artifacts.
 - The `run()` function pattern takes `io.Writer` params for stdout/stderr to enable testability without capturing `os.Stdout`.
 - Config is read from env vars first, then overridden by CLI flags; the `envOrDefault` helper is the standard pattern.
@@ -82,6 +83,9 @@
 - Signal handling (SIGINT/SIGTERM) was added to `watch-adapters` for graceful gRPC stream termination.
 - Integration tests run the PARKING_OPERATOR_ADAPTOR as a standalone process (not in a container) for session flow tests, avoiding podman dependency for the critical test path. Adapter lifecycle tests (install/remove) do require podman.
 - Tests use non-standard ports (e.g., 50064 for adaptor, 18082 for mock operator) to avoid conflicts with development instances on default ports.
+- `LatLon` is defined in the `geo` package (not `zones`) because it is a fundamental geospatial type shared across packages in the parking-fee-service.
+- Ray-casting for point-in-polygon is sufficient for the demo's simple rectangular polygons. Points exactly on edges may return either true or false — documented and accepted.
+- `distanceToSegment` uses a flat-plane projection to find the closest point on a segment, then Haversine for the actual distance. Accurate enough for short-range parking-zone matching.
 
 ## Fragile Areas
 
@@ -99,6 +103,7 @@
 - The `tokio_stream::wrappers::TcpListenerStream` and `ReceiverStream` types are used in mock Kuksa tests — if `tokio-stream` features change, these tests may need updating.
 - The offload callback runs inside `tokio::spawn` holding `Arc<Mutex<AdapterStore>>` — potential for contention if many timers fire simultaneously.
 - The `find_running_by_image` check in `install_adapter` prevents duplicate containers but relies on the store lock being held; the lock is released before async podman operations, creating a TOCTOU window.
+- The flat-plane projection in `distanceToSegment` (parking-fee-service geo package) loses accuracy for very large polygons or near-polar coordinates. Acceptable for Munich-scale demo data.
 
 ## Failed Approaches
 
@@ -110,4 +115,4 @@
 ## Open Questions
 
 - The `get_rate` endpoint on the mock operator doesn't take a `zone_id` query parameter — it returns the configured rate for whatever zone the server was started with. The `OperatorClient.get_rate()` accepts `zone_id` for future use but currently ignores it in the URL.
-- The `parking-fee-service` backend remains a skeleton (HTTP 501). It is not part of the 04_qm_partition specification.
+- The `parking-fee-service` backend has geo primitives implemented but REST handlers are still stubs (HTTP 501). It is not part of the 04_qm_partition specification.
