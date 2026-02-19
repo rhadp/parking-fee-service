@@ -114,3 +114,26 @@ Implemented task group 5 (Mock PARKING_APP CLI Extensions) for the 05_parking_fe
 ### Tests Added or Modified
 
 - `mock/parking-app-cli/main_test.go`: Added 23 tests covering `--parking-fee-service-addr` flag parsing (default, custom, env var, CLI override, missing value), `lookup-zones` subcommand (mock PFS, empty results, required lat/lon, invalid lat/lon), `zone-info` subcommand (mock PFS, required zone-id, 404 not found), `adapter-info` subcommand (mock PFS, required zone-id, 404 not found), unreachable service error handling, HTTP 400/500 error handling, subcommand recognition, and full discovery workflow.
+
+---
+
+## Session 21
+
+- **Spec:** 05_parking_fee_service
+- **Task Group:** 6
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented integration tests (task group 6) for the PARKING_FEE_SERVICE specification. Created `tests/test_zone_discovery_e2e.sh` — a comprehensive bash-based integration test script covering zone discovery (inside polygon, fuzzy match, empty result), adapter metadata to install flow via UPDATE_SERVICE, and full CLI-driven discovery workflow (lookup-zones → adapter-info → install-adapter → list-adapters → verify state). Added `test-zone-discovery-e2e` Makefile target. All 33 integration tests pass; tests skip cleanly when podman or UPDATE_SERVICE are unavailable.
+
+### Files Changed
+
+- Added: `tests/test_zone_discovery_e2e.sh`
+- Modified: `Makefile`
+- Modified: `.specs/05_parking_fee_service/tasks.md`
+- Modified: `.specs/05_parking_fee_service/sessions.md`
+
+### Tests Added or Modified
+
+- `tests/test_zone_discovery_e2e.sh`: 33 integration test cases covering zone discovery (inside polygon returns zone with distance=0, fuzzy match ~100m returns zone with non-zero distance within 200m, far coordinates return empty array, zone details endpoint, unknown zone 404, adapter metadata endpoint with image_ref/checksum, missing query params return 400), adapter install flow (retrieve metadata from PFS, call InstallAdapter via UPDATE_SERVICE, verify adapter state), and full CLI discovery flow (lookup-zones, adapter-info, install-adapter, list-adapters, adapter-status). Infrastructure-unavailable skip behavior validated for podman and UPDATE_SERVICE.

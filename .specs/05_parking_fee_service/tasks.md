@@ -187,15 +187,15 @@ beyond the standard library. All zone data is hardcoded.
     - [x] All new subcommands appear in `--help`
     - [x] Requirements 05-REQ-6.1–6.4, 05-REQ-6.E1 met
 
-- [ ] 6. Integration Tests
-  - [ ] 6.1 Test zone discovery
+- [x] 6. Integration Tests
+  - [x] 6.1 Test zone discovery
     - Start PARKING_FEE_SERVICE
     - Lookup with Marienplatz coordinates → verify zone returned
     - Lookup with coordinates 100m from Olympiapark → verify fuzzy match
     - Lookup with coordinates far from all zones → verify empty result
     - _Requirements: 05-REQ-7.1, 05-REQ-7.2_
 
-  - [ ] 6.2 Test adapter metadata to install flow
+  - [x] 6.2 Test adapter metadata to install flow
     - Start PARKING_FEE_SERVICE + UPDATE_SERVICE (requires podman)
     - Get adapter metadata from PFS
     - Call UPDATE_SERVICE InstallAdapter with returned image_ref/checksum
@@ -203,18 +203,18 @@ beyond the standard library. All zone data is hardcoded.
     - Skip if UPDATE_SERVICE or podman unavailable
     - _Requirements: 05-REQ-7.3_
 
-  - [ ] 6.3 Test full discovery flow via CLI
+  - [x] 6.3 Test full discovery flow via CLI
     - Use parking-app-cli to: `lookup-zones` → `adapter-info` →
       `install-adapter` → `list-adapters` → verify RUNNING
     - End-to-end validation of the discovery-to-install workflow
     - Skip if infrastructure unavailable
     - _Requirements: 05-REQ-7.4, 05-REQ-7.E1_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Zone discovery tests pass
-    - [ ] Adapter install flow tests pass (with podman)
-    - [ ] Tests skip cleanly without infrastructure
-    - [ ] Requirements 05-REQ-7.1–7.4 met
+  - [x] 6.V Verify task group 6
+    - [x] Zone discovery tests pass
+    - [x] Adapter install flow tests pass (with podman)
+    - [x] Tests skip cleanly without infrastructure
+    - [x] Requirements 05-REQ-7.1–7.4 met
 
 - [ ] 7. Final Verification and Documentation
   - [ ] 7.1 Run full test suite
