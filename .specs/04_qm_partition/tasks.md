@@ -327,8 +327,8 @@ This plan implements the QM partition services in dependency order:
     - [x] `parking-app-cli --help` shows all subcommands
     - [x] Requirements 04-REQ-7.1–7.4, 04-REQ-7.E1 met
 
-- [ ] 9. Integration Tests
-  - [ ] 9.1 Create integration test harness
+- [x] 9. Integration Tests
+  - [x] 9.1 Create integration test harness
     - Test infrastructure: `make infra-up` (Kuksa + Mosquitto),
       LOCKING_SERVICE, mock PARKING_OPERATOR, PARKING_OPERATOR_ADAPTOR
       (standalone, not in container for session flow tests)
@@ -336,7 +336,7 @@ This plan implements the QM partition services in dependency order:
     - Tests skip cleanly if infrastructure is unavailable
     - _Requirements: 04-REQ-8.E1_
 
-  - [ ] 9.2 Test session flow end-to-end
+  - [x] 9.2 Test session flow end-to-end
     - Set safe conditions via mock-sensors
     - Lock via mock-sensors → verify PARKING_OPERATOR_ADAPTOR starts session →
       verify `SessionActive = true` in Kuksa → verify mock PARKING_OPERATOR
@@ -348,14 +348,14 @@ This plan implements the QM partition services in dependency order:
     - **Property 8: SessionActive Signal Accuracy**
     - _Requirements: 04-REQ-8.1, 04-REQ-8.2_
 
-  - [ ] 9.3 Test adapter lifecycle via CLI
+  - [x] 9.3 Test adapter lifecycle via CLI
     - Use parking-app-cli to `install-adapter` → verify adapter state RUNNING
       via `list-adapters`
     - Use `remove-adapter` → verify state STOPPED
     - Requires podman available; skip if not
     - _Requirements: 04-REQ-8.3_
 
-  - [ ] 9.4 Test offloading
+  - [x] 9.4 Test offloading
     - Install adapter → start session → stop session → wait for offload
       timeout (use short timeout, e.g., 5s for test) → verify adapter state
       becomes UNKNOWN
@@ -363,10 +363,10 @@ This plan implements the QM partition services in dependency order:
     - **Property 5: Offloading Timer Correctness**
     - _Requirements: 04-REQ-8.4_
 
-  - [ ] 9.V Verify task group 9
-    - [ ] All integration tests pass with infrastructure running
-    - [ ] Tests skip cleanly when infrastructure is unavailable
-    - [ ] Requirements 04-REQ-8.1–8.4 acceptance criteria met
+  - [x] 9.V Verify task group 9
+    - [x] All integration tests pass with infrastructure running
+    - [x] Tests skip cleanly when infrastructure is unavailable
+    - [x] Requirements 04-REQ-8.1–8.4 acceptance criteria met
 
 - [ ] 10. Final Verification and Documentation
   - [ ] 10.1 Run full test suite
