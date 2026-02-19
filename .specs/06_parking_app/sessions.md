@@ -67,3 +67,24 @@ Implemented all service client wrappers for the PARKING_APP (task group 2). Crea
 - `ParkingFeeServiceClientTest.kt`: Tests lookupZones URL construction and JSON parsing, getZoneAdapter metadata retrieval, error handling via OkHttp MockWebServer
 - `UpdateServiceClientTest.kt`: Tests installAdapter parameter pass-through (Property 2), watchAdapterStates streaming, error handling via grpc-testing InProcessServer
 - `ParkingAdapterClientTest.kt`: Tests getStatus session info parsing, error handling via grpc-testing InProcessServer
+
+---
+
+## Session 25
+
+- **Spec:** 06_parking_app
+- **Task Group:** 3
+- **Date:** 2026-02-19
+
+### Summary
+
+Checkpoint verification for task group 3 (Service Clients Complete). Ran the full test suite across all project layers: Rust (103 tests), Go (all modules), and Android (30 unit tests across 4 test suites). All tests passed with zero failures. Updated checkpoint checkbox to [x].
+
+### Files Changed
+
+- Modified: `.specs/06_parking_app/tasks.md`
+- Modified: `.specs/06_parking_app/sessions.md`
+
+### Tests Added or Modified
+
+- None.
