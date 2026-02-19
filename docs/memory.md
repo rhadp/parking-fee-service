@@ -20,7 +20,7 @@
 - Background tasks (result forwarder, telemetry publisher) are spawned via `tokio::spawn` only after Kuksa connects successfully. If Kuksa is unavailable, the MQTT event loop still runs but commands fail gracefully.
 - Mock services live under `mock/` with each service as a separate Go module (flat structure: `go.mod`, `main.go`, `main_test.go` in package `main`). The mock PARKING_OPERATOR is a standalone HTTP server that the adaptor's `OperatorClient` communicates with.
 - The `mock/companion-app-cli` is a pure HTTP client — it has no MQTT or Kuksa dependencies, only stdlib `net/http`.
-- The `mock/parking-app-cli` is a Go CLI using both gRPC (for UpdateService port 50053 and ParkingAdapter port 50054) and REST/HTTP (for PARKING_FEE_SERVICE). gRPC commands use a `dialGRPC` helper with 5-second timeout; REST commands use a `pfsGet` helper with 10-second timeout via `net/http`. Global flags (`--update-service-addr`, `--adapter-addr`, `--pfs-addr`) support env var fallback; CLI flags take precedence. Uses manual flag parsing (no `flag` package) with `parseGlobalFlags` consuming known global flags and passing remaining args to subcommand dispatch. New global flags must be added in three places: variable declaration, `parseGlobalFlags`, and `printUsage`.
+- The `mock/parking-app-cli` is a Go CLI using both gRPC (for UpdateService port 50053 and ParkingAdapter port 50054) and REST/HTTP (for PARKING_FEE_SERVICE). gRPC commands use a `dialGRPC` helper with 5-second timeout; REST commands use a `pfsGet` helper with 10-second timeout via `net/http`. Global flags (`--update-service-addr`, `--adapter-addr`, `--parking-fee-service-addr`) support env var fallback; CLI flags take precedence. Uses manual flag parsing (no `flag` package) with `parseGlobalFlags` consuming known global flags and passing remaining args to subcommand dispatch. New global flags must be added in three places: variable declaration, `parseGlobalFlags`, and `printUsage`.
 - **parking-fee-service** (`backend/parking-fee-service/`) is a standalone Go HTTP service (packages: `main`, `api`, `geo`, `zones`) with no external dependencies. It can be started independently without infrastructure (no Kuksa, no MQTT), making zone discovery tests simple to run. The `api` package holds REST handlers via a `Handler` struct that takes a `*zones.Store` dependency; routes are registered via `Handler.RegisterRoutes(mux)`. The `geo` package provides geospatial primitives (`HaversineDistance`, `PointInPolygon`, `DistanceToPolygon`). Uses Go 1.22+ `http.ServeMux` pattern routing (e.g., `"GET /api/v1/zones/{zone_id}"`).
 - The `zones.Store` is a simple map-based in-memory store; not thread-safe by design since the demo loads seed data at startup and performs read-only operations at runtime. The `zones` package reuses `geo.LatLon` rather than defining its own coordinate type.
 - `FindByLocation` returns exact (inside-polygon) matches preferentially; fuzzy matches (within 200m) are only computed when no exact matches exist.
@@ -28,6 +28,7 @@
 ## Conventions
 
 - Documentation lives in `docs/` with topic-based files: `vss-signals.md`, `mqtt-protocol.md`, `vehicle-pairing.md`, `parking-operator-api.md`, `adapter-lifecycle.md`. The VSS signals doc should reflect actual writer/reader services, not "(future)" placeholders.
+- Documentation follows a consistent pattern: Overview, Architecture (mermaid diagram), detailed sections, Configuration, CLI usage examples, Requirements Traceability table.
 - Each module has a top-level doc comment listing the requirements it satisfies (e.g. `//! - 03-REQ-4.1: ...`).
 - Rust tests are inline (`#[cfg(test)] mod tests`) within each source file, not in separate test files. Mock types for testing are also placed in these `#[cfg(test)] pub mod tests` blocks.
 - Integration tests requiring infrastructure (Mosquitto, Kuksa) use `#[ignore]` and are run manually with `--ignored`.
@@ -56,7 +57,7 @@
 - Bash test scripts use `set -uo pipefail` without `-e` so individual test failures don't abort the entire suite — each test handles its own error reporting.
 - Each Makefile E2E target follows the pattern: echo description, run script, echo completion. The `.PHONY` declaration list is at the top of the file.
 - Test helper functions (`json_field`, `json_array_len`, `json_array_field`, `float_compare`) use python3 one-liners for portable JSON parsing and float comparison in bash.
-- E2E test scripts use unique ports (e.g., 18090 for PFS, 50073 for UPDATE_SERVICE, 50064 for adaptor) to avoid conflicts with other running services or test suites.
+- E2E test scripts use unique ports (e.g., 18090 for PFS, 50073 for UPDATE_SERVICE, 50064 for adaptor) and `PFS_PORT`/`UPDATE_SERVICE_PORT` environment variables to avoid conflicts with other running services or test suites.
 - The Makefile's `GO_MOCK_DIRS` variable must be updated when adding a new Go mock module.
 - Infrastructure (Kuksa + Mosquitto) is managed via `make infra-up` / `make infra-down` using podman/docker compose.
 - Integration tests must exit 0 and report "SKIP" when infrastructure is unavailable (03-REQ-7.E1).
@@ -102,6 +103,7 @@
 - `distanceToSegment` uses a flat-plane projection to find the closest point on a segment, then Haversine for the actual distance. Accurate enough for short-range parking-zone matching.
 - We use `json.RawMessage` in the parking-app-cli REST response handling (not typed structs) because the CLI only needs to pretty-print the JSON, not interpret individual fields.
 - The `httpClient` in parking-app-cli is a package-level variable to allow test injection if needed, though current tests use `httptest.Server` which works with the default client.
+- All 3 demo zones use the same adapter image (`localhost/parking-operator-adaptor:latest`) with different checksums. In production, different operators would have different adapters.
 
 ## Fragile Areas
 
