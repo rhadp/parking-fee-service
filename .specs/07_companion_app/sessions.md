@@ -53,3 +53,28 @@ Implemented data models and REST client for the COMPANION_APP (task group 2, spe
 ### Tests Added or Modified
 
 - `android/companion-app/test/cloud_gateway_client_test.dart`: 40 unit tests for CloudGatewayClient (pair, lock, unlock, getStatus) and data models (PairResponse, VehicleStatus, CommandInfo, CommandResponse, GatewayException) with MockClient-based HTTP mocking
+
+---
+
+## Session 31
+
+- **Spec:** 07_companion_app
+- **Task Group:** 3
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented VehicleProvider state management for the COMPANION_APP (task group 3, spec 07_companion_app). Created `VehicleProvider` extending `ChangeNotifier` with pairing (pair/unpair/loadPersistedPairing), status polling every 5 seconds, and lock/unlock command dispatch with 1-second result polling up to 10 seconds. Wrote 27 unit tests covering pairing flow, auto-login (Property 3), unpair, status polling with fakeAsync, command feedback with result formatting (Property 2), timeout handling, error visibility (Property 4), and status data preservation on failure (Property 5).
+
+### Files Changed
+
+- Added: `android/companion-app/lib/providers/vehicle_provider.dart`
+- Added: `android/companion-app/test/vehicle_provider_test.dart`
+- Modified: `android/companion-app/pubspec.yaml`
+- Modified: `android/companion-app/pubspec.lock`
+- Modified: `.specs/07_companion_app/tasks.md`
+- Modified: `.specs/07_companion_app/sessions.md`
+
+### Tests Added or Modified
+
+- `android/companion-app/test/vehicle_provider_test.dart`: 27 unit tests for VehicleProvider covering pair flow, auto-login persistence, unpair, status polling (periodic + idempotent + error preservation), command feedback (lock/unlock success, REJECTED_SPEED, REJECTED_DOOR_OPEN, timeout, send failure, command-result correlation, transient error resilience, state clearing, unknown result code), and dispose timer cleanup

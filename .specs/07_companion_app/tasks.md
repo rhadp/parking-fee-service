@@ -92,8 +92,8 @@ proto compilation, no complex dependencies.
     - [x] All HTTP methods tested with mock responses
     - [x] Error cases covered
 
-- [ ] 3. State Management (VehicleProvider)
-  - [ ] 3.1 Create VehicleProvider
+- [x] 3. State Management (VehicleProvider)
+  - [x] 3.1 Create VehicleProvider
     - Create `lib/providers/vehicle_provider.dart`
     - Extend `ChangeNotifier`
     - Pairing: `pair(vin, pin)`, `unpair()`, `loadPersistedPairing()`
@@ -107,7 +107,7 @@ proto compilation, no complex dependencies.
     - _Requirements: 07-REQ-1.3, 07-REQ-2.2, 07-REQ-2.3, 07-REQ-3.3,
       07-REQ-3.4, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-4.3_
 
-  - [ ] 3.2 Write provider unit tests
+  - [x] 3.2 Write provider unit tests
     - Create `test/vehicle_provider_test.dart`
     - Use mock CloudGatewayClient and mock SharedPreferences
     - Pair flow: pair() → isPaired, token persisted
@@ -124,11 +124,11 @@ proto compilation, no complex dependencies.
     - **Validates: 07-REQ-1.3, 07-REQ-2.E1, 07-REQ-2.E2, 07-REQ-3.3,
       07-REQ-3.4, 07-REQ-3.E1, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-4.3**
 
-  - [ ] 3.V Verify task group 3
-    - [ ] `flutter test` passes all tests
-    - [ ] `flutter analyze` clean
-    - [ ] Pairing, polling, command feedback, and error states tested
-    - [ ] Requirements 07-REQ-1.3, 07-REQ-3.3–3.4, 07-REQ-4.1–4.3 met
+  - [x] 3.V Verify task group 3
+    - [x] `flutter test` passes all tests
+    - [x] `flutter analyze` clean
+    - [x] Pairing, polling, command feedback, and error states tested
+    - [x] Requirements 07-REQ-1.3, 07-REQ-3.3–3.4, 07-REQ-4.1–4.3 met
 
 - [ ] 4. Checkpoint — Logic Complete
   - Models, REST client, and state management all working with tests
