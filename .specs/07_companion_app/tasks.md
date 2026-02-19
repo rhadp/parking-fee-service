@@ -130,7 +130,7 @@ proto compilation, no complex dependencies.
     - [x] Pairing, polling, command feedback, and error states tested
     - [x] Requirements 07-REQ-1.3, 07-REQ-3.3–3.4, 07-REQ-4.1–4.3 met
 
-- [ ] 4. Checkpoint — Logic Complete
+- [x] 4. Checkpoint — Logic Complete
   - Models, REST client, and state management all working with tests
   - Commit and verify clean state
 
