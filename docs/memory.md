@@ -51,7 +51,9 @@
 - Parking-fee-service logging uses `log/slog` structured logging; each handler logs its request, and a `LoggingMiddleware` wraps the entire mux for production use.
 - HTTP routing in Go mock servers and the parking-fee-service uses Go 1.22+ method-based patterns in `http.ServeMux.HandleFunc` (e.g., `"POST /parking/start"`, `"GET /zones"`).
 - Proto files for the Android app are shared via symlinks from `android/parking-app/app/src/main/proto/` to the repo root `proto/` directory, avoiding duplication while keeping the default protobuf-gradle-plugin source layout.
-- The Android project uses `protobuf-javalite` (not `protobuf-kotlin-lite`) because the Kuksa proto package `kuksa.val.v2` contains `val`, a Kotlin keyword that breaks Kotlin protobuf codegen. Java-lite classes are used directly from Kotlin. In Kotlin source files, `kuksa.val.v2` requires backtick escaping: `kuksa.\`val\`.v2`.
+- The Android project uses `protobuf-javalite` (not `protobuf-kotlin-lite`) because the Kuksa proto package `kuksa.val.v2` contains `val`, a Kotlin keyword that breaks Kotlin protobuf codegen (only Java-lite classes are generated, no Kotlin DSL). Java-lite classes are used directly from Kotlin. In Kotlin source files, `kuksa.val.v2` requires backtick escaping: `kuksa.\`val\`.v2`.
+- Android ViewModel tests use `Dispatchers.setMain(StandardTestDispatcher())` to control coroutine execution, with `advanceUntilIdle()` or `advanceTimeBy()` for time-sensitive tests like polling intervals.
+- The `AdapterStateUpdate` data class lives in `UpdateServiceClient.kt` (alongside the client that produces it), mapping proto `AdapterStateEvent` to Kotlin-friendly types.
 - Proto outer class names follow protoc conventions: `update_service.proto` (with service `UpdateService`) generates `UpdateServiceOuterClass` due to name conflict; `parking_adapter.proto` generates `ParkingAdapterOuterClass`. For `val.proto` the outer class is `Val` (no conflict), and for `types.proto` it's `Types`.
 - Binary names are added to `.gitignore` to prevent committing build artifacts.
 - The `run()` function pattern takes `io.Writer` params for stdout/stderr to enable testability without capturing `os.Stdout`.
@@ -108,7 +110,8 @@
 - We use `json.RawMessage` in the parking-app-cli REST response handling (not typed structs) because the CLI only needs to pretty-print the JSON, not interpret individual fields.
 - The `httpClient` in parking-app-cli is a package-level variable to allow test injection if needed, though current tests use `httptest.Server` which works with the default client.
 - All 3 demo zones use the same adapter image (`localhost/parking-operator-adaptor:latest`) with different checksums. In production, different operators would have different adapters.
-- We use `isReturnDefaultValues = true` in Android `testOptions` so that `android.util.Log` calls don't throw in JVM unit tests.
+- We use `isReturnDefaultValues = true` in Android `testOptions` so that `android.util.Log` calls don't throw in JVM unit tests (returns 0 for int, null for String).
+- Android ViewModels use manual constructor injection (no Hilt/Dagger); service clients are passed directly via constructor parameters.
 - We use `grpc-inprocess` for Android gRPC client tests with fake service implementations (not MockK mocking), as it tests the actual gRPC wire format.
 - We use OkHttp MockWebServer (not MockK) for Android REST client tests to verify real HTTP request construction.
 - `ServiceException` is defined in `DataBrokerClient.kt` rather than a separate file, as it's a simple shared exception class used across all service clients.
@@ -140,7 +143,7 @@
 - Go 1.22+ ServeMux correctly routes `/zones/{zone_id}/adapter` to its own handler before matching `/zones/{zone_id}`, so no guard code is needed in the zone details handler.
 - The `android.newDsl=false` flag is deprecated and will be removed in AGP 10.0. When protobuf-gradle-plugin ships AGP 9 support, this flag should be removed.
 - The Kuksa proto package escaping (`kuksa.\`val\`.v2`) in Kotlin is fragile — any refactoring tool that strips backticks will break compilation. Kotlin protobuf extensions cannot be generated for any proto with `kuksa.val.v2` in its package path; all Android client code must use Java-lite protobuf classes directly.
-- The Android Gradle wrapper files (`gradlew`, `gradle/`) are in `.gitignore` and must be regenerated when cloning. The `settings.gradle.kts` and `build.gradle.kts` files are tracked.
+- The Android project has no Gradle wrapper (`gradlew`, `gradle/` are in `.gitignore`); Gradle must be available on the system PATH. Wrapper files must be regenerated when cloning. The `settings.gradle.kts` and `build.gradle.kts` files are tracked.
 
 ## Failed Approaches
 
