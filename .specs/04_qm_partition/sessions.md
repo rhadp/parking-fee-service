@@ -124,3 +124,29 @@ Completed checkpoint task group 4 (Checkpoint — PARKING_OPERATOR_ADAPTOR Compl
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 10
+
+- **Spec:** 04_qm_partition
+- **Task Group:** 5
+- **Date:** 2026-02-19
+
+### Summary
+
+Implemented task group 5 (UPDATE_SERVICE: State Machine and Persistence) for specification 04_qm_partition. Created the config module with CLI/env parsing and duration support, the adapter state machine with validated transitions (9 valid edges, all invalid edges rejected), the AdapterStore with JSON file persistence, and comprehensive property-based tests covering all state transitions and persistence round-trips. All 77 update-service tests pass and clippy is clean.
+
+### Files Changed
+
+- Added: `rhivos/update-service/src/config.rs`
+- Added: `rhivos/update-service/src/state.rs`
+- Modified: `rhivos/update-service/Cargo.toml`
+- Modified: `rhivos/update-service/src/main.rs`
+- Modified: `.specs/04_qm_partition/tasks.md`
+- Modified: `.specs/04_qm_partition/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/update-service/src/config.rs`: 14 tests covering config defaults, custom args, clone/debug, duration parsing (minutes, seconds, hours, plain number, invalid), and offload_duration conversion
+- `rhivos/update-service/src/state.rs`: 56 tests covering valid/invalid state transitions, AdapterState display/serde/proto conversion, AdapterConfig env vars/serde, AdapterEntry transition chains/serde/proto, AdapterStore CRUD/persistence/lifecycle, and exhaustive property-based tests for state machine integrity and persistence round-trips

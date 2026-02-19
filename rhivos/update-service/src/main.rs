@@ -1,7 +1,11 @@
-//! Update Service skeleton.
+//! Update Service — manages adapter container lifecycle.
 //!
-//! This service manages adapter lifecycle operations (install, remove, status).
-//! In this skeleton, all RPCs return `UNIMPLEMENTED` (gRPC code 12).
+//! This service manages adapter lifecycle operations (install, remove, status)
+//! via gRPC. The state machine and persistence are fully implemented; gRPC
+//! server RPCs remain stubs until task group 6.
+
+pub mod config;
+pub mod state;
 
 use clap::Parser;
 use tokio::signal;
@@ -18,16 +22,10 @@ use parking_proto::services::update::{
     WatchAdapterStatesRequest,
 };
 
-/// RHIVOS Update Service
-#[derive(Parser, Debug)]
-#[command(name = "update-service", about = "RHIVOS update service skeleton")]
-struct Args {
-    /// Address to listen on
-    #[arg(long, env = "LISTEN_ADDR", default_value = "0.0.0.0:50053")]
-    listen_addr: String,
-}
-
 /// Stub implementation — all RPCs return UNIMPLEMENTED.
+///
+/// This will be replaced in task group 6 with a real implementation
+/// backed by the state machine and podman wrapper.
 #[derive(Debug, Default)]
 pub struct UpdateServiceStub;
 
@@ -80,14 +78,31 @@ impl UpdateService for UpdateServiceStub {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
+    let cfg = config::Config::parse();
 
-    let addr: std::net::SocketAddr = args.listen_addr.parse().map_err(|e| {
-        error!("Invalid listen address '{}': {}", args.listen_addr, e);
+    let addr: std::net::SocketAddr = cfg.listen_addr.parse().map_err(|e| {
+        error!("Invalid listen address '{}': {}", cfg.listen_addr, e);
         e
     })?;
 
-    info!("update-service starting on {}", addr);
+    // Validate offload timeout at startup
+    let offload_duration = cfg.offload_duration().map_err(|e| {
+        error!("Invalid OFFLOAD_TIMEOUT '{}': {}", cfg.offload_timeout, e);
+        e
+    })?;
+
+    info!(
+        listen_addr = %addr,
+        data_dir = %cfg.data_dir,
+        offload_timeout = ?offload_duration,
+        "update-service starting"
+    );
+
+    // Load persisted adapter state
+    let _store = state::AdapterStore::load(&cfg.data_dir).map_err(|e| {
+        error!("Failed to load adapter state: {}", e);
+        e
+    })?;
 
     tonic::transport::Server::builder()
         .add_service(UpdateServiceServer::new(UpdateServiceStub))
@@ -105,20 +120,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use config::Config;
     use parking_proto::services::update::update_service_client::UpdateServiceClient;
     use std::net::SocketAddr;
     use tokio::net::TcpListener;
 
     #[test]
     fn cli_parses_default_args() {
-        let args = Args::parse_from(["update-service"]);
-        assert_eq!(args.listen_addr, "0.0.0.0:50053");
+        let cfg = Config::parse_from(["update-service"]);
+        assert_eq!(cfg.listen_addr, "0.0.0.0:50053");
     }
 
     #[test]
     fn cli_parses_custom_listen_addr() {
-        let args = Args::parse_from(["update-service", "--listen-addr", "127.0.0.1:9999"]);
-        assert_eq!(args.listen_addr, "127.0.0.1:9999");
+        let cfg = Config::parse_from(["update-service", "--listen-addr", "127.0.0.1:9999"]);
+        assert_eq!(cfg.listen_addr, "127.0.0.1:9999");
     }
 
     /// Start the stub gRPC server on a random port and return the address.
