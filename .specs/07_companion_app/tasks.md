@@ -52,8 +52,8 @@ proto compilation, no complex dependencies.
     - [x] `flutter analyze` clean
     - [ ] App launches in emulator (blank screen)
 
-- [ ] 2. Models and REST Client
-  - [ ] 2.1 Create data models
+- [x] 2. Models and REST Client
+  - [x] 2.1 Create data models
     - Create `lib/models/models.dart`
     - Define: `PairResponse`, `VehicleStatus`, `CommandInfo`,
       `CommandResponse`, `GatewayException`
@@ -61,7 +61,7 @@ proto compilation, no complex dependencies.
     - Handle nullable fields in `VehicleStatus`
     - _Requirements: 07-REQ-2.1 (prerequisite)_
 
-  - [ ] 2.2 Create CloudGatewayClient
+  - [x] 2.2 Create CloudGatewayClient
     - Create `lib/services/cloud_gateway_client.dart`
     - `pair(vin, pin)` → POST /api/v1/pair → PairResponse
     - `lock(vin, token)` → POST /api/v1/vehicles/{vin}/lock → CommandResponse
@@ -74,7 +74,7 @@ proto compilation, no complex dependencies.
     - Throw `GatewayException` for non-success HTTP responses
     - _Requirements: 07-REQ-1.2, 07-REQ-2.2, 07-REQ-3.2_
 
-  - [ ] 2.3 Write client unit tests
+  - [x] 2.3 Write client unit tests
     - Create `test/cloud_gateway_client_test.dart`
     - Use `http.MockClient` for all tests
     - Pair: 200 → parsed response, 403 → exception, 404 → exception
@@ -86,11 +86,11 @@ proto compilation, no complex dependencies.
     - **Validates: 07-REQ-1.2, 07-REQ-1.E1, 07-REQ-1.E2, 07-REQ-2.2,
       07-REQ-3.2, 07-REQ-3.E2**
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `flutter test test/cloud_gateway_client_test.dart` passes
-    - [ ] `flutter analyze` clean
-    - [ ] All HTTP methods tested with mock responses
-    - [ ] Error cases covered
+  - [x] 2.V Verify task group 2
+    - [x] `flutter test test/cloud_gateway_client_test.dart` passes
+    - [x] `flutter analyze` clean
+    - [x] All HTTP methods tested with mock responses
+    - [x] Error cases covered
 
 - [ ] 3. State Management (VehicleProvider)
   - [ ] 3.1 Create VehicleProvider
