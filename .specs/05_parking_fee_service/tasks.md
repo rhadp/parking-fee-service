@@ -154,7 +154,7 @@ beyond the standard library. All zone data is hardcoded.
     - [x] All REST endpoints return correct responses
     - [x] Requirements 05-REQ-1.1, 05-REQ-2.1, 05-REQ-3.1, 05-REQ-5.1–5.4 met
 
-- [ ] 4. Checkpoint — PARKING_FEE_SERVICE Complete
+- [x] 4. Checkpoint — PARKING_FEE_SERVICE Complete
   - All geo utilities, zone store, and REST handlers working
   - Commit and verify clean state
 
