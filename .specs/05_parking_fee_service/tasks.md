@@ -35,26 +35,26 @@ beyond the standard library. All zone data is hardcoded.
 
 ## Tasks
 
-- [ ] 1. Geospatial Utilities
-  - [ ] 1.1 Implement Haversine distance function
+- [x] 1. Geospatial Utilities
+  - [x] 1.1 Implement Haversine distance function
     - Create `backend/parking-fee-service/geo/geo.go`
     - `HaversineDistance(lat1, lon1, lat2, lon2 float64) float64` → meters
     - Use Earth radius 6371000m
     - _Requirements: 05-REQ-1.3 (prerequisite)_
 
-  - [ ] 1.2 Implement point-in-polygon function
+  - [x] 1.2 Implement point-in-polygon function
     - `PointInPolygon(lat, lon float64, polygon []LatLon) bool`
     - Ray-casting algorithm: count edge crossings
     - Handle edge cases: points on vertex, points on edge
     - _Requirements: 05-REQ-1.2_
 
-  - [ ] 1.3 Implement distance-to-polygon function
+  - [x] 1.3 Implement distance-to-polygon function
     - `DistanceToPolygon(lat, lon float64, polygon []LatLon) float64` → meters
     - For each polygon edge, find closest point on segment, compute
       Haversine distance, return minimum
     - _Requirements: 05-REQ-1.3_
 
-  - [ ] 1.4 Write geo unit tests
+  - [x] 1.4 Write geo unit tests
     - Haversine: known distances (Munich to Berlin ≈ 504 km), symmetry
     - Point-in-polygon: inside rectangle, outside rectangle, on edge, on
       vertex, concave polygon
@@ -64,11 +64,11 @@ beyond the standard library. All zone data is hardcoded.
     - **Property 6: Haversine Symmetry**
     - **Validates: 05-REQ-1.2, 05-REQ-1.3**
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `cd backend/parking-fee-service && go test ./geo/...` passes
-    - [ ] `go vet ./...` clean
-    - [ ] Haversine symmetry holds for all test cases
-    - [ ] Point-in-polygon correct for inside/outside/boundary
+  - [x] 1.V Verify task group 1
+    - [x] `cd backend/parking-fee-service && go test ./geo/...` passes
+    - [x] `go vet ./...` clean
+    - [x] Haversine symmetry holds for all test cases
+    - [x] Point-in-polygon correct for inside/outside/boundary
 
 - [ ] 2. Zone Data Store and Seed Data
   - [ ] 2.1 Create zone data model
