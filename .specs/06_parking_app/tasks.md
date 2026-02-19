@@ -22,16 +22,16 @@ This plan implements the PARKING_APP Android application in dependency order:
 
 ## Test Commands
 
-- Android unit tests: `cd aaos/parking-app && ./gradlew test`
-- Android lint: `cd aaos/parking-app && ./gradlew lint`
-- Build APK: `cd aaos/parking-app && ./gradlew assembleDebug`
+- Android unit tests: `cd android/parking-app && ./gradlew test`
+- Android lint: `cd android/parking-app && ./gradlew lint`
+- Build APK: `cd android/parking-app && ./gradlew assembleDebug`
 - All tests (from root): `make test` (skips Android if SDK unavailable)
 - Build all (from root): `make build` (skips Android if SDK unavailable)
 
 ## Tasks
 
-- [ ] 1. Android Project Setup
-  - [ ] 1.1 Create Gradle project structure
+- [x] 1. Android Project Setup
+  - [x] 1.1 Create Gradle project structure
     - Create `aaos/parking-app/settings.gradle.kts` with project name
     - Create `aaos/parking-app/build.gradle.kts` (project-level) with
       plugin declarations (Android, Kotlin, protobuf, serialization)
@@ -41,7 +41,7 @@ This plan implements the PARKING_APP Android application in dependency order:
     - Add Gradle wrapper (`gradlew`, `gradle/wrapper/`)
     - _Requirements: 06-REQ-6.1_
 
-  - [ ] 1.2 Configure proto compilation
+  - [x] 1.2 Configure proto compilation
     - Configure `protobuf-gradle-plugin` in `app/build.gradle.kts`
     - Set proto source directory to `../../proto` (repo root)
     - Configure `protoc`, `grpc-java`, and `grpckt` plugins with lite option
@@ -49,7 +49,7 @@ This plan implements the PARKING_APP Android application in dependency order:
     - Verify proto compilation succeeds: `./gradlew generateDebugProto`
     - _Requirements: 06-REQ-4.3, 06-REQ-6.2_
 
-  - [ ] 1.3 Create application skeleton
+  - [x] 1.3 Create application skeleton
     - Create `AndroidManifest.xml` with internet permission and main activity
     - Create `ParkingApp.kt` (Application class)
     - Create `MainActivity.kt` with empty Compose content
@@ -57,12 +57,12 @@ This plan implements the PARKING_APP Android application in dependency order:
     - Verify build: `./gradlew assembleDebug`
     - _Requirements: 06-REQ-6.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `./gradlew assembleDebug` succeeds
-    - [ ] `./gradlew generateDebugProto` generates Kotlin gRPC stubs
-    - [ ] Proto classes for UpdateService, ParkingAdapter, and Kuksa
+  - [x] 1.V Verify task group 1
+    - [x] `./gradlew assembleDebug` succeeds
+    - [x] `./gradlew generateDebugProto` generates Kotlin gRPC stubs
+    - [x] Proto classes for UpdateService, ParkingAdapter, and Kuksa
       val.v2 are available
-    - [ ] Requirements 06-REQ-6.1, 06-REQ-6.2 met
+    - [x] Requirements 06-REQ-6.1, 06-REQ-6.2 met
 
 - [ ] 2. Service Clients
   - [ ] 2.1 Create DataBrokerClient
