@@ -1,10 +1,10 @@
 {
   "version": 1,
   "started_at": "2026-02-18T14:27:03.575724+00:00",
-  "updated_at": "2026-02-19T16:04:01.237835+00:00",
-  "sessions_completed": 27,
-  "total_input_tokens": 244896,
-  "total_output_tokens": 541545,
+  "updated_at": "2026-02-19T16:44:21.667545+00:00",
+  "sessions_completed": 32,
+  "total_input_tokens": 265174,
+  "total_output_tokens": 631031,
   "nodes": {
     "01_repo_setup/1": {
       "spec_name": "01_repo_setup",
@@ -685,15 +685,15 @@
     "06_parking_app/4": {
       "spec_name": "06_parking_app",
       "group_number": 4,
-      "status": "pending",
+      "status": "completed",
       "is_checkpoint": false,
       "retries": 0,
-      "completed_at": null,
+      "completed_at": "2026-02-19T16:13:38.852545+00:00",
       "last_error": null,
-      "has_merged_work": false,
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "duration_ms": 0
+      "has_merged_work": true,
+      "input_tokens": 8201,
+      "output_tokens": 26341,
+      "duration_ms": 507935
     },
     "06_parking_app/5": {
       "spec_name": "06_parking_app",
@@ -737,54 +737,54 @@
     "07_companion_app/1": {
       "spec_name": "07_companion_app",
       "group_number": 1,
-      "status": "pending",
+      "status": "completed",
       "is_checkpoint": false,
       "retries": 0,
-      "completed_at": null,
+      "completed_at": "2026-02-19T16:22:35.255938+00:00",
       "last_error": null,
-      "has_merged_work": false,
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "duration_ms": 0
+      "has_merged_work": true,
+      "input_tokens": 5772,
+      "output_tokens": 15302,
+      "duration_ms": 438545
     },
     "07_companion_app/2": {
       "spec_name": "07_companion_app",
       "group_number": 2,
-      "status": "pending",
+      "status": "completed",
       "is_checkpoint": false,
       "retries": 0,
-      "completed_at": null,
+      "completed_at": "2026-02-19T16:30:08.297055+00:00",
       "last_error": null,
-      "has_merged_work": false,
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "duration_ms": 0
+      "has_merged_work": true,
+      "input_tokens": 842,
+      "output_tokens": 20785,
+      "duration_ms": 377987
     },
     "07_companion_app/3": {
       "spec_name": "07_companion_app",
       "group_number": 3,
-      "status": "pending",
+      "status": "completed",
       "is_checkpoint": false,
       "retries": 0,
-      "completed_at": null,
+      "completed_at": "2026-02-19T16:38:41.094644+00:00",
       "last_error": null,
-      "has_merged_work": false,
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "duration_ms": 0
+      "has_merged_work": true,
+      "input_tokens": 5439,
+      "output_tokens": 22803,
+      "duration_ms": 420581
     },
     "07_companion_app/4": {
       "spec_name": "07_companion_app",
       "group_number": 4,
-      "status": "pending",
+      "status": "completed",
       "is_checkpoint": true,
       "retries": 0,
-      "completed_at": null,
+      "completed_at": "2026-02-19T16:44:20.301550+00:00",
       "last_error": null,
-      "has_merged_work": false,
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "duration_ms": 0
+      "has_merged_work": true,
+      "input_tokens": 24,
+      "output_tokens": 4255,
+      "duration_ms": 236029
     },
     "07_companion_app/5": {
       "spec_name": "07_companion_app",
