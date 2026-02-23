@@ -207,8 +207,8 @@ Ordering rationale:
     - [x] CLOUD_GATEWAY starts and responds to health check:
       manually start and `curl http://localhost:8081/health`
 
-- [ ] 5. Mock COMPANION_APP CLI enhancement
-  - [ ] 5.1 Implement lock command
+- [x] 5. Mock COMPANION_APP CLI enhancement
+  - [x] 5.1 Implement lock command
     - Update `mock/companion-app-cli/cmd/lock.go`
     - Generate UUID for command_id
     - Build JSON body: `{"command_id":"...","type":"lock","doors":["driver"]}`
@@ -220,13 +220,13 @@ Ordering rationale:
     - _Requirements: 03-REQ-4.1, 03-REQ-4.4, 03-REQ-4.5, 03-REQ-4.6,
       03-REQ-4.7_
 
-  - [ ] 5.2 Implement unlock command
+  - [x] 5.2 Implement unlock command
     - Update `mock/companion-app-cli/cmd/unlock.go`
     - Same as lock but with `type: "unlock"`
     - Create unit tests in `unlock_test.go`
     - _Requirements: 03-REQ-4.2_
 
-  - [ ] 5.3 Implement status command
+  - [x] 5.3 Implement status command
     - Update `mock/companion-app-cli/cmd/status.go`
     - Send GET to `<gateway-url>/vehicles/<vin>/status`
     - Include `Authorization: Bearer <token>` header
@@ -235,20 +235,20 @@ Ordering rationale:
     - Create unit tests in `status_test.go`
     - _Requirements: 03-REQ-4.3_
 
-  - [ ] 5.4 Add token validation
+  - [x] 5.4 Add token validation
     - Update `mock/companion-app-cli/cmd/root.go`
     - Validate that `--token` flag is provided before executing any command
     - Print clear error message if missing
     - _Requirements: 03-REQ-4.E1, 03-REQ-4.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] CLI unit tests pass:
+  - [x] 5.V Verify task group 5
+    - [x] CLI unit tests pass:
       `cd mock/companion-app-cli && go test -v -count=1 ./...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd mock/companion-app-cli && go vet ./...`
-    - [ ] Spec CLI tests pass:
+    - [x] Spec CLI tests pass:
       `cd tests/cloud_connectivity && go test -v -count=1 -run "TestUnit_CLI|TestEdge_E8|TestEdge_E9" ./...`
-    - [ ] CLI help still works:
+    - [x] CLI help still works:
       `go run ./mock/companion-app-cli --help`
 
 - [ ] 6. Integration testing and final verification
