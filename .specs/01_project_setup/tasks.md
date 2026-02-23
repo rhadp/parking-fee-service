@@ -40,8 +40,8 @@ Ordering rationale:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test module structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test module structure
     - Create `tests/setup/go.mod` as a standalone Go module
       (module path: `github.com/rhadp/parking-fee-service/tests/setup`)
     - Create a `helpers_test.go` with `repoRoot(t)` helper that locates the
@@ -50,26 +50,26 @@ Ordering rationale:
       `execCommand`, `waitForPort`, `portIsOpen`
     - _Test Spec: all (shared infrastructure)_
 
-  - [ ] 1.2 Write structural tests
+  - [x] 1.2 Write structural tests
     - Translate TS-01-1 through TS-01-6 (directory structure) into Go tests
     - Translate TS-01-34 through TS-01-36 (infra file content) into Go tests
     - Translate TS-01-42 (integration test directory) into Go test
     - Group under `TestStructure_*` naming convention
     - _Test Spec: TS-01-1 through TS-01-6, TS-01-34, TS-01-35, TS-01-36, TS-01-42_
 
-  - [ ] 1.3 Write proto and Rust source content tests
+  - [x] 1.3 Write proto and Rust source content tests
     - Translate TS-01-7 through TS-01-11 (proto definitions) into Go tests
     - Translate TS-01-12, TS-01-15, TS-01-16 (Rust workspace content) into Go tests
     - Group under `TestProto_*` and `TestRust_*` naming conventions
     - _Test Spec: TS-01-7 through TS-01-12, TS-01-15, TS-01-16_
 
-  - [ ] 1.4 Write Go structure and mock CLI tests
+  - [x] 1.4 Write Go structure and mock CLI tests
     - Translate TS-01-17, TS-01-20 (Go module existence, generated proto) into Go tests
     - Translate TS-01-23 through TS-01-27 (mock CLI existence, help, proto imports) into Go tests
     - Group under `TestGo_*` and `TestMockCLI_*` naming conventions
     - _Test Spec: TS-01-17, TS-01-20, TS-01-23 through TS-01-27_
 
-  - [ ] 1.5 Write build and runtime tests
+  - [x] 1.5 Write build and runtime tests
     - Translate TS-01-13, TS-01-14 (Rust build/test) into Go tests
     - Translate TS-01-18, TS-01-19 (Go build/test) into Go tests
     - Translate TS-01-21, TS-01-22 (backend HTTP stubs) into Go tests
@@ -80,18 +80,18 @@ Ordering rationale:
     - Group under `TestBuild_*`, `TestMake_*`, `TestInfra_*` naming conventions
     - _Test Spec: TS-01-13, TS-01-14, TS-01-18, TS-01-19, TS-01-21, TS-01-22, TS-01-25, TS-01-26, TS-01-28 through TS-01-33, TS-01-37 through TS-01-41_
 
-  - [ ] 1.6 Write edge case and property tests
+  - [x] 1.6 Write edge case and property tests
     - Translate TS-01-E1 through TS-01-E11 into Go tests
     - Translate TS-01-P1 through TS-01-P7 into Go tests
     - Group under `TestEdge_*` and `TestProperty_*` naming conventions
     - _Test Spec: TS-01-E1 through TS-01-E11, TS-01-P1 through TS-01-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid:
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid:
       `cd tests/setup && go vet ./...`
-    - [ ] All spec tests FAIL (red) — no implementation yet:
+    - [x] All spec tests FAIL (red) — no implementation yet:
       `cd tests/setup && go test -count=1 ./... 2>&1 | grep -c FAIL`
-    - [ ] No linter warnings introduced:
+    - [x] No linter warnings introduced:
       `cd tests/setup && go vet ./...`
 
 - [ ] 2. Repository structure, protos, and config files
