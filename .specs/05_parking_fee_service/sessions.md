@@ -130,3 +130,26 @@ Ran checkpoint verification (task group 5) for the PARKING_FEE_SERVICE. All 41 u
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 27
+
+- **Spec:** 05_parking_fee_service
+- **Task Group:** 6
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the mock PARKING_APP CLI integration (task group 6) for the PARKING_FEE_SERVICE. Replaced the `lookup` command stub with a working HTTP client that queries `GET /operators?lat={lat}&lon={lon}` and prints results in human-readable format. Added a new `adapter` command that queries `GET /operators/{id}/adapter` and prints adapter metadata. Added `--token` as a global persistent flag (default: `demo-token-1`). Both commands include `Authorization: Bearer <token>` headers and handle error responses from the service. Added 10 new unit tests (5 for lookup, 4 for adapter, plus flag/settings updates) using `httptest.NewServer` to mock the PARKING_FEE_SERVICE. All 19 CLI tests pass.
+
+### Files Changed
+
+- Modified: `mock/parking-app-cli/main.go`
+- Modified: `mock/parking-app-cli/main_test.go`
+- Modified: `.specs/05_parking_fee_service/tasks.md`
+- Modified: `.specs/05_parking_fee_service/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/parking-app-cli/main_test.go`: Added `TestCLI_LookupFlags`, `TestCLI_AdapterFlags`, `TestCLI_GlobalFlags`, `TestCLI_Lookup_Success`, `TestCLI_Lookup_NoMatches`, `TestCLI_Lookup_MultipleOperators`, `TestCLI_Lookup_HTTPError`, `TestCLI_Lookup_AuthHeaderSent`, `TestCLI_Adapter_Success`, `TestCLI_Adapter_NotFound`, `TestCLI_Adapter_MissingOperatorID`, `TestCLI_Adapter_AuthHeaderSent`; updated `TestCLI_CommandsRegistered` and `TestCLI_SilenceSettings` to include the new `adapter` command
