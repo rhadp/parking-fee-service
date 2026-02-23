@@ -85,8 +85,8 @@ Ordering rationale:
     - [x] No linter warnings introduced:
       `cd tests/cloud_connectivity && go vet ./...`
 
-- [ ] 2. CLOUD_GATEWAY core modules
-  - [ ] 2.1 Create configuration module
+- [x] 2. CLOUD_GATEWAY core modules
+  - [x] 2.1 Create configuration module
     - Create `backend/cloud-gateway/internal/config/config.go`
     - Parse environment variables: `PORT`, `MQTT_BROKER_URL`, `MQTT_CLIENT_ID`,
       `COMMAND_TIMEOUT`, `AUTH_TOKEN`
@@ -94,7 +94,7 @@ Ordering rationale:
     - Create `config_test.go` with tests for default values and env overrides
     - _Requirements: 03-REQ-2.1 (broker URL config)_
 
-  - [ ] 2.2 Create MQTT client module
+  - [x] 2.2 Create MQTT client module
     - Create `backend/cloud-gateway/internal/mqtt/client.go`
     - Implement MQTT client wrapper using `eclipse/paho.mqtt.golang`:
       `Connect()`, `Publish()`, `Subscribe()`, `Disconnect()`
@@ -104,7 +104,7 @@ Ordering rationale:
     - Create unit tests in `client_test.go` and `topics_test.go`
     - _Requirements: 03-REQ-2.1, 03-REQ-2.E1, 03-REQ-2.E2_
 
-  - [ ] 2.3 Create command tracker module
+  - [x] 2.3 Create command tracker module
     - Create `backend/cloud-gateway/internal/bridge/tracker.go`
     - Implement in-memory pending command tracker:
       `Register(commandID) chan`, `Resolve(commandID, response) bool`,
@@ -115,12 +115,12 @@ Ordering rationale:
     - _Requirements: 03-REQ-2.5, 03-REQ-3.1, 03-REQ-3.2, 03-REQ-2.E3,
       03-REQ-3.E1, 03-REQ-3.E2, 03-REQ-5.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Core module unit tests pass:
+  - [x] 2.V Verify task group 2
+    - [x] Core module unit tests pass:
       `cd backend/cloud-gateway && go test -v -count=1 ./internal/config/... ./internal/mqtt/... ./internal/bridge/...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Spec tests for tracker/bridge pass:
+    - [x] Spec tests for tracker/bridge pass:
       `cd tests/cloud_connectivity && go test -v -count=1 -run "TestUnit_Bridge|TestProperty_P2|TestProperty_P5|TestProperty_P6|TestEdge_E6|TestEdge_E7" ./...`
 
 - [ ] 3. CLOUD_GATEWAY REST API
