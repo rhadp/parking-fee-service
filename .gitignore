@@ -1,7 +1,12 @@
+# agent-fox
+.agent-fox/
+!.agent-fox/memory.jsonl
+!.agent-fox/config.toml
+.claude/
+
 hack.md
 stuff.md
 **/mcp.json
-.claude/*
 hack/**
 
 # Rust build artifacts

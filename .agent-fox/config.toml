@@ -17,9 +17,9 @@
 # Uncomment to extend the built-in allowlist:
 # bash_allowlist_extend = ["cargo", "rustc", "docker"]
 
-# [costs.claude-opus-4-6]
-# input = 3.0    # $ per million input tokens
-# output = 15.0  # $ per million output tokens
+[costs.claude-opus-4-6]
+input = 5.0    # $ per million input tokens
+output = 25.0  # $ per million output tokens
 
 # [theme]
 # playful = true                    # Enable kitsune personality (default: true)
