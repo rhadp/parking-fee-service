@@ -254,8 +254,8 @@ Ordering rationale:
     - `cd backend/parking-fee-service && go vet ./...`
   - Ask the user if questions arise before proceeding to CLI integration.
 
-- [ ] 6. Mock PARKING_APP CLI integration
-  - [ ] 6.1 Implement `lookup` command
+- [x] 6. Mock PARKING_APP CLI integration
+  - [x] 6.1 Implement `lookup` command
     - Update `mock/parking-app-cli/` to implement the `lookup` subcommand
     - Add `--lat` and `--lon` flags
     - Add `--token` global flag (default: `demo-token-1`)
@@ -265,7 +265,7 @@ Ordering rationale:
     - Exit 0 on success, 1 on error
     - _Requirements: Mock CLI enhancements (lookup)_
 
-  - [ ] 6.2 Implement `adapter` command
+  - [x] 6.2 Implement `adapter` command
     - Add `adapter` subcommand to mock PARKING_APP CLI
     - Add `--operator-id` flag
     - Send `GET /operators/{id}/adapter` to PARKING_FEE_SERVICE
@@ -274,19 +274,19 @@ Ordering rationale:
     - Exit 0 on success, 1 on error
     - _Requirements: Mock CLI enhancements (adapter)_
 
-  - [ ] 6.3 Update mock CLI tests
+  - [x] 6.3 Update mock CLI tests
     - Add unit tests for `lookup` command (mock HTTP server)
     - Add unit tests for `adapter` command (mock HTTP server)
     - Verify correct HTTP requests are sent
     - Verify output format matches specification
     - _Test Spec: related to TS-05-I1, TS-05-I2_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Mock CLI builds: `cd mock/parking-app-cli && go build ./...`
-    - [ ] Mock CLI tests pass: `cd mock/parking-app-cli && go test -v -count=1 ./...`
-    - [ ] CLI help shows new commands:
+  - [x] 6.V Verify task group 6
+    - [x] Mock CLI builds: `cd mock/parking-app-cli && go build ./...`
+    - [x] Mock CLI tests pass: `cd mock/parking-app-cli && go test -v -count=1 ./...`
+    - [x] CLI help shows new commands:
       `cd mock/parking-app-cli && go run . --help`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd mock/parking-app-cli && go vet ./...`
 
 - [ ] 7. Integration tests and final verification
