@@ -1,0 +1,54 @@
+syntax = "proto3";
+package parking.update.v1;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/go/updateservicepb";
+
+import "common.proto";
+
+service UpdateService {
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
+  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
+}
+
+message InstallAdapterRequest {
+  string image_ref = 1;
+  string checksum_sha256 = 2;
+}
+
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  parking.common.v1.AdapterState state = 3;
+}
+
+message WatchAdapterStatesRequest {}
+
+message AdapterStateEvent {
+  string adapter_id = 1;
+  parking.common.v1.AdapterState old_state = 2;
+  parking.common.v1.AdapterState new_state = 3;
+  int64 timestamp = 4;
+}
+
+message ListAdaptersRequest {}
+
+message ListAdaptersResponse {
+  repeated parking.common.v1.AdapterInfo adapters = 1;
+}
+
+message RemoveAdapterRequest {
+  string adapter_id = 1;
+}
+
+message RemoveAdapterResponse {}
+
+message GetAdapterStatusRequest {
+  string adapter_id = 1;
+}
+
+message GetAdapterStatusResponse {
+  parking.common.v1.AdapterInfo adapter = 1;
+}
