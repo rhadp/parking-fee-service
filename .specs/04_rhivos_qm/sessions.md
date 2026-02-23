@@ -191,3 +191,33 @@ Implemented UPDATE_SERVICE OCI pulling, checksum gate, and offloading (task grou
 - `rhivos/update-service/src/container_runtime.rs`: 3 unit tests for mock runtime start success/failure and stop/remove
 - `rhivos/update-service/src/offloader.rs`: 4 unit tests for offload check (offloads stopped, skips running, respects timeout, emits events)
 - `rhivos/update-service/tests/integration.rs`: 11 tests converted from `#[ignore]` with `todo!()` to fully working in-process tests — covering TS-04-21, TS-04-23, TS-04-25, TS-04-26, TS-04-E10, TS-04-E11, TS-04-E12, TS-04-E13, TS-04-P5, TS-04-P6, TS-04-P8
+
+---
+
+## Session 20
+
+- **Spec:** 04_rhivos_qm
+- **Task Group:** 7
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented CLI enhancements, integration tests, and final verification (task group 7) for specification 04_rhivos_qm. Replaced all 9 stub CLI commands in `mock/parking-app-cli/main.go` with working gRPC implementations using the generated proto clients: `install`, `watch`, `list`, `status` (UPDATE_SERVICE), and `start-session`, `stop-session`, `get-status`, `get-rate` (PARKING_OPERATOR_ADAPTOR). Updated integration tests in `tests/integration/` to replace hardcoded `t.Skip("...task group 7")` with infrastructure-availability checks using `waitForPort()`. Implemented the 3 E2E test stubs (TS-04-39, TS-04-40, TS-04-41). Added 5 CLI unit tests verifying command registration, flag presence, and silence settings. Full `make check` passes with 0 failures.
+
+### Files Changed
+
+- Modified: `mock/parking-app-cli/main.go`
+- Modified: `mock/parking-app-cli/main_test.go`
+- Modified: `mock/parking-app-cli/go.mod`
+- Modified: `tests/integration/cli_test.go`
+- Modified: `tests/integration/e2e_test.go`
+- Modified: `tests/integration/helpers_test.go`
+- Modified: `.specs/04_rhivos_qm/tasks.md`
+- Modified: `.specs/04_rhivos_qm/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/parking-app-cli/main_test.go`: Added 5 unit tests (TestCLI_CommandsRegistered, TestCLI_InstallFlags, TestCLI_StartSessionFlags, TestCLI_StopSessionFlags, TestCLI_SilenceSettings)
+- `tests/integration/cli_test.go`: Updated 5 CLI tests (TS-04-34 through TS-04-38) to use infrastructure-availability checks instead of hardcoded skips; implemented TestCLI_Watch with install-triggered event verification
+- `tests/integration/e2e_test.go`: Implemented 3 E2E test stubs (TestE2E_LockToSession, TestE2E_CLIToUpdateService, TestE2E_AdaptorToOperator) with infrastructure-availability checks and full CLI-driven verification
+- `tests/integration/helpers_test.go`: Updated waitForPort to support timeout=0 (single probe) for infrastructure checks

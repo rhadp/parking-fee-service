@@ -74,9 +74,19 @@ func execCommandWithEnv(t *testing.T, env map[string]string, name string, args .
 }
 
 // waitForPort waits for a TCP port to become available, with timeout.
+// If timeout is 0, a single probe is attempted.
 func waitForPort(t *testing.T, host string, port int, timeout time.Duration) bool {
 	t.Helper()
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	if timeout == 0 {
+		// Single probe
+		conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return true
+		}
+		return false
+	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)

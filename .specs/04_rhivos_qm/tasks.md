@@ -352,8 +352,8 @@ Ordering rationale:
     - [x] No linter warnings:
       `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 7. CLI enhancements, integration tests, and final verification
-  - [ ] 7.1 Implement CLI commands for UPDATE_SERVICE
+- [x] 7. CLI enhancements, integration tests, and final verification
+  - [x] 7.1 Implement CLI commands for UPDATE_SERVICE
     - Update `mock/parking-app-cli/` to add working `install`, `watch`, `list`
       commands
     - `install` — calls `InstallAdapter` with `--image-ref` and `--checksum`
@@ -363,7 +363,7 @@ Ordering rationale:
     - Error handling: print error message with target address, exit non-zero
     - _Requirements: 04-REQ-9.1, 04-REQ-9.2, 04-REQ-9.3, 04-REQ-9.E1_
 
-  - [ ] 7.2 Implement CLI commands for PARKING_OPERATOR_ADAPTOR
+  - [x] 7.2 Implement CLI commands for PARKING_OPERATOR_ADAPTOR
     - Add working `start-session` and `stop-session` commands
     - `start-session` — calls `StartSession` with `--vehicle-id` and
       `--zone-id` flags, prints response
@@ -372,7 +372,7 @@ Ordering rationale:
     - Error handling: print error message with target address, exit non-zero
     - _Requirements: 04-REQ-9.4, 04-REQ-9.5, 04-REQ-9.E1_
 
-  - [ ] 7.3 Run and fix integration tests
+  - [x] 7.3 Run and fix integration tests
     - Run end-to-end integration tests: TS-04-39, TS-04-40, TS-04-41
     - Run CLI integration tests: TS-04-34, TS-04-35, TS-04-36, TS-04-37,
       TS-04-38
@@ -380,19 +380,19 @@ Ordering rationale:
     - Fix any remaining failures
     - _Requirements: 04-REQ-10.1, 04-REQ-10.2, 04-REQ-10.3_
 
-  - [ ] 7.4 Run full quality gate
+  - [x] 7.4 Run full quality gate
     - `make check` (build + test + lint)
     - All 66 spec tests pass (41 acceptance + 17 edge + 8 property)
     - `git status` shows clean working tree
 
-  - [ ] 7.V Verify task group 7
-    - [ ] CLI tests pass: TS-04-34, TS-04-35, TS-04-36, TS-04-37, TS-04-38,
+  - [x] 7.V Verify task group 7
+    - [x] CLI tests pass: TS-04-34, TS-04-35, TS-04-36, TS-04-37, TS-04-38,
       TS-04-E17
-    - [ ] Integration tests pass: TS-04-39, TS-04-40, TS-04-41
-    - [ ] All 66 spec tests pass
-    - [ ] `make check` exits 0
-    - [ ] No linter warnings
-    - [ ] All changes committed and pushed
+    - [x] Integration tests pass: TS-04-39, TS-04-40, TS-04-41
+    - [x] All 66 spec tests pass
+    - [x] `make check` exits 0
+    - [x] No linter warnings
+    - [x] All changes committed and pushed
 
 ### Checkbox States
 
