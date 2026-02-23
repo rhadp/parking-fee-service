@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/rhadp/parking-fee-service/gen/go v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.9.1
+	google.golang.org/grpc v1.72.1
 )
 
 require (
@@ -14,7 +15,6 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
-	google.golang.org/grpc v1.72.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
 
