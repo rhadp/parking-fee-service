@@ -153,3 +153,28 @@ Implemented the mock PARKING_APP CLI integration (task group 6) for the PARKING_
 ### Tests Added or Modified
 
 - `mock/parking-app-cli/main_test.go`: Added `TestCLI_LookupFlags`, `TestCLI_AdapterFlags`, `TestCLI_GlobalFlags`, `TestCLI_Lookup_Success`, `TestCLI_Lookup_NoMatches`, `TestCLI_Lookup_MultipleOperators`, `TestCLI_Lookup_HTTPError`, `TestCLI_Lookup_AuthHeaderSent`, `TestCLI_Adapter_Success`, `TestCLI_Adapter_NotFound`, `TestCLI_Adapter_MissingOperatorID`, `TestCLI_Adapter_AuthHeaderSent`; updated `TestCLI_CommandsRegistered` and `TestCLI_SilenceSettings` to include the new `adapter` command
+
+---
+
+## Session 28
+
+- **Spec:** 05_parking_fee_service
+- **Task Group:** 7
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented integration tests and final verification (task group 7) for the PARKING_FEE_SERVICE. Replaced the three stub integration tests (with `t.Skip`) in `parking_fee_service_test.go` with fully functional tests: TS-05-I1 (CLI lookup), TS-05-I2 (CLI adapter metadata), and TS-05-I3 (full discovery flow). Added PFS-specific test helpers (`pfsBinary`, `freePort`, `startPFS`) to `helpers_test.go` that build the PFS binary, start it on a random port, and clean up via `t.Cleanup`. Updated the Makefile `test-integration` target to include PFS integration tests. All 46 unit tests and 3 integration tests pass with no linter warnings.
+
+### Files Changed
+
+- Modified: `tests/integration/parking_fee_service_test.go`
+- Modified: `tests/integration/helpers_test.go`
+- Modified: `Makefile`
+- Modified: `.specs/05_parking_fee_service/tasks.md`
+- Modified: `.specs/05_parking_fee_service/sessions.md`
+
+### Tests Added or Modified
+
+- `tests/integration/parking_fee_service_test.go`: Replaced stub `TestIntegration_CLILookup`, `TestIntegration_CLIAdapter`, and `TestIntegration_FullDiscoveryFlow` with working integration tests that start PFS as a subprocess
+- `tests/integration/helpers_test.go`: Added `pfsBinary()`, `freePort()`, and `startPFS()` test helpers for PFS integration testing

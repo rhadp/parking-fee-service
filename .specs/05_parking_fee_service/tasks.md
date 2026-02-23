@@ -289,8 +289,8 @@ Ordering rationale:
     - [x] No linter warnings:
       `cd mock/parking-app-cli && go vet ./...`
 
-- [ ] 7. Integration tests and final verification
-  - [ ] 7.1 Write integration tests
+- [x] 7. Integration tests and final verification
+  - [x] 7.1 Write integration tests
     - Implement TS-05-I1 (CLI lookup integration)
     - Implement TS-05-I2 (CLI adapter integration)
     - Implement TS-05-I3 (full discovery flow)
@@ -298,7 +298,7 @@ Ordering rationale:
     - Build and exec the mock CLI binary against the test server
     - _Test Spec: TS-05-I1 through TS-05-I3_
 
-  - [ ] 7.2 Run all tests and fix failures
+  - [x] 7.2 Run all tests and fix failures
     - Run full unit test suite:
       `cd backend/parking-fee-service && go test -v -count=1 ./...`
     - Run integration tests:
@@ -307,25 +307,25 @@ Ordering rationale:
     - Fix any remaining failures
     - _Test Spec: all_
 
-  - [ ] 7.3 Update Makefile (if needed)
+  - [x] 7.3 Update Makefile (if needed)
     - Ensure `make build` includes the parking-fee-service
     - Ensure `make test` includes the parking-fee-service tests
     - Verify `make lint` covers the parking-fee-service
     - _Requirements: build system integration_
 
-  - [ ] 7.4 Run full quality gate
+  - [x] 7.4 Run full quality gate
     - `make check` (build + test + lint)
     - `cd backend/parking-fee-service && go test -v -count=1 ./...`
     - `cd tests/integration/parking_fee_service && go test -v -count=1 -tags=integration ./...`
     - `git status` shows clean working tree
 
-  - [ ] 7.V Verify task group 7
-    - [ ] All 46 spec tests pass (23 acceptance + 15 edge + 7 property +
+  - [x] 7.V Verify task group 7
+    - [x] All 46 spec tests pass (23 acceptance + 15 edge + 7 property +
       3 integration - 2 overlap)
-    - [ ] `make check` exits 0
-    - [ ] No linter warnings
-    - [ ] All changes committed and pushed
-    - [ ] Feature branch merged to develop
+    - [x] `make check` exits 0
+    - [x] No linter warnings
+    - [x] All changes committed and pushed
+    - [x] Feature branch merged to develop
 
 ### Checkbox States
 
