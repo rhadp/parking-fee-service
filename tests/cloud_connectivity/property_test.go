@@ -3,7 +3,6 @@ package cloud_connectivity_test
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -174,8 +173,13 @@ func TestProperty_MultiVehicleIsolation(t *testing.T) {
 
 // TS-03-P7: Graceful Degradation
 // Property 7: For any state where the MQTT broker is unreachable, the REST
-// API remains responsive.
+// API remains responsive (does not hang or crash).
 // Validates: 03-REQ-2.E1, 03-REQ-2.E2
+//
+// Design decision D1 reconciliation: When MQTT is unreachable, commands return
+// 202 Accepted with status "pending" (degraded mode). This IS graceful
+// degradation — the key invariant is that the REST API responds promptly
+// rather than hanging or crashing.
 func TestProperty_GracefulDegradation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping property test in short mode")
@@ -184,28 +188,11 @@ func TestProperty_GracefulDegradation(t *testing.T) {
 	root := repoRoot(t)
 	port := freePort(t)
 
-	buildCloudGateway(t, root)
+	_, baseURL := startGateway(t, root, port,
+		"MQTT_BROKER_URL=tcp://localhost:19999",
+		"COMMAND_TIMEOUT=2s")
 
-	// Start with unreachable MQTT broker
-	env := append(os.Environ(),
-		fmt.Sprintf("PORT=%d", port),
-		"MQTT_BROKER_URL=tcp://localhost:19999", // no broker here
-		"AUTH_TOKEN=demo-token",
-		"COMMAND_TIMEOUT=2s",
-	)
-	cmd, _, _ := startProcessWithOutput(t, root, "backend/cloud-gateway", env, "./cloud-gateway-test")
-	t.Cleanup(func() {
-		cmd.Process.Kill()
-		cmd.Wait()
-	})
-
-	if !waitForPort(t, port, 5*time.Second) {
-		t.Fatal("cloud-gateway REST API did not start despite MQTT being unreachable")
-	}
-
-	baseURL := fmt.Sprintf("http://localhost:%d", port)
-
-	// Health endpoint should work
+	// Health endpoint should work even with MQTT unreachable
 	statusCode, respBody, err := httpGet(t, baseURL+"/health")
 	if err != nil {
 		t.Fatalf("health check failed: %v", err)
@@ -219,19 +206,42 @@ func TestProperty_GracefulDegradation(t *testing.T) {
 		t.Errorf("health response is not valid JSON: %v", err)
 	}
 
-	// Command should fail gracefully (not hang, not crash)
+	// Command should respond promptly (not hang or crash).
+	// Per design decision D1, degraded mode returns 202 Accepted with
+	// status "pending" when MQTT publish fails.
 	body := `{"command_id":"degraded-test","type":"lock","doors":["driver"]}`
 	statusCode, respBody, err = httpPostJSONWithTimeout(t,
 		baseURL+"/vehicles/VIN12345/commands", body, "demo-token", 5*time.Second)
 	if err != nil {
-		// A client-side timeout is acceptable
-		t.Logf("request timed out or errored (acceptable in degraded mode): %v", err)
-		return
+		// A client-side timeout means the server hung — that's a failure.
+		t.Fatalf("REST API hung or errored in degraded mode: %v", err)
 	}
 
-	// Should get an error response, not success
-	if statusCode >= 200 && statusCode < 300 {
-		t.Errorf("expected error response in degraded mode, got %d; body: %s", statusCode, respBody)
+	// The key property: the server responded (did not hang or crash).
+	// In degraded mode per D1, 202 Accepted is the correct response.
+	if statusCode != 202 {
+		t.Errorf("expected 202 Accepted in degraded mode, got %d; body: %s", statusCode, respBody)
+	}
+
+	var cmdResp map[string]interface{}
+	if err := json.Unmarshal([]byte(respBody), &cmdResp); err != nil {
+		t.Errorf("command response is not valid JSON: %v", err)
+	} else {
+		if cmdResp["command_id"] != "degraded-test" {
+			t.Errorf("expected command_id 'degraded-test', got %v", cmdResp["command_id"])
+		}
+		if cmdResp["status"] != "pending" {
+			t.Errorf("expected status 'pending' in degraded mode, got %v", cmdResp["status"])
+		}
+	}
+
+	// Verify the server is still responsive after the degraded command
+	statusCode, _, err = httpGet(t, baseURL+"/health")
+	if err != nil {
+		t.Fatalf("post-command health check failed (server may have crashed): %v", err)
+	}
+	if statusCode != 200 {
+		t.Errorf("expected health check 200 after degraded command, got %d", statusCode)
 	}
 }
 

@@ -1,8 +1,8 @@
 # Top-level Makefile for SDV Parking Demo System
 # Orchestrates builds, tests, linting, proto generation, and local infrastructure.
 
-.PHONY: build test lint clean proto check infra-up infra-down help \
-        build-rust build-go
+.PHONY: build test test-integration test-spec lint clean proto check \
+        infra-up infra-down help build-rust build-go
 
 # ──────────────────────────────────────────────────────────────────────
 # Toolchain detection helpers
@@ -85,15 +85,17 @@ help: ## Show this help
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build       Build all Rust and Go components"
-	@echo "  test        Run all unit tests (Rust + Go)"
-	@echo "  lint        Run linters: cargo clippy, go vet"
-	@echo "  clean       Remove all build artifacts"
-	@echo "  proto       Regenerate Go code from .proto files"
-	@echo "  check       Run build + test + lint in sequence"
-	@echo "  infra-up    Start local infrastructure (Mosquitto, Kuksa)"
-	@echo "  infra-down  Stop local infrastructure"
-	@echo "  help        Show this help"
+	@echo "  build            Build all Rust and Go components"
+	@echo "  test             Run all unit tests (Rust + Go)"
+	@echo "  test-integration Run integration tests (requires infra-up)"
+	@echo "  test-spec        Run spec verification tests (cloud connectivity)"
+	@echo "  lint             Run linters: cargo clippy, go vet"
+	@echo "  clean            Remove all build artifacts"
+	@echo "  proto            Regenerate Go code from .proto files"
+	@echo "  check            Run build + test + lint in sequence"
+	@echo "  infra-up         Start local infrastructure (Mosquitto, Kuksa)"
+	@echo "  infra-down       Stop local infrastructure"
+	@echo "  help             Show this help"
 
 # ──────────────────────────────────────────────────────────────────────
 # build — Build all components. Rust builds first, then each Go module.
@@ -133,6 +135,33 @@ test: ## Run all unit tests (Rust + Go)
 		(cd $$mod && go test ./...) || exit 1; \
 	done
 	@echo "==> All tests passed."
+
+# ──────────────────────────────────────────────────────────────────────
+# test-integration — Run integration tests (requires infra-up)
+#   Runs Go integration tests with the 'integration' build tag.
+#   Requires Mosquitto on localhost:1883 (start with `make infra-up`).
+# ──────────────────────────────────────────────────────────────────────
+
+test-integration: ## Run integration tests (requires infra-up)
+	$(require-go)
+	@echo "==> Running CLOUD_GATEWAY integration tests..."
+	@cd backend/cloud-gateway && go test -v -count=1 -tags integration ./...
+	@echo "==> Running spec integration tests..."
+	@cd tests/cloud_connectivity && GOWORK=off go test -v -count=1 -run "TestIntegration|TestE2E" ./...
+	@echo "==> Integration tests passed."
+
+# ──────────────────────────────────────────────────────────────────────
+# test-spec — Run spec verification tests (cloud connectivity)
+#   Runs the spec test suite in tests/cloud_connectivity/.
+#   Integration tests requiring Mosquitto will skip automatically if
+#   the broker is not running.
+# ──────────────────────────────────────────────────────────────────────
+
+test-spec: ## Run spec verification tests (cloud connectivity)
+	$(require-go)
+	@echo "==> Running cloud connectivity spec tests..."
+	@cd tests/cloud_connectivity && GOWORK=off go test -v -count=1 ./...
+	@echo "==> Spec tests passed."
 
 # ──────────────────────────────────────────────────────────────────────
 # lint — Run linters for all components

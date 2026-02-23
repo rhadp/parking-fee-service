@@ -156,3 +156,33 @@ Implemented mock COMPANION_APP CLI enhancement (task group 5). Upgraded the comp
 - `mock/companion-app-cli/unlock_test.go`: 2 tests for unlock command (POST with unlock type, server error)
 - `mock/companion-app-cli/status_test.go`: 4 tests for status command (GET request, VIN in URL, server error, missing token)
 - `mock/companion-app-cli/token_test.go`: 4 tests for token validation (empty, valid, missing token, connection error)
+
+---
+
+## Session 15
+
+- **Spec:** 03_vehicle_cloud_connectivity
+- **Task Group:** 6
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented integration testing and final verification (task group 6). Created in-process CLOUD_GATEWAY integration tests with build tag gating, end-to-end CLI tests in the spec test module, reconciled TestEdge_CommandTimeout and TestProperty_GracefulDegradation with design decision D1 (degraded mode returns 202 not 504 when MQTT is unreachable), and added `test-integration` and `test-spec` Makefile targets. All 26 unit/edge/property spec tests pass; integration tests skip cleanly without Mosquitto.
+
+### Files Changed
+
+- Added: `backend/cloud-gateway/integration_test.go`
+- Added: `tests/cloud_connectivity/e2e_test.go`
+- Added: `.docs/errata/03-d1-timeout-degradation-reconciliation.md`
+- Modified: `tests/cloud_connectivity/edge_test.go`
+- Modified: `tests/cloud_connectivity/property_test.go`
+- Modified: `Makefile`
+- Modified: `.specs/03_vehicle_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_vehicle_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `backend/cloud-gateway/integration_test.go`: 5 integration tests (TestIntegration_EndToEnd, TestIntegration_CommandCorrelation, TestIntegration_MultiVehicleRouting, TestIntegration_TelemetrySubscription, TestIntegration_CommandTimeout) gated on Mosquitto via build tag
+- `tests/cloud_connectivity/e2e_test.go`: 4 end-to-end tests (TestE2E_CLI_LockCommand, TestE2E_CLI_StatusCommand, TestE2E_CLI_UnlockCommand, TestE2E_CLI_CommandCorrelation) exercising CLI -> CLOUD_GATEWAY -> MQTT -> response flow
+- `tests/cloud_connectivity/edge_test.go`: Reconciled TestEdge_CommandTimeout into degraded_mode (202) and connected_timeout (504) subtests
+- `tests/cloud_connectivity/property_test.go`: Reconciled TestProperty_GracefulDegradation to accept 202 as valid degraded mode response
