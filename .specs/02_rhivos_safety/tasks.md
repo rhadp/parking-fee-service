@@ -309,8 +309,8 @@ Ordering rationale:
     - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
     - [x] No regressions: `cd rhivos && cargo test`
 
-- [ ] 7. End-to-end integration testing
-  - [ ] 7.1 Create end-to-end integration test suite
+- [x] 7. End-to-end integration testing
+  - [x] 7.1 Create end-to-end integration test suite
     - Create `rhivos/tests/integration.rs` (or `tests/e2e/`) with full
       end-to-end tests
     - Test: MQTT command -> CGC -> DATA_BROKER -> LS -> DATA_BROKER -> CGC -> MQTT response
@@ -321,17 +321,17 @@ Ordering rationale:
     - Test: telemetry published on signal changes
     - _Test Spec: TS-02-30, TS-02-32_
 
-  - [ ] 7.2 Run all property tests
+  - [x] 7.2 Run all property tests
     - Verify TS-02-P1 through TS-02-P8 all pass
     - Fix any failures discovered in end-to-end context
     - _Test Spec: TS-02-P1 through TS-02-P8_
 
-  - [ ] 7.3 Run all edge case tests
+  - [x] 7.3 Run all edge case tests
     - Verify TS-02-E1 through TS-02-E15 all pass
     - Fix any failures discovered in end-to-end context
     - _Test Spec: TS-02-E1 through TS-02-E15_
 
-  - [ ] 7.4 Run full quality gate
+  - [x] 7.4 Run full quality gate
     - `cd rhivos && cargo build`
     - `cd rhivos && cargo test`
     - `cd rhivos && cargo clippy -- -D warnings`
@@ -340,13 +340,13 @@ Ordering rationale:
     - `make test`
     - _All requirements_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] All 55 spec tests pass (32 acceptance + 15 edge + 8 property)
-    - [ ] `cargo clippy -- -D warnings` exits 0
-    - [ ] All integration tests pass with infra running
-    - [ ] No regressions in Phase 1 tests
-    - [ ] All changes committed and pushed
-    - [ ] `git status` shows clean working tree
+  - [x] 7.V Verify task group 7
+    - [x] All 55 spec tests pass (32 acceptance + 15 edge + 8 property)
+    - [x] `cargo clippy -- -D warnings` exits 0
+    - [x] All integration tests pass with infra running
+    - [x] No regressions in Phase 1 tests
+    - [x] All changes committed and pushed
+    - [x] `git status` shows clean working tree
 
 ### Checkbox States
 

@@ -11,6 +11,14 @@ publish = false
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+[dev-dependencies]
+databroker-client = { path = "../databroker-client" }
+locking-service = { path = "../locking-service" }
+cloud-gateway-client = { path = "../cloud-gateway-client" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+rumqttc = "0.24"
+
 # Integration test binaries
 [[test]]
 name = "databroker_tests"

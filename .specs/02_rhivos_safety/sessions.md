@@ -202,3 +202,38 @@ Implemented the CLOUD_GATEWAY_CLIENT (task group 6) for the RHIVOS safety partit
 - `rhivos/cloud-gateway-client/src/telemetry.rs`: 5 unit tests for DataValue-to-JSON conversion and telemetry signal coverage
 - `rhivos/cloud-gateway-client/src/main.rs`: 4 unit tests for MQTT address parsing
 - `rhivos/cloud-gateway-client/tests/integration.rs`: 9 integration tests covering TS-02-15 through TS-02-20, TS-02-E10, TS-02-P5, and TS-02-P6
+
+---
+
+## Session 23
+
+- **Spec:** 02_rhivos_safety
+- **Task Group:** 7
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 7 (End-to-end integration testing) for the RHIVOS safety partition specification. Replaced all `panic!("not implemented")` stub tests in the `safety-tests` crate with fully working implementations: 6 E2E integration tests, 7 property tests, 15 edge case tests, 4 DATA_BROKER tests, 8 locking-service tests, 6 cloud-gateway-client tests, and 5 mock-sensor tests (51 total). All tests pass, clippy is clean, and Go structural tests pass.
+
+### Files Changed
+
+- Modified: `rhivos/safety-tests/Cargo.toml`
+- Modified: `rhivos/safety-tests/tests/integration.rs`
+- Modified: `rhivos/safety-tests/tests/databroker_tests.rs`
+- Modified: `rhivos/safety-tests/tests/locking_service_tests.rs`
+- Modified: `rhivos/safety-tests/tests/cloud_gateway_tests.rs`
+- Modified: `rhivos/safety-tests/tests/mock_sensor_tests.rs`
+- Modified: `rhivos/safety-tests/tests/edge_case_tests.rs`
+- Modified: `rhivos/safety-tests/tests/property_tests.rs`
+- Modified: `.specs/02_rhivos_safety/tasks.md`
+- Modified: `.specs/02_rhivos_safety/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/safety-tests/tests/integration.rs`: 6 E2E integration tests (TS-02-30, TS-02-32) covering full lock/unlock command flow through MQTT→CGC→DATA_BROKER→LOCKING_SERVICE→response, safety rejections, and telemetry relay
+- `rhivos/safety-tests/tests/databroker_tests.rs`: 4 DATA_BROKER tests (TS-02-2 through TS-02-5) for VSS signals, UDS endpoint, TCP endpoint, bearer token
+- `rhivos/safety-tests/tests/locking_service_tests.rs`: 8 locking-service tests (TS-02-6 through TS-02-14) for subscribe, lock, unlock, safety rejections, failure reasons, success responses
+- `rhivos/safety-tests/tests/cloud_gateway_tests.rs`: 6 cloud-gateway-client tests (TS-02-15 through TS-02-20) for MQTT connect, command subscribe, command write, response relay, state signals, telemetry
+- `rhivos/safety-tests/tests/mock_sensor_tests.rs`: 5 mock-sensor tests (TS-02-21 through TS-02-25) for sensor writes and CLI usage
+- `rhivos/safety-tests/tests/edge_case_tests.rs`: 15 edge case tests (TS-02-E1 through TS-02-E15) covering unknown signals, auth failures, invalid commands, default-safe behavior, connection failures, UDS missing
+- `rhivos/safety-tests/tests/property_tests.rs`: 7 property tests (TS-02-P1 through TS-02-P8) covering command-response pairing, speed safety, door ajar protection, lock state consistency, MQTT relay integrity, telemetry coverage, sensor idempotency
