@@ -147,3 +147,26 @@ Implemented task group 4 (Go scaffolding: generated code, backend services, mock
 - `backend/cloud-gateway/main_test.go`: Placeholder test for health endpoint handler
 - `mock/parking-app-cli/main_test.go`: Placeholder test for root command
 - `mock/companion-app-cli/main_test.go`: Placeholder test for root command
+
+---
+
+## Session 1
+
+- **Spec:** 01_project_setup
+- **Task Group:** 6
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 6 (Build system and local infrastructure) for specification 01_project_setup. Created a top-level Makefile with 8 targets: build, test, lint, clean, proto, check, infra-up, and infra-down. The Makefile includes toolchain detection guards that print clear error messages naming the missing tool (rustc, go, protoc, podman/docker). The build target continues building independent components when one fails. Also fixed a pre-existing bug in docker-compose.yml where the kuksa-databroker image tag `0.5.1` did not exist (changed to `0.5.0`). All 60 spec tests pass.
+
+### Files Changed
+
+- Added: `Makefile`
+- Modified: `infra/docker-compose.yml`
+- Modified: `.specs/01_project_setup/tasks.md`
+- Modified: `.specs/01_project_setup/sessions.md`
+
+### Tests Added or Modified
+
+- None.
