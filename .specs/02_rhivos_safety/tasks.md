@@ -164,46 +164,46 @@ Ordering rationale:
     - [x] No linter warnings: `cd rhivos && cargo clippy -p databroker-client -- -D warnings`
     - [x] No regressions: `cd rhivos && cargo test`
 
-- [ ] 4. Mock sensor CLI tools
-  - [ ] 4.1 Create mock-sensors crate
+- [x] 4. Mock sensor CLI tools
+  - [x] 4.1 Create mock-sensors crate
     - Create `rhivos/mock-sensors/Cargo.toml` with dependencies:
       clap, databroker-client, tokio, serde_json
     - Add crate to workspace members in `rhivos/Cargo.toml`
     - Define three binary targets: location-sensor, speed-sensor, door-sensor
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3_
 
-  - [ ] 4.2 Implement location-sensor CLI
+  - [x] 4.2 Implement location-sensor CLI
     - CLI args: `--lat <f64>`, `--lon <f64>`, optional `--endpoint <string>`
     - Connect to DATA_BROKER, write Latitude and Longitude, exit
     - Display usage on missing args, error on invalid values
     - _Requirements: 02-REQ-6.1, 02-REQ-6.4, 02-REQ-6.5_
 
-  - [ ] 4.3 Implement speed-sensor CLI
+  - [x] 4.3 Implement speed-sensor CLI
     - CLI args: `--speed <f32>`, optional `--endpoint <string>`
     - Connect to DATA_BROKER, write Vehicle.Speed, exit
     - Display usage on missing args, error on invalid values
     - _Requirements: 02-REQ-6.2, 02-REQ-6.4, 02-REQ-6.5_
 
-  - [ ] 4.4 Implement door-sensor CLI
+  - [x] 4.4 Implement door-sensor CLI
     - CLI args: `--open <bool>`, optional `--endpoint <string>`
     - Connect to DATA_BROKER, write IsOpen, exit
     - Display usage on missing args, error on invalid values
     - _Requirements: 02-REQ-6.3, 02-REQ-6.4, 02-REQ-6.5_
 
-  - [ ] 4.5 Add unit and integration tests
+  - [x] 4.5 Add unit and integration tests
     - Unit tests: CLI argument parsing, value conversion, usage output
     - Integration tests: verify values written to DATA_BROKER (require infra)
     - _Test Spec: TS-02-21 through TS-02-25_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All three sensor binaries build:
+  - [x] 4.V Verify task group 4
+    - [x] All three sensor binaries build:
       `cd rhivos && cargo build --bin location-sensor --bin speed-sensor --bin door-sensor`
-    - [ ] Unit tests pass: `cd rhivos && cargo test -p mock-sensors`
+    - [x] Unit tests pass: `cd rhivos && cargo test -p mock-sensors`
     - [ ] Integration tests pass (with infra):
       `cd rhivos && cargo test -p mock-sensors --test integration`
-    - [ ] Spec tests TS-02-21 through TS-02-25 pass
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
-    - [ ] No regressions: `cd rhivos && cargo test`
+    - [x] Spec tests TS-02-21 through TS-02-25 pass
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+    - [x] No regressions: `cd rhivos && cargo test`
 
 - [ ] 5. LOCKING_SERVICE implementation
   - [ ] 5.1 Create locking-service module structure

@@ -16,6 +16,8 @@ Cargo.lock
 
 # Go build artifacts
 **/bin/
+# Allow Rust source bin directories
+!**/src/bin/
 backend/parking-fee-service/parking-fee-service
 backend/cloud-gateway/cloud-gateway
 mock/parking-app-cli/parking-app-cli

@@ -3,6 +3,7 @@ members = [
     "databroker-client",
     "locking-service",
     "cloud-gateway-client",
+    "mock-sensors",
     "update-service",
     "parking-operator-adaptor",
     "safety-tests",
