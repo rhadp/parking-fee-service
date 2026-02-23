@@ -101,3 +101,27 @@ Implemented the CLOUD_GATEWAY REST API (task group 3): bearer token auth middlew
 - `backend/cloud-gateway/internal/api/status_test.go`: 5 tests for status handler and telemetry cache (cached data, no data, missing VIN, cache CRUD, multi-VIN)
 - `backend/cloud-gateway/internal/api/router_test.go`: 8 tests for router wiring (health, auth enforcement, commands, status, wrong token)
 - `backend/cloud-gateway/main_test.go`: Updated to test parseJSON helper
+
+---
+
+## Session 11
+
+- **Spec:** 03_vehicle_cloud_connectivity
+- **Task Group:** 4
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented CLOUD_GATEWAY MQTT bridge and main entry point (task group 4). Created `internal/bridge/bridge.go` with SendCommand, HandleResponse, and HandleTelemetry methods that orchestrate REST-to-MQTT bridging. Updated `main.go` to use the Bridge module for MQTT response handling and added graceful shutdown on SIGINT/SIGTERM. All 51 cloud-gateway unit tests pass, all 7 TG4 spec tests pass (TestUnit_Bridge_*, TestProperty_CommandIDPreservation, TestProperty_TopicRouting), and no regressions on TG2/TG3 tests.
+
+### Files Changed
+
+- Added: `backend/cloud-gateway/internal/bridge/bridge.go`
+- Added: `backend/cloud-gateway/internal/bridge/bridge_test.go`
+- Modified: `backend/cloud-gateway/main.go`
+- Modified: `.specs/03_vehicle_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_vehicle_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `backend/cloud-gateway/internal/bridge/bridge_test.go`: 14 tests including TestBridge_CommandIDPreserved, TestBridge_CommandSchema, TestBridge_CommandSchemaUnlock, TestBridge_ResponseSchema, TestBridge_ResponseSchemaFailed, TestBridge_CommandIDPreservation (20 subtests), TestBridge_TopicRouting (4 subtests), TestBridge_SendCommand_PublishError, TestBridge_HandleTelemetry, TestBridge_HandleTelemetry_InvalidJSON, TestBridge_HandleTelemetry_MultipleVINs, TestBridge_SendCommandAndResolve, TestBridge_TrackerAccess

@@ -172,8 +172,8 @@ Ordering rationale:
     - [x] Spec REST tests pass:
       `cd tests/cloud_connectivity && go test -v -count=1 -run "TestUnit_REST|TestProperty_P3|TestEdge_E1|TestEdge_E2" ./...`
 
-- [ ] 4. CLOUD_GATEWAY MQTT bridge and main entry point
-  - [ ] 4.1 Create bridge module
+- [x] 4. CLOUD_GATEWAY MQTT bridge and main entry point
+  - [x] 4.1 Create bridge module
     - Create `backend/cloud-gateway/internal/bridge/bridge.go`
     - Implement REST-to-MQTT bridge:
       - `SendCommand(vin, command)`: publish to MQTT, register pending
@@ -186,7 +186,7 @@ Ordering rationale:
     - _Requirements: 03-REQ-2.2, 03-REQ-2.3, 03-REQ-2.4, 03-REQ-3.3,
       03-REQ-3.4, 03-REQ-5.1_
 
-  - [ ] 4.2 Update main.go entry point
+  - [x] 4.2 Update main.go entry point
     - Update `backend/cloud-gateway/main.go`:
       - Load configuration
       - Initialize MQTT client with retry/backoff
@@ -197,14 +197,14 @@ Ordering rationale:
     - Replace stub implementation from spec 01
     - _Requirements: 03-REQ-2.1, 03-REQ-2.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All CLOUD_GATEWAY unit tests pass:
+  - [x] 4.V Verify task group 4
+    - [x] All CLOUD_GATEWAY unit tests pass:
       `cd backend/cloud-gateway && go test -v -count=1 ./...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Spec bridge/MQTT tests pass:
+    - [x] Spec bridge/MQTT tests pass:
       `cd tests/cloud_connectivity && go test -v -count=1 -run "TestUnit_Bridge|TestUnit_MQTT|TestProperty_P1|TestProperty_P4" ./...`
-    - [ ] CLOUD_GATEWAY starts and responds to health check:
+    - [x] CLOUD_GATEWAY starts and responds to health check:
       manually start and `curl http://localhost:8081/health`
 
 - [ ] 5. Mock COMPANION_APP CLI enhancement

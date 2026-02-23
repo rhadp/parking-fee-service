@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/internal/api"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/internal/bridge"
@@ -18,14 +23,17 @@ func main() {
 	// Initialize MQTT client (not connected yet)
 	mqttClient := mqtt.NewClient(cfg.MQTTBrokerURL, cfg.MQTTClientID)
 
-	// Initialize command tracker and telemetry cache
+	// Initialize command tracker, telemetry cache, and bridge
 	tracker := bridge.NewTracker(cfg.CommandTimeout)
 	cache := api.NewTelemetryCache()
+	b := bridge.NewBridge(tracker, mqttClient)
 
 	// Register MQTT subscription handlers (will be applied when connected)
+	// vehicles/+/command_responses → bridge resolves pending commands
 	mqttClient.Subscribe(mqtt.WildcardResponseTopic(), func(topic string, payload []byte) {
-		handleCommandResponse(tracker, topic, payload)
+		b.HandleResponse(payload)
 	})
+	// vehicles/+/telemetry → cache updates for status endpoint
 	mqttClient.Subscribe(mqtt.WildcardTelemetryTopic(), func(topic string, payload []byte) {
 		handleTelemetry(cache, topic, payload)
 	})
@@ -43,38 +51,34 @@ func main() {
 	router := api.NewRouter(cfg.AuthToken, tracker, mqttClient, cache)
 
 	addr := ":" + cfg.Port
+	server := &http.Server{
+		Addr:    addr,
+		Handler: router,
+	}
+
+	// Graceful shutdown on SIGINT/SIGTERM
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		log.Printf("received signal %v, shutting down...", sig)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+		mqttClient.Disconnect()
+	}()
+
 	fmt.Printf("cloud-gateway listening on %s\n", addr)
-	if err := http.ListenAndServe(addr, router); err != nil {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}
-}
 
-// handleCommandResponse processes MQTT messages from vehicles/+/command_responses.
-// It parses the response JSON and resolves the matching pending command.
-func handleCommandResponse(tracker *bridge.Tracker, topic string, payload []byte) {
-	var resp struct {
-		CommandID string `json:"command_id"`
-		Status    string `json:"status"`
-		Reason    string `json:"reason"`
-		Timestamp int64  `json:"timestamp"`
-	}
-
-	if err := parseJSON(payload, &resp); err != nil {
-		log.Printf("WARN: invalid command response on %s: %v", topic, err)
-		return
-	}
-
-	if resp.CommandID == "" {
-		log.Printf("WARN: command response on %s missing command_id", topic)
-		return
-	}
-
-	tracker.Resolve(resp.CommandID, bridge.CommandResponse{
-		CommandID: resp.CommandID,
-		Status:    resp.Status,
-		Reason:    resp.Reason,
-		Timestamp: resp.Timestamp,
-	})
+	log.Println("cloud-gateway stopped")
 }
 
 // handleTelemetry processes MQTT messages from vehicles/+/telemetry.
