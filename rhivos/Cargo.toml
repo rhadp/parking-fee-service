@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "locking-service",
+    "cloud-gateway-client",
+    "update-service",
+    "parking-operator-adaptor",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+tonic-build = "0.12"
