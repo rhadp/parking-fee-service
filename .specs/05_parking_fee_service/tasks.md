@@ -41,8 +41,8 @@ Ordering rationale:
 
 ## Tasks
 
-- [ ] 1. Write failing tests
-  - [ ] 1.1 Set up test infrastructure
+- [x] 1. Write failing tests
+  - [x] 1.1 Set up test infrastructure
     - Create `backend/parking-fee-service/internal/geo/polygon_test.go` with
       test helpers and test table structure
     - Create `backend/parking-fee-service/internal/handler/handler_test.go`
@@ -55,7 +55,7 @@ Ordering rationale:
       JSON for edge case)
     - _Test Spec: all (shared infrastructure)_
 
-  - [ ] 1.2 Write geofence engine tests
+  - [x] 1.2 Write geofence engine tests
     - Translate TS-05-5 (point-in-polygon basic) into Go test
     - Translate TS-05-6 (implicit polygon close) into Go test
     - Translate TS-05-7 (triangle polygon) into Go test
@@ -71,7 +71,7 @@ Ordering rationale:
     - _Test Spec: TS-05-5 through TS-05-9, TS-05-E8, TS-05-E9, TS-05-P1
       through TS-05-P4_
 
-  - [ ] 1.3 Write handler and auth tests
+  - [x] 1.3 Write handler and auth tests
     - Translate TS-05-1 through TS-05-4 (operator lookup) into Go tests
     - Translate TS-05-12 through TS-05-14 (adapter metadata) into Go tests
     - Translate TS-05-15 through TS-05-16 (health check) into Go tests
@@ -87,7 +87,7 @@ Ordering rationale:
       TS-05-21 through TS-05-23, TS-05-E1 through TS-05-E7, TS-05-E10,
       TS-05-E13 through TS-05-E15, TS-05-P5 through TS-05-P7_
 
-  - [ ] 1.4 Write store and config tests
+  - [x] 1.4 Write store and config tests
     - Translate TS-05-17 (load from JSON) into Go test
     - Translate TS-05-18 (default operators) into Go test
     - Translate TS-05-19 (config env var) into Go test
@@ -100,7 +100,7 @@ Ordering rationale:
     - _Test Spec: TS-05-10, TS-05-11, TS-05-17 through TS-05-20,
       TS-05-E11, TS-05-E12_
 
-  - [ ] 1.5 Write integration test stubs
+  - [x] 1.5 Write integration test stubs
     - Create `tests/integration/parking_fee_service/` directory
     - Create `tests/integration/parking_fee_service/go.mod`
     - Create integration test file with `//go:build integration` tag
@@ -109,12 +109,12 @@ Ordering rationale:
     - Translate TS-05-I3 (full discovery flow) into Go test stub
     - _Test Spec: TS-05-I1 through TS-05-I3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile:
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile:
       `cd backend/parking-fee-service && go vet ./...`
-    - [ ] All tests FAIL (red) — no implementation yet:
+    - [x] All tests FAIL (red) — no implementation yet:
       `cd backend/parking-fee-service && go test -count=1 ./... 2>&1 | grep -c FAIL`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/parking-fee-service && go vet ./...`
 
 - [ ] 2. Data model and operator store
