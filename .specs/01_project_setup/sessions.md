@@ -64,3 +64,39 @@ Implemented task group 2 (Repository structure, protos, and config files) for sp
 ### Tests Added or Modified
 
 - None.
+
+---
+
+## Session 3
+
+- **Spec:** 01_project_setup
+- **Task Group:** 3
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 3 (Rust workspace scaffolding) for specification 01_project_setup. Created the Cargo workspace with four member crates: locking-service, cloud-gateway-client, update-service, and parking-operator-adaptor. The gRPC service crates (update-service and parking-operator-adaptor) include build.rs files for tonic-build proto generation and stub service implementations returning `Status::unimplemented`. All crates build, test, and pass clippy with zero warnings.
+
+### Files Changed
+
+- Added: `rhivos/Cargo.toml`
+- Added: `rhivos/locking-service/Cargo.toml`
+- Added: `rhivos/locking-service/src/main.rs`
+- Added: `rhivos/locking-service/src/lib.rs`
+- Added: `rhivos/cloud-gateway-client/Cargo.toml`
+- Added: `rhivos/cloud-gateway-client/src/main.rs`
+- Added: `rhivos/cloud-gateway-client/src/lib.rs`
+- Added: `rhivos/update-service/Cargo.toml`
+- Added: `rhivos/update-service/build.rs`
+- Added: `rhivos/update-service/src/main.rs`
+- Added: `rhivos/update-service/src/lib.rs`
+- Added: `rhivos/parking-operator-adaptor/Cargo.toml`
+- Added: `rhivos/parking-operator-adaptor/build.rs`
+- Added: `rhivos/parking-operator-adaptor/src/main.rs`
+- Added: `rhivos/parking-operator-adaptor/src/lib.rs`
+- Modified: `.specs/01_project_setup/tasks.md`
+- Modified: `.specs/01_project_setup/sessions.md`
+
+### Tests Added or Modified
+
+- None (placeholder tests are embedded in lib.rs files, not separate test files).

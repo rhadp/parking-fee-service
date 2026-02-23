@@ -123,14 +123,14 @@ Ordering rationale:
       `protoc --proto_path=proto/ --descriptor_set_out=/dev/null proto/*.proto`
     - [x] No linter warnings introduced
 
-- [ ] 3. Rust workspace scaffolding
-  - [ ] 3.1 Create Cargo workspace
+- [x] 3. Rust workspace scaffolding
+  - [x] 3.1 Create Cargo workspace
     - Create `rhivos/Cargo.toml` with workspace members and shared dependencies
       (tonic, prost, tokio, tonic-build)
     - Set resolver = "2", edition 2021
     - _Requirements: 01-REQ-3.1_
 
-  - [ ] 3.2 Create locking-service and cloud-gateway-client crates
+  - [x] 3.2 Create locking-service and cloud-gateway-client crates
     - Create `Cargo.toml`, `src/main.rs`, `src/lib.rs` for each
     - `main.rs`: tokio runtime, prints "not implemented" and exits
     - `lib.rs`: placeholder module (no proto dependency for these crates —
@@ -138,7 +138,7 @@ Ordering rationale:
     - Add one placeholder `#[test]` per crate
     - _Requirements: 01-REQ-3.1, 01-REQ-3.5, 01-REQ-8.1_
 
-  - [ ] 3.3 Create update-service and parking-operator-adaptor crates
+  - [x] 3.3 Create update-service and parking-operator-adaptor crates
     - Create `Cargo.toml`, `build.rs`, `src/main.rs`, `src/lib.rs` for each
     - `build.rs`: uses tonic-build to compile the crate's proto file from
       `../../proto/`
@@ -148,19 +148,19 @@ Ordering rationale:
     - Add one placeholder `#[test]` per crate
     - _Requirements: 01-REQ-3.1, 01-REQ-3.4, 01-REQ-3.5, 01-REQ-8.1_
 
-  - [ ] 3.4 Verify Rust workspace builds and tests pass
+  - [x] 3.4 Verify Rust workspace builds and tests pass
     - `cd rhivos && cargo build`
     - `cd rhivos && cargo test`
     - `cd rhivos && cargo clippy -- -D warnings`
     - _Requirements: 01-REQ-3.2, 01-REQ-3.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Rust spec tests pass:
+  - [x] 3.V Verify task group 3
+    - [x] Rust spec tests pass:
       `cd tests/setup && go test -v -count=1 -run "TestRust" ./...`
-    - [ ] All existing tests still pass:
+    - [x] All existing tests still pass:
       `cd tests/setup && go test -v -count=1 -run "TestStructure|TestProto|TestRust" ./...`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
-    - [ ] Requirements 01-REQ-3.1 through 01-REQ-3.5, 01-REQ-8.1 met
+    - [x] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
+    - [x] Requirements 01-REQ-3.1 through 01-REQ-3.5, 01-REQ-8.1 met
 
 - [ ] 4. Go scaffolding: generated code, backend services, mock CLIs
   - [ ] 4.1 Generate Go proto code
