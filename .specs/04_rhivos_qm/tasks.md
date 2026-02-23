@@ -41,8 +41,8 @@ Ordering rationale:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up Rust integration test harness
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up Rust integration test harness
     - Create `rhivos/tests/integration_helpers.rs` with helpers for starting
       and stopping services, gRPC client setup, DATA_BROKER interaction
     - Add helpers: `start_mock_operator`, `start_adaptor`, `start_update_service`,
@@ -52,7 +52,7 @@ Ordering rationale:
       that require infrastructure
     - _Test Spec: all (shared infrastructure)_
 
-  - [ ] 1.2 Write mock PARKING_OPERATOR Go tests (unit)
+  - [x] 1.2 Write mock PARKING_OPERATOR Go tests (unit)
     - Create `mock/parking-operator/main_test.go` with Go test functions
     - Translate TS-04-29 (configurable port) into Go test
     - Translate TS-04-30 through TS-04-33 (REST endpoints) into Go tests
@@ -64,7 +64,7 @@ Ordering rationale:
     - _Requirements: 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-8.4,
       04-REQ-8.5, 04-REQ-8.E1, 04-REQ-8.E2, 04-REQ-8.E3_
 
-  - [ ] 1.3 Write UPDATE_SERVICE Rust unit tests
+  - [x] 1.3 Write UPDATE_SERVICE Rust unit tests
     - Create Rust unit tests in `rhivos/update-service/src/` modules
     - Translate TS-04-22 (SHA-256 checksum verification) into Rust unit test
     - Translate TS-04-24 (configurable inactivity timeout) into Rust unit test
@@ -75,7 +75,7 @@ Ordering rationale:
     - _Test Spec: TS-04-22, TS-04-24, TS-04-27, TS-04-28, TS-04-P4_
     - _Requirements: 04-REQ-5.2, 04-REQ-6.1, 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 1.4 Write PARKING_OPERATOR_ADAPTOR + UPDATE_SERVICE Rust integration tests
+  - [x] 1.4 Write PARKING_OPERATOR_ADAPTOR + UPDATE_SERVICE Rust integration tests
     - Create `rhivos/tests/adaptor_integration.rs` for adaptor tests
     - Create `rhivos/tests/update_integration.rs` for update service tests
     - Translate TS-04-1 through TS-04-5 (gRPC interface) into Rust integration
@@ -94,7 +94,7 @@ Ordering rationale:
       TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P5, TS-04-P6, TS-04-P8_
     - _Requirements: 04-REQ-1.1 through 04-REQ-6.3, all edge cases_
 
-  - [ ] 1.5 Write CLI and end-to-end integration tests
+  - [x] 1.5 Write CLI and end-to-end integration tests
     - Translate TS-04-34 through TS-04-38 (CLI commands) into Go integration
       tests in `tests/integration/`
     - Translate TS-04-39, TS-04-40, TS-04-41 (end-to-end) into Go integration
@@ -105,15 +105,15 @@ Ordering rationale:
     - _Requirements: 04-REQ-9.1 through 04-REQ-9.5, 04-REQ-9.E1,
       04-REQ-10.1 through 04-REQ-10.3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All Go test files are syntactically valid:
+  - [x] 1.V Verify task group 1
+    - [x] All Go test files are syntactically valid:
       `cd mock/parking-operator && go vet ./...`
-    - [ ] All Rust test files compile:
+    - [x] All Rust test files compile:
       `cd rhivos && cargo check --tests`
-    - [ ] Go unit tests FAIL (red) — no implementation yet:
+    - [x] Go unit tests FAIL (red) — no implementation yet:
       `cd mock/parking-operator && go test -count=1 ./... 2>&1 | grep -c FAIL`
-    - [ ] Rust unit tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced
+    - [x] Rust unit tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced
 
 - [ ] 2. Mock PARKING_OPERATOR (Go)
   - [ ] 2.1 Create Go module and in-memory store
