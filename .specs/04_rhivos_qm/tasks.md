@@ -151,8 +151,8 @@ Ordering rationale:
     - [x] Tests cover: TS-04-29, TS-04-30, TS-04-31, TS-04-32, TS-04-33,
       TS-04-E14, TS-04-E15, TS-04-E16, TS-04-P7
 
-- [ ] 3. PARKING_OPERATOR_ADAPTOR: gRPC service and REST client
-  - [ ] 3.1 Create crate structure and configuration
+- [x] 3. PARKING_OPERATOR_ADAPTOR: gRPC service and REST client
+  - [x] 3.1 Create crate structure and configuration
     - Create `rhivos/parking-operator-adaptor/Cargo.toml` with dependencies
       (tonic, prost, tokio, reqwest, serde, serde_json)
     - Create `rhivos/parking-operator-adaptor/build.rs` using tonic-build
@@ -162,7 +162,7 @@ Ordering rationale:
       `VEHICLE_ID`
     - _Requirements: 04-REQ-1.1_
 
-  - [ ] 3.2 Implement PARKING_OPERATOR REST client
+  - [x] 3.2 Implement PARKING_OPERATOR REST client
     - Create `rhivos/parking-operator-adaptor/src/operator_client.rs`
     - Implement async REST calls using `reqwest`:
       - `start_session(vehicle_id, zone_id, timestamp)` -> `POST /parking/start`
@@ -174,7 +174,7 @@ Ordering rationale:
     - _Requirements: 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.5,
       04-REQ-1.E3_
 
-  - [ ] 3.3 Implement ParkingAdaptor gRPC service
+  - [x] 3.3 Implement ParkingAdaptor gRPC service
     - Create `rhivos/parking-operator-adaptor/src/grpc_service.rs`
     - Implement `ParkingAdaptor` trait from generated proto code:
       - `StartSession` — calls operator client, returns session_id + status
@@ -187,7 +187,7 @@ Ordering rationale:
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4,
       04-REQ-1.5, 04-REQ-1.E1, 04-REQ-1.E2, 04-REQ-1.E3_
 
-  - [ ] 3.4 Create session manager
+  - [x] 3.4 Create session manager
     - Create `rhivos/parking-operator-adaptor/src/session_manager.rs`
     - Implement `SessionManager` with `active_session: Option<ActiveSession>`
       and `override_active: bool`
@@ -196,18 +196,18 @@ Ordering rationale:
     - Thread-safe via `Arc<Mutex<...>>`
     - _Requirements: 04-REQ-1.E1, 04-REQ-2.5_
 
-  - [ ] 3.5 Create main.rs entry point
+  - [x] 3.5 Create main.rs entry point
     - Create `rhivos/parking-operator-adaptor/src/main.rs`
     - Start gRPC server on configured address
     - Initialize operator client, session manager
     - _Requirements: 04-REQ-1.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Adaptor gRPC integration tests pass (against mock operator):
+  - [x] 3.V Verify task group 3
+    - [x] Adaptor gRPC integration tests pass (against mock operator):
       TS-04-1, TS-04-2, TS-04-3, TS-04-4, TS-04-5
-    - [ ] Edge case tests pass: TS-04-E1, TS-04-E2, TS-04-E3
-    - [ ] All previously passing tests still pass
-    - [ ] No linter warnings:
+    - [x] Edge case tests pass: TS-04-E1, TS-04-E2, TS-04-E3
+    - [x] All previously passing tests still pass
+    - [x] No linter warnings:
       `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
 - [ ] 4. PARKING_OPERATOR_ADAPTOR: autonomous session management

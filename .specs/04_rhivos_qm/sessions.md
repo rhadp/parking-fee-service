@@ -65,3 +65,35 @@ Implemented the mock PARKING_OPERATOR Go service (task group 2) for specificatio
 ### Tests Added or Modified
 
 - None (all 9 tests were written in task group 1; this session implements the code to make them pass)
+
+---
+
+## Session 7
+
+- **Spec:** 04_rhivos_qm
+- **Task Group:** 3
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the PARKING_OPERATOR_ADAPTOR gRPC service and REST client (task group 3) for specification 04_rhivos_qm. Created the config module with environment variable loading, the operator REST client using reqwest with typed request/response types and descriptive error handling, the session manager with thread-safe state tracking, the ParkingAdaptor gRPC service implementation delegating to the operator REST API, and the main.rs entry point. Implemented 8 integration tests (TS-04-1 through TS-04-5, TS-04-E1, TS-04-E2, TS-04-E3) using in-process mock operator HTTP servers and gRPC service, all passing.
+
+### Files Changed
+
+- Modified: `rhivos/parking-operator-adaptor/Cargo.toml`
+- Modified: `rhivos/parking-operator-adaptor/src/lib.rs`
+- Modified: `rhivos/parking-operator-adaptor/src/main.rs`
+- Added: `rhivos/parking-operator-adaptor/src/config.rs`
+- Added: `rhivos/parking-operator-adaptor/src/operator_client.rs`
+- Added: `rhivos/parking-operator-adaptor/src/grpc_service.rs`
+- Added: `rhivos/parking-operator-adaptor/src/session_manager.rs`
+- Modified: `rhivos/parking-operator-adaptor/tests/integration.rs`
+- Modified: `.specs/04_rhivos_qm/tasks.md`
+- Modified: `.specs/04_rhivos_qm/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/parking-operator-adaptor/src/config.rs`: 2 unit tests for config defaults and cloneability
+- `rhivos/parking-operator-adaptor/src/operator_client.rs`: 3 unit tests for client creation and error display
+- `rhivos/parking-operator-adaptor/src/session_manager.rs`: 7 unit tests for session lifecycle and state management
+- `rhivos/parking-operator-adaptor/tests/integration.rs`: 8 integration tests implemented (TS-04-1 through TS-04-5, TS-04-E1, TS-04-E2, TS-04-E3) using in-process mock HTTP and gRPC servers

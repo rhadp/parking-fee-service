@@ -1,14 +1,236 @@
 //! Integration tests for the PARKING_OPERATOR_ADAPTOR.
 //!
-//! These tests verify the adaptor's gRPC interface, autonomous session
-//! management, and DATA_BROKER integration. All tests are `#[ignore]`
-//! because they require infrastructure (mock operator, DATA_BROKER) to
-//! be running.
+//! Tests for task group 3 (TS-04-1 through TS-04-5, TS-04-E1 through TS-04-E3)
+//! spin up an in-process mock operator HTTP server and the adaptor gRPC service,
+//! then exercise the gRPC interface end-to-end.
+//!
+//! Tests for task group 4 (TS-04-6 through TS-04-14, TS-04-E4 through TS-04-E7,
+//! TS-04-P1 through TS-04-P3) remain `#[ignore]` as they require external
+//! infrastructure (DATA_BROKER).
 //!
 //! Test Spec Coverage:
 //! - TS-04-1 through TS-04-14 (acceptance criteria)
 //! - TS-04-E1 through TS-04-E7 (edge cases)
 //! - TS-04-P1, TS-04-P2, TS-04-P3 (property tests)
+
+use std::net::SocketAddr;
+
+use parking_operator_adaptor::grpc_service::ParkingAdaptorService;
+use parking_operator_adaptor::operator_client::OperatorClient;
+use parking_operator_adaptor::proto::adaptor::parking_adaptor_client::ParkingAdaptorClient;
+use parking_operator_adaptor::proto::adaptor::parking_adaptor_server::ParkingAdaptorServer;
+use parking_operator_adaptor::proto::adaptor::{
+    GetRateRequest, GetStatusRequest, StartSessionRequest, StopSessionRequest,
+};
+use parking_operator_adaptor::session_manager::SessionManager;
+
+/// Start a minimal mock operator HTTP server.
+///
+/// Returns the base URL (e.g. "http://127.0.0.1:<port>") and a
+/// `tokio::task::JoinHandle` for cleanup.
+async fn start_mock_operator() -> (String, tokio::task::JoinHandle<()>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let base_url = format!("http://{}", addr);
+
+    let handle = tokio::spawn(async move {
+        loop {
+            let (stream, _) = match listener.accept().await {
+                Ok(conn) => conn,
+                Err(_) => break,
+            };
+
+            tokio::spawn(async move {
+                handle_http_connection(stream).await;
+            });
+        }
+    });
+
+    (base_url, handle)
+}
+
+/// Handle a single HTTP connection from the mock operator.
+///
+/// This is a minimal HTTP/1.1 handler that simulates the PARKING_OPERATOR
+/// REST API responses required for integration testing.
+async fn handle_http_connection(stream: tokio::net::TcpStream) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut stream = stream;
+    let mut buf = vec![0u8; 4096];
+    let n = stream.read(&mut buf).await.unwrap_or(0);
+    if n == 0 {
+        return;
+    }
+    let request = String::from_utf8_lossy(&buf[..n]);
+
+    // Parse the HTTP request line
+    let first_line = request.lines().next().unwrap_or("");
+    let parts: Vec<&str> = first_line.split_whitespace().collect();
+    if parts.len() < 2 {
+        return;
+    }
+    let method = parts[0];
+    let path = parts[1];
+
+    let (status, body) = match (method, path) {
+        ("POST", "/parking/start") => {
+            // Generate a fixed session ID for test predictability
+            let session_id = "test-session-001";
+            (
+                200,
+                format!(
+                    r#"{{"session_id":"{}","status":"active"}}"#,
+                    session_id
+                ),
+            )
+        }
+        ("POST", "/parking/stop") => {
+            // Parse session_id from body
+            let body_start = request.find("\r\n\r\n").map(|i| i + 4).unwrap_or(n);
+            let body_str = &request[body_start..];
+            let session_id = extract_json_field(body_str, "session_id")
+                .unwrap_or_else(|| "unknown".to_string());
+
+            // Check if session exists (we only know about test-session-001)
+            if session_id.starts_with("test-session-") {
+                (
+                    200,
+                    format!(
+                        r#"{{"session_id":"{}","fee":0.01,"duration_seconds":1,"currency":"EUR"}}"#,
+                        session_id
+                    ),
+                )
+            } else {
+                (
+                    404,
+                    format!(r#"{{"error":"session \"{}\" not found"}}"#, session_id),
+                )
+            }
+        }
+        ("GET", p) if p.starts_with("/parking/") && p.ends_with("/status") => {
+            // Extract session_id from /parking/{session_id}/status
+            let parts: Vec<&str> = p.trim_matches('/').split('/').collect();
+            if parts.len() >= 3 {
+                let session_id = parts[1];
+                if session_id.starts_with("test-session-") {
+                    (
+                        200,
+                        format!(
+                            r#"{{"session_id":"{}","active":true,"start_time":1708700000,"current_fee":0.01,"currency":"EUR"}}"#,
+                            session_id
+                        ),
+                    )
+                } else {
+                    (
+                        404,
+                        format!(r#"{{"error":"session \"{}\" not found"}}"#, session_id),
+                    )
+                }
+            } else {
+                (400, r#"{"error":"bad request"}"#.to_string())
+            }
+        }
+        ("GET", p) if p.starts_with("/rate/") => {
+            let zone_id = p.trim_start_matches("/rate/");
+            match zone_id {
+                "zone-munich-central" => (
+                    200,
+                    r#"{"rate_per_hour":2.5,"currency":"EUR","zone_name":"Munich Central"}"#
+                        .to_string(),
+                ),
+                "zone-munich-west" => (
+                    200,
+                    r#"{"rate_per_hour":1.5,"currency":"EUR","zone_name":"Munich West"}"#
+                        .to_string(),
+                ),
+                _ => (
+                    404,
+                    format!(r#"{{"error":"zone \"{}\" not found"}}"#, zone_id),
+                ),
+            }
+        }
+        ("GET", "/health") => (200, r#"{"status":"ok"}"#.to_string()),
+        _ => (404, r#"{"error":"not found"}"#.to_string()),
+    };
+
+    let response = format!(
+        "HTTP/1.1 {} OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        status,
+        body.len(),
+        body
+    );
+    let _ = stream.write_all(response.as_bytes()).await;
+}
+
+/// Extract a JSON string field value (simple, non-recursive).
+fn extract_json_field(json: &str, field: &str) -> Option<String> {
+    let pattern = format!(r#""{}":"#, field);
+    let idx = json.find(&pattern)?;
+    let rest = &json[idx + pattern.len()..];
+    if let Some(rest) = rest.strip_prefix('"') {
+        let end = rest.find('"')?;
+        Some(rest[..end].to_string())
+    } else {
+        None
+    }
+}
+
+/// Start the adaptor gRPC service in-process with a mock operator.
+///
+/// Returns (grpc_addr, mock_operator_url, gRPC server handle).
+async fn start_adaptor_with_mock(
+) -> (SocketAddr, String, tokio::task::JoinHandle<()>) {
+    let (mock_url, _mock_handle) = start_mock_operator().await;
+
+    let operator = OperatorClient::new(&mock_url);
+    let session_mgr = SessionManager::new();
+    let service = ParkingAdaptorService::new(operator, session_mgr);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let grpc_addr = listener.local_addr().unwrap();
+
+    let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
+
+    let server_handle = tokio::spawn(async move {
+        tonic::transport::Server::builder()
+            .add_service(ParkingAdaptorServer::new(service))
+            .serve_with_incoming(incoming)
+            .await
+            .unwrap();
+    });
+
+    // Give the server a moment to start
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    (grpc_addr, mock_url, server_handle)
+}
+
+/// Start the adaptor gRPC service pointing to an unreachable operator.
+///
+/// Returns (grpc_addr, gRPC server handle).
+async fn start_adaptor_unreachable_operator() -> (SocketAddr, tokio::task::JoinHandle<()>) {
+    let operator = OperatorClient::new("http://127.0.0.1:19999");
+    let session_mgr = SessionManager::new();
+    let service = ParkingAdaptorService::new(operator, session_mgr);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let grpc_addr = listener.local_addr().unwrap();
+
+    let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
+
+    let server_handle = tokio::spawn(async move {
+        tonic::transport::Server::builder()
+            .add_service(ParkingAdaptorServer::new(service))
+            .serve_with_incoming(incoming)
+            .await
+            .unwrap();
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    (grpc_addr, server_handle)
+}
 
 // ==========================================================================
 // TS-04-1: PARKING_OPERATOR_ADAPTOR exposes gRPC service
@@ -16,13 +238,24 @@
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor + mock operator running"]
 async fn test_adaptor_grpc_service() {
-    // Start PARKING_OPERATOR_ADAPTOR with ADAPTOR_GRPC_ADDR=127.0.0.1:<port>.
-    // Connect via gRPC client.
-    // Call GetRate to verify the server responds.
-    // Assert: response is Ok.
-    todo!("TS-04-1: adaptor gRPC service test not yet implemented")
+    // TS-04-1: Verify the adaptor exposes a gRPC service on a configurable
+    // address implementing the ParkingAdaptor service.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .expect("should connect to gRPC server");
+
+    // Call GetRate to verify the server responds
+    let response = client
+        .get_rate(GetRateRequest {
+            zone_id: "zone-munich-central".into(),
+        })
+        .await;
+
+    assert!(response.is_ok(), "gRPC server should respond to GetRate");
 }
 
 // ==========================================================================
@@ -31,12 +264,27 @@ async fn test_adaptor_grpc_service() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor + mock operator running"]
 async fn test_adaptor_start_session() {
-    // Call StartSession with vehicle_id="VIN12345", zone_id="zone-munich-central".
-    // Assert: response contains non-empty session_id.
-    // Assert: response contains status == "active".
-    todo!("TS-04-2: StartSession test not yet implemented")
+    // TS-04-2: Verify StartSession with valid vehicle_id and zone_id
+    // returns session_id and status.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    let response = client
+        .start_session(StartSessionRequest {
+            vehicle_id: "VIN12345".into(),
+            zone_id: "zone-munich-central".into(),
+        })
+        .await
+        .expect("StartSession should succeed");
+
+    let resp = response.into_inner();
+    assert!(!resp.session_id.is_empty(), "session_id should be non-empty");
+    assert_eq!(resp.status, "active", "status should be 'active'");
 }
 
 // ==========================================================================
@@ -45,14 +293,46 @@ async fn test_adaptor_start_session() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor + mock operator running"]
 async fn test_adaptor_stop_session() {
-    // Start a session, wait, then stop it.
-    // Assert: response contains matching session_id.
-    // Assert: total_fee >= 0.0.
-    // Assert: duration_seconds >= 0.
-    // Assert: currency is non-empty.
-    todo!("TS-04-3: StopSession test not yet implemented")
+    // TS-04-3: Verify StopSession returns fee, duration, and currency.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    // Start a session first
+    let start_resp = client
+        .start_session(StartSessionRequest {
+            vehicle_id: "VIN12345".into(),
+            zone_id: "zone-munich-central".into(),
+        })
+        .await
+        .unwrap()
+        .into_inner();
+
+    let session_id = start_resp.session_id.clone();
+
+    // Wait a moment
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    // Stop the session
+    let stop_resp = client
+        .stop_session(StopSessionRequest {
+            session_id: session_id.clone(),
+        })
+        .await
+        .expect("StopSession should succeed")
+        .into_inner();
+
+    assert_eq!(stop_resp.session_id, session_id, "session_id should match");
+    assert!(stop_resp.total_fee >= 0.0, "total_fee should be >= 0");
+    assert!(
+        stop_resp.duration_seconds >= 0,
+        "duration_seconds should be >= 0"
+    );
+    assert!(!stop_resp.currency.is_empty(), "currency should be non-empty");
 }
 
 // ==========================================================================
@@ -61,15 +341,44 @@ async fn test_adaptor_stop_session() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor + mock operator running"]
 async fn test_adaptor_get_status() {
-    // Start a session, then call GetStatus.
-    // Assert: session_id matches.
-    // Assert: active == true.
-    // Assert: start_time > 0.
-    // Assert: current_fee >= 0.0.
-    // Assert: currency is non-empty.
-    todo!("TS-04-4: GetStatus test not yet implemented")
+    // TS-04-4: Verify GetStatus returns current session state.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    // Start a session first
+    let start_resp = client
+        .start_session(StartSessionRequest {
+            vehicle_id: "VIN12345".into(),
+            zone_id: "zone-munich-central".into(),
+        })
+        .await
+        .unwrap()
+        .into_inner();
+
+    let session_id = start_resp.session_id;
+
+    // Get status
+    let status_resp = client
+        .get_status(GetStatusRequest {
+            session_id: session_id.clone(),
+        })
+        .await
+        .expect("GetStatus should succeed")
+        .into_inner();
+
+    assert_eq!(status_resp.session_id, session_id, "session_id should match");
+    assert!(status_resp.active, "session should be active");
+    assert!(status_resp.start_time > 0, "start_time should be > 0");
+    assert!(
+        status_resp.current_fee >= 0.0,
+        "current_fee should be >= 0"
+    );
+    assert!(!status_resp.currency.is_empty(), "currency should be non-empty");
 }
 
 // ==========================================================================
@@ -78,13 +387,33 @@ async fn test_adaptor_get_status() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor + mock operator running"]
 async fn test_adaptor_get_rate() {
-    // Call GetRate with zone_id="zone-munich-central".
-    // Assert: rate_per_hour == 2.50.
-    // Assert: currency == "EUR".
-    // Assert: zone_name == "Munich Central".
-    todo!("TS-04-5: GetRate test not yet implemented")
+    // TS-04-5: Verify GetRate returns rate, currency, and zone_name.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    let rate_resp = client
+        .get_rate(GetRateRequest {
+            zone_id: "zone-munich-central".into(),
+        })
+        .await
+        .expect("GetRate should succeed")
+        .into_inner();
+
+    assert!(
+        (rate_resp.rate_per_hour - 2.50).abs() < 0.01,
+        "rate_per_hour should be 2.50, got {}",
+        rate_resp.rate_per_hour
+    );
+    assert_eq!(rate_resp.currency, "EUR", "currency should be EUR");
+    assert_eq!(
+        rate_resp.zone_name, "Munich Central",
+        "zone_name should be Munich Central"
+    );
 }
 
 // ==========================================================================
@@ -214,12 +543,40 @@ async fn test_databroker_write_session_active() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor + mock operator running"]
 async fn test_edge_start_session_already_active() {
-    // Start a session via gRPC.
-    // Call StartSession again.
-    // Assert: second call returns gRPC status ALREADY_EXISTS.
-    todo!("TS-04-E1: StartSession already active not yet implemented")
+    // TS-04-E1: Verify StartSession while session active returns ALREADY_EXISTS.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    // Start first session
+    let _first = client
+        .start_session(StartSessionRequest {
+            vehicle_id: "VIN12345".into(),
+            zone_id: "zone-munich-central".into(),
+        })
+        .await
+        .expect("first StartSession should succeed");
+
+    // Try to start a second session
+    let result = client
+        .start_session(StartSessionRequest {
+            vehicle_id: "VIN12345".into(),
+            zone_id: "zone-munich-central".into(),
+        })
+        .await;
+
+    assert!(result.is_err(), "second StartSession should fail");
+    let status = result.unwrap_err();
+    assert_eq!(
+        status.code(),
+        tonic::Code::AlreadyExists,
+        "should return ALREADY_EXISTS, got {:?}",
+        status.code()
+    );
 }
 
 // ==========================================================================
@@ -228,11 +585,29 @@ async fn test_edge_start_session_already_active() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor running"]
 async fn test_edge_stop_session_unknown() {
-    // Call StopSession with session_id="nonexistent-session-id".
-    // Assert: returns gRPC status NOT_FOUND.
-    todo!("TS-04-E2: StopSession unknown session not yet implemented")
+    // TS-04-E2: Verify StopSession with unknown session_id returns NOT_FOUND.
+    let (grpc_addr, _mock_url, _server) = start_adaptor_with_mock().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    let result = client
+        .stop_session(StopSessionRequest {
+            session_id: "nonexistent-session-id".into(),
+        })
+        .await;
+
+    assert!(result.is_err(), "StopSession with unknown id should fail");
+    let status = result.unwrap_err();
+    assert_eq!(
+        status.code(),
+        tonic::Code::NotFound,
+        "should return NOT_FOUND, got {:?}",
+        status.code()
+    );
 }
 
 // ==========================================================================
@@ -241,12 +616,40 @@ async fn test_edge_stop_session_unknown() {
 // ==========================================================================
 
 #[tokio::test]
-#[ignore = "requires adaptor running with unreachable operator"]
 async fn test_edge_start_session_operator_unreachable() {
-    // Start adaptor pointing to unreachable operator URL (port 19999).
-    // Call StartSession.
-    // Assert: returns gRPC status UNAVAILABLE.
-    todo!("TS-04-E3: StartSession operator unreachable not yet implemented")
+    // TS-04-E3: Verify StartSession when operator is unreachable returns UNAVAILABLE.
+    let (grpc_addr, _server) = start_adaptor_unreachable_operator().await;
+
+    let mut client =
+        ParkingAdaptorClient::connect(format!("http://{}", grpc_addr))
+            .await
+            .unwrap();
+
+    let result = client
+        .start_session(StartSessionRequest {
+            vehicle_id: "VIN12345".into(),
+            zone_id: "zone-munich-central".into(),
+        })
+        .await;
+
+    assert!(
+        result.is_err(),
+        "StartSession with unreachable operator should fail"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(
+        status.code(),
+        tonic::Code::Unavailable,
+        "should return UNAVAILABLE, got {:?}",
+        status.code()
+    );
+    // Check that the error message mentions the operator being unreachable
+    let msg = status.message().to_lowercase();
+    assert!(
+        msg.contains("unreachable") || msg.contains("connection"),
+        "error message should mention unreachable or connection, got: {}",
+        status.message()
+    );
 }
 
 // ==========================================================================
