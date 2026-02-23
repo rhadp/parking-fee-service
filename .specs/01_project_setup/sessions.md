@@ -35,3 +35,32 @@ Implemented task group 1 (Write failing spec tests) for specification 01_project
 - `tests/setup/infra_test.go`: 5 infrastructure tests (TS-01-34 through TS-01-38)
 - `tests/setup/edge_test.go`: 11 edge case tests (TS-01-E1 through TS-01-E11)
 - `tests/setup/property_test.go`: 7 property tests (TS-01-P1 through TS-01-P7)
+
+---
+
+## Session 2
+
+- **Spec:** 01_project_setup
+- **Task Group:** 2
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 2 (Repository structure, protos, and config files) for specification 01_project_setup. Created the full monorepo directory layout with placeholder READMEs, wrote all three proto files (common.proto, update_service.proto, parking_adaptor.proto) matching the design spec exactly, and created infrastructure config files (docker-compose.yml and mosquitto.conf). All 14 relevant spec tests pass; proto files compile with protoc.
+
+### Files Changed
+
+- Added: `proto/common.proto`
+- Added: `proto/update_service.proto`
+- Added: `proto/parking_adaptor.proto`
+- Added: `infra/docker-compose.yml`
+- Added: `infra/mosquitto/mosquitto.conf`
+- Added: `aaos/parking-app/README.md`
+- Added: `android/companion-app/README.md`
+- Added: `tests/integration/README.md`
+- Modified: `.specs/01_project_setup/tasks.md`
+- Modified: `.specs/01_project_setup/sessions.md`
+
+### Tests Added or Modified
+
+- None.

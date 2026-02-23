@@ -94,8 +94,8 @@ Ordering rationale:
     - [x] No linter warnings introduced:
       `cd tests/setup && go vet ./...`
 
-- [ ] 2. Repository structure, protos, and config files
-  - [ ] 2.1 Create directory layout
+- [x] 2. Repository structure, protos, and config files
+  - [x] 2.1 Create directory layout
     - Create all directories: `proto/`, `gen/go/`, `rhivos/`, `backend/parking-fee-service/`,
       `backend/cloud-gateway/`, `mock/parking-app-cli/`, `mock/companion-app-cli/`,
       `infra/mosquitto/`, `tests/integration/`
@@ -103,7 +103,7 @@ Ordering rationale:
       `tests/integration/`
     - _Requirements: 01-REQ-1.1 through 01-REQ-1.6_
 
-  - [ ] 2.2 Write proto files
+  - [x] 2.2 Write proto files
     - Create `proto/common.proto` with AdapterState enum, AdapterInfo, ErrorDetails
     - Create `proto/update_service.proto` with UpdateService RPCs
     - Create `proto/parking_adaptor.proto` with ParkingAdaptor RPCs
@@ -111,17 +111,17 @@ Ordering rationale:
     - Verify: `protoc --proto_path=proto/ --descriptor_set_out=/dev/null proto/*.proto`
     - _Requirements: 01-REQ-2.1 through 01-REQ-2.5_
 
-  - [ ] 2.3 Create infrastructure config files
+  - [x] 2.3 Create infrastructure config files
     - Create `infra/docker-compose.yml` with Mosquitto (:1883) and Kuksa (:55555)
     - Create `infra/mosquitto/mosquitto.conf` with anonymous access on port 1883
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Structural spec tests pass:
+  - [x] 2.V Verify task group 2
+    - [x] Structural spec tests pass:
       `cd tests/setup && go test -v -count=1 -run "TestStructure|TestProto_Definition|TestProto_Compile|TestProto_Syntax|TestInfra_ComposeFile|TestInfra_Mosquitto|TestInfra_Kuksa" ./...`
-    - [ ] Proto files compile:
+    - [x] Proto files compile:
       `protoc --proto_path=proto/ --descriptor_set_out=/dev/null proto/*.proto`
-    - [ ] No linter warnings introduced
+    - [x] No linter warnings introduced
 
 - [ ] 3. Rust workspace scaffolding
   - [ ] 3.1 Create Cargo workspace
