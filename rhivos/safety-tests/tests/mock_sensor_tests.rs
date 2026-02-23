@@ -7,12 +7,15 @@
 
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Duration;
+
+use databroker_client::DatabrokerClient;
 
 /// Helper: check if DATA_BROKER infrastructure is available.
 fn infra_available() -> bool {
     std::net::TcpStream::connect_timeout(
         &"127.0.0.1:55556".parse().unwrap(),
-        std::time::Duration::from_secs(2),
+        Duration::from_secs(2),
     )
     .is_ok()
 }
@@ -24,6 +27,13 @@ macro_rules! require_infra {
             return;
         }
     };
+}
+
+/// Connect to DATA_BROKER via TCP for testing.
+async fn test_client() -> DatabrokerClient {
+    DatabrokerClient::connect("http://localhost:55556")
+        .await
+        .expect("should connect to DATA_BROKER on port 55556")
 }
 
 /// Helper: find the workspace target directory and return the sensor binary path.
@@ -76,69 +86,174 @@ fn sensor_binary(name: &str) -> PathBuf {
 /// TS-02-21: LOCATION_SENSOR CLI writes latitude and longitude (02-REQ-6.1)
 ///
 /// Verify LOCATION_SENSOR CLI tool writes location signals to DATA_BROKER.
-#[test]
-#[ignore = "requires DATA_BROKER infrastructure and built sensor binaries"]
-fn test_location_sensor_writes() {
+#[tokio::test]
+async fn test_location_sensor_writes() {
     require_infra!();
 
-    // Steps:
-    // 1. Run: location-sensor --lat 48.1351 --lon 11.5820
-    // 2. Verify exit code = 0
-    // 3. Read Vehicle.CurrentLocation.Latitude from DATA_BROKER
-    // 4. Read Vehicle.CurrentLocation.Longitude from DATA_BROKER
-    // 5. Verify values match within tolerance (0.0001)
-    panic!("not implemented: requires built location-sensor binary and databroker-client");
+    let binary = sensor_binary("location-sensor");
+    let client = test_client().await;
+
+    let output = Command::new(&binary)
+        .args(["--lat", "48.1351", "--lon", "11.5820"])
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .output()
+        .expect("should run location-sensor");
+
+    assert!(
+        output.status.success(),
+        "location-sensor should exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let lat = client
+        .get_value("Vehicle.CurrentLocation.Latitude")
+        .await
+        .expect("should read latitude");
+    let lon = client
+        .get_value("Vehicle.CurrentLocation.Longitude")
+        .await
+        .expect("should read longitude");
+
+    let lat_val = lat.as_double().expect("latitude should be a double");
+    let lon_val = lon.as_double().expect("longitude should be a double");
+
+    assert!(
+        (lat_val - 48.1351).abs() < 0.001,
+        "latitude should be ~48.1351, got {}",
+        lat_val
+    );
+    assert!(
+        (lon_val - 11.582).abs() < 0.001,
+        "longitude should be ~11.582, got {}",
+        lon_val
+    );
 }
 
 /// TS-02-22: SPEED_SENSOR CLI writes speed (02-REQ-6.2)
 ///
 /// Verify SPEED_SENSOR CLI tool writes speed signal to DATA_BROKER.
-#[test]
-#[ignore = "requires DATA_BROKER infrastructure and built sensor binaries"]
-fn test_speed_sensor_writes() {
+#[tokio::test]
+async fn test_speed_sensor_writes() {
     require_infra!();
 
-    // Steps:
-    // 1. Run: speed-sensor --speed 55.5
-    // 2. Verify exit code = 0
-    // 3. Read Vehicle.Speed from DATA_BROKER
-    // 4. Verify value is approximately 55.5 (within 0.1)
-    panic!("not implemented: requires built speed-sensor binary and databroker-client");
+    let binary = sensor_binary("speed-sensor");
+    let client = test_client().await;
+
+    let output = Command::new(&binary)
+        .args(["--speed", "55.5"])
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .output()
+        .expect("should run speed-sensor");
+
+    assert!(
+        output.status.success(),
+        "speed-sensor should exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let speed = client
+        .get_value("Vehicle.Speed")
+        .await
+        .expect("should read Vehicle.Speed");
+
+    let speed_val = speed.as_float().expect("speed should be a float");
+
+    assert!(
+        (speed_val - 55.5).abs() < 0.5,
+        "speed should be ~55.5, got {}",
+        speed_val
+    );
 }
 
 /// TS-02-23: DOOR_SENSOR CLI writes door state (02-REQ-6.3)
 ///
 /// Verify DOOR_SENSOR CLI tool writes door open/closed state to DATA_BROKER.
-#[test]
-#[ignore = "requires DATA_BROKER infrastructure and built sensor binaries"]
-fn test_door_sensor_writes() {
+#[tokio::test]
+async fn test_door_sensor_writes() {
     require_infra!();
 
-    // Steps:
-    // 1. Run: door-sensor --open true
-    // 2. Verify exit code = 0
-    // 3. Read Vehicle.Cabin.Door.Row1.DriverSide.IsOpen from DATA_BROKER
-    // 4. Verify value = true
-    // 5. Run: door-sensor --open false
-    // 6. Verify exit code = 0
-    // 7. Verify value = false
-    panic!("not implemented: requires built door-sensor binary and databroker-client");
+    let binary = sensor_binary("door-sensor");
+    let client = test_client().await;
+
+    // Set door open
+    let output = Command::new(&binary)
+        .args(["--open", "true"])
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .output()
+        .expect("should run door-sensor");
+
+    assert!(
+        output.status.success(),
+        "door-sensor --open true should exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let is_open = client
+        .get_value("Vehicle.Cabin.Door.Row1.DriverSide.IsOpen")
+        .await
+        .expect("should read IsOpen");
+
+    assert_eq!(
+        is_open.as_bool(),
+        Some(true),
+        "door should be open after --open true"
+    );
+
+    // Set door closed
+    let output = Command::new(&binary)
+        .args(["--open", "false"])
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .output()
+        .expect("should run door-sensor");
+
+    assert!(
+        output.status.success(),
+        "door-sensor --open false should exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let is_open = client
+        .get_value("Vehicle.Cabin.Door.Row1.DriverSide.IsOpen")
+        .await
+        .expect("should read IsOpen");
+
+    assert_eq!(
+        is_open.as_bool(),
+        Some(false),
+        "door should be closed after --open false"
+    );
 }
 
 /// TS-02-24: Mock sensor tools exit 0 on success (02-REQ-6.4)
 ///
 /// Verify each mock sensor tool exits with code 0 after successfully writing
 /// a value.
-#[test]
-#[ignore = "requires DATA_BROKER infrastructure and built sensor binaries"]
-fn test_sensor_exit_code_success() {
+#[tokio::test]
+async fn test_sensor_exit_code_success() {
     require_infra!();
 
-    // Steps:
-    // 1. Run speed-sensor --speed 0 -> verify exit code 0
-    // 2. Run door-sensor --open false -> verify exit code 0
-    // 3. Run location-sensor --lat 0 --lon 0 -> verify exit code 0
-    panic!("not implemented: requires built sensor binaries");
+    let sensors = [
+        ("speed-sensor", vec!["--speed", "0"]),
+        ("door-sensor", vec!["--open", "false"]),
+        ("location-sensor", vec!["--lat", "0", "--lon", "0"]),
+    ];
+
+    for (name, args) in &sensors {
+        let binary = sensor_binary(name);
+        let output = Command::new(&binary)
+            .args(args)
+            .env("DATABROKER_ADDR", "http://localhost:55556")
+            .output()
+            .unwrap_or_else(|e| panic!("{} binary could not be executed: {}", name, e));
+
+        assert!(
+            output.status.success(),
+            "{} should exit 0 on success, got {:?}, stderr: {}",
+            name,
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 /// TS-02-25: Mock sensor tools show usage without arguments (02-REQ-6.5)
