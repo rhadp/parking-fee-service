@@ -169,3 +169,36 @@ Implemented the LOCKING_SERVICE (task group 5) for the RHIVOS safety partition. 
 - `rhivos/locking-service/src/command.rs`: 12 unit tests for command parsing, response serialization, action serde, and error classification
 - `rhivos/locking-service/src/lib.rs`: 7 unit tests replacing 2 failing stubs with passing tests using real LockCommand/LockAction types, plus edge case parse tests
 - `rhivos/locking-service/tests/integration.rs`: 17 integration tests covering TS-02-6 through TS-02-14, TS-02-E3 through TS-02-E7, and TS-02-P1 through TS-02-P4
+
+---
+
+## Session 19
+
+- **Spec:** 02_rhivos_safety
+- **Task Group:** 6
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the CLOUD_GATEWAY_CLIENT (task group 6) for the RHIVOS safety partition. Created four modules: `mqtt.rs` (MQTT client with exponential backoff reconnection), `commands.rs` (command validation and telemetry message formatting), `telemetry.rs` (DATA_BROKER signal subscription and MQTT telemetry/response relay), and `service.rs` (service orchestration connecting MQTT and DATA_BROKER). The service bridges MQTT commands to DATA_BROKER, relays command responses back to MQTT, and publishes telemetry on signal changes. All 23 unit tests, 4 main binary tests, and 9 integration tests pass, plus all Go structural/config spec tests.
+
+### Files Changed
+
+- Modified: `rhivos/cloud-gateway-client/Cargo.toml`
+- Modified: `rhivos/cloud-gateway-client/src/lib.rs`
+- Modified: `rhivos/cloud-gateway-client/src/main.rs`
+- Added: `rhivos/cloud-gateway-client/src/mqtt.rs`
+- Added: `rhivos/cloud-gateway-client/src/commands.rs`
+- Added: `rhivos/cloud-gateway-client/src/telemetry.rs`
+- Added: `rhivos/cloud-gateway-client/src/service.rs`
+- Added: `rhivos/cloud-gateway-client/tests/integration.rs`
+- Modified: `.specs/02_rhivos_safety/tasks.md`
+- Modified: `.specs/02_rhivos_safety/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/cloud-gateway-client/src/commands.rs`: 10 unit tests for command validation (valid/invalid JSON, missing fields, unknown action, non-UTF8) and telemetry message building
+- `rhivos/cloud-gateway-client/src/mqtt.rs`: 2 unit tests for MQTT topic construction
+- `rhivos/cloud-gateway-client/src/telemetry.rs`: 5 unit tests for DataValue-to-JSON conversion and telemetry signal coverage
+- `rhivos/cloud-gateway-client/src/main.rs`: 4 unit tests for MQTT address parsing
+- `rhivos/cloud-gateway-client/tests/integration.rs`: 9 integration tests covering TS-02-15 through TS-02-20, TS-02-E10, TS-02-P5, and TS-02-P6
