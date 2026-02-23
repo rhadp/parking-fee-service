@@ -313,8 +313,8 @@ Ordering rationale:
     - [x] No linter warnings:
       `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 6. UPDATE_SERVICE: OCI pulling, checksum gate, and offloading
-  - [ ] 6.1 Implement OCI client
+- [x] 6. UPDATE_SERVICE: OCI pulling, checksum gate, and offloading
+  - [x] 6.1 Implement OCI client
     - Create `rhivos/update-service/src/oci_client.rs`
     - Implement OCI manifest fetch: `GET /v2/{name}/manifests/{reference}`
     - Implement layer fetch: `GET /v2/{name}/blobs/{digest}`
@@ -325,7 +325,7 @@ Ordering rationale:
     - _Requirements: 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.3, 04-REQ-5.E1,
       04-REQ-5.E2_
 
-  - [ ] 6.2 Implement container runtime integration
+  - [x] 6.2 Implement container runtime integration
     - Create `rhivos/update-service/src/container_runtime.rs`
     - Implement podman/crun CLI invocations via `std::process::Command`:
       create, start, stop, remove, inspect
@@ -333,7 +333,7 @@ Ordering rationale:
     - Handle container start failure -> ERROR state with reason
     - _Requirements: 04-REQ-4.E3_
 
-  - [ ] 6.3 Implement offloader
+  - [x] 6.3 Implement offloader
     - Create `rhivos/update-service/src/offloader.rs`
     - Implement background tokio task checking stopped adapters periodically
     - When `last_active.elapsed() > offload_timeout`: transition to
@@ -342,14 +342,14 @@ Ordering rationale:
     - Handle re-install during OFFLOADING: cancel offload, re-download
     - _Requirements: 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.3, 04-REQ-6.E1_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] OCI pull integration test passes: TS-04-21
-    - [ ] Checksum gate integration tests pass: TS-04-23, TS-04-E11
-    - [ ] Registry error test passes: TS-04-E12
-    - [ ] Offloading tests pass: TS-04-25, TS-04-26, TS-04-E13
-    - [ ] Property tests pass: TS-04-P5, TS-04-P6, TS-04-P8
-    - [ ] All previously passing tests still pass
-    - [ ] No linter warnings:
+  - [x] 6.V Verify task group 6
+    - [x] OCI pull integration test passes: TS-04-21
+    - [x] Checksum gate integration tests pass: TS-04-23, TS-04-E11
+    - [x] Registry error test passes: TS-04-E12
+    - [x] Offloading tests pass: TS-04-25, TS-04-26, TS-04-E13
+    - [x] Property tests pass: TS-04-P5, TS-04-P6, TS-04-P8
+    - [x] All previously passing tests still pass
+    - [x] No linter warnings:
       `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
 - [ ] 7. CLI enhancements, integration tests, and final verification

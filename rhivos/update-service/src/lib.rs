@@ -2,13 +2,17 @@
 //!
 //! This crate implements the UpdateService gRPC service that manages
 //! the lifecycle of containerized adapters, including installation,
-//! state tracking, and removal. The adapter lifecycle follows a
-//! well-defined state machine (04-REQ-7.1).
+//! state tracking, OCI image pulling, checksum verification, and
+//! automatic offloading. The adapter lifecycle follows a well-defined
+//! state machine (04-REQ-7.1).
 
 pub mod adapter_manager;
 pub mod checksum;
 pub mod config;
+pub mod container_runtime;
 pub mod grpc_service;
+pub mod oci_client;
+pub mod offloader;
 
 /// Generated proto types for the UpdateService.
 ///

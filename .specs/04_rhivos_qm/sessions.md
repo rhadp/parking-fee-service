@@ -158,3 +158,36 @@ Implemented the UPDATE_SERVICE core state machine and gRPC interface (task group
 - `rhivos/update-service/src/checksum.rs`: Updated existing test to use computed checksum; added 2 new tests (deterministic, known_value)
 - `rhivos/update-service/src/config.rs`: Added 1 new test (config_defaults)
 - `rhivos/update-service/tests/integration.rs`: 8 tests converted from `#[ignore]` with `todo!()` to fully working in-process gRPC tests — covering TS-04-15 through TS-04-20, TS-04-E8, TS-04-E9
+
+---
+
+## Session 17
+
+- **Spec:** 04_rhivos_qm
+- **Task Group:** 6
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented UPDATE_SERVICE OCI pulling, checksum gate, and offloading (task group 6) for specification 04_rhivos_qm. Created three new modules: `oci_client.rs` (trait-based OCI registry abstraction with `HttpOciRegistry` and `MockOciRegistry`), `container_runtime.rs` (trait-based container runtime with `PodmanRuntime` and `MockContainerRuntime`), and `offloader.rs` (background tokio task for auto-offloading stopped adapters). Updated `grpc_service.rs` to use generic type parameters for OCI registry and container runtime, with an async `install_pipeline` that drives adapters through DOWNLOADING → checksum verification → INSTALLING → RUNNING (or ERROR on failure). All 31 unit tests and 19 integration tests pass with 0 ignored and 0 clippy warnings.
+
+### Files Changed
+
+- Modified: `rhivos/update-service/Cargo.toml`
+- Modified: `rhivos/update-service/src/adapter_manager.rs`
+- Modified: `rhivos/update-service/src/grpc_service.rs`
+- Modified: `rhivos/update-service/src/lib.rs`
+- Modified: `rhivos/update-service/src/main.rs`
+- Added: `rhivos/update-service/src/oci_client.rs`
+- Added: `rhivos/update-service/src/container_runtime.rs`
+- Added: `rhivos/update-service/src/offloader.rs`
+- Modified: `rhivos/update-service/tests/integration.rs`
+- Modified: `.specs/04_rhivos_qm/tasks.md`
+- Modified: `.specs/04_rhivos_qm/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/update-service/src/oci_client.rs`: 7 unit tests for image_ref parsing, checksum verification (match/mismatch), mock registry pull, and unreachable registry
+- `rhivos/update-service/src/container_runtime.rs`: 3 unit tests for mock runtime start success/failure and stop/remove
+- `rhivos/update-service/src/offloader.rs`: 4 unit tests for offload check (offloads stopped, skips running, respects timeout, emits events)
+- `rhivos/update-service/tests/integration.rs`: 11 tests converted from `#[ignore]` with `todo!()` to fully working in-process tests — covering TS-04-21, TS-04-23, TS-04-25, TS-04-26, TS-04-E10, TS-04-E11, TS-04-E12, TS-04-E13, TS-04-P5, TS-04-P6, TS-04-P8
