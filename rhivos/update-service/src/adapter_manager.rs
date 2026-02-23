@@ -275,6 +275,13 @@ impl AdapterManager {
             .filter(|r| r.state == AdapterState::Stopped)
             .collect()
     }
+
+    /// Set the container_id for an adapter.
+    pub fn set_container_id(&mut self, adapter_id: &str, container_id: Option<String>) {
+        if let Some(record) = self.adapters.get_mut(adapter_id) {
+            record.container_id = container_id;
+        }
+    }
 }
 
 /// Get the current Unix timestamp in seconds.
