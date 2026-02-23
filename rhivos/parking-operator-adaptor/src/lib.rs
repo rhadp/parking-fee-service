@@ -6,6 +6,8 @@
 //! and manually (via gRPC calls from PARKING_APP).
 
 pub mod config;
+pub mod databroker_client;
+pub mod event_handler;
 pub mod grpc_service;
 pub mod operator_client;
 pub mod session_manager;

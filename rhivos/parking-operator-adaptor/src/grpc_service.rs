@@ -2,12 +2,14 @@
 //!
 //! Implements the `ParkingAdaptor` gRPC trait, delegating to the operator
 //! REST client for actual parking operations and using the session manager
-//! to track session state.
+//! to track session state. When a DATA_BROKER client is configured, manual
+//! StartSession/StopSession also update `Vehicle.Parking.SessionActive`.
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+use crate::databroker_client::{signals, DataBrokerClient, DataValue};
 use crate::operator_client::{OperatorClient, OperatorError};
 use crate::proto::adaptor::parking_adaptor_server::ParkingAdaptor;
 use crate::proto::adaptor::{
@@ -21,19 +23,57 @@ use tonic::{Request, Response, Status};
 ///
 /// Delegates parking operations to the PARKING_OPERATOR REST API via
 /// `OperatorClient` and tracks session state via `SessionManager`.
+/// When a DATA_BROKER client is configured, manual StartSession/StopSession
+/// also write `Vehicle.Parking.SessionActive` to the DATA_BROKER
+/// (04-REQ-2.5: override updates SessionActive).
 pub struct ParkingAdaptorService {
     /// REST client for the PARKING_OPERATOR.
     operator: OperatorClient,
     /// Session state manager (thread-safe).
     session_mgr: Arc<Mutex<SessionManager>>,
+    /// Optional DATA_BROKER client for writing SessionActive on overrides.
+    databroker: Option<Arc<dyn DataBrokerClient>>,
 }
 
 impl ParkingAdaptorService {
-    /// Create a new ParkingAdaptorService.
+    /// Create a new ParkingAdaptorService without DATA_BROKER integration.
     pub fn new(operator: OperatorClient, session_mgr: Arc<Mutex<SessionManager>>) -> Self {
         ParkingAdaptorService {
             operator,
             session_mgr,
+            databroker: None,
+        }
+    }
+
+    /// Create a new ParkingAdaptorService with DATA_BROKER integration.
+    ///
+    /// When a DATA_BROKER client is provided, manual StartSession/StopSession
+    /// calls will also write `Vehicle.Parking.SessionActive` to DATA_BROKER,
+    /// implementing the override behavior defined in 04-REQ-2.5.
+    pub fn with_databroker(
+        operator: OperatorClient,
+        session_mgr: Arc<Mutex<SessionManager>>,
+        databroker: Arc<dyn DataBrokerClient>,
+    ) -> Self {
+        ParkingAdaptorService {
+            operator,
+            session_mgr,
+            databroker: Some(databroker),
+        }
+    }
+
+    /// Write SessionActive to DATA_BROKER if a client is configured.
+    async fn write_session_active(&self, active: bool) {
+        if let Some(ref db) = self.databroker {
+            if let Err(e) = db
+                .write(signals::SESSION_ACTIVE, DataValue::Bool(active))
+                .await
+            {
+                eprintln!(
+                    "grpc_service: failed to write SessionActive={}: {}",
+                    active, e
+                );
+            }
         }
     }
 }
@@ -65,6 +105,7 @@ impl ParkingAdaptor for ParkingAdaptorService {
     /// Calls the PARKING_OPERATOR's `POST /parking/start` endpoint.
     /// Returns `ALREADY_EXISTS` if a session is already active.
     /// Returns `UNAVAILABLE` if the operator is unreachable.
+    /// When DATA_BROKER is configured, writes `SessionActive = true`.
     async fn start_session(
         &self,
         request: Request<StartSessionRequest>,
@@ -104,6 +145,9 @@ impl ParkingAdaptor for ParkingAdaptorService {
             }
         }
 
+        // 04-REQ-2.5: Write SessionActive = true to DATA_BROKER on override
+        self.write_session_active(true).await;
+
         Ok(Response::new(StartSessionResponse {
             session_id: result.session_id,
             status: result.status,
@@ -115,6 +159,7 @@ impl ParkingAdaptor for ParkingAdaptorService {
     /// Calls the PARKING_OPERATOR's `POST /parking/stop` endpoint.
     /// Returns `NOT_FOUND` if the session_id is unknown.
     /// Returns `UNAVAILABLE` if the operator is unreachable.
+    /// When DATA_BROKER is configured, writes `SessionActive = false`.
     async fn stop_session(
         &self,
         request: Request<StopSessionRequest>,
@@ -147,6 +192,9 @@ impl ParkingAdaptor for ParkingAdaptorService {
             let mut mgr = self.session_mgr.lock().await;
             let _ = mgr.stop_session(&req.session_id);
         }
+
+        // 04-REQ-2.5: Write SessionActive = false to DATA_BROKER on override
+        self.write_session_active(false).await;
 
         Ok(Response::new(StopSessionResponse {
             session_id: result.session_id,

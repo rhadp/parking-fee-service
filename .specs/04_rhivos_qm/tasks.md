@@ -210,8 +210,8 @@ Ordering rationale:
     - [x] No linter warnings:
       `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [ ] 4. PARKING_OPERATOR_ADAPTOR: autonomous session management
-  - [ ] 4.1 Implement DATA_BROKER client
+- [x] 4. PARKING_OPERATOR_ADAPTOR: autonomous session management
+  - [x] 4.1 Implement DATA_BROKER client
     - Create `rhivos/parking-operator-adaptor/src/databroker_client.rs`
     - Implement Kuksa DATA_BROKER gRPC client using `kuksa.val.v1` proto:
       - `subscribe(signal_path)` — opens streaming subscription
@@ -222,7 +222,7 @@ Ordering rationale:
     - _Requirements: 04-REQ-3.1, 04-REQ-3.2, 04-REQ-3.3, 04-REQ-3.4,
       04-REQ-3.E1_
 
-  - [ ] 4.2 Implement autonomous lock/unlock event handling
+  - [x] 4.2 Implement autonomous lock/unlock event handling
     - Add lock event subscription loop to main.rs or session_manager.rs
     - On lock event (`IsLocked = true`) + no active session:
       - Read location from DATA_BROKER
@@ -237,22 +237,22 @@ Ordering rationale:
     - _Requirements: 04-REQ-2.1, 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.4,
       04-REQ-2.E1, 04-REQ-2.E2, 04-REQ-2.E3_
 
-  - [ ] 4.3 Integrate override with autonomous behavior
+  - [x] 4.3 Integrate override with autonomous behavior
     - Update gRPC service to set `override_active` flag in session manager
     - Ensure manual StartSession/StopSession updates `SessionActive` in
       DATA_BROKER
     - Ensure autonomous behavior respects override state
     - _Requirements: 04-REQ-2.5_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Autonomous session tests pass (require DATA_BROKER):
+  - [x] 4.V Verify task group 4
+    - [x] Autonomous session tests pass (require DATA_BROKER):
       TS-04-6, TS-04-7, TS-04-8, TS-04-9, TS-04-10
-    - [ ] DATA_BROKER subscription tests pass:
+    - [x] DATA_BROKER subscription tests pass:
       TS-04-11, TS-04-12, TS-04-13, TS-04-14
-    - [ ] Edge case tests pass: TS-04-E4, TS-04-E5, TS-04-E6, TS-04-E7
-    - [ ] Property tests pass: TS-04-P1, TS-04-P2, TS-04-P3
-    - [ ] All previously passing tests still pass
-    - [ ] No linter warnings:
+    - [x] Edge case tests pass: TS-04-E4, TS-04-E5, TS-04-E6, TS-04-E7
+    - [x] Property tests pass: TS-04-P1, TS-04-P2, TS-04-P3
+    - [x] All previously passing tests still pass
+    - [x] No linter warnings:
       `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
 - [ ] 5. UPDATE_SERVICE: core state machine and gRPC interface
