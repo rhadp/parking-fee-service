@@ -235,15 +235,15 @@ Ordering rationale:
     - `go test ./backend/... ./mock/...`
   - Ask the user if questions arise before proceeding to build system.
 
-- [ ] 6. Build system and local infrastructure
-  - [ ] 6.1 Create Makefile with toolchain detection
+- [x] 6. Build system and local infrastructure
+  - [x] 6.1 Create Makefile with toolchain detection
     - Check for `rustc`/`cargo`, `go`, `protoc`, `podman`/`docker` at the
       start of relevant targets
     - Print "Error: <tool> not found. Please install <tool>." and exit 1
       if missing
     - _Requirements: 01-REQ-6.1, 01-REQ-6.E1_
 
-  - [ ] 6.2 Add build, test, lint, clean targets
+  - [x] 6.2 Add build, test, lint, clean targets
     - `build`: `cd rhivos && cargo build` + `go build` for each Go module
     - `test`: `cd rhivos && cargo test` + `go test` for each Go module
     - `lint`: `cd rhivos && cargo clippy -- -D warnings` + `go vet` for each
@@ -254,26 +254,26 @@ Ordering rationale:
     - _Requirements: 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.6,
       01-REQ-6.E2_
 
-  - [ ] 6.3 Add proto and check targets
+  - [x] 6.3 Add proto and check targets
     - `proto`: run protoc for Go code generation into `gen/go/`
     - `check`: run `build` + `test` + `lint` in sequence
     - _Requirements: 01-REQ-6.5_
 
-  - [ ] 6.4 Add infra-up and infra-down targets
+  - [x] 6.4 Add infra-up and infra-down targets
     - `infra-up`: `cd infra && podman-compose up -d` (or `docker compose up -d`)
     - `infra-down`: `cd infra && podman-compose down` (or `docker compose down`)
     - Auto-detect podman-compose vs docker compose
     - _Requirements: 01-REQ-7.4, 01-REQ-7.5_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Build system spec tests pass:
+  - [x] 6.V Verify task group 6
+    - [x] Build system spec tests pass:
       `cd tests/setup && go test -v -count=1 -run "TestMake" ./...`
-    - [ ] Infrastructure spec tests pass (requires container runtime):
+    - [x] Infrastructure spec tests pass (requires container runtime):
       `cd tests/setup && go test -v -count=1 -run "TestInfra_Up|TestInfra_Down" ./...`
-    - [ ] All existing tests still pass:
+    - [x] All existing tests still pass:
       `cd tests/setup && go test -v -count=1 ./...`
-    - [ ] No linter warnings: `make lint`
-    - [ ] Requirements 01-REQ-6.1 through 01-REQ-6.6, 01-REQ-7.4, 01-REQ-7.5 met
+    - [x] No linter warnings: `make lint`
+    - [x] Requirements 01-REQ-6.1 through 01-REQ-6.6, 01-REQ-7.4, 01-REQ-7.5 met
 
 - [ ] 7. Final verification and documentation
   - [ ] 7.1 Run all spec tests and fix failures
