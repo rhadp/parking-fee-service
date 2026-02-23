@@ -226,7 +226,7 @@ Ordering rationale:
     - [x] Requirements 01-REQ-4.1 through 01-REQ-4.6, 01-REQ-5.1 through
       01-REQ-5.5, 01-REQ-8.2 met
 
-- [ ] 5. Checkpoint — component scaffolds complete
+- [x] 5. Checkpoint — component scaffolds complete
   - All component directories, proto files, Rust crates, Go modules, and
     mock CLI apps exist and compile.
   - Verify end-to-end:
@@ -275,8 +275,8 @@ Ordering rationale:
     - [x] No linter warnings: `make lint`
     - [x] Requirements 01-REQ-6.1 through 01-REQ-6.6, 01-REQ-7.4, 01-REQ-7.5 met
 
-- [ ] 7. Final verification and documentation
-  - [ ] 7.1 Run all spec tests and fix failures
+- [x] 7. Final verification and documentation
+  - [x] 7.1 Run all spec tests and fix failures
     - Run full spec test suite:
       `cd tests/setup && go test -v -count=1 ./...`
     - Run edge case tests:
@@ -286,24 +286,24 @@ Ordering rationale:
     - Fix any remaining failures
     - _Test Spec: TS-01-E1 through TS-01-E11, TS-01-P1 through TS-01-P7_
 
-  - [ ] 7.2 Update README.md
+  - [x] 7.2 Update README.md
     - Project overview (what this repo is)
     - Prerequisites (Rust, Go, protoc, Podman/Docker)
     - Quick start: `make build`, `make test`, `make infra-up`
     - Repository structure overview
     - Link to `.specs/prd.md` for full product requirements
 
-  - [ ] 7.3 Run full quality gate
+  - [x] 7.3 Run full quality gate
     - `make check` (build + test + lint)
     - `cd tests/setup && go test -v -count=1 ./...`
     - `git status` shows clean working tree
 
-  - [ ] 7.V Verify task group 7
-    - [ ] All 60 spec tests pass (42 acceptance + 11 edge + 7 property)
-    - [ ] `make check` exits 0
-    - [ ] No linter warnings
-    - [ ] README.md is updated
-    - [ ] All changes committed and pushed
+  - [x] 7.V Verify task group 7
+    - [x] All 60 spec tests pass (42 acceptance + 11 edge + 7 property)
+    - [x] `make check` exits 0
+    - [x] No linter warnings
+    - [x] README.md is updated
+    - [x] All changes committed and pushed
 
 ### Checkbox States
 
