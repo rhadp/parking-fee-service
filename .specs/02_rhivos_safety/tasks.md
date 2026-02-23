@@ -138,31 +138,31 @@ Ordering rationale:
     - [x] Spec tests TS-02-1 through TS-02-5 pass
     - [x] No regressions: `make test`
 
-- [ ] 3. Shared databroker-client crate
-  - [ ] 3.1 Create databroker-client crate
+- [x] 3. Shared databroker-client crate
+  - [x] 3.1 Create databroker-client crate
     - Create `rhivos/databroker-client/Cargo.toml` with dependencies:
       tonic, prost, tokio, tower (for UDS support)
     - Add crate to workspace members in `rhivos/Cargo.toml`
     - _Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3_
 
-  - [ ] 3.2 Implement Kuksa gRPC client wrapper
+  - [x] 3.2 Implement Kuksa gRPC client wrapper
     - Implement `DatabrokerClient::connect()` supporting both UDS and TCP
     - Implement `get_value()`, `set_value()`, `subscribe()`
     - Implement `DataValue` enum (Bool, Float, Double, String)
     - Use Kuksa Databroker's proto definitions (from the Kuksa project)
     - _Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4_
 
-  - [ ] 3.3 Add unit tests for databroker-client
+  - [x] 3.3 Add unit tests for databroker-client
     - Test value type conversions
     - Test endpoint parsing (UDS vs TCP)
     - Test error type mapping
     - _Requirements: 02-REQ-7.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Crate builds: `cd rhivos && cargo build -p databroker-client`
-    - [ ] Unit tests pass: `cd rhivos && cargo test -p databroker-client`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p databroker-client -- -D warnings`
-    - [ ] No regressions: `cd rhivos && cargo test`
+  - [x] 3.V Verify task group 3
+    - [x] Crate builds: `cd rhivos && cargo build -p databroker-client`
+    - [x] Unit tests pass: `cd rhivos && cargo test -p databroker-client`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p databroker-client -- -D warnings`
+    - [x] No regressions: `cd rhivos && cargo test`
 
 - [ ] 4. Mock sensor CLI tools
   - [ ] 4.1 Create mock-sensors crate
