@@ -2,6 +2,10 @@
 package store
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+
 	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/internal/model"
 )
 
@@ -11,10 +15,9 @@ type Store struct {
 }
 
 // NewDefaultStore creates a store loaded with the embedded default operator
-// dataset. Returns nil until implemented.
+// dataset.
 func NewDefaultStore() *Store {
-	// TODO: implement with embedded data (task group 2)
-	return nil
+	return NewStoreFromOperators(defaultOperators())
 }
 
 // NewEmptyStore creates a store with no operators.
@@ -32,10 +35,19 @@ func NewStoreFromOperators(ops []model.Operator) *Store {
 }
 
 // NewStoreFromFile loads operator data from a JSON file at the given path.
-// Returns nil store and an error until implemented.
+// Returns a populated store or an error if the file is missing or malformed.
 func NewStoreFromFile(path string) (*Store, error) {
-	// TODO: implement JSON loading (task group 2)
-	return nil, nil
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read operator config file: %w", err)
+	}
+
+	var cfg model.OperatorsConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse operator config file: %w", err)
+	}
+
+	return NewStoreFromOperators(cfg.Operators), nil
 }
 
 // ListOperators returns all operators in the store.

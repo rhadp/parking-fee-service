@@ -117,40 +117,40 @@ Ordering rationale:
     - [x] No linter warnings:
       `cd backend/parking-fee-service && go vet ./...`
 
-- [ ] 2. Data model and operator store
-  - [ ] 2.1 Create data model types
+- [x] 2. Data model and operator store
+  - [x] 2.1 Create data model types
     - Create `backend/parking-fee-service/internal/model/operator.go`
     - Define types: Operator, Zone, Point, Rate, Adapter, OperatorsConfig
     - Add JSON struct tags matching the API response schema
     - _Requirements: 05-REQ-1.2, 05-REQ-4.2_
 
-  - [ ] 2.2 Create operator store
+  - [x] 2.2 Create operator store
     - Create `backend/parking-fee-service/internal/store/store.go`
     - Implement `Store` interface: `ListOperators()`, `GetOperator(id string)`
     - Implement in-memory store backed by a `map[string]Operator`
     - _Requirements: 05-REQ-6.1_
 
-  - [ ] 2.3 Create default operator dataset
+  - [x] 2.3 Create default operator dataset
     - Create `backend/parking-fee-service/internal/store/default_data.go`
     - Embed the default operator dataset (Munich City Center, Munich Airport)
     - Include realistic polygon coordinates, rates, and adapter metadata
     - Implement `NewDefaultStore()` constructor
     - _Requirements: 05-REQ-6.2, 05-REQ-6.4_
 
-  - [ ] 2.4 Implement JSON config file loading
+  - [x] 2.4 Implement JSON config file loading
     - Implement `NewStoreFromFile(path string)` constructor
     - Parse JSON file into OperatorsConfig, populate store
     - Return clear error on missing or malformed file
     - _Requirements: 05-REQ-6.1, 05-REQ-6.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Store tests pass:
+  - [x] 2.V Verify task group 2
+    - [x] Store tests pass:
       `cd backend/parking-fee-service && go test -v -count=1 ./internal/store/...`
-    - [ ] Model compiles:
+    - [x] Model compiles:
       `cd backend/parking-fee-service && go vet ./internal/model/...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/parking-fee-service && go vet ./...`
-    - [ ] Requirements 05-REQ-6.1 through 05-REQ-6.4, 05-REQ-6.E1 met
+    - [x] Requirements 05-REQ-6.1 through 05-REQ-6.4, 05-REQ-6.E1 met
 
 - [ ] 3. Geofence matching engine
   - [ ] 3.1 Implement point-in-polygon algorithm

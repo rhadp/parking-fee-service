@@ -34,3 +34,26 @@ Implemented all failing tests for the PARKING_FEE_SERVICE (task group 1). Create
 - `backend/parking-fee-service/internal/store/store_test.go`: 5 tests covering JSON loading, default operators, and edge cases (malformed/missing config)
 - `backend/parking-fee-service/internal/config/config_test.go`: 4 tests covering default fuzziness, fuzziness env var, operators config path, and auth tokens env var
 - `tests/integration/parking_fee_service_test.go`: 3 integration test stubs (CLI lookup, CLI adapter, full discovery flow) with t.Skip pending implementation
+
+---
+
+## Session 22
+
+- **Spec:** 05_parking_fee_service
+- **Task Group:** 2
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the data model and operator store (task group 2) for the PARKING_FEE_SERVICE. The model types were already in place from task group 1. Created `default_data.go` with two realistic demo operators (Munich City Center and Munich Airport) matching the design spec coordinates, rates, and adapter metadata. Implemented `NewDefaultStore()` and `NewStoreFromFile()` in `store.go`, enabling store creation from embedded defaults or external JSON config files with proper error handling for missing/malformed files. All 5 store tests pass.
+
+### Files Changed
+
+- Added: `backend/parking-fee-service/internal/store/default_data.go`
+- Modified: `backend/parking-fee-service/internal/store/store.go`
+- Modified: `.specs/05_parking_fee_service/tasks.md`
+- Modified: `.specs/05_parking_fee_service/sessions.md`
+
+### Tests Added or Modified
+
+- None (existing store tests from task group 1 now pass: `TestStore_LoadFromJSON`, `TestStore_DefaultOperators`, `TestStore_DefaultWhenNoConfig`, `TestEdge_MalformedConfig`, `TestEdge_MissingConfigFile`)
