@@ -17,6 +17,13 @@
 # Uncomment to extend the built-in allowlist:
 # bash_allowlist_extend = ["cargo", "rustc", "docker"]
 
+[orchestrator]
+parallel = 3
+
+[memory]
+model = "claude-haiku-4-5"  
+auto_render = true
+
 [costs.claude-opus-4-6]
 input = 5.0    # $ per million input tokens
 output = 25.0  # $ per million output tokens
