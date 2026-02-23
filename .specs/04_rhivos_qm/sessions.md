@@ -126,3 +126,35 @@ Implemented autonomous session management for the PARKING_OPERATOR_ADAPTOR (task
 - `rhivos/parking-operator-adaptor/src/databroker_client.rs`: 8 unit tests for MockDataBrokerClient, KuksaDataBrokerClient, DataValue conversions, and error display
 - `rhivos/parking-operator-adaptor/src/event_handler.rs`: 7 unit tests for lock/unlock handling, idempotency, operator-unreachable, location reading, and SessionActive override
 - `rhivos/parking-operator-adaptor/tests/integration.rs`: 16 tests updated from `#[ignore]` with `todo!()` to fully working in-process tests using MockDataBrokerClient — covering TS-04-6 through TS-04-14, TS-04-E4 through TS-04-E7, TS-04-P1 through TS-04-P3
+
+---
+
+## Session 13
+
+- **Spec:** 04_rhivos_qm
+- **Task Group:** 5
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the UPDATE_SERVICE core state machine and gRPC interface (task group 5) for specification 04_rhivos_qm. Replaced all stub implementations with working code: `is_valid_transition()` enforces the 10 valid state transitions per 04-REQ-7.1, `verify_checksum()` computes real SHA-256 digests, `Config::from_env()` reads environment variables with proper defaults (24h offload timeout), and the `UpdateServiceGrpc` struct implements all five gRPC methods with `AdapterManager` state coordination and broadcast-based event streaming. All 17 unit tests and 8 integration tests pass; 11 task-group-6 tests remain correctly ignored.
+
+### Files Changed
+
+- Modified: `rhivos/update-service/Cargo.toml`
+- Modified: `rhivos/update-service/src/adapter_manager.rs`
+- Modified: `rhivos/update-service/src/checksum.rs`
+- Modified: `rhivos/update-service/src/config.rs`
+- Added: `rhivos/update-service/src/grpc_service.rs`
+- Modified: `rhivos/update-service/src/lib.rs`
+- Modified: `rhivos/update-service/src/main.rs`
+- Modified: `rhivos/update-service/tests/integration.rs`
+- Modified: `.specs/04_rhivos_qm/tasks.md`
+- Modified: `.specs/04_rhivos_qm/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/update-service/src/adapter_manager.rs`: Added 7 unit tests for AdapterManager (install_and_list, duplicate_install_rejected, transition, remove, remove_unknown, get_unknown, state_event_emitted) alongside existing 3 state machine tests
+- `rhivos/update-service/src/checksum.rs`: Updated existing test to use computed checksum; added 2 new tests (deterministic, known_value)
+- `rhivos/update-service/src/config.rs`: Added 1 new test (config_defaults)
+- `rhivos/update-service/tests/integration.rs`: 8 tests converted from `#[ignore]` with `todo!()` to fully working in-process gRPC tests — covering TS-04-15 through TS-04-20, TS-04-E8, TS-04-E9

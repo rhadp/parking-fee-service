@@ -8,6 +8,8 @@ tonic = { workspace = true }
 prost = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
 
 [build-dependencies]
 tonic-build = { workspace = true }

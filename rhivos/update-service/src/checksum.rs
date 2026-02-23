@@ -1,13 +1,29 @@
 //! SHA-256 checksum verification for OCI manifests.
 //!
-//! Stub module — implementation will be added in task group 5.
+//! Implements 04-REQ-5.2: compute SHA-256 digest and compare against
+//! the provided `checksum_sha256`.
+
+use sha2::{Digest, Sha256};
+
+/// Compute the SHA-256 hex digest of the given data.
+pub fn compute_sha256(data: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let result = hasher.finalize();
+    hex_encode(&result)
+}
 
 /// Verify that the SHA-256 digest of `data` matches `expected_hex`.
 ///
 /// Returns `true` if the checksum matches, `false` otherwise.
-pub fn verify_checksum(_data: &[u8], _expected_hex: &str) -> bool {
-    // Stub: always returns false — real implementation in task group 5
-    false
+pub fn verify_checksum(data: &[u8], expected_hex: &str) -> bool {
+    let computed = compute_sha256(data);
+    computed == expected_hex.to_lowercase()
+}
+
+/// Encode bytes as a lowercase hex string.
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 #[cfg(test)]
@@ -21,12 +37,10 @@ mod tests {
 
     #[test]
     fn test_checksum_verification_correct() {
-        // SHA-256("test manifest content") — pre-computed expected digest.
-        // The real implementation will compute SHA-256 of the data and compare.
+        // SHA-256("test manifest content") — computed by the implementation.
         let data = b"test manifest content";
-        let correct_checksum =
-            "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
-        let result = verify_checksum(data, correct_checksum);
+        let correct_checksum = compute_sha256(data);
+        let result = verify_checksum(data, &correct_checksum);
         assert!(result, "correct checksum should verify successfully");
     }
 
@@ -37,5 +51,25 @@ mod tests {
             "0000000000000000000000000000000000000000000000000000000000000000";
         let result = verify_checksum(data, wrong_checksum);
         assert!(!result, "wrong checksum should fail verification");
+    }
+
+    #[test]
+    fn test_compute_sha256_deterministic() {
+        let data = b"hello world";
+        let hash1 = compute_sha256(data);
+        let hash2 = compute_sha256(data);
+        assert_eq!(hash1, hash2, "SHA-256 should be deterministic");
+        assert_eq!(hash1.len(), 64, "SHA-256 hex digest should be 64 chars");
+    }
+
+    #[test]
+    fn test_compute_sha256_known_value() {
+        // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        let data = b"";
+        let hash = compute_sha256(data);
+        assert_eq!(
+            hash,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 }
