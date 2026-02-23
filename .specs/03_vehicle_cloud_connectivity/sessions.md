@@ -125,3 +125,34 @@ Implemented CLOUD_GATEWAY MQTT bridge and main entry point (task group 4). Creat
 ### Tests Added or Modified
 
 - `backend/cloud-gateway/internal/bridge/bridge_test.go`: 14 tests including TestBridge_CommandIDPreserved, TestBridge_CommandSchema, TestBridge_CommandSchemaUnlock, TestBridge_ResponseSchema, TestBridge_ResponseSchemaFailed, TestBridge_CommandIDPreservation (20 subtests), TestBridge_TopicRouting (4 subtests), TestBridge_SendCommand_PublishError, TestBridge_HandleTelemetry, TestBridge_HandleTelemetry_InvalidJSON, TestBridge_HandleTelemetry_MultipleVINs, TestBridge_SendCommandAndResolve, TestBridge_TrackerAccess
+
+---
+
+## Session 14
+
+- **Spec:** 03_vehicle_cloud_connectivity
+- **Task Group:** 5
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented mock COMPANION_APP CLI enhancement (task group 5). Upgraded the companion-app-cli from stub commands to a functional REST client: lock and unlock commands send POST requests with UUID command_id, type, and doors fields; status command sends GET requests; all commands include bearer token authentication. Token validation returns clear error messages when --token is missing. All 14 CLI unit tests pass, all 9 spec tests pass (TestUnit_CLI_*, TestEdge_MissingToken, TestEdge_GatewayUnreachable), and no regressions on cloud-gateway tests.
+
+### Files Changed
+
+- Modified: `mock/companion-app-cli/main.go`
+- Modified: `mock/companion-app-cli/go.mod`
+- Modified: `mock/companion-app-cli/go.sum`
+- Added: `mock/companion-app-cli/lock_test.go`
+- Added: `mock/companion-app-cli/unlock_test.go`
+- Added: `mock/companion-app-cli/status_test.go`
+- Added: `mock/companion-app-cli/token_test.go`
+- Modified: `.specs/03_vehicle_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_vehicle_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `mock/companion-app-cli/lock_test.go`: 3 tests for lock command (POST request, unique IDs, server error)
+- `mock/companion-app-cli/unlock_test.go`: 2 tests for unlock command (POST with unlock type, server error)
+- `mock/companion-app-cli/status_test.go`: 4 tests for status command (GET request, VIN in URL, server error, missing token)
+- `mock/companion-app-cli/token_test.go`: 4 tests for token validation (empty, valid, missing token, connection error)
