@@ -41,3 +41,38 @@ Implemented task group 1 (Write failing spec tests) for the RHIVOS safety partit
 - `rhivos/safety-tests/tests/edge_case_tests.rs`: Edge case tests (TS-02-E1 through TS-02-E15)
 - `rhivos/safety-tests/tests/property_tests.rs`: Property tests (TS-02-P1 through TS-02-P8)
 - `rhivos/safety-tests/tests/integration.rs`: End-to-end integration tests (TS-02-30, TS-02-32)
+
+---
+
+## Session 5
+
+- **Spec:** 02_rhivos_safety
+- **Task Group:** 2
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 2 (DATA_BROKER configuration) for the RHIVOS safety partition specification. Created the VSS overlay file with both standard and custom signal definitions, updated docker-compose.yml with VSS loading, JWT authentication, and UDS socket directory mount, and generated RS256-signed JWT tokens with per-signal permissions for all six services. Created ADR-002 documenting the authentication and configuration decisions.
+
+### Files Changed
+
+- Added: `infra/kuksa/vss-overlay.json`
+- Added: `infra/kuksa/keys/jwt.key`
+- Added: `infra/kuksa/keys/jwt.pub.pem`
+- Added: `infra/kuksa/tokens/admin.token`
+- Added: `infra/kuksa/tokens/cloud-gateway-client.token`
+- Added: `infra/kuksa/tokens/door-sensor.token`
+- Added: `infra/kuksa/tokens/location-sensor.token`
+- Added: `infra/kuksa/tokens/locking-service.token`
+- Added: `infra/kuksa/tokens/speed-sensor.token`
+- Added: `infra/kuksa/tokens.json`
+- Added: `infra/kuksa/generate-tokens.py`
+- Added: `docs/adr/002-databroker-auth-and-config.md`
+- Added: `.docs/errata/02-databroker-config-deltas.md`
+- Modified: `infra/docker-compose.yml`
+- Modified: `.specs/02_rhivos_safety/tasks.md`
+- Modified: `.specs/02_rhivos_safety/sessions.md`
+
+### Tests Added or Modified
+
+- None (this task group is infrastructure configuration; test TS-02-1 now passes)

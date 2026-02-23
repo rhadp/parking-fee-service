@@ -107,21 +107,21 @@ Ordering rationale:
     - [x] No linter warnings introduced:
       `cd rhivos && cargo clippy -- -D warnings`
 
-- [ ] 2. DATA_BROKER configuration
-  - [ ] 2.1 Create VSS overlay file
+- [x] 2. DATA_BROKER configuration
+  - [x] 2.1 Create VSS overlay file
     - Create `infra/kuksa/vss-overlay.json` with custom signal definitions:
       Vehicle.Command.Door.Lock (string) and
       Vehicle.Command.Door.Response (string)
     - _Requirements: 02-REQ-1.1_
 
-  - [ ] 2.2 Update docker-compose.yml for DATA_BROKER
+  - [x] 2.2 Update docker-compose.yml for DATA_BROKER
     - Add VSS overlay volume mount to kuksa-databroker service
     - Add UDS socket bind-mount (`/tmp/kuksa-databroker.sock`)
     - Add `--vss` flag pointing to overlay file
     - Ensure both TCP (:55556) and UDS endpoints are available
     - _Requirements: 02-REQ-1.2, 02-REQ-1.3, 02-REQ-1.4_
 
-  - [ ] 2.3 Configure access control tokens
+  - [x] 2.3 Configure access control tokens
     - Create token configuration file at `infra/kuksa/tokens.json`
       (or use Kuksa's native token format)
     - Define tokens for each service with appropriate write permissions
@@ -130,13 +130,13 @@ Ordering rationale:
       document the limitation and use a simplified approach
     - _Requirements: 02-REQ-1.5_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] DATA_BROKER starts with `make infra-up`
-    - [ ] Custom signals accessible:
+  - [x] 2.V Verify task group 2
+    - [x] DATA_BROKER starts with `make infra-up`
+    - [x] Custom signals accessible:
       `grpcurl -plaintext localhost:55556 kuksa.val.v1.VAL/Get` (or equivalent)
-    - [ ] UDS endpoint reachable
-    - [ ] Spec tests TS-02-1 through TS-02-5 pass
-    - [ ] No regressions: `make test`
+    - [x] UDS endpoint reachable
+    - [x] Spec tests TS-02-1 through TS-02-5 pass
+    - [x] No regressions: `make test`
 
 - [ ] 3. Shared databroker-client crate
   - [ ] 3.1 Create databroker-client crate

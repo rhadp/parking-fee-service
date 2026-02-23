@@ -10,4 +10,17 @@ services:
     image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
     ports:
       - "55556:55555"
-    command: ["--address", "0.0.0.0"]
+    volumes:
+      - ./kuksa/vss-overlay.json:/etc/kuksa/vss-overlay.json:ro
+      - ./kuksa/keys/jwt.pub.pem:/etc/kuksa/jwt.pub.pem:ro
+      - /tmp/kuksa:/tmp/kuksa
+    command:
+      - "--address"
+      - "0.0.0.0"
+      - "--port"
+      - "55555"
+      - "--vss"
+      - "/etc/kuksa/vss-overlay.json"
+      - "--jwt-public-key"
+      - "/etc/kuksa/jwt.pub.pem"
+      - "--enable-databroker-v1"
