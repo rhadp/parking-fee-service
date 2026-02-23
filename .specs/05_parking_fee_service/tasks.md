@@ -246,7 +246,7 @@ Ordering rationale:
       `cd backend/parking-fee-service && go vet ./...`
     - [x] Requirements 05-REQ-1.1 through 05-REQ-7.3 and all edge cases met
 
-- [ ] 5. Checkpoint — service implementation complete
+- [x] 5. Checkpoint — service implementation complete
   - All unit tests pass for the PARKING_FEE_SERVICE.
   - The service starts and responds to all three endpoints correctly.
   - Verify end-to-end:
