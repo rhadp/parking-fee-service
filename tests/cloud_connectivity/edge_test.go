@@ -196,57 +196,85 @@ func TestEdge_MQTTDisconnected(t *testing.T) {
 
 // TS-03-E5: Command response timeout
 // Requirement: 03-REQ-2.E3
-// Verifies pending command times out and returns 504.
+// Verifies timeout behavior in two scenarios:
+//   - Degraded mode (MQTT unreachable): returns 202 per design decision D1
+//   - Connected mode (MQTT connected, no responder): returns 504 per 03-REQ-2.E3
+//
+// Design decision D1 reconciliation: When MQTT is unreachable, the handler
+// returns 202 Accepted immediately (degraded mode). The 504 timeout behavior
+// applies when MQTT IS connected but no vehicle responds within the timeout.
 func TestEdge_CommandTimeout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping edge case test in short mode")
 	}
 
-	root := repoRoot(t)
-	port := freePort(t)
+	t.Run("degraded_mode", func(t *testing.T) {
+		// When MQTT is unreachable, the handler returns 202 immediately
+		// per design decision D1 (degraded mode, 03-REQ-2.E1).
+		root := repoRoot(t)
+		port := freePort(t)
 
-	buildCloudGateway(t, root)
+		_, baseURL := startGateway(t, root, port,
+			"MQTT_BROKER_URL=tcp://localhost:19999",
+			"COMMAND_TIMEOUT=1s")
 
-	// Use a very short timeout for testing
-	env := append(os.Environ(),
-		fmt.Sprintf("PORT=%d", port),
-		"MQTT_BROKER_URL=tcp://localhost:19999", // unreachable MQTT
-		"AUTH_TOKEN=demo-token",
-		"COMMAND_TIMEOUT=1s", // 1-second timeout
-	)
-	cmd, _, _ := startProcessWithOutput(t, root, "backend/cloud-gateway", env, "./cloud-gateway-test")
-	t.Cleanup(func() {
-		cmd.Process.Kill()
-		cmd.Wait()
+		body := `{"command_id":"timeout-degraded","type":"lock","doors":["driver"]}`
+		statusCode, respBody, err := httpPostJSONWithTimeout(t,
+			baseURL+"/vehicles/VIN12345/commands", body, "demo-token", 10*time.Second)
+		if err != nil {
+			t.Fatalf("HTTP POST failed: %v", err)
+		}
+
+		if statusCode != 202 {
+			t.Errorf("expected status 202 (degraded mode), got %d; body: %s", statusCode, respBody)
+		}
+
+		var resp map[string]interface{}
+		if err := json.Unmarshal([]byte(respBody), &resp); err != nil {
+			t.Fatalf("response is not valid JSON: %v; body: %s", err, respBody)
+		}
+		if resp["command_id"] != "timeout-degraded" {
+			t.Errorf("expected command_id 'timeout-degraded', got %v", resp["command_id"])
+		}
+		if resp["status"] != "pending" {
+			t.Errorf("expected status 'pending', got %v", resp["status"])
+		}
 	})
 
-	if !waitForPort(t, port, 5*time.Second) {
-		t.Fatal("cloud-gateway did not start in time")
-	}
+	t.Run("connected_timeout", func(t *testing.T) {
+		// When MQTT IS connected but no vehicle responds, the command
+		// should time out with 504 Gateway Timeout (03-REQ-2.E3).
+		skipIfNoMosquitto(t)
 
-	baseURL := fmt.Sprintf("http://localhost:%d", port)
-	body := `{"command_id":"timeout-test","type":"lock","doors":["driver"]}`
-	statusCode, respBody, err := httpPostJSONWithTimeout(t,
-		baseURL+"/vehicles/VIN12345/commands", body, "demo-token", 10*time.Second)
-	if err != nil {
-		t.Fatalf("HTTP POST failed: %v", err)
-	}
+		root := repoRoot(t)
+		port := freePort(t)
 
-	if statusCode != 504 {
-		t.Errorf("expected status 504 (gateway timeout), got %d; body: %s", statusCode, respBody)
-	}
+		_, baseURL := startGateway(t, root, port,
+			"MQTT_BROKER_URL=tcp://localhost:1883",
+			"COMMAND_TIMEOUT=2s")
 
-	var resp map[string]interface{}
-	if err := json.Unmarshal([]byte(respBody), &resp); err != nil {
-		t.Fatalf("response is not valid JSON: %v; body: %s", err, respBody)
-	}
+		body := `{"command_id":"timeout-connected","type":"lock","doors":["driver"]}`
+		statusCode, respBody, err := httpPostJSONWithTimeout(t,
+			baseURL+"/vehicles/VIN12345/commands", body, "demo-token", 10*time.Second)
+		if err != nil {
+			t.Fatalf("HTTP POST failed: %v", err)
+		}
 
-	if resp["command_id"] != "timeout-test" {
-		t.Errorf("expected command_id 'timeout-test', got %v", resp["command_id"])
-	}
-	if resp["status"] != "timeout" {
-		t.Errorf("expected status 'timeout', got %v", resp["status"])
-	}
+		if statusCode != 504 {
+			t.Errorf("expected status 504 (gateway timeout), got %d; body: %s", statusCode, respBody)
+		}
+
+		var resp map[string]interface{}
+		if err := json.Unmarshal([]byte(respBody), &resp); err != nil {
+			t.Fatalf("response is not valid JSON: %v; body: %s", err, respBody)
+		}
+		if resp["command_id"] != "timeout-connected" {
+			t.Errorf("expected command_id 'timeout-connected', got %v", resp["command_id"])
+		}
+		if resp["status"] != "timeout" {
+			t.Errorf("expected status 'timeout', got %v", resp["status"])
+		}
+	})
 }
 
 // TS-03-E6: Unknown command_id in MQTT response

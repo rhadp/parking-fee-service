@@ -251,8 +251,8 @@ Ordering rationale:
     - [x] CLI help still works:
       `go run ./mock/companion-app-cli --help`
 
-- [ ] 6. Integration testing and final verification
-  - [ ] 6.1 Write CLOUD_GATEWAY integration test
+- [x] 6. Integration testing and final verification
+  - [x] 6.1 Write CLOUD_GATEWAY integration test
     - Create `backend/cloud-gateway/integration_test.go`
     - Test the full cycle: HTTP POST -> MQTT publish -> simulated subscriber
       -> MQTT response -> HTTP response
@@ -261,7 +261,7 @@ Ordering rationale:
     - Test multi-vehicle routing
     - _Requirements: 03-REQ-6.1, 03-REQ-6.2, 03-REQ-6.3_
 
-  - [ ] 6.2 Write end-to-end integration test with CLI
+  - [x] 6.2 Write end-to-end integration test with CLI
     - Create `tests/cloud_connectivity/e2e_test.go`
     - Start CLOUD_GATEWAY as a subprocess
     - Start simulated CLOUD_GATEWAY_CLIENT (MQTT subscriber)
@@ -269,7 +269,7 @@ Ordering rationale:
     - Gate on Mosquitto availability
     - _Requirements: 03-REQ-6.1, 03-REQ-6.3_
 
-  - [ ] 6.3 Run full spec test suite and fix failures
+  - [x] 6.3 Run full spec test suite and fix failures
     - Run all spec tests:
       `cd tests/cloud_connectivity && go test -v -count=1 ./...`
     - Run edge case tests:
@@ -279,23 +279,23 @@ Ordering rationale:
     - Fix any remaining failures
     - _Test Spec: all_
 
-  - [ ] 6.4 Update Makefile for new test targets
+  - [x] 6.4 Update Makefile for new test targets
     - Ensure `make test` includes CLOUD_GATEWAY tests
     - Ensure `make lint` includes CLOUD_GATEWAY and mock CLI
     - Add integration test target if not already covered
     - Verify `make check` passes
     - _Requirements: build system integration_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass (with Mosquitto running):
+  - [x] 6.V Verify task group 6
+    - [x] All integration tests pass (with Mosquitto running):
       `cd backend/cloud-gateway && go test -v -count=1 -tags integration ./...`
-    - [ ] All spec tests pass:
+    - [x] All spec tests pass:
       `cd tests/cloud_connectivity && go test -v -count=1 ./...`
-    - [ ] All previous spec tests still pass (no regressions):
+    - [x] All previous spec tests still pass (no regressions):
       `cd tests/setup && go test -v -count=1 ./...`
-    - [ ] `make check` exits 0
-    - [ ] No linter warnings
-    - [ ] All changes committed and pushed
+    - [x] `make check` exits 0
+    - [x] No linter warnings
+    - [x] All changes committed and pushed
 
 - [ ] 7. Checkpoint — connectivity layer complete
   - All CLOUD_GATEWAY REST endpoints are functional.
