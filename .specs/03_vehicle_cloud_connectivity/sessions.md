@@ -186,3 +186,24 @@ Implemented integration testing and final verification (task group 6). Created i
 - `tests/cloud_connectivity/e2e_test.go`: 4 end-to-end tests (TestE2E_CLI_LockCommand, TestE2E_CLI_StatusCommand, TestE2E_CLI_UnlockCommand, TestE2E_CLI_CommandCorrelation) exercising CLI -> CLOUD_GATEWAY -> MQTT -> response flow
 - `tests/cloud_connectivity/edge_test.go`: Reconciled TestEdge_CommandTimeout into degraded_mode (202) and connected_timeout (504) subtests
 - `tests/cloud_connectivity/property_test.go`: Reconciled TestProperty_GracefulDegradation to accept 202 as valid degraded mode response
+
+---
+
+## Session 18
+
+- **Spec:** 03_vehicle_cloud_connectivity
+- **Task Group:** 7
+- **Date:** 2026-02-23
+
+### Summary
+
+Checkpoint verification for connectivity layer complete (task group 7). Ran full test suite: all CLOUD_GATEWAY unit tests (51 tests), all spec tests (26 pass, integration tests skip without Mosquitto), all mock CLI tests (14 tests), go vet and cargo clippy clean. Pre-existing failures in locking-service Rust stubs and setup test `TestRust_StubsUnimplemented` are unrelated to spec 03. Marked checkpoint as complete.
+
+### Files Changed
+
+- Modified: `.specs/03_vehicle_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_vehicle_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- None.
