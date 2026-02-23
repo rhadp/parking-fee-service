@@ -23,7 +23,7 @@ func TestInfra_MosquittoConfig(t *testing.T) {
 func TestInfra_KuksaConfig(t *testing.T) {
 	root := repoRoot(t)
 	assertFileContains(t, root, "infra/docker-compose.yml", "kuksa-databroker")
-	assertFileContains(t, root, "infra/docker-compose.yml", "55555")
+	assertFileContains(t, root, "infra/docker-compose.yml", "55556")
 }
 
 // TS-01-37: make infra-up starts services (01-REQ-7.4)
@@ -57,8 +57,8 @@ func TestInfra_Up(t *testing.T) {
 	if !waitForPort(t, 1883, 30*time.Second) {
 		t.Error("MQTT port 1883 not reachable after make infra-up")
 	}
-	if !waitForPort(t, 55555, 30*time.Second) {
-		t.Error("Kuksa port 55555 not reachable after make infra-up")
+	if !waitForPort(t, 55556, 30*time.Second) {
+		t.Error("Kuksa port 55556 not reachable after make infra-up")
 	}
 }
 
@@ -94,7 +94,7 @@ func TestInfra_Down(t *testing.T) {
 	if portIsOpen(t, 1883) {
 		t.Error("MQTT port 1883 still open after make infra-down")
 	}
-	if portIsOpen(t, 55555) {
-		t.Error("Kuksa port 55555 still open after make infra-down")
+	if portIsOpen(t, 55556) {
+		t.Error("Kuksa port 55556 still open after make infra-down")
 	}
 }

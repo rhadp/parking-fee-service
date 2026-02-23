@@ -123,7 +123,7 @@ functionality:
 
 | Service                    | Protocol | Port  |
 |----------------------------|----------|-------|
-| Eclipse Kuksa Databroker   | gRPC     | 55555 |
+| Eclipse Kuksa Databroker   | gRPC     | 55556 |
 | UPDATE_SERVICE             | gRPC     | 50051 |
 | PARKING_OPERATOR_ADAPTOR   | gRPC     | 50052 |
 | Mock PARKING_OPERATOR      | HTTP     | 8090  |

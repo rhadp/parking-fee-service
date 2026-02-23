@@ -211,16 +211,16 @@ func TestProperty_InfraIdempotency(t *testing.T) {
 				if !waitForPort(t, 1883, 30*time.Second) {
 					t.Errorf("sequence %s: MQTT port 1883 not reachable", seq.name)
 				}
-				if !waitForPort(t, 55555, 30*time.Second) {
-					t.Errorf("sequence %s: Kuksa port 55555 not reachable", seq.name)
+				if !waitForPort(t, 55556, 30*time.Second) {
+					t.Errorf("sequence %s: Kuksa port 55556 not reachable", seq.name)
 				}
 			} else {
 				time.Sleep(2 * time.Second)
 				if portIsOpen(t, 1883) {
 					t.Errorf("sequence %s: MQTT port 1883 still open", seq.name)
 				}
-				if portIsOpen(t, 55555) {
-					t.Errorf("sequence %s: Kuksa port 55555 still open", seq.name)
+				if portIsOpen(t, 55556) {
+					t.Errorf("sequence %s: Kuksa port 55556 still open", seq.name)
 				}
 			}
 		})

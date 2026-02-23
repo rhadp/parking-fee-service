@@ -44,7 +44,7 @@ flowchart TD
 
     subgraph Infra["infra/ (containers)"]
         mosquitto["Eclipse Mosquitto\n:1883"]
-        kuksa["Kuksa Databroker\n:55555"]
+        kuksa["Kuksa Databroker\n:55556"]
     end
 
     Proto -->|"protoc-gen-go\nprotoc-gen-go-grpc"| GenGo
@@ -80,7 +80,7 @@ sequenceDiagram
 
     Dev->>Make: make infra-up
     Make->>Make: podman-compose up -d
-    Note over Make: Mosquitto :1883<br/>Kuksa :55555
+    Note over Make: Mosquitto :1883<br/>Kuksa :55556
 ```
 
 ### Module Responsibilities
@@ -474,7 +474,7 @@ services:
   kuksa-databroker:
     image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1
     ports:
-      - "55555:55555"
+      - "55556:55555"
     command: ["--address", "0.0.0.0"]
 ```
 
@@ -490,7 +490,7 @@ allow_anonymous true
 | Service                    | Protocol | Port  |
 |----------------------------|----------|-------|
 | Eclipse Mosquitto          | MQTT     | 1883  |
-| Eclipse Kuksa Databroker   | gRPC     | 55555 |
+| Eclipse Kuksa Databroker   | gRPC     | 55556 |
 | PARKING_FEE_SERVICE        | HTTP     | 8080  |
 | CLOUD_GATEWAY              | HTTP     | 8081  |
 | UPDATE_SERVICE             | gRPC     | 50051 |
@@ -662,7 +662,7 @@ Infrastructure correctness (ports reachable, services responding) is verified
 by manual or scripted checks after `make infra-up`:
 
 - Mosquitto: `mosquitto_pub -t test -m hello` / `mosquitto_sub -t test`
-- Kuksa: `grpcurl -plaintext localhost:55555 list`
+- Kuksa: `grpcurl -plaintext localhost:55556 list`
 
 These are not automated in this spec; integration test automation is
 addressed in Phase 2 specs.

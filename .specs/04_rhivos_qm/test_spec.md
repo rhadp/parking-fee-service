@@ -361,14 +361,14 @@ using network gRPC (TCP) at a configurable address.
 - DATA_BROKER running on a known address.
 
 **Input:**
-- Start PARKING_OPERATOR_ADAPTOR with `DATABROKER_ADDR=localhost:55555`.
+- Start PARKING_OPERATOR_ADAPTOR with `DATABROKER_ADDR=localhost:55556`.
 
 **Expected:**
 - Adaptor successfully connects and subscribes (no connection errors in logs).
 
 **Assertion pseudocode:**
 ```
-adaptor = start_adaptor(databroker_addr="localhost:55555")
+adaptor = start_adaptor(databroker_addr="localhost:55556")
 sleep(3s)
 ASSERT adaptor.stderr NOT CONTAINS "connection refused"
 ASSERT adaptor.stderr NOT CONTAINS "connection error"

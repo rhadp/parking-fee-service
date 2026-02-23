@@ -118,7 +118,7 @@ Ordering rationale:
     - Add VSS overlay volume mount to kuksa-databroker service
     - Add UDS socket bind-mount (`/tmp/kuksa-databroker.sock`)
     - Add `--vss` flag pointing to overlay file
-    - Ensure both TCP (:55555) and UDS endpoints are available
+    - Ensure both TCP (:55556) and UDS endpoints are available
     - _Requirements: 02-REQ-1.2, 02-REQ-1.3, 02-REQ-1.4_
 
   - [ ] 2.3 Configure access control tokens
@@ -133,7 +133,7 @@ Ordering rationale:
   - [ ] 2.V Verify task group 2
     - [ ] DATA_BROKER starts with `make infra-up`
     - [ ] Custom signals accessible:
-      `grpcurl -plaintext localhost:55555 kuksa.val.v1.VAL/Get` (or equivalent)
+      `grpcurl -plaintext localhost:55556 kuksa.val.v1.VAL/Get` (or equivalent)
     - [ ] UDS endpoint reachable
     - [ ] Spec tests TS-02-1 through TS-02-5 pass
     - [ ] No regressions: `make test`

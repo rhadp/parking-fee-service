@@ -112,7 +112,7 @@ Ordering rationale:
     - _Requirements: 01-REQ-2.1 through 01-REQ-2.5_
 
   - [x] 2.3 Create infrastructure config files
-    - Create `infra/docker-compose.yml` with Mosquitto (:1883) and Kuksa (:55555)
+    - Create `infra/docker-compose.yml` with Mosquitto (:1883) and Kuksa (:55556)
     - Create `infra/mosquitto/mosquitto.conf` with anonymous access on port 1883
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3_
 

@@ -909,7 +909,7 @@ ASSERT contains(content, "1883")
 ```
 content = read_file("infra/docker-compose.yml")
 ASSERT contains(content, "kuksa-databroker")
-ASSERT contains(content, "55555")
+ASSERT contains(content, "55556")
 ```
 
 ---
@@ -922,22 +922,22 @@ ASSERT contains(content, "55555")
 become reachable.
 
 **Preconditions:**
-- Container runtime (Podman/Docker) installed. Ports 1883 and 55555 free.
+- Container runtime (Podman/Docker) installed. Ports 1883 and 55556 free.
 
 **Input:**
 - Command: `make infra-up`.
 
 **Expected:**
-- Exit code 0. MQTT port 1883 reachable. Kuksa gRPC port 55555 reachable.
+- Exit code 0. MQTT port 1883 reachable. Kuksa gRPC port 55556 reachable.
 
 **Assertion pseudocode:**
 ```
 result = exec("make infra-up")
 ASSERT result.exit_code == 0
 wait_for_port(1883, timeout=30s)
-wait_for_port(55555, timeout=30s)
+wait_for_port(55556, timeout=30s)
 ASSERT port_is_open(1883)
-ASSERT port_is_open(55555)
+ASSERT port_is_open(55556)
 exec("make infra-down")
 ```
 
@@ -957,7 +957,7 @@ ports.
 - Command: `make infra-down`.
 
 **Expected:**
-- Exit code 0. Ports 1883 and 55555 no longer in use.
+- Exit code 0. Ports 1883 and 55556 no longer in use.
 
 **Assertion pseudocode:**
 ```
@@ -967,7 +967,7 @@ result = exec("make infra-down")
 ASSERT result.exit_code == 0
 sleep(2s)
 ASSERT NOT port_is_open(1883)
-ASSERT NOT port_is_open(55555)
+ASSERT NOT port_is_open(55556)
 ```
 
 ---
@@ -1181,10 +1181,10 @@ FOR ANY sequence IN [["up"], ["up", "up"], ["down", "up"], ["up", "down", "up"]]
     last = sequence[-1]
     IF last == "up":
         ASSERT port_is_open(1883)
-        ASSERT port_is_open(55555)
+        ASSERT port_is_open(55556)
     ELSE:
         ASSERT NOT port_is_open(1883)
-        ASSERT NOT port_is_open(55555)
+        ASSERT NOT port_is_open(55556)
 exec("make infra-down")
 ```
 

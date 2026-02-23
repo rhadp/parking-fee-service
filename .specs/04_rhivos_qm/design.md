@@ -16,7 +16,7 @@ separation of concerns, observable state machines, and testability.
 ```mermaid
 flowchart TD
     subgraph Safety["RHIVOS Safety Partition"]
-        DB["DATA_BROKER\n(Kuksa :55555)"]
+        DB["DATA_BROKER\n(Kuksa :55556)"]
     end
 
     subgraph QM["RHIVOS QM Partition"]
@@ -113,7 +113,7 @@ parking-operator-adaptor/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ADAPTOR_GRPC_ADDR` | `0.0.0.0:50052` | gRPC listen address |
-| `DATABROKER_ADDR` | `localhost:55555` | DATA_BROKER gRPC address |
+| `DATABROKER_ADDR` | `localhost:55556` | DATA_BROKER gRPC address |
 | `OPERATOR_URL` | `http://localhost:8090` | PARKING_OPERATOR REST base URL |
 | `VEHICLE_ID` | `VIN12345` | Vehicle identifier |
 

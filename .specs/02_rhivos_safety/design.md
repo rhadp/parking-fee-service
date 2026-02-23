@@ -16,7 +16,7 @@ communication flows through DATA_BROKER via gRPC over Unix Domain Sockets.
 ```mermaid
 flowchart TD
     subgraph SafetyPartition["RHIVOS Safety Partition (ASIL-B)"]
-        DB["DATA_BROKER\n(Kuksa Databroker)\nUDS: /tmp/kuksa-databroker.sock\nTCP: :55555"]
+        DB["DATA_BROKER\n(Kuksa Databroker)\nUDS: /tmp/kuksa-databroker.sock\nTCP: :55556"]
         LS["LOCKING_SERVICE\n(Rust binary)"]
         CGC["CLOUD_GATEWAY_CLIENT\n(Rust binary)"]
     end
@@ -40,7 +40,7 @@ flowchart TD
     SPD -->|"gRPC/UDS\nwrite: Speed"| DB
     DOOR -->|"gRPC/UDS\nwrite: IsOpen"| DB
 
-    QM -->|"gRPC/TCP :55555\nread: IsLocked, state"| DB
+    QM -->|"gRPC/TCP :55556\nread: IsLocked, state"| DB
 ```
 
 ### Command Flow Sequence
@@ -236,7 +236,7 @@ DATA_BROKER with:
 kuksa-databroker:
   image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1
   ports:
-    - "55555:55555"
+    - "55556:55555"
   volumes:
     - ./kuksa/vss-overlay.json:/etc/kuksa/vss-overlay.json:ro
     - /tmp/kuksa-databroker.sock:/tmp/kuksa-databroker.sock
@@ -391,7 +391,7 @@ impl MqttClient {
 | Variable | Service | Default | Description |
 |----------|---------|---------|-------------|
 | `DATABROKER_UDS_PATH` | All safety-partition services | `/tmp/kuksa-databroker.sock` | DATA_BROKER UDS socket path |
-| `DATABROKER_ADDR` | Mock sensors (optional) | `http://localhost:55555` | DATA_BROKER network address (for cross-partition testing) |
+| `DATABROKER_ADDR` | Mock sensors (optional) | `http://localhost:55556` | DATA_BROKER network address (for cross-partition testing) |
 | `MQTT_BROKER_ADDR` | CLOUD_GATEWAY_CLIENT | `localhost:1883` | MQTT broker host:port |
 | `VEHICLE_VIN` | CLOUD_GATEWAY_CLIENT | `VIN12345` | Vehicle identification number |
 | `DATABROKER_TOKEN` | Per service | (service-specific) | Bearer token for DATA_BROKER auth |

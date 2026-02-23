@@ -115,14 +115,14 @@ TCP.
 - DATA_BROKER running via `make infra-up`.
 
 **Input:**
-- gRPC connection attempt to TCP port 55555.
+- gRPC connection attempt to TCP port 55556.
 
 **Expected:**
 - Connection succeeds. A simple GetServerInfo call returns without error.
 
 **Assertion pseudocode:**
 ```
-client = grpc_connect_tcp("http://localhost:55555")
+client = grpc_connect_tcp("http://localhost:55556")
 result = client.get_server_info()
 ASSERT result.is_ok()
 ```
@@ -148,7 +148,7 @@ for write operations.
 
 **Assertion pseudocode:**
 ```
-client = grpc_connect("http://localhost:55555")
+client = grpc_connect("http://localhost:55556")
 result_ok = client.set_value("Vehicle.Speed", 0.0, token="speed-sensor-token")
 ASSERT result_ok.is_ok()
 result_fail = client.set_value("Vehicle.Speed", 0.0, token=None)
@@ -1095,7 +1095,7 @@ DATA_BROKER connection transport is UDS.
 FOR svc IN ["locking-service", "cloud-gateway-client"]:
     source = read_all_files("rhivos/" + svc + "/src/")
     ASSERT source contains "unix:" OR source contains ".sock" OR source contains "UDS"
-    ASSERT default config does NOT contain "localhost:55555" as DATA_BROKER endpoint
+    ASSERT default config does NOT contain "localhost:55556" as DATA_BROKER endpoint
 ```
 
 ---
