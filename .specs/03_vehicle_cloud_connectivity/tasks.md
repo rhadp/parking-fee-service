@@ -123,8 +123,8 @@ Ordering rationale:
     - [x] Spec tests for tracker/bridge pass:
       `cd tests/cloud_connectivity && go test -v -count=1 -run "TestUnit_Bridge|TestProperty_P2|TestProperty_P5|TestProperty_P6|TestEdge_E6|TestEdge_E7" ./...`
 
-- [ ] 3. CLOUD_GATEWAY REST API
-  - [ ] 3.1 Create auth middleware
+- [x] 3. CLOUD_GATEWAY REST API
+  - [x] 3.1 Create auth middleware
     - Create `backend/cloud-gateway/internal/api/middleware.go`
     - Implement bearer token validation middleware
     - Compare token against configured `AUTH_TOKEN`
@@ -133,7 +133,7 @@ Ordering rationale:
     - Create unit tests in `middleware_test.go`
     - _Requirements: 03-REQ-1.4_
 
-  - [ ] 3.2 Create command handler
+  - [x] 3.2 Create command handler
     - Create `backend/cloud-gateway/internal/api/commands.go`
     - Implement `POST /vehicles/{vin}/commands` handler:
       - Parse and validate JSON body (command_id, type, doors)
@@ -146,7 +146,7 @@ Ordering rationale:
     - Create unit tests in `commands_test.go`
     - _Requirements: 03-REQ-1.1, 03-REQ-1.5, 03-REQ-1.E1, 03-REQ-1.E2_
 
-  - [ ] 3.3 Create status handler
+  - [x] 3.3 Create status handler
     - Create `backend/cloud-gateway/internal/api/status.go`
     - Implement `GET /vehicles/{vin}/status` handler:
       - Extract VIN from URL path
@@ -156,7 +156,7 @@ Ordering rationale:
     - Create unit tests in `status_test.go`
     - _Requirements: 03-REQ-1.2_
 
-  - [ ] 3.4 Create HTTP router
+  - [x] 3.4 Create HTTP router
     - Create `backend/cloud-gateway/internal/api/router.go`
     - Wire up all routes: `/health`, `/vehicles/{vin}/commands`,
       `/vehicles/{vin}/status`
@@ -164,12 +164,12 @@ Ordering rationale:
     - Create unit tests in `router_test.go`
     - _Requirements: 03-REQ-1.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] REST API unit tests pass:
+  - [x] 3.V Verify task group 3
+    - [x] REST API unit tests pass:
       `cd backend/cloud-gateway && go test -v -count=1 ./internal/api/...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Spec REST tests pass:
+    - [x] Spec REST tests pass:
       `cd tests/cloud_connectivity && go test -v -count=1 -run "TestUnit_REST|TestProperty_P3|TestEdge_E1|TestEdge_E2" ./...`
 
 - [ ] 4. CLOUD_GATEWAY MQTT bridge and main entry point

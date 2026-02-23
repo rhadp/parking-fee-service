@@ -1,22 +1,35 @@
 package main
 
 import (
-	"net/http"
-	"net/http/httptest"
+	"encoding/json"
 	"testing"
 )
 
-func TestHealthEndpoint(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-	w := httptest.NewRecorder()
-
-	handleHealth(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", w.Code)
+func TestParseJSON(t *testing.T) {
+	var target struct {
+		CommandID string `json:"command_id"`
+		Status    string `json:"status"`
 	}
-	body := w.Body.String()
-	if body == "" {
-		t.Error("expected non-empty response body")
+
+	payload := []byte(`{"command_id":"abc","status":"success"}`)
+	if err := parseJSON(payload, &target); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if target.CommandID != "abc" {
+		t.Errorf("expected command_id 'abc', got %q", target.CommandID)
+	}
+	if target.Status != "success" {
+		t.Errorf("expected status 'success', got %q", target.Status)
 	}
 }
+
+func TestParseJSON_Invalid(t *testing.T) {
+	var target struct{}
+	if err := parseJSON([]byte("not json"), &target); err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
+// Ensure json import is used
+var _ = json.Unmarshal

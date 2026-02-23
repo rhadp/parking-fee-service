@@ -65,3 +65,39 @@ Implemented CLOUD_GATEWAY core modules (task group 2): configuration loading fro
 - `backend/cloud-gateway/internal/mqtt/topics_test.go`: 6 tests for topic construction and VIN extraction
 - `backend/cloud-gateway/internal/mqtt/client_test.go`: 6 tests for client initialization, connection, publish/subscribe safety
 - `backend/cloud-gateway/internal/bridge/tracker_test.go`: 10 tests including TestTracker_Resolve, TestTracker_MatchByID, TestTracker_UnknownID, TestTracker_Duplicate, TestTracker_Isolation, TestTracker_ResponseCorrelation, TestTracker_Timeout, TestTracker_MultiVehicleIsolation, TestTracker_ConcurrentAccess, TestTracker_TimeoutDoesNotResolveAlreadyResolved
+
+---
+
+## Session 8
+
+- **Spec:** 03_vehicle_cloud_connectivity
+- **Task Group:** 3
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the CLOUD_GATEWAY REST API (task group 3): bearer token auth middleware, POST /vehicles/{vin}/commands handler with JSON validation and MQTT publish, GET /vehicles/{vin}/status handler with telemetry cache, and HTTP router wiring all routes with auth middleware. Updated main.go to use the new API module with background MQTT connect for degraded mode support. All 30 API unit tests pass, all 8 TG3 spec tests pass (TestUnit_REST_*, TestProperty_AuthEnforcement, TestEdge_MissingFields, TestEdge_InvalidJSON), and no TG2 regressions.
+
+### Files Changed
+
+- Added: `backend/cloud-gateway/internal/api/middleware.go`
+- Added: `backend/cloud-gateway/internal/api/middleware_test.go`
+- Added: `backend/cloud-gateway/internal/api/commands.go`
+- Added: `backend/cloud-gateway/internal/api/commands_test.go`
+- Added: `backend/cloud-gateway/internal/api/status.go`
+- Added: `backend/cloud-gateway/internal/api/status_test.go`
+- Added: `backend/cloud-gateway/internal/api/router.go`
+- Added: `backend/cloud-gateway/internal/api/router_test.go`
+- Modified: `backend/cloud-gateway/main.go`
+- Modified: `backend/cloud-gateway/main_test.go`
+- Modified: `backend/cloud-gateway/go.sum`
+- Modified: `.specs/03_vehicle_cloud_connectivity/tasks.md`
+- Modified: `.specs/03_vehicle_cloud_connectivity/sessions.md`
+
+### Tests Added or Modified
+
+- `backend/cloud-gateway/internal/api/middleware_test.go`: 6 tests for bearer token auth (valid, missing, wrong, no prefix, empty, basic auth)
+- `backend/cloud-gateway/internal/api/commands_test.go`: 10 tests for command handler (valid lock/unlock, timeout, missing fields, invalid type, invalid JSON, degraded mode, MQTT payload schema)
+- `backend/cloud-gateway/internal/api/status_test.go`: 5 tests for status handler and telemetry cache (cached data, no data, missing VIN, cache CRUD, multi-VIN)
+- `backend/cloud-gateway/internal/api/router_test.go`: 8 tests for router wiring (health, auth enforcement, commands, status, wrong token)
+- `backend/cloud-gateway/main_test.go`: Updated to test parseJSON helper
