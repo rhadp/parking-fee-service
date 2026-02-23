@@ -10,411 +10,389 @@
 
 ## Overview
 
-This plan implements the RHIVOS QM partition services for the SDV Parking Demo
-System. The approach is test-first: task group 1 creates failing tests that
-encode all test contracts from `test_spec.md`. Subsequent groups build the
-actual implementations to make those tests pass incrementally.
+This plan implements the RHIVOS QM partition services: PARKING_OPERATOR_ADAPTOR
+(Rust), UPDATE_SERVICE (Rust), mock PARKING_OPERATOR (Go), and mock
+PARKING_APP CLI enhancements (Go). The approach is test-first: task group 1
+creates failing tests that encode all 66 test contracts from `test_spec.md`.
+Subsequent groups implement code to make those tests pass incrementally.
 
 Ordering rationale:
 1. Tests first (red) — establishes the verification baseline
-2. Mock PARKING_OPERATOR (Go) — dependency for adaptor testing
-3. PARKING_OPERATOR_ADAPTOR (Rust) — core service, depends on mock operator
-4. UPDATE_SERVICE (Rust) — adapter lifecycle, depends on proto and container
-   runtime
-5. Mock PARKING_APP CLI enhancements (Go) — depends on both services running
-6. Integration testing — depends on all components
+2. Mock PARKING_OPERATOR (Go) — simplest component with no dependencies
+3. PARKING_OPERATOR_ADAPTOR gRPC + REST client — depends on mock operator
+4. PARKING_OPERATOR_ADAPTOR autonomous session management — depends on
+   DATA_BROKER subscription and session manager
+5. UPDATE_SERVICE core — adapter state machine, gRPC interface
+6. UPDATE_SERVICE OCI + offloading — depends on core state machine
+7. CLI enhancements and integration tests — depends on all services
 
 ## Test Commands
 
-- Mock PARKING_OPERATOR unit tests: `cd mock/parking-operator && go test -v -count=1 ./...`
-- PARKING_OPERATOR_ADAPTOR unit tests: `cd rhivos && cargo test -p parking-operator-adaptor`
-- UPDATE_SERVICE unit tests: `cd rhivos && cargo test -p update-service`
-- All Rust tests: `cd rhivos && cargo test`
-- Mock CLI tests: `cd mock/parking-app-cli && go test -v -count=1 ./...`
-- Integration tests: `cd tests/integration && go test -v -count=1 -tags=integration ./...`
+- Mock operator Go tests: `cd mock/parking-operator && go test -v -count=1 ./...`
+- Rust unit tests (adaptor): `cd rhivos && cargo test -p parking-operator-adaptor`
+- Rust unit tests (update-service): `cd rhivos && cargo test -p update-service`
+- Rust all tests: `cd rhivos && cargo test`
+- Integration tests (Rust): `cd rhivos && cargo test --test '*' -- --ignored`
+- Go CLI tests: `cd mock/parking-app-cli && go test -v -count=1 ./...`
+- Integration tests (all): `cd tests/integration && go test -v -count=1 ./...`
 - Linter (Rust): `cd rhivos && cargo clippy -- -D warnings`
-- Linter (Go): `go vet ./mock/... ./backend/...`
+- Linter (Go): `cd mock/parking-operator && go vet ./... && cd ../parking-app-cli && go vet ./...`
 - All tests: `make check`
 
 ## Tasks
 
-- [ ] 1. Write failing tests
-  - [ ] 1.1 Set up test infrastructure for mock PARKING_OPERATOR
-    - Create `mock/parking-operator/main_test.go` with test helpers
-    - Write handler tests for `POST /parking/start` (TS-04-29)
-    - Write handler tests for `POST /parking/stop` (TS-04-30)
-    - Write handler tests for `GET /parking/{session_id}/status` (TS-04-31)
-    - Write handler tests for `GET /rate/{zone_id}` (TS-04-32)
-    - Write edge case tests for unknown session stop (TS-04-E14)
-    - Write edge case tests for unknown session status (TS-04-E15)
-    - Write edge case tests for unknown zone rate (TS-04-E16)
-    - Write property test for fee accuracy (TS-04-P7)
-    - _Test Spec: TS-04-29 through TS-04-32, TS-04-E14 through TS-04-E16, TS-04-P7_
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Set up Rust integration test harness
+    - Create `rhivos/tests/integration_helpers.rs` with helpers for starting
+      and stopping services, gRPC client setup, DATA_BROKER interaction
+    - Add helpers: `start_mock_operator`, `start_adaptor`, `start_update_service`,
+      `grpc_connect`, `wait_for_port`, `publish_to_databroker`,
+      `read_from_databroker`
+    - Add `#[tokio::test]` and `#[ignore]` attributes for integration tests
+      that require infrastructure
+    - _Test Spec: all (shared infrastructure)_
 
-  - [ ] 1.2 Write PARKING_OPERATOR_ADAPTOR unit tests
-    - Create `rhivos/parking-operator-adaptor/src/session_manager.rs` test module
-    - Write tests for StartSession returning session_id (TS-04-2)
-    - Write tests for StopSession returning fee (TS-04-3)
-    - Write tests for GetStatus returning state (TS-04-4)
-    - Write tests for GetRate returning zone rate (TS-04-5)
-    - Write tests for manual override updates SessionActive (TS-04-10)
-    - Write edge case: StartSession while active (TS-04-E1)
-    - Write edge case: StopSession unknown session (TS-04-E2)
-    - Write edge case: operator unreachable (TS-04-E3)
-    - Write edge case: unlock with no session (TS-04-E4)
-    - Write edge case: duplicate lock event (TS-04-E6)
-    - Write property tests: session state consistency (TS-04-P1),
-      autonomous idempotency (TS-04-P2), override precedence (TS-04-P3)
-    - _Test Spec: TS-04-2 through TS-04-5, TS-04-10, TS-04-E1 through
-      TS-04-E4, TS-04-E6, TS-04-P1 through TS-04-P3_
+  - [ ] 1.2 Write mock PARKING_OPERATOR Go tests (unit)
+    - Create `mock/parking-operator/main_test.go` with Go test functions
+    - Translate TS-04-29 (configurable port) into Go test
+    - Translate TS-04-30 through TS-04-33 (REST endpoints) into Go tests
+    - Translate TS-04-E14, TS-04-E15, TS-04-E16 (error responses) into Go tests
+    - Translate TS-04-P7 (fee accuracy) into Go property test
+    - Group under `TestOperator_*` and `TestProperty_*` naming conventions
+    - _Test Spec: TS-04-29, TS-04-30, TS-04-31, TS-04-32, TS-04-33,
+      TS-04-E14, TS-04-E15, TS-04-E16, TS-04-P7_
+    - _Requirements: 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-8.4,
+      04-REQ-8.5, 04-REQ-8.E1, 04-REQ-8.E2, 04-REQ-8.E3_
 
-  - [ ] 1.3 Write UPDATE_SERVICE unit tests
-    - Create test modules in `rhivos/update-service/src/`
-    - Write tests for InstallAdapter returning DOWNLOADING (TS-04-16)
-    - Write tests for WatchAdapterStates streaming (TS-04-17)
-    - Write tests for ListAdapters (TS-04-18)
-    - Write tests for RemoveAdapter (TS-04-19)
-    - Write tests for GetAdapterStatus (TS-04-20)
-    - Write tests for checksum verification (TS-04-22)
-    - Write tests for DOWNLOADING -> INSTALLING transition (TS-04-23)
-    - Write tests for offloading timeout (TS-04-24, TS-04-25)
-    - Write tests for offloading events (TS-04-26)
-    - Write tests for valid state transitions (TS-04-27)
-    - Write tests for invalid state transitions (TS-04-28)
-    - Write edge cases: already installed (TS-04-E8), unknown adapter
-      (TS-04-E9), container failure (TS-04-E10), checksum mismatch
-      (TS-04-E11), registry unreachable (TS-04-E12), re-install during
-      offload (TS-04-E13)
-    - Write property tests: state machine integrity (TS-04-P4), checksum gate
-      (TS-04-P5), offloading correctness (TS-04-P6), event stream
-      completeness (TS-04-P8)
-    - _Test Spec: TS-04-16 through TS-04-28, TS-04-E8 through TS-04-E13,
-      TS-04-P4 through TS-04-P6, TS-04-P8_
+  - [ ] 1.3 Write UPDATE_SERVICE Rust unit tests
+    - Create Rust unit tests in `rhivos/update-service/src/` modules
+    - Translate TS-04-22 (SHA-256 checksum verification) into Rust unit test
+    - Translate TS-04-24 (configurable inactivity timeout) into Rust unit test
+    - Translate TS-04-27, TS-04-28 (state machine transitions) into Rust
+      unit tests
+    - Translate TS-04-P4 (state machine integrity property) into Rust test
+    - Group under `test_*` naming conventions in respective modules
+    - _Test Spec: TS-04-22, TS-04-24, TS-04-27, TS-04-28, TS-04-P4_
+    - _Requirements: 04-REQ-5.2, 04-REQ-6.1, 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 1.4 Write integration test stubs
-    - Create `tests/integration/qm_test.go` (or extend existing)
-    - Write test stubs for DATA_BROKER lock-to-session (TS-04-38)
-    - Write test stubs for CLI-to-UpdateService lifecycle (TS-04-39)
-    - Write test stubs for adaptor-to-operator REST (TS-04-40)
-    - Write test stubs for adaptor gRPC service (TS-04-1)
-    - Write test stubs for UPDATE_SERVICE gRPC service (TS-04-15)
-    - Write test stubs for lock/unlock events (TS-04-6 through TS-04-9,
-      TS-04-11 through TS-04-14)
-    - Write test stubs for CLI commands (TS-04-33 through TS-04-37)
-    - Write edge case: operator unreachable during autonomous start (TS-04-E5)
-    - Write edge case: DATA_BROKER unreachable (TS-04-E7)
-    - Write edge case: CLI unreachable service (TS-04-E17)
-    - _Test Spec: TS-04-1, TS-04-6 through TS-04-9, TS-04-11 through
-      TS-04-15, TS-04-33 through TS-04-40, TS-04-E5, TS-04-E7, TS-04-E17_
+  - [ ] 1.4 Write PARKING_OPERATOR_ADAPTOR + UPDATE_SERVICE Rust integration tests
+    - Create `rhivos/tests/adaptor_integration.rs` for adaptor tests
+    - Create `rhivos/tests/update_integration.rs` for update service tests
+    - Translate TS-04-1 through TS-04-5 (gRPC interface) into Rust integration
+      tests
+    - Translate TS-04-6 through TS-04-10 (autonomous session) into Rust
+      integration tests
+    - Translate TS-04-11 through TS-04-14 (DATA_BROKER subscription) into Rust
+      integration tests
+    - Translate TS-04-15 through TS-04-20 (UPDATE_SERVICE gRPC) into Rust
+      integration tests
+    - Translate TS-04-E1 through TS-04-E13 (edge cases) into Rust integration
+      tests
+    - Translate TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P5, TS-04-P6, TS-04-P8
+      (property tests) into Rust integration tests
+    - _Test Spec: TS-04-1 through TS-04-20, TS-04-E1 through TS-04-E13,
+      TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P5, TS-04-P6, TS-04-P8_
+    - _Requirements: 04-REQ-1.1 through 04-REQ-6.3, all edge cases_
+
+  - [ ] 1.5 Write CLI and end-to-end integration tests
+    - Translate TS-04-34 through TS-04-38 (CLI commands) into Go integration
+      tests in `tests/integration/`
+    - Translate TS-04-39, TS-04-40, TS-04-41 (end-to-end) into Go integration
+      tests
+    - Translate TS-04-E17 (CLI unreachable service) into Go test
+    - Group under `TestCLI_*` and `TestE2E_*` naming conventions
+    - _Test Spec: TS-04-34 through TS-04-41, TS-04-E17_
+    - _Requirements: 04-REQ-9.1 through 04-REQ-9.5, 04-REQ-9.E1,
+      04-REQ-10.1 through 04-REQ-10.3_
 
   - [ ] 1.V Verify task group 1
-    - [ ] All test files compile without syntax errors:
+    - [ ] All Go test files are syntactically valid:
       `cd mock/parking-operator && go vet ./...`
-      `cd rhivos && cargo check -p parking-operator-adaptor -p update-service`
-    - [ ] All tests FAIL (red) — no implementation yet
+    - [ ] All Rust test files compile:
+      `cd rhivos && cargo check --tests`
+    - [ ] Go unit tests FAIL (red) — no implementation yet:
+      `cd mock/parking-operator && go test -count=1 ./... 2>&1 | grep -c FAIL`
+    - [ ] Rust unit tests FAIL (red) — no implementation yet
     - [ ] No linter warnings introduced
 
 - [ ] 2. Mock PARKING_OPERATOR (Go)
-  - [ ] 2.1 Create mock module structure
+  - [ ] 2.1 Create Go module and in-memory store
     - Create `mock/parking-operator/go.mod`
       (module: `github.com/rhadp/parking-fee-service/mock/parking-operator`)
-    - Create `mock/parking-operator/main.go` with HTTP server setup
-    - Add to `go.work` if not already present
+    - Create `mock/parking-operator/store.go` with `Session` and `Zone`
+      structs, `SessionStore` with thread-safe in-memory map, and
+      pre-configured zones (zone-munich-central: 2.50 EUR,
+      zone-munich-west: 1.50 EUR)
+    - _Requirements: 04-REQ-8.2, 04-REQ-8.3, 04-REQ-8.4, 04-REQ-8.5_
+
+  - [ ] 2.2 Implement HTTP handlers
+    - Create `mock/parking-operator/handler.go` with:
+      - `POST /parking/start` — creates session, returns session_id + status
+      - `POST /parking/stop` — calculates fee, marks stopped, returns details
+      - `GET /parking/{session_id}/status` — returns session status
+      - `GET /rate/{zone_id}` — returns zone rate info
+      - `GET /health` — returns `{"status": "ok"}`
+    - Fee calculation: `rate_per_hour * (duration_seconds / 3600.0)`
+    - Error responses: 404 for unknown session/zone with descriptive message
+    - _Requirements: 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-8.4,
+      04-REQ-8.5, 04-REQ-8.E1, 04-REQ-8.E2, 04-REQ-8.E3_
+
+  - [ ] 2.3 Create main.go with configurable port
+    - Create `mock/parking-operator/main.go` with HTTP server on configurable
+      port (`PORT` env var, default 8090)
+    - Register all routes
     - _Requirements: 04-REQ-8.1_
 
-  - [ ] 2.2 Implement in-memory store
-    - Create `mock/parking-operator/store.go`
-    - Implement `Session` and `Zone` types
-    - Implement session CRUD operations
-    - Pre-configure zones: `zone-munich-central` (EUR 2.50/hr),
-      `zone-munich-west` (EUR 1.50/hr)
-    - _Requirements: 04-REQ-8.2 through 04-REQ-8.5_
-
-  - [ ] 2.3 Implement REST handlers
-    - Create `mock/parking-operator/handler.go`
-    - `POST /parking/start`: create session, return session_id + status
-    - `POST /parking/stop`: calculate fee, mark stopped, return response
-    - `GET /parking/{session_id}/status`: return session state
-    - `GET /rate/{zone_id}`: return zone rate
-    - `GET /health`: return `{"status": "ok"}`
-    - Implement fee calculation: `rate_per_hour * (duration_seconds / 3600.0)`
-    - _Requirements: 04-REQ-8.1 through 04-REQ-8.5_
-
-  - [ ] 2.4 Implement error handling
-    - Return HTTP 404 for unknown session_id (stop, status)
-    - Return HTTP 404 for unknown zone_id (rate)
-    - Return HTTP 400 for malformed request bodies
-    - _Requirements: 04-REQ-8.E1 through 04-REQ-8.E3_
-
   - [ ] 2.V Verify task group 2
-    - [ ] Mock operator unit tests pass:
+    - [ ] Mock operator Go tests pass:
       `cd mock/parking-operator && go test -v -count=1 ./...`
-    - [ ] Fee accuracy property test passes (TS-04-P7)
-    - [ ] Edge case tests pass (TS-04-E14 through TS-04-E16)
-    - [ ] No linter warnings: `go vet ./mock/parking-operator/...`
-    - [ ] Requirements 04-REQ-8.1 through 04-REQ-8.5,
-      04-REQ-8.E1 through 04-REQ-8.E3 met
+    - [ ] All previously passing tests still pass
+    - [ ] No linter warnings: `cd mock/parking-operator && go vet ./...`
+    - [ ] Tests cover: TS-04-29, TS-04-30, TS-04-31, TS-04-32, TS-04-33,
+      TS-04-E14, TS-04-E15, TS-04-E16, TS-04-P7
 
-- [ ] 3. PARKING_OPERATOR_ADAPTOR (Rust)
-  - [ ] 3.1 Implement operator REST client
+- [ ] 3. PARKING_OPERATOR_ADAPTOR: gRPC service and REST client
+  - [ ] 3.1 Create crate structure and configuration
+    - Create `rhivos/parking-operator-adaptor/Cargo.toml` with dependencies
+      (tonic, prost, tokio, reqwest, serde, serde_json)
+    - Create `rhivos/parking-operator-adaptor/build.rs` using tonic-build
+      for `parking_adaptor.proto`
+    - Create `rhivos/parking-operator-adaptor/src/config.rs` with env var
+      configuration: `ADAPTOR_GRPC_ADDR`, `DATABROKER_ADDR`, `OPERATOR_URL`,
+      `VEHICLE_ID`
+    - _Requirements: 04-REQ-1.1_
+
+  - [ ] 3.2 Implement PARKING_OPERATOR REST client
     - Create `rhivos/parking-operator-adaptor/src/operator_client.rs`
-    - Implement `start_session(vehicle_id, zone_id, timestamp) -> Result<StartResponse>`
-    - Implement `stop_session(session_id) -> Result<StopResponse>`
-    - Implement `get_status(session_id) -> Result<StatusResponse>`
-    - Implement `get_rate(zone_id) -> Result<RateResponse>`
-    - Use `reqwest` for HTTP calls with serde JSON (de)serialization
-    - Handle connection errors (return appropriate errors)
-    - _Requirements: 04-REQ-1.2 through 04-REQ-1.5, 04-REQ-1.E3_
-
-  - [ ] 3.2 Implement session manager
-    - Create `rhivos/parking-operator-adaptor/src/session_manager.rs`
-    - Implement `SessionManager` struct with active session state
-    - Handle lock event: start session if none active (autonomous)
-    - Handle unlock event: stop session if active (autonomous)
-    - Handle manual StartSession: start regardless of lock state (override)
-    - Handle manual StopSession: stop regardless of lock state (override)
-    - Idempotency: ignore duplicate lock/unlock events
-    - _Requirements: 04-REQ-2.1 through 04-REQ-2.5, 04-REQ-2.E1 through
-      04-REQ-2.E3_
-
-  - [ ] 3.3 Implement DATA_BROKER client
-    - Create `rhivos/parking-operator-adaptor/src/databroker_client.rs`
-    - Implement subscribe to `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`
-    - Implement read for location signals
-    - Implement write for `Vehicle.Parking.SessionActive`
-    - Handle connection retry with exponential backoff
-    - Use Kuksa Databroker gRPC API (network TCP)
-    - _Requirements: 04-REQ-3.1 through 04-REQ-3.4, 04-REQ-3.E1_
-
-  - [ ] 3.4 Implement gRPC service
-    - Create `rhivos/parking-operator-adaptor/src/grpc_service.rs`
-    - Implement `ParkingAdaptor` trait (replace stub from Phase 1.2)
-    - Wire StartSession, StopSession to session manager
-    - Wire GetStatus, GetRate to operator client
-    - Return appropriate gRPC error codes for edge cases
-    - _Requirements: 04-REQ-1.1 through 04-REQ-1.5, 04-REQ-1.E1 through
+    - Implement async REST calls using `reqwest`:
+      - `start_session(vehicle_id, zone_id, timestamp)` -> `POST /parking/start`
+      - `stop_session(session_id)` -> `POST /parking/stop`
+      - `get_status(session_id)` -> `GET /parking/{session_id}/status`
+      - `get_rate(zone_id)` -> `GET /rate/{zone_id}`
+    - Return typed response structs with serde deserialization
+    - Handle connection errors with descriptive error types
+    - _Requirements: 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.5,
       04-REQ-1.E3_
 
-  - [ ] 3.5 Implement main entry point
-    - Update `rhivos/parking-operator-adaptor/src/main.rs`
-    - Parse configuration from environment variables
-    - Start gRPC server
-    - Start DATA_BROKER subscription task
-    - Wire session manager to DATA_BROKER events and operator client
-    - _Requirements: 04-REQ-1.1, 04-REQ-3.1_
+  - [ ] 3.3 Implement ParkingAdaptor gRPC service
+    - Create `rhivos/parking-operator-adaptor/src/grpc_service.rs`
+    - Implement `ParkingAdaptor` trait from generated proto code:
+      - `StartSession` — calls operator client, returns session_id + status
+      - `StopSession` — calls operator client, returns fee + duration + currency
+      - `GetStatus` — calls operator client, returns session state
+      - `GetRate` — calls operator client, returns rate info
+    - Return `ALREADY_EXISTS` if session active on StartSession
+    - Return `NOT_FOUND` on StopSession with unknown session
+    - Return `UNAVAILABLE` when operator unreachable
+    - _Requirements: 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4,
+      04-REQ-1.5, 04-REQ-1.E1, 04-REQ-1.E2, 04-REQ-1.E3_
 
-  - [ ] 3.6 Implement configuration
-    - Create `rhivos/parking-operator-adaptor/src/config.rs`
-    - `ADAPTOR_GRPC_ADDR` (default: `0.0.0.0:50052`)
-    - `DATABROKER_ADDR` (default: `localhost:55555`)
-    - `OPERATOR_URL` (default: `http://localhost:8090`)
-    - `VEHICLE_ID` (default: `VIN12345`)
+  - [ ] 3.4 Create session manager
+    - Create `rhivos/parking-operator-adaptor/src/session_manager.rs`
+    - Implement `SessionManager` with `active_session: Option<ActiveSession>`
+      and `override_active: bool`
+    - Methods: `start_session`, `stop_session`, `has_active_session`,
+      `current_session_id`
+    - Thread-safe via `Arc<Mutex<...>>`
+    - _Requirements: 04-REQ-1.E1, 04-REQ-2.5_
+
+  - [ ] 3.5 Create main.rs entry point
+    - Create `rhivos/parking-operator-adaptor/src/main.rs`
+    - Start gRPC server on configured address
+    - Initialize operator client, session manager
+    - _Requirements: 04-REQ-1.1_
 
   - [ ] 3.V Verify task group 3
-    - [ ] Adaptor unit tests pass:
-      `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] Session manager property tests pass (TS-04-P1 through TS-04-P3)
-    - [ ] Edge case tests pass (TS-04-E1 through TS-04-E4, TS-04-E6)
+    - [ ] Adaptor gRPC integration tests pass (against mock operator):
+      TS-04-1, TS-04-2, TS-04-3, TS-04-4, TS-04-5
+    - [ ] Edge case tests pass: TS-04-E1, TS-04-E2, TS-04-E3
+    - [ ] All previously passing tests still pass
     - [ ] No linter warnings:
       `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] Requirements 04-REQ-1.*, 04-REQ-2.*, 04-REQ-3.* met
 
-- [ ] 4. UPDATE_SERVICE (Rust)
-  - [ ] 4.1 Implement adapter state machine
-    - Create `rhivos/update-service/src/adapter_manager.rs`
-    - Implement `AdapterManager` with HashMap of adapters
-    - Implement valid state transition enforcement (04-REQ-7.1)
-    - Reject invalid transitions with warning log (04-REQ-7.2)
-    - Implement broadcast channel for state events
-    - _Requirements: 04-REQ-7.1, 04-REQ-7.2_
+- [ ] 4. PARKING_OPERATOR_ADAPTOR: autonomous session management
+  - [ ] 4.1 Implement DATA_BROKER client
+    - Create `rhivos/parking-operator-adaptor/src/databroker_client.rs`
+    - Implement Kuksa DATA_BROKER gRPC client using `kuksa.val.v1` proto:
+      - `subscribe(signal_path)` — opens streaming subscription
+      - `read(signal_path)` — single get request
+      - `write(signal_path, value)` — set request
+    - Connect via network gRPC (TCP) at configurable address
+    - Implement exponential backoff retry on connection failure
+    - _Requirements: 04-REQ-3.1, 04-REQ-3.2, 04-REQ-3.3, 04-REQ-3.4,
+      04-REQ-3.E1_
 
-  - [ ] 4.2 Implement checksum verification
-    - Create `rhivos/update-service/src/checksum.rs`
-    - Implement SHA-256 computation over OCI manifest bytes
-    - Implement comparison against provided checksum
-    - Return error with details on mismatch
-    - _Requirements: 04-REQ-5.2, 04-REQ-5.E1_
+  - [ ] 4.2 Implement autonomous lock/unlock event handling
+    - Add lock event subscription loop to main.rs or session_manager.rs
+    - On lock event (`IsLocked = true`) + no active session:
+      - Read location from DATA_BROKER
+      - Call `POST /parking/start` on operator
+      - Write `SessionActive = true` to DATA_BROKER
+    - On unlock event (`IsLocked = false`) + active session:
+      - Call `POST /parking/stop` on operator
+      - Write `SessionActive = false` to DATA_BROKER
+    - Ignore lock events when session already active
+    - Ignore unlock events when no session active
+    - On operator unreachable: log error, do NOT write SessionActive
+    - _Requirements: 04-REQ-2.1, 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.4,
+      04-REQ-2.E1, 04-REQ-2.E2, 04-REQ-2.E3_
 
-  - [ ] 4.3 Implement OCI client
-    - Create `rhivos/update-service/src/oci_client.rs`
-    - Implement manifest fetch from OCI registry
-    - Implement blob/layer download
-    - Handle registry connection errors
-    - Integrate with checksum verification
-    - _Requirements: 04-REQ-5.1, 04-REQ-5.3, 04-REQ-5.E2_
-
-  - [ ] 4.4 Implement container runtime interface
-    - Create `rhivos/update-service/src/container_runtime.rs`
-    - Implement container create, start, stop, remove via podman CLI
-    - Handle container start failures
-    - Map container events to adapter state transitions
-    - _Requirements: 04-REQ-4.E3_
-
-  - [ ] 4.5 Implement offloader
-    - Create `rhivos/update-service/src/offloader.rs`
-    - Background tokio task checking stopped adapters periodically
-    - Configurable inactivity timeout (default 24h)
-    - Transition STOPPED -> OFFLOADING -> removal
-    - Cancel offload if re-install requested
-    - Emit state events during offloading
-    - _Requirements: 04-REQ-6.1 through 04-REQ-6.3, 04-REQ-6.E1_
-
-  - [ ] 4.6 Implement gRPC service
-    - Create `rhivos/update-service/src/grpc_service.rs`
-    - Implement `UpdateService` trait (replace stub from Phase 1.2)
-    - InstallAdapter: initiate async download, return DOWNLOADING
-    - WatchAdapterStates: server-streaming from broadcast channel
-    - ListAdapters: snapshot of adapter map
-    - RemoveAdapter: stop + remove container + remove from map
-    - GetAdapterStatus: lookup in adapter map
-    - Return appropriate gRPC error codes
-    - _Requirements: 04-REQ-4.1 through 04-REQ-4.6, 04-REQ-4.E1 through
-      04-REQ-4.E3_
-
-  - [ ] 4.7 Implement main entry point and configuration
-    - Update `rhivos/update-service/src/main.rs`
-    - Create `rhivos/update-service/src/config.rs`
-    - Parse configuration from env vars
-    - Start gRPC server, offloader task
-    - Wire adapter manager, OCI client, container runtime
+  - [ ] 4.3 Integrate override with autonomous behavior
+    - Update gRPC service to set `override_active` flag in session manager
+    - Ensure manual StartSession/StopSession updates `SessionActive` in
+      DATA_BROKER
+    - Ensure autonomous behavior respects override state
+    - _Requirements: 04-REQ-2.5_
 
   - [ ] 4.V Verify task group 4
-    - [ ] UPDATE_SERVICE unit tests pass:
-      `cd rhivos && cargo test -p update-service`
-    - [ ] State machine property test passes (TS-04-P4)
-    - [ ] Checksum gate property test passes (TS-04-P5)
-    - [ ] Offloading property test passes (TS-04-P6)
-    - [ ] Event stream property test passes (TS-04-P8)
-    - [ ] Edge case tests pass (TS-04-E8 through TS-04-E13)
+    - [ ] Autonomous session tests pass (require DATA_BROKER):
+      TS-04-6, TS-04-7, TS-04-8, TS-04-9, TS-04-10
+    - [ ] DATA_BROKER subscription tests pass:
+      TS-04-11, TS-04-12, TS-04-13, TS-04-14
+    - [ ] Edge case tests pass: TS-04-E4, TS-04-E5, TS-04-E6, TS-04-E7
+    - [ ] Property tests pass: TS-04-P1, TS-04-P2, TS-04-P3
+    - [ ] All previously passing tests still pass
     - [ ] No linter warnings:
-      `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] Requirements 04-REQ-4.* through 04-REQ-7.* met
+      `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [ ] 5. Mock PARKING_APP CLI Enhancements (Go)
-  - [ ] 5.1 Implement `install` command
-    - Update `mock/parking-app-cli/` install command
-    - Add `--image-ref` and `--checksum` flags
-    - Create gRPC client connection to UPDATE_SERVICE
-    - Call InstallAdapter, print response
-    - Handle connection errors
-    - _Requirements: 04-REQ-9.1_
+- [ ] 5. UPDATE_SERVICE: core state machine and gRPC interface
+  - [ ] 5.1 Create crate structure and configuration
+    - Create `rhivos/update-service/Cargo.toml` with dependencies
+      (tonic, prost, tokio, sha2, reqwest)
+    - Create `rhivos/update-service/build.rs` using tonic-build for
+      `update_service.proto`
+    - Create `rhivos/update-service/src/config.rs` with env var
+      configuration: `UPDATE_GRPC_ADDR`, `REGISTRY_URL`,
+      `OFFLOAD_TIMEOUT_HOURS`, `CONTAINER_STORE_PATH`
+    - _Requirements: 04-REQ-4.1, 04-REQ-6.1_
 
-  - [ ] 5.2 Implement `watch` command
-    - Update watch command
-    - Create streaming gRPC client to UPDATE_SERVICE
-    - Print each AdapterStateEvent as received
-    - Handle Ctrl+C gracefully
-    - _Requirements: 04-REQ-9.2_
+  - [ ] 5.2 Implement adapter state machine
+    - Create `rhivos/update-service/src/adapter_manager.rs`
+    - Implement `AdapterManager` with `HashMap<String, AdapterRecord>`
+    - Implement valid state transition enforcement per 04-REQ-7.1
+    - Reject invalid transitions with warning log per 04-REQ-7.2
+    - Implement `broadcast::Sender<AdapterStateEvent>` for state event
+      notifications
+    - _Requirements: 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 5.3 Implement `list` command
-    - Update list command
-    - Call ListAdapters, print table of adapters
-    - _Requirements: 04-REQ-9.3_
+  - [ ] 5.3 Implement checksum verification
+    - Create `rhivos/update-service/src/checksum.rs`
+    - Implement SHA-256 digest computation using `sha2` crate
+    - Implement verification function comparing computed vs. provided checksum
+    - _Requirements: 04-REQ-5.2_
 
-  - [ ] 5.4 Implement `start-session` command
-    - Update start-session command
-    - Add `--vehicle-id` and `--zone-id` flags
-    - Create gRPC client to PARKING_OPERATOR_ADAPTOR
-    - Call StartSession, print response
-    - _Requirements: 04-REQ-9.4_
+  - [ ] 5.4 Implement UpdateService gRPC service
+    - Create `rhivos/update-service/src/grpc_service.rs`
+    - Implement `UpdateService` trait from generated proto code:
+      - `InstallAdapter` — creates adapter record, starts async download,
+        returns job_id + adapter_id + DOWNLOADING state
+      - `WatchAdapterStates` — returns server-streaming response from
+        broadcast receiver
+      - `ListAdapters` — returns snapshot of all known adapters
+      - `RemoveAdapter` — stops and removes adapter, returns success
+      - `GetAdapterStatus` — returns single adapter info
+    - Return `ALREADY_EXISTS` for duplicate installs
+    - Return `NOT_FOUND` for unknown adapter IDs
+    - _Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3, 04-REQ-4.4,
+      04-REQ-4.5, 04-REQ-4.6, 04-REQ-4.E1, 04-REQ-4.E2_
 
-  - [ ] 5.5 Implement `stop-session` command
-    - Update stop-session command
-    - Add `--session-id` flag
-    - Call StopSession, print response
-    - _Requirements: 04-REQ-9.5_
-
-  - [ ] 5.6 Add error handling for unreachable services
-    - Print descriptive error with target address
-    - Exit with non-zero code
-    - _Requirements: 04-REQ-9.E1_
+  - [ ] 5.5 Create main.rs entry point
+    - Create `rhivos/update-service/src/main.rs`
+    - Start gRPC server on configured address
+    - Initialize adapter manager
+    - _Requirements: 04-REQ-4.1_
 
   - [ ] 5.V Verify task group 5
-    - [ ] CLI commands compile and build:
-      `cd mock/parking-app-cli && go build ./...`
-    - [ ] CLI unit/integration tests pass:
-      `cd mock/parking-app-cli && go test -v -count=1 ./...`
-    - [ ] Edge case: unreachable service test passes (TS-04-E17)
-    - [ ] No linter warnings: `go vet ./mock/parking-app-cli/...`
-    - [ ] Requirements 04-REQ-9.* met
+    - [ ] State machine unit tests pass: TS-04-27, TS-04-28, TS-04-P4
+    - [ ] Checksum unit test passes: TS-04-22
+    - [ ] Config unit test passes: TS-04-24
+    - [ ] UPDATE_SERVICE gRPC integration tests pass:
+      TS-04-15, TS-04-16, TS-04-17, TS-04-18, TS-04-19, TS-04-20
+    - [ ] Edge case tests pass: TS-04-E8, TS-04-E9, TS-04-E10
+    - [ ] All previously passing tests still pass
+    - [ ] No linter warnings:
+      `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 6. Integration testing
-  - [ ] 6.1 Set up integration test harness
-    - Create/update `tests/integration/qm_test.go`
-    - Add test helpers for starting/stopping services (mock operator,
-      adaptor, update-service)
-    - Add helpers for DATA_BROKER interaction (set/get signals)
-    - Add helpers for waiting on conditions with timeouts
-    - _Test Spec: shared infrastructure for TS-04-38 through TS-04-40_
+- [ ] 6. UPDATE_SERVICE: OCI pulling, checksum gate, and offloading
+  - [ ] 6.1 Implement OCI client
+    - Create `rhivos/update-service/src/oci_client.rs`
+    - Implement OCI manifest fetch: `GET /v2/{name}/manifests/{reference}`
+    - Implement layer fetch: `GET /v2/{name}/blobs/{digest}`
+    - Integrate with checksum verification after manifest pull
+    - On checksum match: transition to INSTALLING
+    - On checksum mismatch: transition to ERROR, discard image
+    - On registry unreachable: transition to ERROR
+    - _Requirements: 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.3, 04-REQ-5.E1,
+      04-REQ-5.E2_
 
-  - [ ] 6.2 Implement lock-to-session integration test
-    - Start DATA_BROKER, mock PARKING_OPERATOR, PARKING_OPERATOR_ADAPTOR
-    - Set location in DATA_BROKER
-    - Set IsLocked = true
-    - Verify SessionActive = true
-    - Verify mock operator received start request
-    - Set IsLocked = false
-    - Verify SessionActive = false
-    - Verify mock operator received stop request
-    - _Test Spec: TS-04-38, TS-04-6 through TS-04-9, TS-04-11 through TS-04-14_
+  - [ ] 6.2 Implement container runtime integration
+    - Create `rhivos/update-service/src/container_runtime.rs`
+    - Implement podman/crun CLI invocations via `std::process::Command`:
+      create, start, stop, remove, inspect
+    - Map container lifecycle events to adapter state transitions
+    - Handle container start failure -> ERROR state with reason
+    - _Requirements: 04-REQ-4.E3_
 
-  - [ ] 6.3 Implement CLI-to-UpdateService integration test
-    - Start UPDATE_SERVICE
-    - Run install command via CLI binary
-    - Run list command, verify adapter appears
-    - _Test Spec: TS-04-39, TS-04-33 through TS-04-35_
-
-  - [ ] 6.4 Implement adaptor-to-operator integration test
-    - Start mock PARKING_OPERATOR and PARKING_OPERATOR_ADAPTOR
-    - Call StartSession via gRPC
-    - Verify mock operator received start request
-    - Call StopSession via gRPC
-    - Verify mock operator received stop request
-    - _Test Spec: TS-04-40, TS-04-1, TS-04-36, TS-04-37_
-
-  - [ ] 6.5 Implement edge case integration tests
-    - Test operator unreachable during autonomous start (TS-04-E5)
-    - Test DATA_BROKER unreachable at startup (TS-04-E7)
-    - Test CLI error on unreachable service (TS-04-E17)
-    - _Test Spec: TS-04-E5, TS-04-E7, TS-04-E17_
-
-  - [ ] 6.6 Update Makefile for new components
-    - Add mock PARKING_OPERATOR to build targets
-    - Add integration test targets for QM partition tests
-    - Ensure `make test` includes new Go tests
-    - Ensure `make lint` covers new code
+  - [ ] 6.3 Implement offloader
+    - Create `rhivos/update-service/src/offloader.rs`
+    - Implement background tokio task checking stopped adapters periodically
+    - When `last_active.elapsed() > offload_timeout`: transition to
+      OFFLOADING, remove container resources, then remove adapter
+    - Emit `AdapterStateEvent` during offloading transitions
+    - Handle re-install during OFFLOADING: cancel offload, re-download
+    - _Requirements: 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.3, 04-REQ-6.E1_
 
   - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass:
-      `cd tests/integration && go test -v -count=1 -tags=integration ./...`
-    - [ ] All unit tests still pass: `make test`
-    - [ ] All linters pass: `make lint`
-    - [ ] Requirements 04-REQ-10.1 through 04-REQ-10.3 met
-    - [ ] All 57 test spec entries covered (40 acceptance + 17 edge + 8 property)
+    - [ ] OCI pull integration test passes: TS-04-21
+    - [ ] Checksum gate integration tests pass: TS-04-23, TS-04-E11
+    - [ ] Registry error test passes: TS-04-E12
+    - [ ] Offloading tests pass: TS-04-25, TS-04-26, TS-04-E13
+    - [ ] Property tests pass: TS-04-P5, TS-04-P6, TS-04-P8
+    - [ ] All previously passing tests still pass
+    - [ ] No linter warnings:
+      `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 7. Final verification and cleanup
-  - [ ] 7.1 Run all tests and fix failures
-    - Run full test suite: `make check`
-    - Run all spec tests: unit, integration, property, edge case
+- [ ] 7. CLI enhancements, integration tests, and final verification
+  - [ ] 7.1 Implement CLI commands for UPDATE_SERVICE
+    - Update `mock/parking-app-cli/` to add working `install`, `watch`, `list`
+      commands
+    - `install` — calls `InstallAdapter` with `--image-ref` and `--checksum`
+      flags, prints response
+    - `watch` — calls `WatchAdapterStates`, prints events until interrupted
+    - `list` — calls `ListAdapters`, prints table of adapters
+    - Error handling: print error message with target address, exit non-zero
+    - _Requirements: 04-REQ-9.1, 04-REQ-9.2, 04-REQ-9.3, 04-REQ-9.E1_
+
+  - [ ] 7.2 Implement CLI commands for PARKING_OPERATOR_ADAPTOR
+    - Add working `start-session` and `stop-session` commands
+    - `start-session` — calls `StartSession` with `--vehicle-id` and
+      `--zone-id` flags, prints response
+    - `stop-session` — calls `StopSession` with `--session-id` flag,
+      prints response
+    - Error handling: print error message with target address, exit non-zero
+    - _Requirements: 04-REQ-9.4, 04-REQ-9.5, 04-REQ-9.E1_
+
+  - [ ] 7.3 Run and fix integration tests
+    - Run end-to-end integration tests: TS-04-39, TS-04-40, TS-04-41
+    - Run CLI integration tests: TS-04-34, TS-04-35, TS-04-36, TS-04-37,
+      TS-04-38
+    - Run CLI error handling test: TS-04-E17
     - Fix any remaining failures
+    - _Requirements: 04-REQ-10.1, 04-REQ-10.2, 04-REQ-10.3_
 
-  - [ ] 7.2 Update documentation
-    - Update Makefile help text for new targets
-    - Ensure all environment variables are documented in design.md
-
-  - [ ] 7.3 Run full quality gate
+  - [ ] 7.4 Run full quality gate
     - `make check` (build + test + lint)
-    - Integration tests pass
+    - All 66 spec tests pass (41 acceptance + 17 edge + 8 property)
     - `git status` shows clean working tree
 
   - [ ] 7.V Verify task group 7
-    - [ ] All tests pass (unit, integration, property, edge case)
+    - [ ] CLI tests pass: TS-04-34, TS-04-35, TS-04-36, TS-04-37, TS-04-38,
+      TS-04-E17
+    - [ ] Integration tests pass: TS-04-39, TS-04-40, TS-04-41
+    - [ ] All 66 spec tests pass
     - [ ] `make check` exits 0
     - [ ] No linter warnings
     - [ ] All changes committed and pushed
-    - [ ] Feature branch merged to develop
 
 ### Checkbox States
 
@@ -430,91 +408,93 @@ Ordering rationale:
 
 | Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
 |-------------|-----------------|---------------------|------------------|
-| 04-REQ-1.1 | TS-04-1 | 3.4, 3.5 | `TestAdaptorGrpcService` |
-| 04-REQ-1.2 | TS-04-2 | 3.1, 3.4 | `TestStartSessionReturnsSessionId` |
-| 04-REQ-1.3 | TS-04-3 | 3.1, 3.4 | `TestStopSessionReturnsFee` |
-| 04-REQ-1.4 | TS-04-4 | 3.1, 3.4 | `TestGetStatusReturnsState` |
-| 04-REQ-1.5 | TS-04-5 | 3.1, 3.4 | `TestGetRateReturnsZoneRate` |
-| 04-REQ-1.E1 | TS-04-E1 | 3.2, 3.4 | `TestStartSessionAlreadyActive` |
-| 04-REQ-1.E2 | TS-04-E2 | 3.2, 3.4 | `TestStopSessionUnknown` |
-| 04-REQ-1.E3 | TS-04-E3 | 3.1, 3.4 | `TestOperatorUnreachable` |
-| 04-REQ-2.1 | TS-04-6 | 3.2, 3.3 | `TestLockEventStartsSession` |
-| 04-REQ-2.2 | TS-04-7 | 3.2, 3.3 | `TestUnlockEventStopsSession` |
-| 04-REQ-2.3 | TS-04-8 | 3.2, 3.3 | `TestSessionActiveSetOnStart` |
-| 04-REQ-2.4 | TS-04-9 | 3.2, 3.3 | `TestSessionActiveClearedOnStop` |
-| 04-REQ-2.5 | TS-04-10 | 3.2, 3.4 | `TestManualOverride` |
-| 04-REQ-2.E1 | TS-04-E4 | 3.2 | `TestUnlockNoSession` |
-| 04-REQ-2.E2 | TS-04-E5 | 3.2 | `TestOperatorUnreachableAutonomous` |
-| 04-REQ-2.E3 | TS-04-E6 | 3.2 | `TestDuplicateLockIgnored` |
-| 04-REQ-3.1 | TS-04-11 | 3.3, 3.5 | `TestDataBrokerConnection` |
-| 04-REQ-3.2 | TS-04-12 | 3.3 | `TestDataBrokerSubscription` |
-| 04-REQ-3.3 | TS-04-13 | 3.3 | `TestDataBrokerLocationRead` |
-| 04-REQ-3.4 | TS-04-14 | 3.3 | `TestDataBrokerSessionWrite` |
-| 04-REQ-3.E1 | TS-04-E7 | 3.3 | `TestDataBrokerRetry` |
-| 04-REQ-4.1 | TS-04-15 | 4.6, 4.7 | `TestUpdateServiceGrpc` |
-| 04-REQ-4.2 | TS-04-16 | 4.1, 4.6 | `TestInstallAdapterDownloading` |
-| 04-REQ-4.3 | TS-04-17 | 4.1, 4.6 | `TestWatchAdapterStatesStream` |
-| 04-REQ-4.4 | TS-04-18 | 4.1, 4.6 | `TestListAdapters` |
-| 04-REQ-4.5 | TS-04-19 | 4.1, 4.4, 4.6 | `TestRemoveAdapter` |
-| 04-REQ-4.6 | TS-04-20 | 4.1, 4.6 | `TestGetAdapterStatus` |
-| 04-REQ-4.E1 | TS-04-E8 | 4.1, 4.6 | `TestInstallAlreadyInstalled` |
-| 04-REQ-4.E2 | TS-04-E9 | 4.1, 4.6 | `TestRemoveUnknownAdapter` |
-| 04-REQ-4.E3 | TS-04-E10 | 4.4, 4.6 | `TestContainerStartFailure` |
-| 04-REQ-5.1 | TS-04-21 | 4.3 | `TestOciImagePull` |
-| 04-REQ-5.2 | TS-04-22 | 4.2 | `TestChecksumVerification` |
-| 04-REQ-5.3 | TS-04-23 | 4.2, 4.3 | `TestChecksumPassTransition` |
-| 04-REQ-5.E1 | TS-04-E11 | 4.2, 4.3 | `TestChecksumMismatchError` |
-| 04-REQ-5.E2 | TS-04-E12 | 4.3 | `TestRegistryUnreachable` |
-| 04-REQ-6.1 | TS-04-24 | 4.5 | `TestOffloadTimeout` |
-| 04-REQ-6.2 | TS-04-25 | 4.5 | `TestOffloadRemovesResources` |
-| 04-REQ-6.3 | TS-04-26 | 4.5 | `TestOffloadEmitsEvents` |
-| 04-REQ-6.E1 | TS-04-E13 | 4.5 | `TestReinstallDuringOffload` |
-| 04-REQ-7.1 | TS-04-27 | 4.1 | `TestValidStateTransitions` |
-| 04-REQ-7.2 | TS-04-28 | 4.1 | `TestInvalidStateTransitions` |
-| 04-REQ-8.1 | TS-04-29 | 2.1, 2.3 | `TestMockOperatorServer` |
-| 04-REQ-8.2 | TS-04-29 | 2.3 | `TestMockOperatorStartSession` |
-| 04-REQ-8.3 | TS-04-30 | 2.3 | `TestMockOperatorStopSession` |
-| 04-REQ-8.4 | TS-04-31 | 2.3 | `TestMockOperatorSessionStatus` |
-| 04-REQ-8.5 | TS-04-32 | 2.3 | `TestMockOperatorZoneRate` |
-| 04-REQ-8.E1 | TS-04-E14 | 2.4 | `TestMockOperatorStopUnknown` |
-| 04-REQ-8.E2 | TS-04-E15 | 2.4 | `TestMockOperatorStatusUnknown` |
-| 04-REQ-8.E3 | TS-04-E16 | 2.4 | `TestMockOperatorRateUnknown` |
-| 04-REQ-9.1 | TS-04-33 | 5.1 | `TestCLIInstall` |
-| 04-REQ-9.2 | TS-04-34 | 5.2 | `TestCLIWatch` |
-| 04-REQ-9.3 | TS-04-35 | 5.3 | `TestCLIList` |
-| 04-REQ-9.4 | TS-04-36 | 5.4 | `TestCLIStartSession` |
-| 04-REQ-9.5 | TS-04-37 | 5.5 | `TestCLIStopSession` |
-| 04-REQ-9.E1 | TS-04-E17 | 5.6 | `TestCLIUnreachableService` |
-| 04-REQ-10.1 | TS-04-38 | 6.2 | `TestIntegration_LockToSession` |
-| 04-REQ-10.2 | TS-04-39 | 6.3 | `TestIntegration_CLILifecycle` |
-| 04-REQ-10.3 | TS-04-40 | 6.4 | `TestIntegration_AdaptorToOperator` |
-| Property 1 | TS-04-P1 | 3.2 | `TestProperty_SessionConsistency` |
-| Property 2 | TS-04-P2 | 3.2 | `TestProperty_AutonomousIdempotency` |
-| Property 3 | TS-04-P3 | 3.2 | `TestProperty_OverridePrecedence` |
-| Property 4 | TS-04-P4 | 4.1 | `TestProperty_StateMachineIntegrity` |
-| Property 5 | TS-04-P5 | 4.2 | `TestProperty_ChecksumGate` |
-| Property 6 | TS-04-P6 | 4.5 | `TestProperty_OffloadingCorrectness` |
-| Property 7 | TS-04-P7 | 2.3 | `TestProperty_FeeAccuracy` |
-| Property 8 | TS-04-P8 | 4.1, 4.5, 4.6 | `TestProperty_EventStreamCompleteness` |
+| 04-REQ-1.1 | TS-04-1 | 3.1, 3.3, 3.5 | `TestAdaptor_GrpcService` |
+| 04-REQ-1.2 | TS-04-2 | 3.2, 3.3 | `TestAdaptor_StartSession` |
+| 04-REQ-1.3 | TS-04-3 | 3.2, 3.3 | `TestAdaptor_StopSession` |
+| 04-REQ-1.4 | TS-04-4 | 3.2, 3.3 | `TestAdaptor_GetStatus` |
+| 04-REQ-1.5 | TS-04-5 | 3.2, 3.3 | `TestAdaptor_GetRate` |
+| 04-REQ-1.E1 | TS-04-E1 | 3.3, 3.4 | `TestEdge_StartSessionAlreadyActive` |
+| 04-REQ-1.E2 | TS-04-E2 | 3.3 | `TestEdge_StopSessionUnknown` |
+| 04-REQ-1.E3 | TS-04-E3 | 3.2, 3.3 | `TestEdge_StartSessionOperatorUnreachable` |
+| 04-REQ-2.1 | TS-04-6 | 4.2 | `TestAutonomous_LockStartsSession` |
+| 04-REQ-2.2 | TS-04-7 | 4.2 | `TestAutonomous_UnlockStopsSession` |
+| 04-REQ-2.3 | TS-04-8 | 4.2 | `TestAutonomous_StartWritesSessionActive` |
+| 04-REQ-2.4 | TS-04-9 | 4.2 | `TestAutonomous_StopWritesSessionActive` |
+| 04-REQ-2.5 | TS-04-10 | 4.3 | `TestAutonomous_OverrideUpdatesSessionActive` |
+| 04-REQ-2.E1 | TS-04-E4 | 4.2 | `TestEdge_UnlockNoSession` |
+| 04-REQ-2.E2 | TS-04-E5 | 4.2 | `TestEdge_AutonomousStartOperatorUnreachable` |
+| 04-REQ-2.E3 | TS-04-E6 | 4.2 | `TestEdge_LockWhileSessionActive` |
+| 04-REQ-3.1 | TS-04-11 | 4.1 | `TestDatabroker_Connection` |
+| 04-REQ-3.2 | TS-04-12 | 4.1 | `TestDatabroker_SubscribeIsLocked` |
+| 04-REQ-3.3 | TS-04-13 | 4.1 | `TestDatabroker_ReadLocation` |
+| 04-REQ-3.4 | TS-04-14 | 4.1 | `TestDatabroker_WriteSessionActive` |
+| 04-REQ-3.E1 | TS-04-E7 | 4.1 | `TestEdge_DatabrokerUnreachableRetry` |
+| 04-REQ-4.1 | TS-04-15 | 5.1, 5.4, 5.5 | `TestUpdateService_GrpcService` |
+| 04-REQ-4.2 | TS-04-16 | 5.4 | `TestUpdateService_InstallAdapter` |
+| 04-REQ-4.3 | TS-04-17 | 5.4 | `TestUpdateService_WatchAdapterStates` |
+| 04-REQ-4.4 | TS-04-18 | 5.4 | `TestUpdateService_ListAdapters` |
+| 04-REQ-4.5 | TS-04-19 | 5.4 | `TestUpdateService_RemoveAdapter` |
+| 04-REQ-4.6 | TS-04-20 | 5.4 | `TestUpdateService_GetAdapterStatus` |
+| 04-REQ-4.E1 | TS-04-E8 | 5.4 | `TestEdge_InstallAlreadyInstalled` |
+| 04-REQ-4.E2 | TS-04-E9 | 5.4 | `TestEdge_RemoveUnknownAdapter` |
+| 04-REQ-4.E3 | TS-04-E10 | 6.2 | `TestEdge_ContainerStartFailure` |
+| 04-REQ-5.1 | TS-04-21 | 6.1 | `TestOCI_ImagePull` |
+| 04-REQ-5.2 | TS-04-22 | 5.3 | `test_checksum_verification` |
+| 04-REQ-5.3 | TS-04-23 | 6.1 | `TestOCI_ChecksumMatchTransition` |
+| 04-REQ-5.E1 | TS-04-E11 | 6.1 | `TestEdge_ChecksumMismatch` |
+| 04-REQ-5.E2 | TS-04-E12 | 6.1 | `TestEdge_RegistryUnreachable` |
+| 04-REQ-6.1 | TS-04-24 | 5.1 | `test_configurable_offload_timeout` |
+| 04-REQ-6.2 | TS-04-25 | 6.3 | `TestOffloading_StoppedAdapterOffloaded` |
+| 04-REQ-6.3 | TS-04-26 | 6.3 | `TestOffloading_EmitsStateEvents` |
+| 04-REQ-6.E1 | TS-04-E13 | 6.3 | `TestEdge_ReinstallDuringOffloading` |
+| 04-REQ-7.1 | TS-04-27 | 5.2 | `test_valid_state_transitions` |
+| 04-REQ-7.2 | TS-04-28 | 5.2 | `test_invalid_state_transitions` |
+| 04-REQ-8.1 | TS-04-29 | 2.3 | `TestOperator_ConfigurablePort` |
+| 04-REQ-8.2 | TS-04-30 | 2.2 | `TestOperator_StartSession` |
+| 04-REQ-8.3 | TS-04-31 | 2.2 | `TestOperator_StopSession` |
+| 04-REQ-8.4 | TS-04-32 | 2.2 | `TestOperator_SessionStatus` |
+| 04-REQ-8.5 | TS-04-33 | 2.2 | `TestOperator_ZoneRate` |
+| 04-REQ-8.E1 | TS-04-E14 | 2.2 | `TestEdge_StopUnknownSession404` |
+| 04-REQ-8.E2 | TS-04-E15 | 2.2 | `TestEdge_StatusUnknownSession404` |
+| 04-REQ-8.E3 | TS-04-E16 | 2.2 | `TestEdge_RateUnknownZone404` |
+| 04-REQ-9.1 | TS-04-34 | 7.1 | `TestCLI_Install` |
+| 04-REQ-9.2 | TS-04-35 | 7.1 | `TestCLI_Watch` |
+| 04-REQ-9.3 | TS-04-36 | 7.1 | `TestCLI_List` |
+| 04-REQ-9.4 | TS-04-37 | 7.2 | `TestCLI_StartSession` |
+| 04-REQ-9.5 | TS-04-38 | 7.2 | `TestCLI_StopSession` |
+| 04-REQ-9.E1 | TS-04-E17 | 7.1, 7.2 | `TestEdge_CLIServiceUnreachable` |
+| 04-REQ-10.1 | TS-04-39 | 7.3 | `TestE2E_LockToSession` |
+| 04-REQ-10.2 | TS-04-40 | 7.3 | `TestE2E_CLIToUpdateService` |
+| 04-REQ-10.3 | TS-04-41 | 7.3 | `TestE2E_AdaptorToOperator` |
+| Property 1 | TS-04-P1 | 4.2 | `TestProperty_SessionStateConsistency` |
+| Property 2 | TS-04-P2 | 4.2 | `TestProperty_AutonomousIdempotency` |
+| Property 3 | TS-04-P3 | 4.3 | `TestProperty_OverridePrecedence` |
+| Property 4 | TS-04-P4 | 5.2 | `test_property_state_machine_integrity` |
+| Property 5 | TS-04-P5 | 6.1 | `TestProperty_ChecksumGate` |
+| Property 6 | TS-04-P6 | 6.3 | `TestProperty_OffloadingCorrectness` |
+| Property 7 | TS-04-P7 | 2.2 | `TestProperty_FeeAccuracy` |
+| Property 8 | TS-04-P8 | 5.4, 6.3 | `TestProperty_EventStreamCompleteness` |
 
 ## Notes
 
-- **Test implementation language:** Unit tests for Rust services use Rust's
-  built-in test framework with `#[tokio::test]`. Unit tests for Go services
-  use the standard `testing` package. Integration tests are Go tests in
-  `tests/integration/` tagged with `//go:build integration`.
-- **Infrastructure dependency:** Integration tests (task group 6) require
-  DATA_BROKER running via `make infra-up`. Unit tests must not depend on
-  external services.
-- **Mock operator as test dependency:** Task group 2 (mock operator) must be
-  complete before task group 3 (adaptor) can run integration-level unit tests
-  against a real HTTP server.
-- **Container runtime for UPDATE_SERVICE:** Full integration testing of
-  container lifecycle requires podman. Unit tests should mock the container
-  runtime interface.
-- **Kuksa proto dependency:** The PARKING_OPERATOR_ADAPTOR's DATA_BROKER client
-  uses Kuksa Databroker's proto definitions (kuksa.val.v1). These need to be
-  added to the Rust build configuration.
+- **Test implementation languages:** Rust integration tests use `#[tokio::test]`
+  with `#[ignore]` for tests requiring infrastructure. Go tests use standard
+  `testing` package with `net/http/httptest` for HTTP handler tests. End-to-end
+  integration tests are in `tests/integration/` as a standalone Go module.
+- **Infrastructure requirements:** Integration tests for autonomous session
+  management (task group 4) require DATA_BROKER running (`make infra-up`).
+  Tests tagged with `#[ignore]` can be run with `cargo test -- --ignored`.
+- **Mock PARKING_OPERATOR testing:** Go unit tests for the mock operator use
+  `httptest.NewServer()` for isolated handler testing without port allocation.
+- **State machine testing:** Unit tests for the adapter state machine (task
+  group 5) do NOT require infrastructure. They test the `AdapterManager`
+  directly with in-memory state.
+- **OCI registry mocking:** Integration tests for OCI pulling (task group 6)
+  use a mock HTTP server simulating the OCI distribution API
+  (`/v2/.../manifests/...`, `/v2/.../blobs/...`).
 - **Session sizing:** Each task group is scoped for one coding session.
-  Task group 3 (adaptor) is the largest and may need to be split across two
-  sessions.
+  Task group 1 (failing tests) and task group 2 (mock operator) are the
+  smallest. Task groups 3-4 (adaptor) and 5-6 (update service) are
+  medium-sized. Task group 7 (CLI + integration) is the largest.
+- **Offloading timeout for tests:** Integration tests for offloading should
+  use a very short timeout (2-3 seconds) to avoid slow test execution.
