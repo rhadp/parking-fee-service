@@ -100,3 +100,50 @@ Implemented task group 3 (Rust workspace scaffolding) for specification 01_proje
 ### Tests Added or Modified
 
 - None (placeholder tests are embedded in lib.rs files, not separate test files).
+
+---
+
+## Session 4
+
+- **Spec:** 01_project_setup
+- **Task Group:** 4
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 4 (Go scaffolding: generated code, backend services, mock CLIs) for specification 01_project_setup. Generated Go protobuf code from shared proto definitions into `gen/go/` with separate packages (commonpb, updateservicepb, parkingadaptorpb). Created two backend service skeletons (parking-fee-service on :8080 with health endpoint, cloud-gateway on :8081 with MQTT status message). Created two mock CLI apps using cobra (parking-app-cli with 9 subcommands, companion-app-cli with 3 subcommands), both importing generated proto packages. Set up go.work workspace linking all five Go modules. All 27 relevant spec tests pass including build, integration, and property tests.
+
+### Files Changed
+
+- Added: `gen/go/go.mod`
+- Added: `gen/go/go.sum`
+- Added: `gen/go/commonpb/common.pb.go`
+- Added: `gen/go/updateservicepb/update_service.pb.go`
+- Added: `gen/go/updateservicepb/update_service_grpc.pb.go`
+- Added: `gen/go/parkingadaptorpb/parking_adaptor.pb.go`
+- Added: `gen/go/parkingadaptorpb/parking_adaptor_grpc.pb.go`
+- Added: `backend/parking-fee-service/go.mod`
+- Added: `backend/parking-fee-service/main.go`
+- Added: `backend/parking-fee-service/main_test.go`
+- Added: `backend/cloud-gateway/go.mod`
+- Added: `backend/cloud-gateway/main.go`
+- Added: `backend/cloud-gateway/main_test.go`
+- Added: `mock/parking-app-cli/go.mod`
+- Added: `mock/parking-app-cli/go.sum`
+- Added: `mock/parking-app-cli/main.go`
+- Added: `mock/parking-app-cli/main_test.go`
+- Added: `mock/companion-app-cli/go.mod`
+- Added: `mock/companion-app-cli/go.sum`
+- Added: `mock/companion-app-cli/main.go`
+- Added: `mock/companion-app-cli/main_test.go`
+- Added: `go.work`
+- Added: `go.work.sum`
+- Modified: `.specs/01_project_setup/tasks.md`
+- Modified: `.specs/01_project_setup/sessions.md`
+
+### Tests Added or Modified
+
+- `backend/parking-fee-service/main_test.go`: Placeholder test for health endpoint handler
+- `backend/cloud-gateway/main_test.go`: Placeholder test for health endpoint handler
+- `mock/parking-app-cli/main_test.go`: Placeholder test for root command
+- `mock/companion-app-cli/main_test.go`: Placeholder test for root command
