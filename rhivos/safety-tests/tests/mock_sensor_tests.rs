@@ -5,6 +5,7 @@
 //!
 //! Test Spec: TS-02-21, TS-02-22, TS-02-23, TS-02-24, TS-02-25
 
+use std::path::PathBuf;
 use std::process::Command;
 
 /// Helper: check if DATA_BROKER infrastructure is available.
@@ -23,6 +24,53 @@ macro_rules! require_infra {
             return;
         }
     };
+}
+
+/// Helper: find the workspace target directory and return the sensor binary path.
+///
+/// Cargo places binaries in the workspace-level `target/debug/` directory.
+/// When running tests, `CARGO_MANIFEST_DIR` points to the crate root
+/// (`safety-tests/`), so we go up one level to find the workspace root.
+///
+/// If the binary doesn't exist, builds it with `cargo build --bin {name} -p mock-sensors`.
+fn sensor_binary(name: &str) -> PathBuf {
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR should be set by cargo");
+    let workspace_root = PathBuf::from(&manifest_dir)
+        .parent()
+        .expect("safety-tests should be inside workspace")
+        .to_path_buf();
+    let binary = workspace_root.join("target").join("debug").join(name);
+
+    if !binary.exists() {
+        let build_result = Command::new("cargo")
+            .args(["build", "--bin", name, "-p", "mock-sensors"])
+            .current_dir(&workspace_root)
+            .output();
+
+        match build_result {
+            Ok(output) if !output.status.success() => {
+                panic!(
+                    "could not build {}: cargo build failed: {}",
+                    name,
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            Err(e) => {
+                panic!("could not build {}: {}", name, e);
+            }
+            _ => {}
+        }
+    }
+
+    assert!(
+        binary.exists(),
+        "{} binary not found at {} — mock-sensors crate not built",
+        name,
+        binary.display()
+    );
+
+    binary
 }
 
 /// TS-02-21: LOCATION_SENSOR CLI writes latitude and longitude (02-REQ-6.1)
@@ -102,60 +150,34 @@ fn test_sensor_usage_without_args() {
     let sensors = ["speed-sensor", "door-sensor", "location-sensor"];
 
     for sensor in &sensors {
-        // Try to find the binary in the target directory
-        let binary = format!("target/debug/{}", sensor);
-        let binary_path = std::path::Path::new(&binary);
+        let binary = sensor_binary(sensor);
 
-        // If binary doesn't exist, try building first
-        if !binary_path.exists() {
-            // Try cargo build for the binary
-            let build_result = Command::new("cargo")
-                .args(["build", "--bin", sensor])
-                .output();
-
-            match build_result {
-                Ok(output) if !output.status.success() => {
-                    panic!(
-                        "could not build {}: binary not found and cargo build failed: {}",
-                        sensor,
-                        String::from_utf8_lossy(&output.stderr)
-                    );
-                }
-                Err(e) => {
-                    panic!("could not build {}: {}", sensor, e);
-                }
-                _ => {}
-            }
-        }
-
-        let result = Command::new(&binary).output();
-
-        match result {
-            Ok(output) => {
-                assert_ne!(
-                    output.status.code().unwrap_or(-1),
-                    0,
-                    "{} should exit with non-zero code when run without arguments",
-                    sensor
-                );
-                let combined =
-                    String::from_utf8_lossy(&output.stdout).to_string()
-                        + &String::from_utf8_lossy(&output.stderr);
-                assert!(
-                    combined.contains("Usage")
-                        || combined.contains("usage")
-                        || combined.contains("--"),
-                    "{} output should contain usage information, got: {}",
-                    sensor,
-                    combined
-                );
-            }
-            Err(_) => {
+        let output = Command::new(&binary)
+            .output()
+            .unwrap_or_else(|e| {
                 panic!(
-                    "{} binary not found at {} — mock-sensors crate not built",
-                    sensor, binary
-                );
-            }
-        }
+                    "{} binary could not be executed at {}: {}",
+                    sensor,
+                    binary.display(),
+                    e
+                )
+            });
+
+        assert_ne!(
+            output.status.code().unwrap_or(-1),
+            0,
+            "{} should exit with non-zero code when run without arguments",
+            sensor
+        );
+        let combined = String::from_utf8_lossy(&output.stdout).to_string()
+            + &String::from_utf8_lossy(&output.stderr);
+        assert!(
+            combined.contains("Usage")
+                || combined.contains("usage")
+                || combined.contains("--"),
+            "{} output should contain usage information, got: {}",
+            sensor,
+            combined
+        );
     }
 }

@@ -234,6 +234,53 @@ fn test_edge_databroker_unreachable_telemetry() {
 
 // ── Mock sensor edge cases ──────────────────────────────────────────────────
 
+/// Helper: find the workspace target directory and return the sensor binary path.
+///
+/// Cargo places binaries in the workspace-level `target/debug/` directory.
+/// When running tests, `CARGO_MANIFEST_DIR` points to the crate root
+/// (`safety-tests/`), so we go up one level to find the workspace root.
+///
+/// If the binary doesn't exist, builds it with `cargo build --bin {name} -p mock-sensors`.
+fn sensor_binary(name: &str) -> std::path::PathBuf {
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR should be set by cargo");
+    let workspace_root = std::path::PathBuf::from(&manifest_dir)
+        .parent()
+        .expect("safety-tests should be inside workspace")
+        .to_path_buf();
+    let binary = workspace_root.join("target").join("debug").join(name);
+
+    if !binary.exists() {
+        let build_result = Command::new("cargo")
+            .args(["build", "--bin", name, "-p", "mock-sensors"])
+            .current_dir(&workspace_root)
+            .output();
+
+        match build_result {
+            Ok(output) if !output.status.success() => {
+                panic!(
+                    "could not build {}: cargo build failed: {}",
+                    name,
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            Err(e) => {
+                panic!("could not build {}: {}", name, e);
+            }
+            _ => {}
+        }
+    }
+
+    assert!(
+        binary.exists(),
+        "{} binary not found at {} — mock-sensors crate not built",
+        name,
+        binary.display()
+    );
+
+    binary
+}
+
 /// TS-02-E12: Mock sensor DATA_BROKER unreachable (02-REQ-6.E1)
 ///
 /// Verify mock sensor tools report connection failure when DATA_BROKER is
@@ -243,57 +290,36 @@ fn test_edge_sensor_databroker_unreachable() {
     // This test should work without infrastructure (that's the point)
     // We need the sensor binaries to be built first
 
-    let binary = "target/debug/speed-sensor";
-    let binary_path = std::path::Path::new(binary);
-
-    if !binary_path.exists() {
-        // Try to build the binary
-        let build_result = Command::new("cargo")
-            .args(["build", "--bin", "speed-sensor"])
-            .output();
-
-        match build_result {
-            Ok(output) if !output.status.success() => {
-                panic!(
-                    "speed-sensor binary not found and cargo build failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
-            Err(e) => {
-                panic!("could not build speed-sensor: {}", e);
-            }
-            _ => {}
-        }
-    }
+    let binary = sensor_binary("speed-sensor");
 
     // Run with a non-existent endpoint to ensure connection failure
-    let result = Command::new(binary)
+    let output = Command::new(&binary)
         .args(["--speed", "10"])
         .env("DATABROKER_ADDR", "http://localhost:19999")
         .env("DATABROKER_UDS_PATH", "/tmp/nonexistent-test-socket.sock")
-        .output();
+        .output()
+        .unwrap_or_else(|e| {
+            panic!(
+                "speed-sensor binary could not be executed at {}: {}",
+                binary.display(),
+                e
+            )
+        });
 
-    match result {
-        Ok(output) => {
-            assert_ne!(
-                output.status.code().unwrap_or(0),
-                0,
-                "speed-sensor should exit with non-zero code when DATA_BROKER is unreachable"
-            );
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(
-                stderr.contains("connect")
-                    || stderr.contains("unreachable")
-                    || stderr.contains("error")
-                    || stderr.contains("Error"),
-                "speed-sensor error output should mention connection issue, got: {}",
-                stderr
-            );
-        }
-        Err(_) => {
-            panic!("speed-sensor binary not found at {}", binary);
-        }
-    }
+    assert_ne!(
+        output.status.code().unwrap_or(0),
+        0,
+        "speed-sensor should exit with non-zero code when DATA_BROKER is unreachable"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("connect")
+            || stderr.contains("unreachable")
+            || stderr.contains("error")
+            || stderr.contains("Error"),
+        "speed-sensor error output should mention connection issue, got: {}",
+        stderr
+    );
 }
 
 /// TS-02-E13: Mock sensor invalid value argument (02-REQ-6.E2)
@@ -308,59 +334,38 @@ fn test_edge_sensor_invalid_value() {
     ];
 
     for (sensor, args) in test_cases {
-        let binary = format!("target/debug/{}", sensor);
-        let binary_path = std::path::Path::new(&binary);
+        let binary = sensor_binary(sensor);
 
-        if !binary_path.exists() {
-            let build_result = Command::new("cargo")
-                .args(["build", "--bin", sensor])
-                .output();
-
-            match build_result {
-                Ok(output) if !output.status.success() => {
-                    panic!(
-                        "{} binary not found and cargo build failed: {}",
-                        sensor,
-                        String::from_utf8_lossy(&output.stderr)
-                    );
-                }
-                Err(e) => {
-                    panic!("could not build {}: {}", sensor, e);
-                }
-                _ => {}
-            }
-        }
-
-        let result = Command::new(&binary).args(&args).output();
-
-        match result {
-            Ok(output) => {
-                assert_ne!(
-                    output.status.code().unwrap_or(0),
-                    0,
-                    "{} should exit with non-zero code for invalid value",
-                    sensor
-                );
-                let combined = String::from_utf8_lossy(&output.stdout).to_string()
-                    + &String::from_utf8_lossy(&output.stderr);
-                assert!(
-                    combined.contains("invalid")
-                        || combined.contains("error")
-                        || combined.contains("Error")
-                        || combined.contains("parse")
-                        || combined.contains("Parse"),
-                    "{} output should mention invalid value, got: {}",
-                    sensor,
-                    combined
-                );
-            }
-            Err(_) => {
+        let output = Command::new(&binary)
+            .args(&args)
+            .output()
+            .unwrap_or_else(|e| {
                 panic!(
-                    "{} binary not found at {} — mock-sensors crate not built",
-                    sensor, binary
-                );
-            }
-        }
+                    "{} binary could not be executed at {}: {}",
+                    sensor,
+                    binary.display(),
+                    e
+                )
+            });
+
+        assert_ne!(
+            output.status.code().unwrap_or(0),
+            0,
+            "{} should exit with non-zero code for invalid value",
+            sensor
+        );
+        let combined = String::from_utf8_lossy(&output.stdout).to_string()
+            + &String::from_utf8_lossy(&output.stderr);
+        assert!(
+            combined.contains("invalid")
+                || combined.contains("error")
+                || combined.contains("Error")
+                || combined.contains("parse")
+                || combined.contains("Parse"),
+            "{} output should mention invalid value, got: {}",
+            sensor,
+            combined
+        );
     }
 }
 

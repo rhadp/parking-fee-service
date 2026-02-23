@@ -108,3 +108,34 @@ Implemented task group 3 (Shared databroker-client crate) for the RHIVOS safety 
 - `rhivos/databroker-client/src/client.rs`: Unit tests for endpoint parsing (UDS vs TCP), default constants
 - `rhivos/databroker-client/src/value.rs`: Unit tests for DataValue roundtrip conversions, accessor methods, Display impl, From impls
 - `rhivos/databroker-client/src/error.rs`: Unit tests for error display formatting, permission denied detection, connection error detection, error type conversions
+
+---
+
+## Session 12
+
+- **Spec:** 02_rhivos_safety
+- **Task Group:** 4
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 4 (Mock sensor CLI tools) for the RHIVOS safety partition specification. Created the `mock-sensors` crate with three binary targets (location-sensor, speed-sensor, door-sensor) that write VSS signal values to DATA_BROKER via the `databroker-client` gRPC client. Each CLI supports configurable endpoints via `--endpoint` flag, `DATABROKER_ADDR`, or `DATABROKER_UDS_PATH` environment variables. Updated existing spec test helpers to use absolute binary paths and `-p mock-sensors` for builds.
+
+### Files Changed
+
+- Added: `rhivos/mock-sensors/Cargo.toml`
+- Added: `rhivos/mock-sensors/src/lib.rs`
+- Added: `rhivos/mock-sensors/src/bin/speed-sensor.rs`
+- Added: `rhivos/mock-sensors/src/bin/location-sensor.rs`
+- Added: `rhivos/mock-sensors/src/bin/door-sensor.rs`
+- Modified: `rhivos/Cargo.toml`
+- Modified: `rhivos/safety-tests/tests/mock_sensor_tests.rs`
+- Modified: `rhivos/safety-tests/tests/edge_case_tests.rs`
+- Modified: `.specs/02_rhivos_safety/tasks.md`
+- Modified: `.specs/02_rhivos_safety/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/mock-sensors/src/lib.rs`: 12 unit tests for endpoint resolution, signal path constants, DataValue construction
+- `rhivos/safety-tests/tests/mock_sensor_tests.rs`: Updated sensor_binary() helper with absolute path resolution and `-p mock-sensors` build; TS-02-25 now passes
+- `rhivos/safety-tests/tests/edge_case_tests.rs`: Updated sensor_binary() helper with absolute path resolution; TS-02-E12 and TS-02-E13 now pass
