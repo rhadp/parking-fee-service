@@ -185,8 +185,8 @@ Ordering rationale:
     - [x] Requirements 05-REQ-2.1 through 05-REQ-2.3, 05-REQ-3.1 through
       05-REQ-3.4, 05-REQ-2.E1, 05-REQ-3.E1 met
 
-- [ ] 4. REST server and handlers
-  - [ ] 4.1 Create configuration loading
+- [x] 4. REST server and handlers
+  - [x] 4.1 Create configuration loading
     - Create `backend/parking-fee-service/internal/config/config.go`
     - Implement `LoadConfig()` reading PORT, OPERATORS_CONFIG,
       FUZZINESS_METERS, AUTH_TOKENS from environment variables
@@ -194,12 +194,12 @@ Ordering rationale:
       AUTH_TOKENS=demo-token-1
     - _Requirements: 05-REQ-3.3, 05-REQ-3.4, 05-REQ-6.3, 05-REQ-7.3_
 
-  - [ ] 4.2 Create health handler
+  - [x] 4.2 Create health handler
     - Create `backend/parking-fee-service/internal/handler/health.go`
     - Implement `GET /health` returning `{"status": "ok"}`
     - _Requirements: 05-REQ-5.1, 05-REQ-5.2_
 
-  - [ ] 4.3 Create operator lookup handler
+  - [x] 4.3 Create operator lookup handler
     - Create `backend/parking-fee-service/internal/handler/operators.go`
     - Implement `GET /operators?lat={lat}&lon={lon}`
     - Parse and validate query parameters
@@ -209,7 +209,7 @@ Ordering rationale:
     - _Requirements: 05-REQ-1.1 through 05-REQ-1.4, 05-REQ-1.E1 through
       05-REQ-1.E4_
 
-  - [ ] 4.4 Create adapter metadata handler
+  - [x] 4.4 Create adapter metadata handler
     - Create `backend/parking-fee-service/internal/handler/adapter.go`
     - Implement `GET /operators/{id}/adapter`
     - Extract operator ID from URL path
@@ -217,34 +217,34 @@ Ordering rationale:
     - Handle unknown operator ID (404)
     - _Requirements: 05-REQ-4.1 through 05-REQ-4.3, 05-REQ-4.E1_
 
-  - [ ] 4.5 Create auth middleware
+  - [x] 4.5 Create auth middleware
     - Create `backend/parking-fee-service/internal/handler/middleware.go`
     - Implement `AuthMiddleware(next http.Handler, tokens []string) http.Handler`
     - Validate Authorization header presence, Bearer scheme, and token value
     - Return appropriate 401 error for each failure mode
     - _Requirements: 05-REQ-7.1, 05-REQ-7.2, 05-REQ-7.E1 through 05-REQ-7.E3_
 
-  - [ ] 4.6 Wire up main.go
+  - [x] 4.6 Wire up main.go
     - Update `backend/parking-fee-service/main.go` to use new internal packages
     - Load config, create store, create handlers, apply middleware
     - Register routes and start HTTP server
     - Replace existing stub 501 responses with real handlers
     - _Requirements: all_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Handler tests pass:
+  - [x] 4.V Verify task group 4
+    - [x] Handler tests pass:
       `cd backend/parking-fee-service && go test -v -count=1 ./internal/handler/...`
-    - [ ] Config tests pass:
+    - [x] Config tests pass:
       `cd backend/parking-fee-service && go test -v -count=1 ./internal/config/...`
-    - [ ] All unit tests pass:
+    - [x] All unit tests pass:
       `cd backend/parking-fee-service && go test -v -count=1 ./...`
-    - [ ] Property tests pass (P5-P7):
+    - [x] Property tests pass (P5-P7):
       `cd backend/parking-fee-service && go test -v -count=1 -run "TestProperty" ./...`
-    - [ ] Edge case tests pass (E1-E7, E10, E13-E15):
+    - [x] Edge case tests pass (E1-E7, E10, E13-E15):
       `cd backend/parking-fee-service && go test -v -count=1 -run "TestEdge" ./...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/parking-fee-service && go vet ./...`
-    - [ ] Requirements 05-REQ-1.1 through 05-REQ-7.3 and all edge cases met
+    - [x] Requirements 05-REQ-1.1 through 05-REQ-7.3 and all edge cases met
 
 - [ ] 5. Checkpoint — service implementation complete
   - All unit tests pass for the PARKING_FEE_SERVICE.

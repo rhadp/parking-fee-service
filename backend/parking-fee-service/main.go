@@ -1,41 +1,35 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+
+	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/internal/config"
+	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/internal/handler"
+	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/internal/store"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg := config.LoadConfig()
+
+	// Create the operator store — from file if configured, else embedded defaults.
+	var s *store.Store
+	if cfg.OperatorsConfigPath != "" {
+		var err error
+		s, err = store.NewStoreFromFile(cfg.OperatorsConfigPath)
+		if err != nil {
+			log.Fatalf("failed to load operator config: %v", err)
+		}
+	} else {
+		s = store.NewDefaultStore()
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", handleHealth)
-	mux.HandleFunc("GET /operators", handleOperators)
-	mux.HandleFunc("GET /operators/{id}/adapter", handleOperatorAdapter)
+	router := handler.NewRouter(s, cfg.AuthTokens, cfg.FuzzinessMeters)
 
-	addr := ":" + port
+	addr := ":" + cfg.Port
 	fmt.Printf("parking-fee-service listening on %s\n", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
-}
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-}
-
-func handleOperators(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not Implemented", http.StatusNotImplemented)
-}
-
-func handleOperatorAdapter(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not Implemented", http.StatusNotImplemented)
 }
