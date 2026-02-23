@@ -255,8 +255,8 @@ Ordering rationale:
     - [x] No linter warnings:
       `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [ ] 5. UPDATE_SERVICE: core state machine and gRPC interface
-  - [ ] 5.1 Create crate structure and configuration
+- [x] 5. UPDATE_SERVICE: core state machine and gRPC interface
+  - [x] 5.1 Create crate structure and configuration
     - Create `rhivos/update-service/Cargo.toml` with dependencies
       (tonic, prost, tokio, sha2, reqwest)
     - Create `rhivos/update-service/build.rs` using tonic-build for
@@ -266,7 +266,7 @@ Ordering rationale:
       `OFFLOAD_TIMEOUT_HOURS`, `CONTAINER_STORE_PATH`
     - _Requirements: 04-REQ-4.1, 04-REQ-6.1_
 
-  - [ ] 5.2 Implement adapter state machine
+  - [x] 5.2 Implement adapter state machine
     - Create `rhivos/update-service/src/adapter_manager.rs`
     - Implement `AdapterManager` with `HashMap<String, AdapterRecord>`
     - Implement valid state transition enforcement per 04-REQ-7.1
@@ -275,13 +275,13 @@ Ordering rationale:
       notifications
     - _Requirements: 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 5.3 Implement checksum verification
+  - [x] 5.3 Implement checksum verification
     - Create `rhivos/update-service/src/checksum.rs`
     - Implement SHA-256 digest computation using `sha2` crate
     - Implement verification function comparing computed vs. provided checksum
     - _Requirements: 04-REQ-5.2_
 
-  - [ ] 5.4 Implement UpdateService gRPC service
+  - [x] 5.4 Implement UpdateService gRPC service
     - Create `rhivos/update-service/src/grpc_service.rs`
     - Implement `UpdateService` trait from generated proto code:
       - `InstallAdapter` — creates adapter record, starts async download,
@@ -296,21 +296,21 @@ Ordering rationale:
     - _Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3, 04-REQ-4.4,
       04-REQ-4.5, 04-REQ-4.6, 04-REQ-4.E1, 04-REQ-4.E2_
 
-  - [ ] 5.5 Create main.rs entry point
+  - [x] 5.5 Create main.rs entry point
     - Create `rhivos/update-service/src/main.rs`
     - Start gRPC server on configured address
     - Initialize adapter manager
     - _Requirements: 04-REQ-4.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] State machine unit tests pass: TS-04-27, TS-04-28, TS-04-P4
-    - [ ] Checksum unit test passes: TS-04-22
-    - [ ] Config unit test passes: TS-04-24
-    - [ ] UPDATE_SERVICE gRPC integration tests pass:
+  - [x] 5.V Verify task group 5
+    - [x] State machine unit tests pass: TS-04-27, TS-04-28, TS-04-P4
+    - [x] Checksum unit test passes: TS-04-22
+    - [x] Config unit test passes: TS-04-24
+    - [x] UPDATE_SERVICE gRPC integration tests pass:
       TS-04-15, TS-04-16, TS-04-17, TS-04-18, TS-04-19, TS-04-20
-    - [ ] Edge case tests pass: TS-04-E8, TS-04-E9, TS-04-E10
-    - [ ] All previously passing tests still pass
-    - [ ] No linter warnings:
+    - [x] Edge case tests pass: TS-04-E8, TS-04-E9, TS-04-E10
+    - [x] All previously passing tests still pass
+    - [x] No linter warnings:
       `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
 - [ ] 6. UPDATE_SERVICE: OCI pulling, checksum gate, and offloading
