@@ -152,37 +152,37 @@ Ordering rationale:
       `cd backend/parking-fee-service && go vet ./...`
     - [x] Requirements 05-REQ-6.1 through 05-REQ-6.4, 05-REQ-6.E1 met
 
-- [ ] 3. Geofence matching engine
-  - [ ] 3.1 Implement point-in-polygon algorithm
+- [x] 3. Geofence matching engine
+  - [x] 3.1 Implement point-in-polygon algorithm
     - Create `backend/parking-fee-service/internal/geo/polygon.go`
     - Implement `PointInPolygon(point Point, polygon []Point) bool` using
       ray-casting algorithm
     - Handle implicit polygon closing (last vertex connects to first)
     - _Requirements: 05-REQ-2.1, 05-REQ-2.2, 05-REQ-2.3_
 
-  - [ ] 3.2 Implement distance-to-polygon calculation
+  - [x] 3.2 Implement distance-to-polygon calculation
     - Implement `MinDistanceToPolygon(point Point, polygon []Point) float64`
     - Calculate minimum distance from point to any edge of the polygon
     - Use equirectangular approximation for distance at these scales
     - Return distance in meters
     - _Requirements: 05-REQ-3.1, 05-REQ-3.2_
 
-  - [ ] 3.3 Implement FindMatches function
+  - [x] 3.3 Implement FindMatches function
     - Implement `FindMatches(lat, lon float64, operators []Operator, fuzzinessMeters float64) []Operator`
     - Skip operators with degenerate polygons (< 3 vertices)
     - First check point-in-polygon, then check fuzziness distance
     - _Requirements: 05-REQ-1.1, 05-REQ-2.E1, 05-REQ-3.1, 05-REQ-3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Geo tests pass:
+  - [x] 3.V Verify task group 3
+    - [x] Geo tests pass:
       `cd backend/parking-fee-service && go test -v -count=1 ./internal/geo/...`
-    - [ ] Property tests pass (P1-P4):
+    - [x] Property tests pass (P1-P4):
       `cd backend/parking-fee-service && go test -v -count=1 -run "TestProperty" ./internal/geo/...`
-    - [ ] Edge case tests pass (E8, E9):
+    - [x] Edge case tests pass (E8, E9):
       `cd backend/parking-fee-service && go test -v -count=1 -run "TestEdge" ./internal/geo/...`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `cd backend/parking-fee-service && go vet ./...`
-    - [ ] Requirements 05-REQ-2.1 through 05-REQ-2.3, 05-REQ-3.1 through
+    - [x] Requirements 05-REQ-2.1 through 05-REQ-2.3, 05-REQ-3.1 through
       05-REQ-3.4, 05-REQ-2.E1, 05-REQ-3.E1 met
 
 - [ ] 4. REST server and handlers
