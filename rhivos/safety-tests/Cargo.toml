@@ -1,0 +1,41 @@
+[package]
+name = "safety-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# This crate exists solely to house integration and end-to-end tests
+# for the RHIVOS safety partition. It has no library code of its own.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Integration test binaries
+[[test]]
+name = "databroker_tests"
+path = "tests/databroker_tests.rs"
+
+[[test]]
+name = "locking_service_tests"
+path = "tests/locking_service_tests.rs"
+
+[[test]]
+name = "cloud_gateway_tests"
+path = "tests/cloud_gateway_tests.rs"
+
+[[test]]
+name = "mock_sensor_tests"
+path = "tests/mock_sensor_tests.rs"
+
+[[test]]
+name = "edge_case_tests"
+path = "tests/edge_case_tests.rs"
+
+[[test]]
+name = "property_tests"
+path = "tests/property_tests.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -40,8 +40,8 @@ Ordering rationale:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test module structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test module structure
     - Create `tests/safety/go.mod` as a standalone Go module
       (module path: `github.com/rhadp/parking-fee-service/tests/safety`)
     - Create `helpers_test.go` with shared test helpers:
@@ -50,7 +50,7 @@ Ordering rationale:
       `databrokerGet`, `databrokerSet`, `mqttPublish`, `mqttSubscribe`
     - _Test Spec: all (shared infrastructure)_
 
-  - [ ] 1.2 Write structural and configuration tests
+  - [x] 1.2 Write structural and configuration tests
     - Translate TS-02-1 (VSS overlay file) into Go test
     - Translate TS-02-26, TS-02-27 (UDS usage in source) into Go tests
     - Translate TS-02-28 (configurable endpoint) into Go test
@@ -59,15 +59,15 @@ Ordering rationale:
     - Group under `TestStructure_*` and `TestConfig_*` naming conventions
     - _Test Spec: TS-02-1, TS-02-26, TS-02-27, TS-02-28, TS-02-29, TS-02-31_
 
-  - [ ] 1.3 Write DATA_BROKER integration tests
+  - [x] 1.3 Write DATA_BROKER integration tests
     - Translate TS-02-2 (standard signals) into Rust integration test
     - Translate TS-02-3 (UDS endpoint) into Rust integration test
     - Translate TS-02-4 (TCP endpoint) into Rust integration test
     - Translate TS-02-5 (bearer token) into Rust integration test
-    - Group in `rhivos/tests/databroker_tests.rs` or equivalent
+    - Group in `rhivos/safety-tests/tests/databroker_tests.rs`
     - _Test Spec: TS-02-2, TS-02-3, TS-02-4, TS-02-5_
 
-  - [ ] 1.4 Write LOCKING_SERVICE unit and integration tests
+  - [x] 1.4 Write LOCKING_SERVICE unit and integration tests
     - Translate TS-02-7 (JSON parsing) into Rust unit test in locking-service
     - Translate TS-02-6, TS-02-8, TS-02-9 (subscribe, lock, unlock) into
       Rust integration tests
@@ -76,7 +76,7 @@ Ordering rationale:
     - Translate TS-02-13, TS-02-14 (response writing) into Rust integration tests
     - _Test Spec: TS-02-6 through TS-02-14_
 
-  - [ ] 1.5 Write CLOUD_GATEWAY_CLIENT integration tests
+  - [x] 1.5 Write CLOUD_GATEWAY_CLIENT integration tests
     - Translate TS-02-15 (MQTT connect) into Rust integration test
     - Translate TS-02-16, TS-02-17 (command subscription, relay) into Rust
       integration tests
@@ -85,26 +85,26 @@ Ordering rationale:
       Rust integration tests
     - _Test Spec: TS-02-15 through TS-02-20_
 
-  - [ ] 1.6 Write mock sensor tests
+  - [x] 1.6 Write mock sensor tests
     - Translate TS-02-21, TS-02-22, TS-02-23 (sensor write) into Rust
       integration tests
     - Translate TS-02-24 (exit code) into Rust integration test
     - Translate TS-02-25 (usage message) into Rust unit test
     - _Test Spec: TS-02-21 through TS-02-25_
 
-  - [ ] 1.7 Write edge case and property tests
+  - [x] 1.7 Write edge case and property tests
     - Translate TS-02-E1 through TS-02-E15 into Rust integration tests
     - Translate TS-02-P1 through TS-02-P8 into Rust integration and unit tests
     - Group edge cases under `test_edge_*` naming
     - Group property tests under `test_property_*` naming
     - _Test Spec: TS-02-E1 through TS-02-E15, TS-02-P1 through TS-02-P8_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid:
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid:
       `cd tests/safety && go vet ./...`
-    - [ ] Rust tests compile:
+    - [x] Rust tests compile:
       `cd rhivos && cargo test --no-run`
-    - [ ] No linter warnings introduced:
+    - [x] No linter warnings introduced:
       `cd rhivos && cargo clippy -- -D warnings`
 
 - [ ] 2. DATA_BROKER configuration

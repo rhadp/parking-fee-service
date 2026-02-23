@@ -4,6 +4,7 @@ members = [
     "cloud-gateway-client",
     "update-service",
     "parking-operator-adaptor",
+    "safety-tests",
 ]
 resolver = "2"
 
