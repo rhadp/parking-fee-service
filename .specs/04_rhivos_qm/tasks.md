@@ -115,8 +115,8 @@ Ordering rationale:
     - [x] Rust unit tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced
 
-- [ ] 2. Mock PARKING_OPERATOR (Go)
-  - [ ] 2.1 Create Go module and in-memory store
+- [x] 2. Mock PARKING_OPERATOR (Go)
+  - [x] 2.1 Create Go module and in-memory store
     - Create `mock/parking-operator/go.mod`
       (module: `github.com/rhadp/parking-fee-service/mock/parking-operator`)
     - Create `mock/parking-operator/store.go` with `Session` and `Zone`
@@ -125,7 +125,7 @@ Ordering rationale:
       zone-munich-west: 1.50 EUR)
     - _Requirements: 04-REQ-8.2, 04-REQ-8.3, 04-REQ-8.4, 04-REQ-8.5_
 
-  - [ ] 2.2 Implement HTTP handlers
+  - [x] 2.2 Implement HTTP handlers
     - Create `mock/parking-operator/handler.go` with:
       - `POST /parking/start` — creates session, returns session_id + status
       - `POST /parking/stop` — calculates fee, marks stopped, returns details
@@ -137,18 +137,18 @@ Ordering rationale:
     - _Requirements: 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-8.4,
       04-REQ-8.5, 04-REQ-8.E1, 04-REQ-8.E2, 04-REQ-8.E3_
 
-  - [ ] 2.3 Create main.go with configurable port
+  - [x] 2.3 Create main.go with configurable port
     - Create `mock/parking-operator/main.go` with HTTP server on configurable
       port (`PORT` env var, default 8090)
     - Register all routes
     - _Requirements: 04-REQ-8.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Mock operator Go tests pass:
+  - [x] 2.V Verify task group 2
+    - [x] Mock operator Go tests pass:
       `cd mock/parking-operator && go test -v -count=1 ./...`
-    - [ ] All previously passing tests still pass
-    - [ ] No linter warnings: `cd mock/parking-operator && go vet ./...`
-    - [ ] Tests cover: TS-04-29, TS-04-30, TS-04-31, TS-04-32, TS-04-33,
+    - [x] All previously passing tests still pass
+    - [x] No linter warnings: `cd mock/parking-operator && go vet ./...`
+    - [x] Tests cover: TS-04-29, TS-04-30, TS-04-31, TS-04-32, TS-04-33,
       TS-04-E14, TS-04-E15, TS-04-E16, TS-04-P7
 
 - [ ] 3. PARKING_OPERATOR_ADAPTOR: gRPC service and REST client

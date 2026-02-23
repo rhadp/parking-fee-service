@@ -1,6 +1,6 @@
 // Package main provides a mock PARKING_OPERATOR HTTP service for integration
-// testing of the PARKING_OPERATOR_ADAPTOR. This is a stub — implementation
-// will be added in task group 2.
+// testing of the PARKING_OPERATOR_ADAPTOR. It exposes REST endpoints for
+// parking session management and zone rate queries.
 package main
 
 import (
@@ -23,9 +23,17 @@ func main() {
 }
 
 // NewRouter creates the HTTP mux with all routes registered.
-// Stub implementation — returns 501 for all endpoints.
+// Each call creates a fresh Handler with its own in-memory store,
+// enabling isolated test instances via httptest.NewServer(NewRouter()).
 func NewRouter() *http.ServeMux {
+	h := NewHandler()
 	mux := http.NewServeMux()
-	// Routes will be registered by handler.go in task group 2.
+
+	mux.HandleFunc("/parking/start", h.HandleStartSession)
+	mux.HandleFunc("/parking/stop", h.HandleStopSession)
+	mux.HandleFunc("/parking/", h.HandleSessionStatus) // matches /parking/{id}/status
+	mux.HandleFunc("/rate/", h.HandleRate)              // matches /rate/{zone_id}
+	mux.HandleFunc("/health", h.HandleHealth)
+
 	return mux
 }
