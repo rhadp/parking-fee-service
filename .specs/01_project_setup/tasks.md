@@ -162,8 +162,8 @@ Ordering rationale:
     - [x] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
     - [x] Requirements 01-REQ-3.1 through 01-REQ-3.5, 01-REQ-8.1 met
 
-- [ ] 4. Go scaffolding: generated code, backend services, mock CLIs
-  - [ ] 4.1 Generate Go proto code
+- [x] 4. Go scaffolding: generated code, backend services, mock CLIs
+  - [x] 4.1 Generate Go proto code
     - Create `gen/go/go.mod`
       (module: `github.com/rhadp/parking-fee-service/gen/go`)
     - Run protoc with `protoc-gen-go` and `protoc-gen-go-grpc` to generate
@@ -172,7 +172,7 @@ Ordering rationale:
     - Verify generated code compiles: `cd gen/go && go build ./...`
     - _Requirements: 01-REQ-4.4_
 
-  - [ ] 4.2 Create parking-fee-service skeleton
+  - [x] 4.2 Create parking-fee-service skeleton
     - Create `backend/parking-fee-service/go.mod` and `main.go`
     - HTTP server on `:8080` (configurable via PORT env var)
     - `GET /health` returns 200 `{"status": "ok"}`
@@ -181,7 +181,7 @@ Ordering rationale:
     - Add one placeholder test in `main_test.go`
     - _Requirements: 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.5, 01-REQ-8.2_
 
-  - [ ] 4.3 Create cloud-gateway skeleton
+  - [x] 4.3 Create cloud-gateway skeleton
     - Create `backend/cloud-gateway/go.mod` and `main.go`
     - HTTP server on `:8081` (configurable via PORT env var)
     - `GET /health` returns 200 `{"status": "ok"}`
@@ -190,7 +190,7 @@ Ordering rationale:
     - Add one placeholder test in `main_test.go`
     - _Requirements: 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.6, 01-REQ-8.2_
 
-  - [ ] 4.4 Create mock parking-app-cli
+  - [x] 4.4 Create mock parking-app-cli
     - Create `mock/parking-app-cli/go.mod` and `main.go`
     - Use cobra for CLI: root command with help, subcommands (lookup, install,
       watch, list, status, start-session, stop-session, get-status, get-rate)
@@ -200,7 +200,7 @@ Ordering rationale:
     - Add one placeholder test in `main_test.go`
     - _Requirements: 01-REQ-5.1, 01-REQ-5.3, 01-REQ-5.4, 01-REQ-5.5, 01-REQ-8.2_
 
-  - [ ] 4.5 Create mock companion-app-cli
+  - [x] 4.5 Create mock companion-app-cli
     - Create `mock/companion-app-cli/go.mod` and `main.go`
     - Use cobra for CLI: root command with help, subcommands (lock, unlock,
       status)
@@ -210,20 +210,20 @@ Ordering rationale:
     - Add one placeholder test in `main_test.go`
     - _Requirements: 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4, 01-REQ-5.5, 01-REQ-8.2_
 
-  - [ ] 4.6 Create Go workspace and verify
+  - [x] 4.6 Create Go workspace and verify
     - Create `go.work` at repo root linking all Go modules
     - Verify all Go modules build: `go build ./backend/... ./mock/...`
     - Verify all Go tests pass: `go test ./backend/... ./mock/...`
     - Verify Go vet: `go vet ./backend/... ./mock/... ./gen/...`
     - _Requirements: 01-REQ-4.2, 01-REQ-4.3, 01-REQ-8.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Go and mock CLI spec tests pass:
+  - [x] 4.V Verify task group 4
+    - [x] Go and mock CLI spec tests pass:
       `cd tests/setup && go test -v -count=1 -run "TestGo|TestMockCLI" ./...`
-    - [ ] All existing tests still pass:
+    - [x] All existing tests still pass:
       `cd tests/setup && go test -v -count=1 -run "TestStructure|TestProto|TestRust|TestGo|TestMockCLI" ./...`
-    - [ ] No linter warnings: `go vet ./backend/... ./mock/... ./gen/...`
-    - [ ] Requirements 01-REQ-4.1 through 01-REQ-4.6, 01-REQ-5.1 through
+    - [x] No linter warnings: `go vet ./backend/... ./mock/... ./gen/...`
+    - [x] Requirements 01-REQ-4.1 through 01-REQ-4.6, 01-REQ-5.1 through
       01-REQ-5.5, 01-REQ-8.2 met
 
 - [ ] 5. Checkpoint — component scaffolds complete
