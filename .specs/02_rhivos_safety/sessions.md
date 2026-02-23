@@ -76,3 +76,35 @@ Implemented task group 2 (DATA_BROKER configuration) for the RHIVOS safety parti
 ### Tests Added or Modified
 
 - None (this task group is infrastructure configuration; test TS-02-1 now passes)
+
+---
+
+## Session 9
+
+- **Spec:** 02_rhivos_safety
+- **Task Group:** 3
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented task group 3 (Shared databroker-client crate) for the RHIVOS safety partition specification. Created a new `databroker-client` Rust crate that wraps the Kuksa Databroker `kuksa.val.v1` gRPC API with a typed client supporting UDS and TCP connections, signal read/write/subscribe operations, bearer token authentication, and a `DataValue` enum for type-safe signal values. Vendored Kuksa proto files into `proto/kuksa/val/v1/`.
+
+### Files Changed
+
+- Added: `proto/kuksa/val/v1/types.proto`
+- Added: `proto/kuksa/val/v1/val.proto`
+- Added: `rhivos/databroker-client/Cargo.toml`
+- Added: `rhivos/databroker-client/build.rs`
+- Added: `rhivos/databroker-client/src/lib.rs`
+- Added: `rhivos/databroker-client/src/client.rs`
+- Added: `rhivos/databroker-client/src/error.rs`
+- Added: `rhivos/databroker-client/src/value.rs`
+- Modified: `rhivos/Cargo.toml`
+- Modified: `.specs/02_rhivos_safety/tasks.md`
+- Modified: `.specs/02_rhivos_safety/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/databroker-client/src/client.rs`: Unit tests for endpoint parsing (UDS vs TCP), default constants
+- `rhivos/databroker-client/src/value.rs`: Unit tests for DataValue roundtrip conversions, accessor methods, Display impl, From impls
+- `rhivos/databroker-client/src/error.rs`: Unit tests for error display formatting, permission denied detection, connection error detection, error type conversions

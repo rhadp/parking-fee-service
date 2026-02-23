@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "databroker-client",
     "locking-service",
     "cloud-gateway-client",
     "update-service",
