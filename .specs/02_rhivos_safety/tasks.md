@@ -253,61 +253,61 @@ Ordering rationale:
     - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
     - [x] No regressions: `cd rhivos && cargo test`
 
-- [ ] 6. CLOUD_GATEWAY_CLIENT implementation
-  - [ ] 6.1 Create cloud-gateway-client module structure
+- [x] 6. CLOUD_GATEWAY_CLIENT implementation
+  - [x] 6.1 Create cloud-gateway-client module structure
     - Create `rhivos/cloud-gateway-client/src/mqtt.rs` with MQTT client wrapper
     - Create `rhivos/cloud-gateway-client/src/commands.rs` with command
       validation and DATA_BROKER writing
     - Create `rhivos/cloud-gateway-client/src/telemetry.rs` with telemetry
       subscription and MQTT publishing
-    - Create `rhivos/cloud-gateway-client/src/databroker.rs` with DATA_BROKER
-      client integration
+    - Create `rhivos/cloud-gateway-client/src/service.rs` with service
+      orchestration (uses databroker-client crate directly)
     - Add rumqttc, databroker-client, serde, serde_json, tracing to Cargo.toml
     - _Requirements: 02-REQ-4.1, 02-REQ-4.2_
 
-  - [ ] 6.2 Implement MQTT client with reconnection
+  - [x] 6.2 Implement MQTT client with reconnection
     - Connect to MQTT broker at configurable address
     - Subscribe to `vehicles/{vin}/commands`
     - Implement exponential backoff retry for connection and reconnection
     - Log retry attempts
     - _Requirements: 02-REQ-4.1, 02-REQ-4.2, 02-REQ-4.E1, 02-REQ-4.E2_
 
-  - [ ] 6.3 Implement command relay (MQTT -> DATA_BROKER)
+  - [x] 6.3 Implement command relay (MQTT -> DATA_BROKER)
     - Receive MQTT command messages
     - Validate JSON structure
     - Write validated command to Vehicle.Command.Door.Lock via DATA_BROKER UDS
     - Discard invalid messages with logging
     - _Requirements: 02-REQ-4.3, 02-REQ-4.E3_
 
-  - [ ] 6.4 Implement response relay (DATA_BROKER -> MQTT)
+  - [x] 6.4 Implement response relay (DATA_BROKER -> MQTT)
     - Subscribe to Vehicle.Command.Door.Response in DATA_BROKER
     - Publish response to `vehicles/{vin}/command_responses` MQTT topic
     - _Requirements: 02-REQ-4.4_
 
-  - [ ] 6.5 Implement telemetry publishing
+  - [x] 6.5 Implement telemetry publishing
     - Subscribe to vehicle state signals in DATA_BROKER: IsLocked, IsOpen,
       Latitude, Longitude, Speed
     - On signal change, publish telemetry JSON to
       `vehicles/{vin}/telemetry` MQTT topic
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
 
-  - [ ] 6.6 Add unit and integration tests
+  - [x] 6.6 Add unit and integration tests
     - Unit tests: command validation, telemetry message formatting,
       MQTT message construction
     - Integration tests: MQTT connectivity, command relay, response relay,
       telemetry publishing (require infra)
     - _Test Spec: TS-02-15 through TS-02-20_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Service builds: `cd rhivos && cargo build -p cloud-gateway-client`
-    - [ ] Unit tests pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [ ] Integration tests pass (with infra):
+  - [x] 6.V Verify task group 6
+    - [x] Service builds: `cd rhivos && cargo build -p cloud-gateway-client`
+    - [x] Unit tests pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [x] Integration tests pass (with infra):
       `cd rhivos && cargo test -p cloud-gateway-client --test integration`
-    - [ ] Spec tests TS-02-15 through TS-02-20 pass
-    - [ ] Property tests TS-02-P5, TS-02-P6 pass
-    - [ ] Edge case tests TS-02-E8 through TS-02-E11 pass
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] No regressions: `cd rhivos && cargo test`
+    - [x] Spec tests TS-02-15 through TS-02-20 pass
+    - [x] Property tests TS-02-P5, TS-02-P6 pass
+    - [x] Edge case tests TS-02-E8 through TS-02-E11 pass
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] No regressions: `cd rhivos && cargo test`
 
 - [ ] 7. End-to-end integration testing
   - [ ] 7.1 Create end-to-end integration test suite
