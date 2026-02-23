@@ -297,7 +297,7 @@ Ordering rationale:
     - [x] No linter warnings
     - [x] All changes committed and pushed
 
-- [ ] 7. Checkpoint — connectivity layer complete
+- [x] 7. Checkpoint — connectivity layer complete
   - All CLOUD_GATEWAY REST endpoints are functional.
   - CLOUD_GATEWAY bridges REST to MQTT and back.
   - Mock COMPANION_APP CLI sends real commands.
