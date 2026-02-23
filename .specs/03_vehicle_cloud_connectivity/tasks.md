@@ -38,8 +38,8 @@ Ordering rationale:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test module structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test module structure
     - Create `tests/cloud_connectivity/go.mod` as a standalone Go module
       (module path: `github.com/rhadp/parking-fee-service/tests/cloud_connectivity`)
     - Create a `helpers_test.go` with test helpers: `repoRoot(t)`,
@@ -47,42 +47,42 @@ Ordering rationale:
       `startProcess`, `newMQTTTestClient`
     - _Test Spec: all (shared infrastructure)_
 
-  - [ ] 1.2 Write CLOUD_GATEWAY REST API tests
+  - [x] 1.2 Write CLOUD_GATEWAY REST API tests
     - Translate TS-03-1 through TS-03-5 (REST endpoints) into Go tests
     - Group under `TestUnit_REST_*` naming convention
     - _Test Spec: TS-03-1, TS-03-2, TS-03-3, TS-03-4, TS-03-5_
 
-  - [ ] 1.3 Write CLOUD_GATEWAY MQTT bridge tests
+  - [x] 1.3 Write CLOUD_GATEWAY MQTT bridge tests
     - Translate TS-03-6 through TS-03-10 (MQTT bridge) into Go tests
     - Translate TS-03-11 through TS-03-14 (command lifecycle) into Go tests
     - Group under `TestUnit_MQTT_*`, `TestUnit_Bridge_*`,
       `TestIntegration_MQTT_*` naming conventions
     - _Test Spec: TS-03-6 through TS-03-14_
 
-  - [ ] 1.4 Write mock COMPANION_APP CLI tests
+  - [x] 1.4 Write mock COMPANION_APP CLI tests
     - Translate TS-03-15 through TS-03-21 (CLI commands) into Go tests
     - Group under `TestUnit_CLI_*` naming convention
     - _Test Spec: TS-03-15 through TS-03-21_
 
-  - [ ] 1.5 Write multi-vehicle and integration tests
+  - [x] 1.5 Write multi-vehicle and integration tests
     - Translate TS-03-22 through TS-03-26 (multi-vehicle, integration) into
       Go tests
     - Group under `TestIntegration_*`, `TestUnit_MultiVehicle_*` naming
       conventions
     - _Test Spec: TS-03-22 through TS-03-26_
 
-  - [ ] 1.6 Write edge case and property tests
+  - [x] 1.6 Write edge case and property tests
     - Translate TS-03-E1 through TS-03-E10 into Go tests
     - Translate TS-03-P1 through TS-03-P7 into Go tests
     - Group under `TestEdge_*` and `TestProperty_*` naming conventions
     - _Test Spec: TS-03-E1 through TS-03-E10, TS-03-P1 through TS-03-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid:
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid:
       `cd tests/cloud_connectivity && go vet ./...`
-    - [ ] All spec tests FAIL (red) — no implementation yet:
+    - [x] All spec tests FAIL (red) — no implementation yet:
       `cd tests/cloud_connectivity && go test -count=1 ./... 2>&1 | grep -c FAIL`
-    - [ ] No linter warnings introduced:
+    - [x] No linter warnings introduced:
       `cd tests/cloud_connectivity && go vet ./...`
 
 - [ ] 2. CLOUD_GATEWAY core modules
