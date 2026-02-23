@@ -2,10 +2,23 @@
 name = "locking-service"
 version = "0.1.0"
 edition = "2021"
+description = "Vehicle door locking service with safety constraint enforcement"
 
 [dependencies]
+databroker-client = { path = "../databroker-client" }
 tokio = { workspace = true }
-
-[dev-dependencies]
+tokio-stream = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+databroker-client = { path = "../databroker-client" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+serde_json = "1"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

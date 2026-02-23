@@ -205,8 +205,8 @@ Ordering rationale:
     - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
     - [x] No regressions: `cd rhivos && cargo test`
 
-- [ ] 5. LOCKING_SERVICE implementation
-  - [ ] 5.1 Create locking-service module structure
+- [x] 5. LOCKING_SERVICE implementation
+  - [x] 5.1 Create locking-service module structure
     - Create `rhivos/locking-service/src/command.rs` with LockCommand,
       LockAction, CommandResponse, CommandStatus types
     - Create `rhivos/locking-service/src/safety.rs` with SafetyChecker
@@ -215,43 +215,43 @@ Ordering rationale:
     - Add databroker-client, serde, serde_json, tracing to Cargo.toml
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
 
-  - [ ] 5.2 Implement command parsing and validation
+  - [x] 5.2 Implement command parsing and validation
     - Implement JSON deserialization for LockCommand
     - Validate required fields (command_id, action)
     - Validate action values ("lock" / "unlock")
     - Return appropriate error reasons for invalid payloads
     - _Requirements: 02-REQ-2.2, 02-REQ-2.E1, 02-REQ-2.E2, 02-REQ-2.E3_
 
-  - [ ] 5.3 Implement safety constraint checking
+  - [x] 5.3 Implement safety constraint checking
     - Implement speed check: read Vehicle.Speed, reject if > 0
     - Implement door ajar check: read IsOpen, reject if true
     - Handle missing signal values (treat as safe per 02-REQ-3.E1, 02-REQ-3.E2)
     - Return specific reason strings ("vehicle_moving", "door_open")
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3, 02-REQ-3.E1, 02-REQ-3.E2_
 
-  - [ ] 5.4 Implement main service loop
+  - [x] 5.4 Implement main service loop
     - Connect to DATA_BROKER via UDS
     - Subscribe to Vehicle.Command.Door.Lock
     - For each command: parse, check safety, execute (write IsLocked), respond
     - Write Vehicle.Command.Door.Response with command_id, status, reason
     - _Requirements: 02-REQ-2.1, 02-REQ-2.3, 02-REQ-2.4, 02-REQ-3.4, 02-REQ-3.5_
 
-  - [ ] 5.5 Add unit and integration tests
+  - [x] 5.5 Add unit and integration tests
     - Unit tests: command parsing (valid, invalid, missing fields), safety
       constraint logic (mocked DATA_BROKER values), response serialization
     - Integration tests: full command flow with running DATA_BROKER
     - _Test Spec: TS-02-6 through TS-02-14_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Service builds: `cd rhivos && cargo build -p locking-service`
-    - [ ] Unit tests pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] Integration tests pass (with infra):
+  - [x] 5.V Verify task group 5
+    - [x] Service builds: `cd rhivos && cargo build -p locking-service`
+    - [x] Unit tests pass: `cd rhivos && cargo test -p locking-service`
+    - [x] Integration tests pass (with infra):
       `cd rhivos && cargo test -p locking-service --test integration`
-    - [ ] Spec tests TS-02-6 through TS-02-14 pass
-    - [ ] Property tests TS-02-P1 through TS-02-P4 pass
-    - [ ] Edge case tests TS-02-E3 through TS-02-E7 pass
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] No regressions: `cd rhivos && cargo test`
+    - [x] Spec tests TS-02-6 through TS-02-14 pass
+    - [x] Property tests TS-02-P1 through TS-02-P4 pass
+    - [x] Edge case tests TS-02-E3 through TS-02-E7 pass
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+    - [x] No regressions: `cd rhivos && cargo test`
 
 - [ ] 6. CLOUD_GATEWAY_CLIENT implementation
   - [ ] 6.1 Create cloud-gateway-client module structure

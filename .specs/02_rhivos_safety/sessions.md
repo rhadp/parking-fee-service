@@ -139,3 +139,33 @@ Implemented task group 4 (Mock sensor CLI tools) for the RHIVOS safety partition
 - `rhivos/mock-sensors/src/lib.rs`: 12 unit tests for endpoint resolution, signal path constants, DataValue construction
 - `rhivos/safety-tests/tests/mock_sensor_tests.rs`: Updated sensor_binary() helper with absolute path resolution and `-p mock-sensors` build; TS-02-25 now passes
 - `rhivos/safety-tests/tests/edge_case_tests.rs`: Updated sensor_binary() helper with absolute path resolution; TS-02-E12 and TS-02-E13 now pass
+
+---
+
+## Session 16
+
+- **Spec:** 02_rhivos_safety
+- **Task Group:** 5
+- **Date:** 2026-02-23
+
+### Summary
+
+Implemented the LOCKING_SERVICE (task group 5) for the RHIVOS safety partition. Created the command parsing module with LockCommand/LockAction types and validation (invalid JSON, unknown action, missing fields), the safety constraint checker (vehicle speed and door ajar checks with safe defaults for unset signals), and the main service loop that subscribes to Vehicle.Command.Door.Lock via DATA_BROKER UDS, processes commands, and writes responses to Vehicle.Command.Door.Response. All 20 unit tests and 17 integration tests pass, along with all Go structural tests for locking-service.
+
+### Files Changed
+
+- Modified: `rhivos/locking-service/Cargo.toml`
+- Modified: `rhivos/locking-service/src/lib.rs`
+- Modified: `rhivos/locking-service/src/main.rs`
+- Added: `rhivos/locking-service/src/command.rs`
+- Added: `rhivos/locking-service/src/safety.rs`
+- Added: `rhivos/locking-service/src/service.rs`
+- Added: `rhivos/locking-service/tests/integration.rs`
+- Modified: `.specs/02_rhivos_safety/tasks.md`
+- Modified: `.specs/02_rhivos_safety/sessions.md`
+
+### Tests Added or Modified
+
+- `rhivos/locking-service/src/command.rs`: 12 unit tests for command parsing, response serialization, action serde, and error classification
+- `rhivos/locking-service/src/lib.rs`: 7 unit tests replacing 2 failing stubs with passing tests using real LockCommand/LockAction types, plus edge case parse tests
+- `rhivos/locking-service/tests/integration.rs`: 17 integration tests covering TS-02-6 through TS-02-14, TS-02-E3 through TS-02-E7, and TS-02-P1 through TS-02-P4

@@ -1,10 +1,23 @@
-/// Placeholder module for the LOCKING_SERVICE component.
-///
-/// This service will interact with the Eclipse Kuksa Databroker
-/// to manage vehicle door lock state via VSS signals.
+//! LOCKING_SERVICE — vehicle door lock/unlock command processor.
+//!
+//! This service subscribes to lock/unlock command signals from the Eclipse
+//! Kuksa DATA_BROKER, validates them, enforces safety constraints (vehicle
+//! stationary, door closed), and executes the lock/unlock operation by
+//! writing the lock state and a command response back to DATA_BROKER.
+//!
+//! Communication with DATA_BROKER is exclusively via gRPC over Unix Domain
+//! Sockets (UDS) for same-partition isolation.
+
+pub mod command;
+pub mod safety;
+pub mod service;
 
 #[cfg(test)]
 mod tests {
+    use crate::command::{
+        self, CommandResponse, CommandStatus, LockAction, LockCommand, ParseResult,
+    };
+
     #[test]
     fn placeholder_test() {
         assert!(true, "locking-service skeleton compiles and tests run");
@@ -25,25 +38,14 @@ mod tests {
             "timestamp": 1700000000
         }"#;
 
-        // Once the command module is implemented, this will use:
-        //   use crate::command::{LockCommand, LockAction};
-        //   let cmd: LockCommand = serde_json::from_str(json_input).unwrap();
-        //   assert_eq!(cmd.command_id, "abc");
-        //   assert_eq!(cmd.action, LockAction::Lock);
-        //   assert_eq!(cmd.doors, vec!["driver"]);
-
-        // For now, verify the JSON is at least parseable as a generic value
-        let value: serde_json::Value = serde_json::from_str(json_input)
-            .expect("test JSON should be valid");
-
-        // These assertions will need to change to use the actual LockCommand type
-        assert_eq!(value["command_id"], "abc");
-        assert_eq!(value["action"], "lock");
-
-        // FAIL: the command module with LockCommand/LockAction types doesn't exist yet
-        panic!(
-            "not implemented: LockCommand and LockAction types not yet defined in command module"
-        );
+        let cmd: LockCommand = serde_json::from_str(json_input)
+            .expect("should parse valid lock command JSON");
+        assert_eq!(cmd.command_id, "abc");
+        assert_eq!(cmd.action, LockAction::Lock);
+        assert_eq!(cmd.doors, vec!["driver"]);
+        assert_eq!(cmd.source, "companion_app");
+        assert_eq!(cmd.vin, "VIN12345");
+        assert_eq!(cmd.timestamp, 1700000000);
     }
 
     /// TS-02-7 (variant): Verify unlock action parses correctly
@@ -58,15 +60,64 @@ mod tests {
             "timestamp": 1700000001
         }"#;
 
-        let value: serde_json::Value = serde_json::from_str(json_input)
-            .expect("test JSON should be valid");
+        let cmd: LockCommand = serde_json::from_str(json_input)
+            .expect("should parse valid unlock command JSON");
+        assert_eq!(cmd.command_id, "def");
+        assert_eq!(cmd.action, LockAction::Unlock);
+        assert_eq!(cmd.doors, vec!["driver"]);
+    }
 
-        assert_eq!(value["command_id"], "def");
-        assert_eq!(value["action"], "unlock");
+    /// TS-02-E3: Invalid JSON produces InvalidPayload parse result
+    #[test]
+    fn test_edge_invalid_json_command_parse() {
+        match command::parse_command("not valid json {{{") {
+            ParseResult::InvalidPayload => {}
+            other => panic!("expected InvalidPayload, got: {:?}", other),
+        }
+    }
 
-        // FAIL: the command module with LockCommand/LockAction types doesn't exist yet
-        panic!(
-            "not implemented: LockCommand and LockAction types not yet defined in command module"
-        );
+    /// TS-02-E4: Unknown action produces UnknownAction parse result
+    #[test]
+    fn test_edge_unknown_action_parse() {
+        let json = r#"{"command_id": "edge-4", "action": "toggle", "doors": ["driver"], "source": "test", "vin": "VIN12345", "timestamp": 1700000000}"#;
+        match command::parse_command(json) {
+            ParseResult::UnknownAction { command_id } => {
+                assert_eq!(command_id.as_deref(), Some("edge-4"));
+            }
+            other => panic!("expected UnknownAction, got: {:?}", other),
+        }
+    }
+
+    /// TS-02-E5: Missing fields produces MissingFields parse result
+    #[test]
+    fn test_edge_missing_fields_parse() {
+        // Missing command_id
+        let json = r#"{"action": "lock", "doors": ["driver"], "source": "test", "vin": "VIN12345", "timestamp": 1700000000}"#;
+        match command::parse_command(json) {
+            ParseResult::MissingFields => {}
+            other => panic!("expected MissingFields, got: {:?}", other),
+        }
+    }
+
+    /// Verify response serialization includes expected fields
+    #[test]
+    fn test_response_serialization_roundtrip() {
+        let resp = CommandResponse::success("round-trip");
+        let json = resp.to_json();
+        let parsed: CommandResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.command_id, "round-trip");
+        assert_eq!(parsed.status, CommandStatus::Success);
+        assert!(parsed.reason.is_none());
+    }
+
+    /// Verify failure response includes reason in serialization
+    #[test]
+    fn test_failure_response_includes_reason() {
+        let resp = CommandResponse::failed("fail-test", "vehicle_moving");
+        let json = resp.to_json();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["status"], "failed");
+        assert_eq!(parsed["reason"], "vehicle_moving");
+        assert_eq!(parsed["command_id"], "fail-test");
     }
 }
