@@ -1,3 +1,7 @@
+pub mod adapter_manager;
+pub mod checksum;
+pub mod config;
+
 /// Generated proto types for the UpdateService.
 ///
 /// Module hierarchy mirrors the proto package structure so that

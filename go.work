@@ -6,4 +6,5 @@ use (
 	./gen/go
 	./mock/companion-app-cli
 	./mock/parking-app-cli
+	./mock/parking-operator
 )

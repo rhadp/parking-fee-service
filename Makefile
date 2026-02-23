@@ -72,7 +72,7 @@ endef
 # ──────────────────────────────────────────────────────────────────────
 
 GO_BACKEND_MODULES := backend/parking-fee-service backend/cloud-gateway
-GO_MOCK_MODULES    := mock/parking-app-cli mock/companion-app-cli
+GO_MOCK_MODULES    := mock/parking-app-cli mock/companion-app-cli mock/parking-operator
 GO_ALL_MODULES     := $(GO_BACKEND_MODULES) $(GO_MOCK_MODULES)
 
 # ──────────────────────────────────────────────────────────────────────
