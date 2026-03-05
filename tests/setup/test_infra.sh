@@ -35,10 +35,10 @@ if [ -f "$compose_file" ]; then
     else
         fail "Compose file does not expose NATS port 4222"
     fi
-    if echo "$content" | grep -q "55555"; then
-        pass "Compose file exposes Kuksa port 55555"
+    if echo "$content" | grep -q "55556"; then
+        pass "Compose file exposes Kuksa port 55556"
     else
-        fail "Compose file does not expose Kuksa port 55555"
+        fail "Compose file does not expose Kuksa port 55556"
     fi
 else
     fail "deployments/docker-compose.yml does not exist"
@@ -46,10 +46,10 @@ fi
 
 # Check if Docker/Podman is available and running for live tests
 DOCKER_CMD=""
-if command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
-    DOCKER_CMD="docker"
-elif command -v podman &>/dev/null && podman info >/dev/null 2>&1; then
+if command -v podman &>/dev/null && podman info >/dev/null 2>&1; then
     DOCKER_CMD="podman"
+elif command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
+    DOCKER_CMD="docker"
 fi
 
 if [ -z "$DOCKER_CMD" ]; then
@@ -72,7 +72,7 @@ else
                 if ! $nats_ok && (echo > /dev/tcp/localhost/4222) 2>/dev/null; then
                     nats_ok=true
                 fi
-                if ! $kuksa_ok && (echo > /dev/tcp/localhost/55555) 2>/dev/null; then
+                if ! $kuksa_ok && (echo > /dev/tcp/localhost/55556) 2>/dev/null; then
                     kuksa_ok=true
                 fi
                 if $nats_ok && $kuksa_ok; then
@@ -87,9 +87,9 @@ else
                 fail "NATS not reachable on port 4222 within 30 seconds"
             fi
             if $kuksa_ok; then
-                pass "Kuksa Databroker reachable on port 55555"
+                pass "Kuksa Databroker reachable on port 55556"
             else
-                fail "Kuksa Databroker not reachable on port 55555 within 30 seconds"
+                fail "Kuksa Databroker not reachable on port 55556 within 30 seconds"
             fi
         else
             fail "make infra-up fails"

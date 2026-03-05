@@ -11,6 +11,10 @@ GO_ALL_MODULES := $(GO_BACKEND_MODULES) $(GO_MOCK_MODULES)
 # Compose file path
 COMPOSE_FILE := deployments/docker-compose.yml
 
+# Detect container runtime (prefer podman, fall back to docker)
+CONTAINER_RT := $(or $(shell command -v podman 2>/dev/null),$(shell command -v docker 2>/dev/null))
+COMPOSE_CMD := $(CONTAINER_RT) compose
+
 ##@ Build
 
 build: ## Compile all Rust and Go components
@@ -65,18 +69,17 @@ clean: ## Remove all build artifacts
 ##@ Infrastructure
 
 infra-up: ## Start local infrastructure (NATS, Kuksa Databroker)
-	@if ! command -v docker >/dev/null 2>&1 && ! command -v podman >/dev/null 2>&1; then \
+	@if [ -z "$(CONTAINER_RT)" ]; then \
 		echo "ERROR: Docker or Podman is not installed or not in PATH"; \
 		echo "Please install Docker (https://docs.docker.com/get-docker/) or Podman."; \
 		exit 1; \
 	fi
-	@mkdir -p /tmp/kuksa
-	docker compose -f $(COMPOSE_FILE) up -d
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) up -d
 	@echo "Waiting for services to be ready..."
-	@echo "Infrastructure started. Kuksa Databroker on :55556, UDS at /tmp/kuksa/databroker.sock"
+	@echo "Infrastructure started. NATS on :4222, Kuksa Databroker on :55556"
 
 infra-down: ## Stop and remove local infrastructure containers
-	docker compose -f $(COMPOSE_FILE) down --remove-orphans
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) down --remove-orphans
 
 ##@ Proto
 
