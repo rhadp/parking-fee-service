@@ -71,7 +71,7 @@ infra-up: ## Start local infrastructure (NATS, Kuksa Databroker)
 	fi
 	docker compose -f $(COMPOSE_FILE) up -d
 	@echo "Waiting for services to be ready..."
-	@echo "Infrastructure started. NATS on :4222, Kuksa Databroker on :55555"
+	@echo "Infrastructure started. Kuksa Databroker on :55556"
 
 infra-down: ## Stop and remove local infrastructure containers
 	docker compose -f $(COMPOSE_FILE) down
