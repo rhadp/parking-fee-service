@@ -41,7 +41,7 @@ make check
 # Regenerate Go code from .proto definitions
 make proto
 
-# Start local infrastructure (Mosquitto MQTT broker + Kuksa Databroker)
+# Start local infrastructure (NATS server + Kuksa Databroker)
 make infra-up
 
 # Stop local infrastructure
@@ -73,7 +73,7 @@ parking-fee-service/
 │
 ├── backend/                        # Go backend services
 │   ├── parking-fee-service/        #   Operator discovery + fee calculation (HTTP :8080)
-│   └── cloud-gateway/              #   Vehicle command relay (HTTP :8081, MQTT)
+│   └── cloud-gateway/              #   Vehicle command relay (HTTP :8081, NATS)
 │
 ├── mock/                           # Mock CLI apps (simulate Android apps)
 │   ├── parking-app-cli/            #   Mock PARKING_APP (9 subcommands)
@@ -83,8 +83,8 @@ parking-fee-service/
 ├── android/                        # COMPANION_APP placeholder (Flutter, future)
 │
 ├── infra/                          # Local development infrastructure
-│   ├── docker-compose.yml          #   Mosquitto (:1883) + Kuksa Databroker (:55556)
-│   └── mosquitto/mosquitto.conf    #   MQTT broker configuration
+│   ├── docker-compose.yml          #   NATS (:4222) + Kuksa Databroker (:55556)
+│   └── nats/nats-server.conf      #   NATS server configuration
 │
 ├── tests/
 │   ├── setup/                      # Spec verification tests (standalone Go module)
@@ -100,7 +100,7 @@ parking-fee-service/
 
 | Service | Protocol | Port |
 |---------|----------|------|
-| Eclipse Mosquitto | MQTT | 1883 |
+| NATS Server | NATS | 4222 |
 | Eclipse Kuksa Databroker | gRPC | 55556 |
 | PARKING_FEE_SERVICE | HTTP | 8080 |
 | CLOUD_GATEWAY | HTTP | 8081 |
@@ -118,7 +118,7 @@ The system spans multiple domains:
 - **Android IVI:** PARKING_APP user interface for operator discovery and session
   management
 - **Cloud Backend:** Parking fee service (operator discovery), cloud gateway
-  (vehicle command relay via MQTT)
+  (vehicle command relay via NATS)
 
 Cross-partition communication uses gRPC over TCP. Same-partition services
 communicate via Unix Domain Sockets. Vehicle signal state is brokered through

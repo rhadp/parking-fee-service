@@ -53,7 +53,7 @@ Session ownership belongs to the PARKING_OPERATOR_ADAPTOR:
 2. **RHIVOS QM Partition**: Dynamic parking operator adapters (containers), update service
 3. **RHIVOS Safety Partition**: ASIL-B door lock service, DATA_BROKER (vehicle signals), cloud gateway client
 4. **Cloud (OpenShift)**: Parking fee service (operator discovery), cloud gateway, CDE, CI/CD for development and validation
-5. **GCP Services**: OCI container registry (Google Artifact Registry), MQTT broker
+5. **GCP Services**: OCI container registry (Google Artifact Registry), NATS server
 6. **Mobile Companion App**: Typical Android app (optional: iOS), paired with a specific VIN
 
 ### Mixed-Criticality Communication Pattern
@@ -149,7 +149,8 @@ Session ownership belongs to the PARKING_OPERATOR_ADAPTOR:
 
 ##### CLOUD_GATEWAY_CLIENT
 
-- Maintains secure connection to CLOUD_GATEWAY (MQTT over TLS)
+- Maintains secure connection to CLOUD_GATEWAY (NATS with TLS)
+- Uses the async-nats Rust client crate for NATS connectivity
 - Receives authenticated lock/unlock commands from COMPANION_APP via CLOUD_GATEWAY
 - Validates command structure and bearer tokens
 - Publishes validated commands to DATA_BROKER as command signals (Vehicle.Command.Door.Lock) — does NOT call LOCKING_SERVICE directly
@@ -186,12 +187,12 @@ REST API endpoints:
 
 - Cloud-based service with two interfaces:
   - **REST API** towards COMPANION_APPs (HTTPS) — receives lock/unlock commands, returns command status
-  - **MQTT broker** towards vehicles (CLOUD_GATEWAY_CLIENT) — relays commands and receives telemetry
+  - **NATS** towards vehicles (CLOUD_GATEWAY_CLIENT) — relays commands and receives telemetry
 - Authenticates vehicles and COMPANION_APPs using bearer tokens
-- Routes commands between mobile apps and vehicles, translating between REST and MQTT protocols
+- Routes commands between mobile apps and vehicles, translating between REST and NATS protocols
 - Aggregates telemetry for fleet operations (optional, later phase)
 - Deployed on Google Cloud infrastructure
-- Uses containerized Eclipse Mosquitto for local development
+- Uses containerized NATS server (nats-server) for local development
 
 ### AAOS
 
@@ -213,7 +214,7 @@ REST API endpoints:
 - Allows querying the car's state via CLOUD_GATEWAY REST API
 - Issues lock/unlock commands to the car remotely via CLOUD_GATEWAY REST API
 - Receives command status responses via CLOUD_GATEWAY REST API
-- Does NOT use MQTT directly; CLOUD_GATEWAY handles protocol translation
+- Does NOT use NATS directly; CLOUD_GATEWAY handles protocol translation
 
 **Note**: In production deployments, cloud connectivity typically resides in a separate TCU or QM partition. For this demo, we consolidate CLOUD_GATEWAY_CLIENT into the safety partition to simplify the command path and focus on mixed-criticality application development rather than network architecture.
 
@@ -273,7 +274,7 @@ subgraph Cloud["Google Cloud"]
   end
 
   subgraph CloudServices["GCP Services"]
-    MQTT["MQTT"]
+    NATS["NATS"]
     Registry["REGISTRY"]
   end
 end
@@ -322,11 +323,11 @@ subgraph MockServices["Demo Mock Services"]
 end
 
 CompanionApp -->|"REST: lock/unlock command"| CloudGateway
-CloudGateway -->|"MQTT: command relay"| CloudGatewayClient
+CloudGateway -->|"NATS: command relay"| CloudGatewayClient
 
 CloudGatewayClient -->|"write: command signals"| DataBroker
 CloudGatewayClient -->|"read: vehicle state"| DataBroker
-CloudGatewayClient -->|"MQTT: telemetry publish"| CloudGateway
+CloudGatewayClient -->|"NATS: telemetry publish"| CloudGateway
 
 LockingService -->|"write: lock/unlock state"| DataBroker
 LockingService -->|"read: command signals"| DataBroker
@@ -364,7 +365,7 @@ DoorSensor --> |"mock: open/closed"| DataBroker
 | PARKING_OPERATOR_ADAPTOR | DATA_BROKER              | Network gRPC   | Read               |
 | PARKING_OPERATOR_ADAPTOR | PARKING_OPERATOR         | HTTPS/REST     | Request/Response   |
 | COMPANION_APP            | CLOUD_GATEWAY            | HTTPS/REST     | Request/Response   |
-| CLOUD_GATEWAY_CLIENT     | CLOUD_GATEWAY            | MQTT over TLS  | Bidirectional      |
+| CLOUD_GATEWAY_CLIENT     | CLOUD_GATEWAY            | NATS (with TLS)| Bidirectional      |
 
 **Note:** All gRPC services use Unix Domain Sockets (UDS) for same-partition communication and network TCP (HTTP/2 over TLS) for cross-partition or cross-domain communication (e.g., AAOS to RHIVOS, QM to Safety). gRPC benefits for this architecture:
 
@@ -431,9 +432,9 @@ Note: The PARKING_APP can override the autonomous session behavior by calling St
    Headers: Authorization: Bearer <token>
    Body: {"command_id": "<uuid>", "type": "unlock", "doors": ["driver"]}
 
-2. CLOUD_GATEWAY validates bearer token and translates to MQTT
-   CLOUD_GATEWAY → CLOUD_GATEWAY_CLIENT (MQTT over TLS)
-   PUBLISH vehicles/VIN12345/commands
+2. CLOUD_GATEWAY validates bearer token and publishes to NATS
+   CLOUD_GATEWAY → CLOUD_GATEWAY_CLIENT (NATS with TLS)
+   PUBLISH vehicles.VIN12345.commands
    {"command_id": "<uuid>", "action": "unlock", "doors": ["driver"], "source": "companion_app"}
 
 3. CLOUD_GATEWAY_CLIENT validates command structure and token
@@ -451,8 +452,8 @@ Note: The PARKING_APP can override the autonomous session behavior by calling St
    SetRequest(Vehicle.Command.Door.Response = {"command_id": "<uuid>", "status": "success"})
 
 8. CLOUD_GATEWAY_CLIENT observes command response via DATA_BROKER subscription
-   CLOUD_GATEWAY_CLIENT → CLOUD_GATEWAY (MQTT over TLS)
-   PUBLISH vehicles/VIN12345/command_responses
+   CLOUD_GATEWAY_CLIENT → CLOUD_GATEWAY (NATS with TLS)
+   PUBLISH vehicles.VIN12345.command_responses
    {"command_id": "<uuid>", "status": "success"}
 
 9. CLOUD_GATEWAY → COMPANION_APP (REST)
@@ -548,7 +549,7 @@ The following tech stacks are used to develop the various components.
 ### Infrastructure and Tooling
 
 - Local development: VS Code based IDE (e.g. Cursor), with Android and Flutter extensions installed.
-- Local infrastructure: Podman to build and serve containers, containerized MQTT broker (Eclipse Mosquitto) to simulate the MQTT communication.
+- Local infrastructure: Podman to build and serve containers, containerized NATS server (nats-server) to simulate the NATS communication.
 - Cloud Development: OpenShift Dev Spaces, with Android and Flutter extensions installed in the Dev Spaces container.
 - OpenShift Automotive Suite (RHAS): OpenShift cluster on Google Cloud, with Jumpstarter and Builder operator installed to build and validate RHIVOS images.
 - Google Compute Engine: ARM bare-metal instance to run Red Hat Jumpstarter exporters and Android Cuttlefish.
@@ -613,9 +614,9 @@ Developing the demo happens in multiple phases. The first iterations SHOULD happ
 ##### Phase 2.2: Vehicle-to-Cloud Connectivity
 
 - Implementation of the V2X connectivity:
-  - CLOUD_GATEWAY (dual interface: REST for COMPANION_APP, MQTT for vehicle)
+  - CLOUD_GATEWAY (dual interface: REST for COMPANION_APP, NATS for vehicle)
   - Mock COMPANION_APP CLI app to test the CLOUD_GATEWAY without the real COMPANION_APP (see *Android Development Separation*)
-  - Integration test of bidirectional CLOUD_GATEWAY ↔ CLOUD_GATEWAY_CLIENT communication
+  - Integration test of bidirectional CLOUD_GATEWAY ↔ CLOUD_GATEWAY_CLIENT communication (over NATS)
 
 ##### Phase 2.3: RHIVOS QM Partition
 
@@ -676,7 +677,7 @@ The following clarifications were obtained during requirements engineering.
 
 ### Architecture
 
-- **A1 (COMPANION_APP protocol):** CLOUD_GATEWAY exposes two interfaces: REST towards mobile apps (COMPANION_APP) and MQTT towards vehicle (CLOUD_GATEWAY_CLIENT). The COMPANION_APP uses REST exclusively. CLOUD_GATEWAY handles protocol translation between REST and MQTT.
+- **A1 (COMPANION_APP protocol):** CLOUD_GATEWAY exposes two interfaces: REST towards mobile apps (COMPANION_APP) and NATS towards vehicle (CLOUD_GATEWAY_CLIENT). The COMPANION_APP uses REST exclusively. CLOUD_GATEWAY handles protocol translation between REST and NATS.
 
 - **A2 (Command flow to LOCKING_SERVICE):** CLOUD_GATEWAY_CLIENT publishes validated commands to DATA_BROKER as custom VSS command signals (Vehicle.Command.Door.Lock). LOCKING_SERVICE subscribes to DATA_BROKER for command signals. There are no direct service calls between CLOUD_GATEWAY_CLIENT and LOCKING_SERVICE.
 
@@ -722,7 +723,7 @@ The following clarifications were obtained during requirements engineering.
 
 - **IA1 (Adapter checksum):** SHA-256 checksum of the OCI manifest digest. Provided by PARKING_FEE_SERVICE as part of adapter metadata.
 
-- **IA2 (MQTT):** Containerized Eclipse Mosquitto for local dev.
+- **IA2 (NATS):** Containerized NATS server (nats-server) for local dev. CLOUD_GATEWAY_CLIENT uses the async-nats Rust crate.
 
 - **IA4 (Zones):** Hardcoded but realistic geofence polygons. Data TBD.
 
@@ -734,7 +735,8 @@ The following clarifications were obtained during requirements engineering.
 
 ## References
 
-- [Standalone MQTT broker architecture on Google Cloud](https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture)
-- [Eclipse Mosquitto](https://mosquitto.org)
+- [NATS](https://nats.io)
+- [async-nats Rust client](https://github.com/nats-io/nats.rs)
+- [nats.go Go client](https://github.com/nats-io/nats.go)
 - [Eclipse Kuksa Databroker](https://github.com/eclipse-kuksa/kuksa-databroker)
 - [COVESA Vehicle Signal Specification v5.1](https://covesa.github.io/vehicle_signal_specification/)
