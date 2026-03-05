@@ -20,8 +20,26 @@ impl Config {
     /// - `NATS_TLS_ENABLED` -> `false`
     /// - `DATABROKER_UDS_PATH` -> `/tmp/kuksa/databroker.sock`
     pub fn from_env() -> Result<Self, String> {
-        // TODO: implement in task group 2
-        todo!("Config::from_env not yet implemented")
+        let vin = std::env::var("VIN")
+            .map_err(|_| "VIN environment variable is required but not set".to_string())?;
+
+        let nats_url = std::env::var("NATS_URL")
+            .unwrap_or_else(|_| "nats://localhost:4222".to_string());
+
+        let nats_tls_enabled = std::env::var("NATS_TLS_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .map_err(|e| format!("NATS_TLS_ENABLED must be true or false: {e}"))?;
+
+        let databroker_uds_path = std::env::var("DATABROKER_UDS_PATH")
+            .unwrap_or_else(|_| "/tmp/kuksa/databroker.sock".to_string());
+
+        Ok(Config {
+            vin,
+            nats_url,
+            nats_tls_enabled,
+            databroker_uds_path,
+        })
     }
 }
 

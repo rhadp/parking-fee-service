@@ -67,32 +67,32 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - [x] `cargo test -p cloud-gateway-client --features integration` compiles (with infra running); all integration tests fail
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [ ] 2. NATS client (connect and subscribe to commands)
-  - [ ] 2.1 Implement `config.rs`
+- [x] 2. NATS client (connect and subscribe to commands)
+  - [x] 2.1 Implement `config.rs`
     - Parse environment variables: `VIN`, `NATS_URL`, `NATS_TLS_ENABLED`, `DATABROKER_UDS_PATH`
     - Return a `Config` struct
     - Exit with error if `VIN` is missing; apply defaults for optional variables
     - _Requirements: 04-REQ-1.1_
 
-  - [ ] 2.2 Implement `nats_client.rs`
+  - [x] 2.2 Implement `nats_client.rs`
     - Connect to NATS server using `async_nats::connect()` (plain) or `async_nats::ConnectOptions` with TLS (when `NATS_TLS_ENABLED=true`)
     - Provide methods to subscribe to a subject and to publish to a subject
     - Leverage async-nats built-in reconnection (no custom reconnect logic needed)
     - Log connection, disconnection, and reconnection events
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2_
 
-  - [ ] 2.3 Implement `main.rs` startup for NATS
+  - [x] 2.3 Implement `main.rs` startup for NATS
     - Load configuration
     - Connect to NATS
     - Subscribe to `vehicles.{VIN}.commands`
     - Log "CLOUD_GATEWAY_CLIENT started for VIN={VIN}"
     - _Requirements: 04-REQ-1.1, 04-REQ-7.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Unit tests for config pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [ ] `cargo build -p cloud-gateway-client` succeeds
-    - [ ] Binary connects to NATS (with `make infra-up`) and subscribes to the command subject
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [x] 2.V Verify task group 2
+    - [x] Unit tests for config pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [x] `cargo build -p cloud-gateway-client` succeeds
+    - [x] Binary connects to NATS (with `make infra-up`) and subscribes to the command subject
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
 - [ ] 3. Command validation and DATA_BROKER write
   - [ ] 3.1 Implement `command.rs`
