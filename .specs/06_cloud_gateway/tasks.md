@@ -28,14 +28,14 @@
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Initialize Go module
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Initialize Go module
     - Create `backend/cloud-gateway/go.mod` with module path `github.com/rhadp/parking-fee-service/backend/cloud-gateway` and Go 1.22+ directive
     - Add dependencies: `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` (for embedded test server)
     - Add module to root `go.work` file if it exists
     - **Files:** `backend/cloud-gateway/go.mod`
 
-  - [ ] 1.2 Create model and stub files
+  - [x] 1.2 Create model and stub files
     - Create `backend/cloud-gateway/model.go` with minimal struct definitions for `CommandRequest`, `CommandStatus`, `NATSCommand`, `NATSCommandResponse`, `TelemetryData`, `ErrorResponse` so test files compile
     - Create `backend/cloud-gateway/auth.go` with stub `TokenStore` type and `NewTokenStore()` constructor
     - Create `backend/cloud-gateway/store.go` with stub `CommandStore` and `TelemetryStore` types
@@ -43,7 +43,7 @@
     - Create `backend/cloud-gateway/handler.go` with stub handler function signatures
     - **Files:** `backend/cloud-gateway/model.go`, `backend/cloud-gateway/auth.go`, `backend/cloud-gateway/store.go`, `backend/cloud-gateway/nats_client.go`, `backend/cloud-gateway/handler.go`
 
-  - [ ] 1.3 Write handler tests
+  - [x] 1.3 Write handler tests
     - Create `backend/cloud-gateway/handler_test.go` with test functions covering:
       - `TestCommandSubmission` (TS-06-1)
       - `TestBearerTokenValid` (TS-06-2)
@@ -60,7 +60,7 @@
     - Tests use `httptest.NewRecorder` and should compile but fail
     - _Test Spec: TS-06-1, TS-06-2, TS-06-4, TS-06-5, TS-06-E1 through TS-06-E7, TS-06-E9_
 
-  - [ ] 1.4 Write NATS integration tests
+  - [x] 1.4 Write NATS integration tests
     - Create `backend/cloud-gateway/nats_client_test.go` with test functions covering:
       - `TestNATSCommandRelay` (TS-06-3)
       - `TestNATSResponseSubscription` (TS-06-4)
@@ -70,7 +70,7 @@
     - Tests use embedded NATS server; should compile but fail
     - _Test Spec: TS-06-3, TS-06-6, TS-06-E8, TS-06-E10_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - Create `backend/cloud-gateway/property_test.go` with test functions covering:
       - `TestPropertyTokenVINBinding` (TS-06-P1)
       - `TestPropertyCommandToNATSSubject` (TS-06-P2)
@@ -81,10 +81,10 @@
       - `TestPropertyHealthEndpointIndependence` (TS-06-P7)
     - _Test Spec: TS-06-P1 through TS-06-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `cd backend/cloud-gateway && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `cd backend/cloud-gateway && go vet ./...`
 
 - [ ] 2. Implement REST API and token validation
   - [ ] 2.1 Implement data model types
