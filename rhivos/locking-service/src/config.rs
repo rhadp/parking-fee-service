@@ -1,3 +1,6 @@
+/// Default Unix Domain Socket path for DATA_BROKER connection.
+const DEFAULT_UDS_PATH: &str = "/tmp/kuksa/databroker.sock";
+
 /// Configuration for the LOCKING_SERVICE.
 pub struct Config {
     /// Unix Domain Socket path for DATA_BROKER gRPC connection.
@@ -8,7 +11,10 @@ impl Config {
     /// Load configuration from environment variables.
     /// Falls back to default values when variables are not set.
     pub fn from_env() -> Self {
-        todo!("Implement config loading from environment variables")
+        let databroker_uds_path = std::env::var("DATABROKER_UDS_PATH")
+            .unwrap_or_else(|_| DEFAULT_UDS_PATH.to_string());
+
+        Config { databroker_uds_path }
     }
 }
 
