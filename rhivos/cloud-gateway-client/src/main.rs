@@ -1,3 +1,6 @@
+pub mod command;
+pub mod config;
+
 fn main() {
     println!("cloud-gateway-client starting...");
 }
