@@ -43,3 +43,5 @@ logs/
 **/*.iml
 **/.pub-cache/
 **/.pub/
+.agent-fox/*
+!.agent-fox/state.jsonl
