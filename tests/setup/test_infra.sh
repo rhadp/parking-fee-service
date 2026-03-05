@@ -44,11 +44,11 @@ else
     fail "deployments/docker-compose.yml does not exist"
 fi
 
-# Check if Docker/Podman is available for live tests
+# Check if Docker/Podman is available and running for live tests
 DOCKER_CMD=""
-if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+if command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
     DOCKER_CMD="docker"
-elif command -v podman &>/dev/null; then
+elif command -v podman &>/dev/null && podman info >/dev/null 2>&1; then
     DOCKER_CMD="podman"
 fi
 
