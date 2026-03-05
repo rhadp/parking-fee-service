@@ -733,6 +733,22 @@ The following clarifications were obtained during requirements engineering.
 
 - **IA7 (DATA_BROKER network boundary):** The network address and port configuration for cross-partition access to DATA_BROKER is specified in the component design documents.
 
+### Additional Clarifications
+
+- **AC1 (Geofence proximity matching):** Zone lookups use proximity matching with a configurable distance threshold defined in the service settings. A vehicle "near" a zone (within the threshold) is considered a match.
+
+- **AC2 (Parking rate model):** Two rate types are supported: per-hour and flat-fee. Keep the data model simple.
+
+- **AC3 (NATS topic structure):** Each component spec defines its own NATS subjects. The general pattern is: addressing a specific car uses `vehicles.{vin}.{action}` subjects; generic data (e.g., telemetry) uses broader subjects back to the backend.
+
+- **AC4 (Adapter gRPC port allocation):** Static port assignment defined in configuration files. No dynamic port allocation.
+
+- **AC5 (PARKING_OPERATOR REST API):** The mock PARKING_OPERATOR REST API contract is defined in the PARKING_OPERATOR_ADAPTOR spec. Use common-sense endpoints (start session, stop session, get status).
+
+- **AC6 (Single adapter constraint):** Only one PARKING_OPERATOR_ADAPTOR can run at a time per vehicle, since a vehicle can only park at one location at a time. This is enforced by UPDATE_SERVICE.
+
+- **AC7 (VSS overlay file):** The VSS overlay file for custom signals (Vehicle.Parking.*, Vehicle.Command.*) is shared across all vehicle services. It is managed as shared infrastructure in the DATA_BROKER spec.
+
 ## References
 
 - [NATS](https://nats.io)
