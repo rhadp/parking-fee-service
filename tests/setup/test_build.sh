@@ -169,12 +169,14 @@ echo ""
 echo "--- TS-01-P2: Build Determinism ---"
 if [ -f "$REPO_ROOT/Makefile" ]; then
     (cd "$REPO_ROOT" && make clean 2>/dev/null) || true
-    result1=$(cd "$REPO_ROOT" && make build 2>&1 && echo "OK" || echo "FAIL")
-    result2=$(cd "$REPO_ROOT" && make build 2>&1 && echo "OK" || echo "FAIL")
-    if [ "$result1" = "OK" ] && [ "$result2" = "OK" ]; then
+    exit1=0
+    (cd "$REPO_ROOT" && make build 2>&1) || exit1=$?
+    exit2=0
+    (cd "$REPO_ROOT" && make build 2>&1) || exit2=$?
+    if [ "$exit1" -eq 0 ] && [ "$exit2" -eq 0 ]; then
         pass "Two consecutive make build runs succeed (deterministic)"
     else
-        fail "Build is not deterministic (run1=$result1, run2=$result2)"
+        fail "Build is not deterministic (run1=$exit1, run2=$exit2)"
     fi
 else
     fail "Makefile does not exist, cannot test build determinism"
@@ -236,8 +238,8 @@ echo "--- TS-01-E3: Skeleton Binary Without Config ---"
 for binary in locking-service cloud-gateway-client update-service parking-operator-adaptor; do
     bin_path="$REPO_ROOT/rhivos/target/debug/$binary"
     if [ -x "$bin_path" ]; then
-        stderr_output=$(env -i "$bin_path" 2>&1 1>/dev/null) || true
-        exit_code=$?
+        exit_code=0
+        stderr_output=$(env -i "$bin_path" 2>&1 1>/dev/null) || exit_code=$?
         if [ $exit_code -eq 0 ]; then
             if echo "$stderr_output" | grep -qi "panic"; then
                 fail "Binary '$binary' panics without config"
@@ -261,8 +263,8 @@ if [ -f "$REPO_ROOT/Makefile" ]; then
     if [ -f "$rust_main" ]; then
         cp "$rust_main" "$rust_main.bak"
         echo "THIS IS NOT VALID RUST" >> "$rust_main"
-        build_output=$(cd "$REPO_ROOT" && make build 2>&1) || true
-        build_exit=$?
+        build_exit=0
+        build_output=$(cd "$REPO_ROOT" && make build 2>&1) || build_exit=$?
         # Restore
         mv "$rust_main.bak" "$rust_main"
         if [ $build_exit -ne 0 ]; then
