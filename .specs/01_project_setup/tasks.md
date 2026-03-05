@@ -23,20 +23,20 @@ This plan creates the foundational monorepo structure, skeleton implementations,
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure
     - Create `tests/setup/` directory at repo root
     - Create `tests/setup/run_all.sh` as the test runner entry point
     - _Test Spec: TS-01-1 through TS-01-26, TS-01-P1 through TS-01-P7, TS-01-E1 through TS-01-E6_
 
-  - [ ] 1.2 Implement directory structure tests
+  - [x] 1.2 Implement directory structure tests
     - Create `tests/setup/test_directories.sh`
     - Test for existence of all required top-level and nested directories (TS-01-1 through TS-01-4)
     - Test placeholder directories contain only README.md (TS-01-E1, TS-01-E2)
     - Test directory completeness property (TS-01-P1)
     - _Test Spec: TS-01-1, TS-01-2, TS-01-3, TS-01-4, TS-01-E1, TS-01-E2, TS-01-P1_
 
-  - [ ] 1.3 Implement build and workspace tests
+  - [x] 1.3 Implement build and workspace tests
     - Create `tests/setup/test_build.sh`
     - Test Rust workspace Cargo.toml exists and lists members (TS-01-5)
     - Test Rust workspace builds and tests pass (TS-01-6, TS-01-7)
@@ -51,7 +51,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Test make build failure reporting (TS-01-E4)
     - _Test Spec: TS-01-5 through TS-01-14, TS-01-P2, TS-01-P3, TS-01-P4, TS-01-E3, TS-01-E4_
 
-  - [ ] 1.4 Implement Makefile and proto tests
+  - [x] 1.4 Implement Makefile and proto tests
     - Create `tests/setup/test_makefile.sh`
     - Test root Makefile has all required targets (TS-01-16)
     - Test make build/test/clean succeed (TS-01-17, TS-01-18, TS-01-19)
@@ -60,7 +60,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Test proto validity property (TS-01-P6)
     - _Test Spec: TS-01-15, TS-01-16, TS-01-17, TS-01-18, TS-01-19, TS-01-25, TS-01-P6_
 
-  - [ ] 1.5 Implement infrastructure and mock CLI tests
+  - [x] 1.5 Implement infrastructure and mock CLI tests
     - Create `tests/setup/test_infra.sh`
     - Test compose file defines NATS and Kuksa services (TS-01-20)
     - Test infrastructure starts and services are reachable (TS-01-21)
@@ -75,10 +75,10 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Test no-tests-graceful handling (TS-01-E6)
     - _Test Spec: TS-01-20 through TS-01-26, TS-01-P5, TS-01-P7, TS-01-E5, TS-01-E6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test scripts exist and are syntactically valid: `bash -n tests/setup/*.sh`
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] Test runner entry point works: `bash tests/setup/run_all.sh` (expected: all fail)
+  - [x] 1.V Verify task group 1
+    - [x] All test scripts exist and are syntactically valid: `bash -n tests/setup/*.sh`
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] Test runner entry point works: `bash tests/setup/run_all.sh` (expected: all fail)
 
 - [ ] 2. Create repo structure and skeleton projects
   - [ ] 2.1 Create top-level directory structure
