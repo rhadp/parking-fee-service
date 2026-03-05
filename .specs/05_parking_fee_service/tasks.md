@@ -144,20 +144,20 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
     - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
-- [ ] 4. REST API endpoints
-  - [ ] 4.1 Implement JSON response helpers and recovery middleware
+- [x] 4. REST API endpoints
+  - [x] 4.1 Implement JSON response helpers and recovery middleware
     - Create `backend/parking-fee-service/handler.go` with:
       - `writeJSON(w http.ResponseWriter, status int, data any)` -- sets Content-Type, writes JSON
       - `writeError(w http.ResponseWriter, status int, message string)` -- writes JSON error response
       - `recoveryMiddleware(next http.Handler) http.Handler` -- recovers panics, returns 500
     - _Requirements: 05-REQ-8.1, 05-REQ-8.2, 05-REQ-8.E2_
 
-  - [ ] 4.2 Implement health handler
+  - [x] 4.2 Implement health handler
     - Add `HandleHealth(w http.ResponseWriter, r *http.Request)` to handler.go.
     - Returns `{"status": "ok"}` with HTTP 200.
     - _Requirements: 05-REQ-5.1_
 
-  - [ ] 4.3 Implement operator lookup handler
+  - [x] 4.3 Implement operator lookup handler
     - Add `HandleOperatorLookup(store *Store) http.HandlerFunc` to handler.go:
       - Parse and validate `lat` and `lon` query parameters
       - Return 400 for missing, non-numeric, or out-of-range values
@@ -165,14 +165,14 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - Return JSON array (empty array if no matches)
     - _Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.E1, 05-REQ-1.E2_
 
-  - [ ] 4.4 Implement adapter metadata handler and default 404 handler
+  - [x] 4.4 Implement adapter metadata handler and default 404 handler
     - Add `HandleAdapterMetadata(store *Store) http.HandlerFunc` to handler.go:
       - Extract operator ID from URL path
       - Return 404 if not found, otherwise return adapter metadata JSON
     - Add default 404 handler for undefined routes returning JSON error.
     - _Requirements: 05-REQ-4.1, 05-REQ-4.E1, 05-REQ-8.E1_
 
-  - [ ] 4.5 Implement main.go server entry point
+  - [x] 4.5 Implement main.go server entry point
     - Create `backend/parking-fee-service/main.go` with:
       - Load configuration (from file path env var or embedded default)
       - Create store from config
@@ -182,11 +182,11 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - Log startup message to stdout
     - _Requirements: 05-REQ-7.1, 05-REQ-7.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All handler tests pass: `cd backend/parking-fee-service && go test ./... -run 'Test(Operator|Adapter|Health|Invalid|Undefined|Property)' -v`
-    - [ ] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
-    - [ ] Build succeeds: `cd backend/parking-fee-service && go build .`
-    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+  - [x] 4.V Verify task group 4
+    - [x] All handler tests pass: `cd backend/parking-fee-service && go test ./... -run 'Test(Operator|Adapter|Health|Invalid|Undefined|Property)' -v`
+    - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
+    - [x] Build succeeds: `cd backend/parking-fee-service && go build .`
+    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
 - [ ] 5. Integration tests
   - [ ] 5.1 Run full test suite and verify all tests pass
