@@ -86,13 +86,13 @@
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `cd backend/cloud-gateway && go vet ./...`
 
-- [ ] 2. Implement REST API and token validation
-  - [ ] 2.1 Implement data model types
+- [x] 2. Implement REST API and token validation
+  - [x] 2.1 Implement data model types
     - Complete `backend/cloud-gateway/model.go` with full struct definitions including JSON tags
     - Include `CommandRequest`, `CommandStatus`, `NATSCommand`, `NATSCommandResponse`, `TelemetryData`, `ErrorResponse`
     - _Requirements: 06-REQ-1, 06-REQ-4, 06-REQ-8_
 
-  - [ ] 2.2 Implement token store and auth middleware
+  - [x] 2.2 Implement token store and auth middleware
     - Complete `backend/cloud-gateway/auth.go` with:
       - `TokenStore` with `tokens map[string]string` (token -> VIN)
       - `NewTokenStore(tokens map[string]string)` constructor
@@ -101,7 +101,7 @@
       - Demo tokens: `"companion-token-vehicle-1" -> "VIN12345"`, `"companion-token-vehicle-2" -> "VIN67890"`
     - _Requirements: 06-REQ-2.1, 06-REQ-2.2_
 
-  - [ ] 2.3 Implement command store
+  - [x] 2.3 Implement command store
     - Complete `backend/cloud-gateway/store.go` with:
       - `CommandStore` with thread-safe in-memory map for command statuses
       - `StoreCommand(cmdID, status string)` method
@@ -111,7 +111,7 @@
       - `StoreTelemetry(vin string, data TelemetryData)` and `GetTelemetry(vin string) (*TelemetryData, bool)` methods
     - _Requirements: 06-REQ-4.1, 06-REQ-5.1_
 
-  - [ ] 2.4 Implement REST handlers
+  - [x] 2.4 Implement REST handlers
     - Complete `backend/cloud-gateway/handler.go` with:
       - `HandleHealth(w, r)` -- returns `{"status":"ok"}`
       - `HandleCommandSubmit(commandStore, natsClient) http.HandlerFunc` -- validates body, stores command as pending, publishes to NATS, returns 202
@@ -120,11 +120,11 @@
       - Default 404 handler for undefined routes returning JSON error
     - _Requirements: 06-REQ-1, 06-REQ-4.2, 06-REQ-6, 06-REQ-8_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Auth tests pass: `cd backend/cloud-gateway && go test -v -run TestBearer`
-    - [ ] Handler tests pass (except NATS-dependent ones): `cd backend/cloud-gateway && go test -v -run "TestHealthCheck|TestMissing|TestInvalid|TestUnknown|TestUndefined"`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Requirements 06-REQ-2, 06-REQ-6, 06-REQ-8 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Auth tests pass: `cd backend/cloud-gateway && go test -v -run TestBearer`
+    - [x] Handler tests pass (except NATS-dependent ones): `cd backend/cloud-gateway && go test -v -run "TestHealthCheck|TestMissing|TestInvalid|TestUnknown|TestUndefined"`
+    - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
+    - [x] Requirements 06-REQ-2, 06-REQ-6, 06-REQ-8 acceptance criteria met
 
 - [ ] 3. Implement NATS client and command relay
   - [ ] 3.1 Implement NATS client connection
