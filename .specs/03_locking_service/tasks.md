@@ -28,14 +28,14 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Unit test scaffolding for configuration
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Unit test scaffolding for configuration
     - Create `src/config.rs` tests
     - Test that `DATABROKER_UDS_PATH` defaults to `/tmp/kuksa/databroker.sock` when unset
     - Test that `DATABROKER_UDS_PATH` is parsed from environment when set
     - _Test Spec: TS-03-1 (preconditions)_
 
-  - [ ] 1.2 Unit test scaffolding for command parsing and validation
+  - [x] 1.2 Unit test scaffolding for command parsing and validation
     - Create `src/command.rs` tests
     - Test valid lock command JSON parses successfully
     - Test valid unlock command JSON parses successfully
@@ -47,7 +47,7 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Test failure response serializes to the expected JSON format
     - _Test Spec: TS-03-E1, TS-03-E2, TS-03-E3, TS-03-E4_
 
-  - [ ] 1.3 Unit test scaffolding for safety validation
+  - [x] 1.3 Unit test scaffolding for safety validation
     - Create `src/safety.rs` tests
     - Test that speed == 0.0 and door closed passes safety check
     - Test that speed >= 1.0 fails safety check with reason `"vehicle_moving"`
@@ -55,7 +55,7 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Test that both constraints violated returns the first failure (speed checked first)
     - _Test Spec: TS-03-P1, TS-03-P3_
 
-  - [ ] 1.4 Integration test scaffolding
+  - [x] 1.4 Integration test scaffolding
     - Create `tests/integration.rs` with `#[cfg(feature = "integration")]` gated tests
     - Test lock command happy path (TS-03-1)
     - Test unlock command happy path (TS-03-2)
@@ -67,13 +67,13 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - All tests should assert expected outcomes but fail because the implementation does not exist yet
     - _Test Spec: TS-03-1, TS-03-2, TS-03-3, TS-03-4, TS-03-E1, TS-03-E2, TS-03-E3_
 
-  - [ ] 1.5 Add `integration` feature flag to Cargo.toml
+  - [x] 1.5 Add `integration` feature flag to Cargo.toml
     - Add a Cargo feature `integration` (no dependencies, used only for `#[cfg(feature = "integration")]` gating)
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `cargo test -p locking-service` compiles; all unit tests fail
-    - [ ] `cargo test -p locking-service --features integration` compiles (with infra running); all integration tests fail
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
+  - [x] 1.V Verify task group 1
+    - [x] `cargo test -p locking-service` compiles; all unit tests fail
+    - [x] `cargo test -p locking-service --features integration` compiles (with infra running); all integration tests fail
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
 - [ ] 2. DATA_BROKER gRPC client
   - [ ] 2.1 Implement `config.rs`
