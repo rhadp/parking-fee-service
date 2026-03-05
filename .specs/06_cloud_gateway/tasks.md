@@ -126,8 +126,8 @@
     - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
     - [x] Requirements 06-REQ-2, 06-REQ-6, 06-REQ-8 acceptance criteria met
 
-- [ ] 3. Implement NATS client and command relay
-  - [ ] 3.1 Implement NATS client connection
+- [x] 3. Implement NATS client and command relay
+  - [x] 3.1 Implement NATS client connection
     - Complete `backend/cloud-gateway/nats_client.go` with:
       - `NATSClient` struct wrapping `*nats.Conn`
       - `NewNATSClient(url string) (*NATSClient, error)` constructor
@@ -135,29 +135,29 @@
       - `IsConnected() bool` method
     - _Requirements: 06-REQ-3.1_
 
-  - [ ] 3.2 Implement command publishing
+  - [x] 3.2 Implement command publishing
     - Add to `backend/cloud-gateway/nats_client.go`:
       - `PublishCommand(vin string, cmd NATSCommand) error` -- publishes JSON to `vehicles.{vin}.commands`
       - Returns error if NATS connection is down
     - _Requirements: 06-REQ-1.1, 06-REQ-3.1, 06-REQ-7.1_
 
-  - [ ] 3.3 Implement response subscription
+  - [x] 3.3 Implement response subscription
     - Add to `backend/cloud-gateway/nats_client.go`:
       - `SubscribeCommandResponses(vin string, handler func(NATSCommandResponse))` -- subscribes to `vehicles.{vin}.command_responses`
       - Parses JSON response and invokes handler callback
     - _Requirements: 06-REQ-3.2, 06-REQ-4.1_
 
-  - [ ] 3.4 Wire NATS into REST handlers
+  - [x] 3.4 Wire NATS into REST handlers
     - Update `HandleCommandSubmit` to use `NATSClient.PublishCommand`
     - Return 503 when NATS publish fails due to connection issue
     - Wire response subscription to update `CommandStore` on received responses
     - _Requirements: 06-REQ-1.1, 06-REQ-3.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] NATS tests pass: `cd backend/cloud-gateway && go test -v -run "TestNATS|TestCommandSubmission|TestCommandResponse"`
-    - [ ] All existing tests still pass: `cd backend/cloud-gateway && go test ./... -v`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Requirements 06-REQ-1, 06-REQ-3, 06-REQ-7 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] NATS tests pass: `cd backend/cloud-gateway && go test -v -run "TestNATS|TestCommandSubmission|TestCommandResponse"`
+    - [x] All existing tests still pass: `cd backend/cloud-gateway && go test ./... -v`
+    - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
+    - [x] Requirements 06-REQ-1, 06-REQ-3, 06-REQ-7 acceptance criteria met
 
 - [ ] 4. Implement response forwarding and telemetry
   - [ ] 4.1 Implement telemetry subscription
