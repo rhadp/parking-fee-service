@@ -124,27 +124,30 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
     - [x] Requirements 02-REQ-4.1, 02-REQ-4.2, 02-REQ-5.1, 02-REQ-5.2 acceptance criteria met
 
-- [ ] 5. Integration test with signal read/write
-  - [ ] 5.1 Validate signal read/write round-trip
+- [x] 5. Integration test with signal read/write
+  - [x] 5.1 Validate signal read/write round-trip
     - Run TS-02-P1 tests for all 8 signals (bool, float, double, string)
     - Fix any type mapping or API issues
+    - All 8 signals pass write/read round-trip (bool, float, double, string types)
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2_
 
-  - [ ] 5.2 Validate subscription delivery
+  - [x] 5.2 Validate subscription delivery
     - Run TS-02-P2 tests for pub/sub behavior
     - Verify subscribers receive updates within 5-second timeout
+    - Both IsLocked and SessionActive subscription tests pass
     - _Requirements: 02-REQ-7.1, 02-REQ-7.2_
 
-  - [ ] 5.3 Validate edge cases
+  - [x] 5.3 Validate edge cases
     - Run TS-02-E1 (non-existent signal), TS-02-E2 (unset signal), TS-02-E3 (type mismatch), TS-02-E4 (health check)
     - Document any Kuksa version-specific behavior differences
+    - Kuksa 0.5.0 findings documented in `docs/errata/02_data_broker_kuksa_api.md`: type mismatch strictly rejected, gRPC health check not implemented (fallback to ListMetadata)
     - _Requirements: 02-REQ-6.E1, 02-REQ-6.E2, 02-REQ-3.2, 02-REQ-8.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All spec tests pass: `cd tests/setup && go test -run TestDataBroker -v`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v`
-    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
-    - [ ] All requirements acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All spec tests pass: `cd tests/setup && go test -run TestDataBroker -v`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v`
+    - [x] No linter warnings: `cd tests/setup && go vet ./...`
+    - [x] All requirements acceptance criteria met
 
 - [ ] 6. Checkpoint -- DATA_BROKER Complete
   - [ ] 6.1 Full verification run

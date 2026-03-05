@@ -49,3 +49,29 @@ query root parameter, not the response path field.
 
 **Actual behavior:** Kuksa 0.5.0 requires a `description` field on every
 branch node in the overlay JSON. Missing descriptions cause a parse error.
+
+### 6. Type mismatch rejected strictly (02-REQ-6.E2)
+
+**Design says:** gRPC `INVALID_ARGUMENT` error on type mismatch write.
+
+**Actual behavior:** Kuksa 0.5.0 strictly rejects type mismatches. Writing a
+string value (`"not_a_boolean"`) to a bool signal
+(`Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`) returns a gRPC error. This
+matches the expected behavior from the requirements.
+
+The test_spec.md note about possible silent type coercion does not apply to
+Kuksa 0.5.0.
+
+### 7. gRPC Health Check service not implemented (02-REQ-8.1, 02-REQ-8.2)
+
+**Design says:** Health check mechanism indicates readiness.
+
+**Actual behavior:** Kuksa 0.5.0 does not implement the standard gRPC health
+check service (`grpc.health.v1.Health/Check`). Calls return `UNIMPLEMENTED`.
+
+Health/readiness is validated by querying `ListMetadata("Vehicle")` as a
+fallback. If the broker is ready, this returns signal metadata. If not ready,
+the gRPC connection itself fails with `UNAVAILABLE`.
+
+This satisfies 02-REQ-8.1 and 02-REQ-8.2 functionally, though the mechanism
+differs from the standard gRPC health protocol.
