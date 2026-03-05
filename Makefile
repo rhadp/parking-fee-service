@@ -70,9 +70,10 @@ infra-up: ## Start local infrastructure (NATS, Kuksa Databroker)
 		echo "Please install Docker (https://docs.docker.com/get-docker/) or Podman."; \
 		exit 1; \
 	fi
+	@mkdir -p /tmp/kuksa
 	docker compose -f $(COMPOSE_FILE) up -d
 	@echo "Waiting for services to be ready..."
-	@echo "Infrastructure started. Kuksa Databroker on :55556"
+	@echo "Infrastructure started. Kuksa Databroker on :55556, UDS at /tmp/kuksa/databroker.sock"
 
 infra-down: ## Stop and remove local infrastructure containers
 	docker compose -f $(COMPOSE_FILE) down --remove-orphans
