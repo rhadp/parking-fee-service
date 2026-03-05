@@ -76,29 +76,29 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
     - [x] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-8.1 acceptance criteria met
 
-- [ ] 3. Create VSS overlay file with custom signals
-  - [ ] 3.1 Create overlay directory structure
+- [x] 3. Create VSS overlay file with custom signals
+  - [x] 3.1 Create overlay directory structure
     - Create `config/vss/` directory in the project root
     - _Requirements: 02-REQ-2.1_
 
-  - [ ] 3.2 Create VSS overlay JSON file
+  - [x] 3.2 Create VSS overlay JSON file
     - Create `config/vss/vss_overlay.json` with Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response
     - Use `actuator` type for all custom signals, with correct datatypes (boolean, string, string)
     - Validate JSON syntax: `python3 -m json.tool config/vss/vss_overlay.json`
     - _Requirements: 02-REQ-2.1_
 
-  - [ ] 3.3 Mount overlay in docker-compose
+  - [x] 3.3 Mount overlay in docker-compose
     - Add volume mount for `./config/vss/vss_overlay.json` to the databroker container
-    - Add `--vss-overlay` flag to the databroker command pointing to the mounted overlay file
+    - Add `--vss` flag with comma-separated VSS v5.1 + overlay files
     - Verify container logs show overlay loaded successfully
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests TS-02-2, TS-02-3 pass: `cd tests/setup && go test -run "TestDataBrokerStandardSignals|TestDataBrokerCustomSignals" -v`
-    - [ ] Spec test TS-02-P3 passes: `cd tests/setup && go test -run TestDataBrokerOverlayMerge -v`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v`
-    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
-    - [ ] Requirements 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests TS-02-2, TS-02-3 pass: `cd tests/setup && go test -run "TestDataBrokerStandardSignals|TestDataBrokerCustomSignals" -v`
+    - [x] Spec test TS-02-P3 passes: `cd tests/setup && go test -run TestDataBrokerOverlayMerge -v`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v`
+    - [x] No linter warnings: `cd tests/setup && go vet ./...`
+    - [x] Requirements 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1 acceptance criteria met
 
 - [ ] 4. Configure dual listeners (UDS + TCP)
   - [ ] 4.1 Configure TCP listener

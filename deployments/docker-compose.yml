@@ -8,11 +8,18 @@ services:
     container_name: databroker
     ports:
       - "55556:55556"
+    volumes:
+      - ../config/vss/vss_v5.1.json:/config/vss_v5.1.json:ro
+      - ../config/vss/vss_overlay.json:/config/vss_overlay.json:ro
     command:
       - "--address"
       - "0.0.0.0"
       - "--port"
       - "55556"
+      - "--insecure"
+      - "--disable-authorization"
+      - "--vss"
+      - "/config/vss_v5.1.json,/config/vss_overlay.json"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "grpc_health_probe -addr=:55556 2>/dev/null || nc -z localhost 55556"]

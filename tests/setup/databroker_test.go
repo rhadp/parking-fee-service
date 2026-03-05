@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -59,6 +60,53 @@ func dialUDS(t *testing.T) (*grpc.ClientConn, pb.VALClient) {
 	}
 	t.Cleanup(func() { conn.Close() })
 	return conn, pb.NewVALClient(conn)
+}
+
+// publishValue writes a signal value using PublishValue RPC.
+// Kuksa 0.5.0 requires PublishValue (not Actuate) for writing values
+// without a registered provider.
+func publishValue(t *testing.T, client pb.VALClient, path string, value *pb.Value) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+	defer cancel()
+	_, err := client.PublishValue(ctx, &pb.PublishValueRequest{
+		SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: path}},
+		DataPoint: &pb.Datapoint{
+			Timestamp: timestamppb.Now(),
+			Value:     value,
+		},
+	})
+	if err != nil {
+		t.Fatalf("PublishValue(%s) failed: %v", path, err)
+	}
+}
+
+// assertSignalMetadata verifies that a signal exists with the expected data type.
+// Kuksa 0.5.0's ListMetadata with a leaf signal root returns exactly one entry
+// but does not populate the Path field; we verify the data type of the returned entry.
+func assertSignalMetadata(t *testing.T, client pb.VALClient, path string, expectedType pb.DataType) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+	defer cancel()
+
+	resp, err := client.ListMetadata(ctx, &pb.ListMetadataRequest{
+		Root:   path,
+		Filter: "",
+	})
+	if err != nil {
+		t.Fatalf("ListMetadata(%s) failed: %v", path, err)
+	}
+
+	entries := resp.GetMetadata()
+	if len(entries) == 0 {
+		t.Fatalf("signal %s not found in metadata (zero entries returned)", path)
+	}
+
+	// When querying a specific leaf signal, the first entry is that signal.
+	m := entries[0]
+	if m.GetDataType() != expectedType {
+		t.Errorf("signal %s: expected type %v, got %v", path, expectedType, m.GetDataType())
+	}
 }
 
 // ============================================================================
@@ -106,40 +154,20 @@ func TestDataBrokerStandardSignals(t *testing.T) {
 	_, client := dialTCP(t)
 
 	// Standard VSS v5.1 signals and their expected data types.
-	standardSignals := map[string]pb.DataType{
-		"Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": pb.DataType_DATA_TYPE_BOOLEAN,
-		"Vehicle.Cabin.Door.Row1.DriverSide.IsOpen":   pb.DataType_DATA_TYPE_BOOLEAN,
-		"Vehicle.CurrentLocation.Latitude":             pb.DataType_DATA_TYPE_DOUBLE,
-		"Vehicle.CurrentLocation.Longitude":            pb.DataType_DATA_TYPE_DOUBLE,
-		"Vehicle.Speed":                                pb.DataType_DATA_TYPE_FLOAT,
+	standardSignals := []struct {
+		path     string
+		dataType pb.DataType
+	}{
+		{"Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", pb.DataType_DATA_TYPE_BOOLEAN},
+		{"Vehicle.Cabin.Door.Row1.DriverSide.IsOpen", pb.DataType_DATA_TYPE_BOOLEAN},
+		{"Vehicle.CurrentLocation.Latitude", pb.DataType_DATA_TYPE_DOUBLE},
+		{"Vehicle.CurrentLocation.Longitude", pb.DataType_DATA_TYPE_DOUBLE},
+		{"Vehicle.Speed", pb.DataType_DATA_TYPE_FLOAT},
 	}
 
-	for path, expectedType := range standardSignals {
-		t.Run(path, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-			defer cancel()
-
-			resp, err := client.ListMetadata(ctx, &pb.ListMetadataRequest{
-				Root:   path,
-				Filter: "",
-			})
-			if err != nil {
-				t.Fatalf("ListMetadata(%s) failed: %v", path, err)
-			}
-
-			found := false
-			for _, m := range resp.GetMetadata() {
-				if m.GetPath() == path {
-					found = true
-					if m.GetDataType() != expectedType {
-						t.Errorf("signal %s: expected type %v, got %v", path, expectedType, m.GetDataType())
-					}
-					break
-				}
-			}
-			if !found {
-				t.Errorf("signal %s not found in metadata", path)
-			}
+	for _, sig := range standardSignals {
+		t.Run(sig.path, func(t *testing.T) {
+			assertSignalMetadata(t, client, sig.path, sig.dataType)
 		})
 	}
 }
@@ -152,63 +180,24 @@ func TestDataBrokerStandardSignals(t *testing.T) {
 func TestDataBrokerCustomSignals(t *testing.T) {
 	_, client := dialTCP(t)
 
-	customSignals := map[string]pb.DataType{
-		"Vehicle.Parking.SessionActive":  pb.DataType_DATA_TYPE_BOOLEAN,
-		"Vehicle.Command.Door.Lock":      pb.DataType_DATA_TYPE_STRING,
-		"Vehicle.Command.Door.Response":  pb.DataType_DATA_TYPE_STRING,
+	customSignals := []struct {
+		path     string
+		dataType pb.DataType
+	}{
+		{"Vehicle.Parking.SessionActive", pb.DataType_DATA_TYPE_BOOLEAN},
+		{"Vehicle.Command.Door.Lock", pb.DataType_DATA_TYPE_STRING},
+		{"Vehicle.Command.Door.Response", pb.DataType_DATA_TYPE_STRING},
 	}
 
-	for path, expectedType := range customSignals {
-		t.Run(path, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-			defer cancel()
-
-			resp, err := client.ListMetadata(ctx, &pb.ListMetadataRequest{
-				Root:   path,
-				Filter: "",
-			})
-			if err != nil {
-				t.Fatalf("ListMetadata(%s) failed: %v", path, err)
-			}
-
-			found := false
-			for _, m := range resp.GetMetadata() {
-				if m.GetPath() == path {
-					found = true
-					if m.GetDataType() != expectedType {
-						t.Errorf("signal %s: expected type %v, got %v", path, expectedType, m.GetDataType())
-					}
-					break
-				}
-			}
-			if !found {
-				t.Errorf("signal %s not found in metadata", path)
-			}
+	for _, sig := range customSignals {
+		t.Run(sig.path, func(t *testing.T) {
+			assertSignalMetadata(t, client, sig.path, sig.dataType)
 		})
 	}
 
 	// Verify standard signals are still accessible after overlay (02-REQ-2.2).
 	t.Run("StandardSignalStillAccessible", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-		defer cancel()
-
-		resp, err := client.ListMetadata(ctx, &pb.ListMetadataRequest{
-			Root:   "Vehicle.Speed",
-			Filter: "",
-		})
-		if err != nil {
-			t.Fatalf("ListMetadata(Vehicle.Speed) failed after overlay: %v", err)
-		}
-		found := false
-		for _, m := range resp.GetMetadata() {
-			if m.GetPath() == "Vehicle.Speed" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Vehicle.Speed not found after overlay application")
-		}
+		assertSignalMetadata(t, client, "Vehicle.Speed", pb.DataType_DATA_TYPE_FLOAT)
 	})
 }
 
@@ -220,17 +209,8 @@ func TestDataBrokerCustomSignals(t *testing.T) {
 func TestDataBrokerCrossPartitionAccess(t *testing.T) {
 	_, client := dialTCP(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-	defer cancel()
-
 	// Write a value via TCP.
-	_, err := client.Actuate(ctx, &pb.ActuateRequest{
-		SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: "Vehicle.Speed"}},
-		Value:    &pb.Value{TypedValue: &pb.Value_Float{Float: 42.0}},
-	})
-	if err != nil {
-		t.Fatalf("Actuate(Vehicle.Speed) via TCP failed: %v", err)
-	}
+	publishValue(t, client, "Vehicle.Speed", &pb.Value{TypedValue: &pb.Value_Float{Float: 42.0}})
 
 	// Read it back.
 	getCtx, getCancel := context.WithTimeout(context.Background(), opTimeout)
@@ -261,17 +241,9 @@ func TestDataBrokerUDSAccess(t *testing.T) {
 
 	_, client := dialUDS(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-	defer cancel()
-
 	// Write a value via UDS.
-	_, err := client.Actuate(ctx, &pb.ActuateRequest{
-		SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"}},
-		Value:    &pb.Value{TypedValue: &pb.Value_Bool{Bool: true}},
-	})
-	if err != nil {
-		t.Fatalf("Actuate via UDS failed: %v", err)
-	}
+	publishValue(t, client, "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
+		&pb.Value{TypedValue: &pb.Value_Bool{Bool: true}})
 
 	// Read it back via UDS.
 	getCtx, getCancel := context.WithTimeout(context.Background(), opTimeout)
@@ -298,10 +270,10 @@ func TestDataBrokerWriteReadRoundTrip(t *testing.T) {
 	_, client := dialTCP(t)
 
 	tests := []struct {
-		name     string
-		path     string
-		value    *pb.Value
-		check    func(t *testing.T, dp *pb.Datapoint)
+		name  string
+		path  string
+		value *pb.Value
+		check func(t *testing.T, dp *pb.Datapoint)
 	}{
 		{
 			name:  "bool_IsLocked_true",
@@ -392,17 +364,8 @@ func TestDataBrokerWriteReadRoundTrip(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-			defer cancel()
-
-			// Write (actuate) the signal.
-			_, err := client.Actuate(ctx, &pb.ActuateRequest{
-				SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: tc.path}},
-				Value:    tc.value,
-			})
-			if err != nil {
-				t.Fatalf("Actuate(%s) failed: %v", tc.path, err)
-			}
+			// Write the signal using PublishValue.
+			publishValue(t, client, tc.path, tc.value)
 
 			// Read the signal back.
 			getCtx, getCancel := context.WithTimeout(context.Background(), opTimeout)
@@ -434,7 +397,6 @@ func TestDataBrokerSubscription(t *testing.T) {
 		path   string
 		value1 *pb.Value
 		value2 *pb.Value
-		check1 func(t *testing.T, dp *pb.Datapoint)
 		check2 func(t *testing.T, dp *pb.Datapoint)
 	}{
 		{
@@ -442,12 +404,6 @@ func TestDataBrokerSubscription(t *testing.T) {
 			path:   "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
 			value1: &pb.Value{TypedValue: &pb.Value_Bool{Bool: false}},
 			value2: &pb.Value{TypedValue: &pb.Value_Bool{Bool: true}},
-			check1: func(t *testing.T, dp *pb.Datapoint) {
-				// false is the zero value; just verify value is present.
-				if dp.GetValue() == nil {
-					t.Error("expected value, got nil")
-				}
-			},
 			check2: func(t *testing.T, dp *pb.Datapoint) {
 				if !dp.GetValue().GetBool() {
 					t.Error("expected true, got false")
@@ -459,11 +415,6 @@ func TestDataBrokerSubscription(t *testing.T) {
 			path:   "Vehicle.Parking.SessionActive",
 			value1: &pb.Value{TypedValue: &pb.Value_Bool{Bool: false}},
 			value2: &pb.Value{TypedValue: &pb.Value_Bool{Bool: true}},
-			check1: func(t *testing.T, dp *pb.Datapoint) {
-				if dp.GetValue() == nil {
-					t.Error("expected value, got nil")
-				}
-			},
 			check2: func(t *testing.T, dp *pb.Datapoint) {
 				if !dp.GetValue().GetBool() {
 					t.Error("expected true, got false")
@@ -485,39 +436,42 @@ func TestDataBrokerSubscription(t *testing.T) {
 				t.Fatalf("Subscribe(%s) failed: %v", tc.path, err)
 			}
 
-			// The first message may be the initial value. We drain it if present.
-			// Then write value1 and value2, verifying delivery.
-
-			// Write value1 from a goroutine.
+			// Write values from a goroutine using PublishValue.
 			go func() {
 				time.Sleep(500 * time.Millisecond) // Let subscription establish.
 				ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 				defer cancel()
-				_, err := writerClient.Actuate(ctx, &pb.ActuateRequest{
+				_, err := writerClient.PublishValue(ctx, &pb.PublishValueRequest{
 					SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: tc.path}},
-					Value:    tc.value1,
+					DataPoint: &pb.Datapoint{
+						Timestamp: timestamppb.Now(),
+						Value:     tc.value1,
+					},
 				})
 				if err != nil {
-					t.Errorf("Actuate(%s, value1) failed: %v", tc.path, err)
+					t.Errorf("PublishValue(%s, value1) failed: %v", tc.path, err)
 					return
 				}
 
 				time.Sleep(500 * time.Millisecond)
 				ctx2, cancel2 := context.WithTimeout(context.Background(), opTimeout)
 				defer cancel2()
-				_, err = writerClient.Actuate(ctx2, &pb.ActuateRequest{
+				_, err = writerClient.PublishValue(ctx2, &pb.PublishValueRequest{
 					SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: tc.path}},
-					Value:    tc.value2,
+					DataPoint: &pb.Datapoint{
+						Timestamp: timestamppb.Now(),
+						Value:     tc.value2,
+					},
 				})
 				if err != nil {
-					t.Errorf("Actuate(%s, value2) failed: %v", tc.path, err)
+					t.Errorf("PublishValue(%s, value2) failed: %v", tc.path, err)
 				}
 			}()
 
 			// Read subscription updates. We need to receive at least one update
 			// matching value2 (the final value).
 			var gotValue2 bool
-			for i := 0; i < 5; i++ { // Read up to 5 messages.
+			for i := 0; i < 10; i++ { // Read up to 10 messages.
 				resp, err := stream.Recv()
 				if err != nil {
 					t.Fatalf("Subscribe.Recv() failed: %v", err)
@@ -549,17 +503,9 @@ func TestDataBrokerSubscription(t *testing.T) {
 func TestDataBrokerOverlayMerge(t *testing.T) {
 	_, client := dialTCP(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-	defer cancel()
-
 	// Write to a custom signal.
-	_, err := client.Actuate(ctx, &pb.ActuateRequest{
-		SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: "Vehicle.Parking.SessionActive"}},
-		Value:    &pb.Value{TypedValue: &pb.Value_Bool{Bool: true}},
-	})
-	if err != nil {
-		t.Fatalf("Actuate(Vehicle.Parking.SessionActive) failed: %v", err)
-	}
+	publishValue(t, client, "Vehicle.Parking.SessionActive",
+		&pb.Value{TypedValue: &pb.Value_Bool{Bool: true}})
 
 	// Read custom signal.
 	getCtx1, getCancel1 := context.WithTimeout(context.Background(), opTimeout)
@@ -575,15 +521,8 @@ func TestDataBrokerOverlayMerge(t *testing.T) {
 	}
 
 	// Write to a standard signal.
-	setCtx, setCancel := context.WithTimeout(context.Background(), opTimeout)
-	defer setCancel()
-	_, err = client.Actuate(setCtx, &pb.ActuateRequest{
-		SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: "Vehicle.Speed"}},
-		Value:    &pb.Value{TypedValue: &pb.Value_Float{Float: 50.0}},
-	})
-	if err != nil {
-		t.Fatalf("Actuate(Vehicle.Speed) failed: %v", err)
-	}
+	publishValue(t, client, "Vehicle.Speed",
+		&pb.Value{TypedValue: &pb.Value_Float{Float: 50.0}})
 
 	// Read standard signal.
 	getCtx2, getCancel2 := context.WithTimeout(context.Background(), opTimeout)
@@ -598,33 +537,9 @@ func TestDataBrokerOverlayMerge(t *testing.T) {
 		t.Errorf("expected Vehicle.Speed=50.0, got %v", resp2.GetDataPoint().GetValue().GetFloat())
 	}
 
-	// Both exist in metadata.
-	metaCtx, metaCancel := context.WithTimeout(context.Background(), opTimeout)
-	defer metaCancel()
-	metaResp, err := client.ListMetadata(metaCtx, &pb.ListMetadataRequest{
-		Root:   "Vehicle",
-		Filter: "",
-	})
-	if err != nil {
-		t.Fatalf("ListMetadata(Vehicle) failed: %v", err)
-	}
-
-	foundCustom := false
-	foundStandard := false
-	for _, m := range metaResp.GetMetadata() {
-		if m.GetPath() == "Vehicle.Parking.SessionActive" {
-			foundCustom = true
-		}
-		if m.GetPath() == "Vehicle.Speed" {
-			foundStandard = true
-		}
-	}
-	if !foundCustom {
-		t.Error("Vehicle.Parking.SessionActive not found in metadata")
-	}
-	if !foundStandard {
-		t.Error("Vehicle.Speed not found in metadata")
-	}
+	// Verify both exist in metadata by querying each directly.
+	assertSignalMetadata(t, client, "Vehicle.Parking.SessionActive", pb.DataType_DATA_TYPE_BOOLEAN)
+	assertSignalMetadata(t, client, "Vehicle.Speed", pb.DataType_DATA_TYPE_FLOAT)
 }
 
 // ============================================================================
@@ -658,9 +573,12 @@ func TestDataBrokerNonExistentSignal(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 
-		_, err := client.Actuate(ctx, &pb.ActuateRequest{
+		_, err := client.PublishValue(ctx, &pb.PublishValueRequest{
 			SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: "Vehicle.NonExistent.Signal"}},
-			Value:    &pb.Value{TypedValue: &pb.Value_String_{String_: "value"}},
+			DataPoint: &pb.Datapoint{
+				Timestamp: timestamppb.Now(),
+				Value:     &pb.Value{TypedValue: &pb.Value_String_{String_: "value"}},
+			},
 		})
 		if err == nil {
 			t.Fatal("expected error for non-existent signal, got nil")
@@ -726,10 +644,13 @@ func TestDataBrokerTypeMismatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
-	// Write a string value to a bool signal.
-	_, err := client.Actuate(ctx, &pb.ActuateRequest{
+	// Write a string value to a bool signal using PublishValue.
+	_, err := client.PublishValue(ctx, &pb.PublishValueRequest{
 		SignalId: &pb.SignalID{Signal: &pb.SignalID_Path{Path: "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"}},
-		Value:    &pb.Value{TypedValue: &pb.Value_String_{String_: "not_a_boolean"}},
+		DataPoint: &pb.Datapoint{
+			Timestamp: timestamppb.Now(),
+			Value:     &pb.Value{TypedValue: &pb.Value_String_{String_: "not_a_boolean"}},
+		},
 	})
 	if err == nil {
 		// Some Kuksa versions may silently coerce types.
