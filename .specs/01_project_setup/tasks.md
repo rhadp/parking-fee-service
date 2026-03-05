@@ -173,7 +173,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - [x] Kuksa Databroker reachable on port 55555
     - [x] `make infra-down` stops containers cleanly: `make infra-down`
     - [x] All existing tests still pass: `bash tests/setup/run_all.sh`
-    - [ ] Requirements 01-REQ-7.* acceptance criteria met
+    - [x] Requirements 01-REQ-7.* acceptance criteria met
 
 - [x] 5. Configure test runners
   - [x] 5.1 Verify Rust test runner configuration
@@ -198,12 +198,12 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - [x] `make lint` succeeds: `make lint`
     - [x] Requirements 01-REQ-9.* acceptance criteria met
 
-- [ ] 6. Checkpoint - Project Setup Complete
-  - All spec tests pass: `bash tests/setup/run_all.sh`
-  - All component tests pass: `make test`
-  - All linters pass: `make lint`
-  - Infrastructure lifecycle works: `make infra-up && make infra-down`
-  - Ensure all tests pass, ask the user if questions arise.
+- [x] 6. Checkpoint - Project Setup Complete
+  - [x] All spec tests pass: `bash tests/setup/run_all.sh`
+  - [x] All component tests pass: `make test`
+  - [x] All linters pass: `make lint`
+  - [x] Infrastructure lifecycle works: `make infra-up && make infra-down`
+  - [x] Ensure all tests pass, ask the user if questions arise.
 
 ## Traceability
 

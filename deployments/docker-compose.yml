@@ -3,6 +3,20 @@
 # Stop:  make infra-down
 
 services:
+  nats:
+    image: nats:latest
+    container_name: nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 4222 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   databroker:
     image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
     container_name: databroker
