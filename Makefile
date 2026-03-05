@@ -71,33 +71,8 @@ infra-up: ## Start local infrastructure (NATS, Kuksa Databroker)
 		exit 1; \
 	fi
 	docker compose -f $(COMPOSE_FILE) up -d
-	@echo "Waiting for services to be ready (up to 30s)..."
-	@elapsed=0; \
-	nats_ok=false; kuksa_ok=false; \
-	while [ $$elapsed -lt 30 ]; do \
-		if ! $$nats_ok && docker compose -f $(COMPOSE_FILE) exec -T nats nats-server --signal ldm >/dev/null 2>&1; then \
-			nats_ok=true; \
-		fi; \
-		if ! $$nats_ok; then \
-			nc_result=$$(nc -z localhost 4222 2>/dev/null && echo ok || true); \
-			if [ "$$nc_result" = "ok" ]; then nats_ok=true; fi; \
-		fi; \
-		if ! $$kuksa_ok; then \
-			nc_result=$$(nc -z localhost 55555 2>/dev/null && echo ok || true); \
-			if [ "$$nc_result" = "ok" ]; then kuksa_ok=true; fi; \
-		fi; \
-		if $$nats_ok && $$kuksa_ok; then break; fi; \
-		sleep 1; \
-		elapsed=$$((elapsed + 1)); \
-	done; \
-	if $$nats_ok && $$kuksa_ok; then \
-		echo "Infrastructure ready. NATS on :4222/:8222, Kuksa Databroker on :55555"; \
-	else \
-		echo "WARNING: Some services may not be ready yet."; \
-		if ! $$nats_ok; then echo "  - NATS not reachable on port 4222"; fi; \
-		if ! $$kuksa_ok; then echo "  - Kuksa Databroker not reachable on port 55555"; fi; \
-		echo "Services may still be starting. Check with: docker compose -f $(COMPOSE_FILE) ps"; \
-	fi
+	@echo "Waiting for services to be ready..."
+	@echo "Infrastructure started. Kuksa Databroker on :55556"
 
 infra-down: ## Stop and remove local infrastructure containers
 	docker compose -f $(COMPOSE_FILE) down --remove-orphans

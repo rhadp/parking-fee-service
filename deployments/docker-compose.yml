@@ -1,34 +1,22 @@
-# Local infrastructure for parking-fee-service development
-# Provides NATS message broker and Kuksa Databroker for integration testing
-#
-# Usage:
-#   make infra-up    # Start services
-#   make infra-down  # Stop and remove services
+# Local development infrastructure
+# Start: make infra-up
+# Stop:  make infra-down
 
 services:
-  nats:
-    image: nats:latest
-    container_name: parking-nats
+  databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
+    container_name: databroker
     ports:
-      - "4222:4222"   # Client connections
-      - "8222:8222"   # HTTP monitoring
-    healthcheck:
-      test: ["CMD", "nats-server", "--signal", "ldm"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
+      - "55556:55556"
+    command:
+      - "--address"
+      - "0.0.0.0"
+      - "--port"
+      - "55556"
     restart: unless-stopped
-
-  kuksa-databroker:
-    image: ghcr.io/eclipse-kuksa/kuksa-databroker:master
-    container_name: parking-kuksa-databroker
-    ports:
-      - "55555:55555"  # gRPC
     healthcheck:
-      test: ["CMD-SHELL", "grpcurl -plaintext localhost:55555 list 2>/dev/null || nc -z localhost 55555"]
+      test: ["CMD-SHELL", "grpc_health_probe -addr=:55556 2>/dev/null || nc -z localhost 55556"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 5
       start_period: 10s
-    restart: unless-stopped
