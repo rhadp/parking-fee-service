@@ -91,8 +91,8 @@ echo "--- TS-01-E5: Mock CLI Unknown Subcommand ---"
 for app in parking-app-cli companion-app-cli parking-operator; do
     app_dir="$REPO_ROOT/mock/$app"
     if [ -d "$app_dir" ]; then
-        output=$(cd "$app_dir" && go run . nonexistent 2>&1) || true
-        exit_code=$?
+        exit_code=0
+        output=$(cd "$app_dir" && go run . nonexistent 2>&1) || exit_code=$?
         if [ $exit_code -ne 0 ]; then
             pass "Mock app '$app' exits non-zero for unknown subcommand"
         else

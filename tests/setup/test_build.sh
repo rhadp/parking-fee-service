@@ -185,9 +185,7 @@ echo ""
 echo "--- TS-01-P3: Test Discoverability ---"
 for crate in locking-service cloud-gateway-client update-service parking-operator-adaptor mock-sensors; do
     test_output=$(cd "$REPO_ROOT/rhivos" && cargo test -p "$crate" 2>&1) || true
-    if echo "$test_output" | grep -q "0 passed"; then
-        fail "Rust crate '$crate' has 0 passing tests"
-    elif echo "$test_output" | grep -q "test result: ok"; then
+    if echo "$test_output" | grep -qE "test result: ok\. [1-9]"; then
         pass "Rust crate '$crate' discovers and passes tests"
     else
         fail "Rust crate '$crate' test discovery failed"

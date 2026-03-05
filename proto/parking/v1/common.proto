@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package parking.v1;
+
+// VehicleIdentifier uniquely identifies a vehicle in the system.
+message VehicleIdentifier {
+  // Vehicle Identification Number
+  string vin = 1;
+}
+
+// Location represents a geographic coordinate.
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+}

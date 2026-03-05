@@ -80,14 +80,14 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] Test runner entry point works: `bash tests/setup/run_all.sh` (expected: all fail)
 
-- [ ] 2. Create repo structure and skeleton projects
-  - [ ] 2.1 Create top-level directory structure
+- [x] 2. Create repo structure and skeleton projects
+  - [x] 2.1 Create top-level directory structure
     - Create directories: `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/`
     - Create `android/README.md` with placeholder text
     - Create `mobile/README.md` with placeholder text
     - _Requirements: 01-REQ-1.1, 01-REQ-1.E1, 01-REQ-1.E2_
 
-  - [ ] 2.2 Create Rust workspace and skeleton crates
+  - [x] 2.2 Create Rust workspace and skeleton crates
     - Create `rhivos/Cargo.toml` with workspace members
     - Create skeleton `main.rs` for each binary crate: locking-service, cloud-gateway-client, update-service, parking-operator-adaptor
     - Create skeleton `lib.rs` for mock-sensors with modules: location, speed, door
@@ -95,14 +95,14 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Each skeleton prints a startup message and includes one passing test
     - _Requirements: 01-REQ-1.2, 01-REQ-2.1, 01-REQ-2.2, 01-REQ-2.3, 01-REQ-4.1, 01-REQ-4.3, 01-REQ-10.1, 01-REQ-10.2_
 
-  - [ ] 2.3 Create Go backend workspace and skeleton modules
+  - [x] 2.3 Create Go backend workspace and skeleton modules
     - Create `backend/go.work` listing both modules
     - Create `backend/parking-fee-service/` with go.mod and skeleton main.go
     - Create `backend/cloud-gateway/` with go.mod and skeleton main.go
     - Each skeleton prints a startup message and includes one passing test
     - _Requirements: 01-REQ-1.3, 01-REQ-3.1, 01-REQ-3.3, 01-REQ-3.4, 01-REQ-4.2, 01-REQ-4.3_
 
-  - [ ] 2.4 Create mock CLI apps and Go workspace
+  - [x] 2.4 Create mock CLI apps and Go workspace
     - Create `mock/go.work` listing all mock app modules
     - Create `mock/parking-app-cli/` with go.mod, main.go (prints usage, handles subcommands)
     - Create `mock/companion-app-cli/` with go.mod, main.go (prints usage, handles subcommands)
@@ -110,21 +110,21 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Each app prints usage when run without args, errors on unknown subcommands
     - _Requirements: 01-REQ-1.4, 01-REQ-3.2, 01-REQ-8.1, 01-REQ-8.2, 01-REQ-8.3, 01-REQ-8.4, 01-REQ-8.E1_
 
-  - [ ] 2.5 Create shared proto definitions
+  - [x] 2.5 Create shared proto definitions
     - Create `proto/parking/v1/common.proto` with proto3 syntax and package declaration
     - Include placeholder message types (Location, VehicleIdentifier)
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Directory structure tests pass: `bash tests/setup/test_directories.sh`
-    - [ ] Rust workspace builds: `cd rhivos && cargo build`
-    - [ ] Rust tests pass: `cd rhivos && cargo test`
-    - [ ] Go backend builds: `cd backend/parking-fee-service && go build ./... && cd ../cloud-gateway && go build ./...`
-    - [ ] Go backend tests pass: `cd backend/parking-fee-service && go test ./... && cd ../cloud-gateway && go test ./...`
-    - [ ] Mock CLI apps build and run: `cd mock/parking-app-cli && go run .`
-    - [ ] Proto file is valid proto3
-    - [ ] All build tests pass: `bash tests/setup/test_build.sh`
-    - [ ] Requirements 01-REQ-1.* through 01-REQ-5.*, 01-REQ-8.*, 01-REQ-10.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Directory structure tests pass: `bash tests/setup/test_directories.sh`
+    - [x] Rust workspace builds: `cd rhivos && cargo build`
+    - [x] Rust tests pass: `cd rhivos && cargo test`
+    - [x] Go backend builds: `cd backend/parking-fee-service && go build ./... && cd ../cloud-gateway && go build ./...`
+    - [x] Go backend tests pass: `cd backend/parking-fee-service && go test ./... && cd ../cloud-gateway && go test ./...`
+    - [x] Mock CLI apps build and run: `cd mock/parking-app-cli && go run .`
+    - [x] Proto file is valid proto3
+    - [x] All build tests pass: `bash tests/setup/test_build.sh`
+    - [x] Requirements 01-REQ-1.* through 01-REQ-5.*, 01-REQ-8.*, 01-REQ-10.* acceptance criteria met
 
 - [ ] 3. Setup build system (root Makefile + per-component builds)
   - [ ] 3.1 Create root Makefile
