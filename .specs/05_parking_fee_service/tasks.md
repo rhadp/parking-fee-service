@@ -211,7 +211,7 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - [x] Build succeeds: `cd backend/parking-fee-service && go build .`
     - [x] All Definition of Done criteria from design.md are satisfied
 
-- [ ] 6. Checkpoint -- PARKING_FEE_SERVICE Complete
+- [x] 6. Checkpoint -- PARKING_FEE_SERVICE Complete
   - Ensure all tests pass, ask the user if questions arise.
   - Review Definition of Done from design.md.
 
