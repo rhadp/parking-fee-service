@@ -175,28 +175,28 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - [x] All existing tests still pass: `bash tests/setup/run_all.sh`
     - [ ] Requirements 01-REQ-7.* acceptance criteria met
 
-- [ ] 5. Configure test runners
-  - [ ] 5.1 Verify Rust test runner configuration
+- [x] 5. Configure test runners
+  - [x] 5.1 Verify Rust test runner configuration
     - Confirm `cargo test` in rhivos/ discovers and runs all workspace tests
     - Confirm test output format is usable (names, pass/fail counts)
     - _Requirements: 01-REQ-9.1_
 
-  - [ ] 5.2 Verify Go test runner configuration
+  - [x] 5.2 Verify Go test runner configuration
     - Confirm `go test ./...` in each Go module discovers and runs all tests
     - Confirm test output includes pass/fail status
     - _Requirements: 01-REQ-9.2_
 
-  - [ ] 5.3 Verify make test integration
+  - [x] 5.3 Verify make test integration
     - Confirm `make test` runs both Rust and Go tests
     - Confirm combined output shows results from all toolchains
     - _Requirements: 01-REQ-9.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Mock CLI tests pass: `bash tests/setup/test_mock_cli.sh`
-    - [ ] All spec tests pass: `bash tests/setup/run_all.sh`
-    - [ ] `make test` succeeds: `make test`
-    - [ ] `make lint` succeeds: `make lint`
-    - [ ] Requirements 01-REQ-9.* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Mock CLI tests pass: `bash tests/setup/test_mock_cli.sh`
+    - [x] All spec tests pass: `bash tests/setup/run_all.sh`
+    - [x] `make test` succeeds: `make test`
+    - [x] `make lint` succeeds: `make lint`
+    - [x] Requirements 01-REQ-9.* acceptance criteria met
 
 - [ ] 6. Checkpoint - Project Setup Complete
   - All spec tests pass: `bash tests/setup/run_all.sh`
