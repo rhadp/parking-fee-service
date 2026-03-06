@@ -147,24 +147,24 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
-- [ ] 5. Integration tests: REST and error handling
-  - [ ] 5.1 Integration test: REST start/stop cycle
+- [x] 5. Integration tests: REST and error handling
+  - [x] 5.1 Integration test: REST start/stop cycle
     - Directly call mock PARKING_OPERATOR REST endpoints to validate contract
     - `POST /parking/start` returns session_id and status
     - `POST /parking/stop` returns session_id, duration, fee, and status
     - `GET /parking/status/{session_id}` returns current session status with rate information
     - _Test Spec: TS-08-9, TS-08-10_
 
-  - [ ] 5.2 Integration test: operator unreachable
+  - [x] 5.2 Integration test: operator unreachable
     - Stop the mock operator, write `IsLocked = true`, verify session remains idle
     - Start a session, stop the mock operator, unlock, verify adaptor transitions to idle
     - _Test Spec: TS-08-E1, TS-08-E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] REST integration tests pass
-    - [ ] Error handling tests pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
+  - [x] 5.V Verify task group 5
+    - [x] REST integration tests pass
+    - [x] Error handling tests pass
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
 - [ ] 6. Integration tests: manual override and consistency
   - [ ] 6.1 Integration test: manual start and stop
