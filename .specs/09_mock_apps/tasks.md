@@ -102,28 +102,28 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - [x] Sensor tests pass: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor`
 
-- [ ] 3. Implement mock PARKING_OPERATOR
-  - [ ] 3.1 Implement data model and session store
+- [x] 3. Implement mock PARKING_OPERATOR
+  - [x] 3.1 Implement data model and session store
     - Create `mock/parking-operator/models.go` with request/response types
     - Create `mock/parking-operator/session.go` with in-memory `SessionStore`: `NewSessionStore()`, `Create(vehicleID, zoneID)`, `Stop(sessionID)`, `List()`
     - Rate: 2.50 EUR/hr
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [ ] 3.2 Implement HTTP handlers
+  - [x] 3.2 Implement HTTP handlers
     - `HandleStartParking` -- parse JSON body, validate, create session, return 200 or 400
     - `HandleStopParking` -- parse JSON body, validate, stop session, return 200/404/400
     - `HandleParkingStatus` -- return all sessions as JSON array
     - `writeJSON` and `writeError` helpers
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [ ] 3.3 Implement server entry point
+  - [x] 3.3 Implement server entry point
     - Read port from `PORT` env var or `-port` flag (default: 9090)
     - Register routes: `POST /parking/start`, `POST /parking/stop`, `GET /parking/status`
     - Start HTTP server and log startup message
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All tests pass: `cd mock/parking-operator && go test ./... -v`
-    - [ ] No lint issues: `cd mock/parking-operator && go vet ./...`
+  - [x] 3.V Verify task group 3
+    - [x] All tests pass: `cd mock/parking-operator && go test ./... -v`
+    - [x] No lint issues: `cd mock/parking-operator && go vet ./...`
 
 - [ ] 4. Implement parking-app-cli
   - [ ] 4.1 Create shared internal packages
