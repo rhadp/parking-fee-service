@@ -129,8 +129,8 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [ ] 4. Telemetry publishing and response relay
-  - [ ] 4.1 Implement `response_relay.rs`
+- [x] 4. Telemetry publishing and response relay
+  - [x] 4.1 Implement `response_relay.rs`
     - Subscribe to `Vehicle.Command.Door.Response` on DATA_BROKER via `databroker_client.subscribe_signal()`
     - On each response update, read the JSON string value
     - Publish the response JSON to `vehicles.{VIN}.command_responses` on NATS
@@ -138,26 +138,26 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Handle unparseable response JSON from DATA_BROKER: log warning and skip
     - _Requirements: 04-REQ-3.1_
 
-  - [ ] 4.2 Implement `telemetry.rs`
+  - [x] 4.2 Implement `telemetry.rs`
     - Subscribe to DATA_BROKER signals: `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`, `Vehicle.CurrentLocation.Latitude`, `Vehicle.CurrentLocation.Longitude`, `Vehicle.Parking.SessionActive`
     - On each signal change, construct a telemetry JSON message with `vin`, `signal`, `value`, and `timestamp`
     - Publish to `vehicles.{VIN}.telemetry` on NATS
     - Only publish on actual value changes, not on periodic schedule
     - _Requirements: 04-REQ-4.1_
 
-  - [ ] 4.3 Wire response relay and telemetry into `main.rs`
+  - [x] 4.3 Wire response relay and telemetry into `main.rs`
     - Spawn `response_relay` and `telemetry` as tokio tasks alongside `command_processor`
     - Ensure all three tasks run concurrently
     - Add shutdown signal handling (SIGTERM/SIGINT) that closes NATS and DATA_BROKER connections
     - If any task exits with an error, log and attempt restart
     - _Requirements: 04-REQ-7.1_
 
-  - [ ] 4.V Verify task group 4
+  - [x] 4.V Verify task group 4
     - [ ] Writing a response to `Vehicle.Command.Door.Response` on DATA_BROKER results in the response appearing on NATS
     - [ ] Writing telemetry signals to DATA_BROKER results in telemetry messages on NATS
     - [ ] Spec tests TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5 pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
 - [ ] 5. Integration tests
   - [ ] 5.1 Verify command pipeline end-to-end (TS-04-P1)

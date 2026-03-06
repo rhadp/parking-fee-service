@@ -3,6 +3,8 @@ pub mod command_processor;
 pub mod config;
 pub mod databroker_client;
 pub mod nats_client;
+pub mod response_relay;
+pub mod telemetry;
 
 /// Generated Kuksa VAL v2 protobuf types.
 #[allow(clippy::doc_overindented_list_items)]
@@ -82,15 +84,43 @@ async fn main() {
         command_processor::run(command_sub, cmd_databroker).await;
     });
 
-    // Wait for shutdown signal or task failure
+    // Spawn the response relay task
+    let resp_databroker = Arc::clone(&databroker);
+    let resp_nats = nats_client.clone();
+    let resp_handle = tokio::spawn(async move {
+        response_relay::run(resp_databroker, resp_nats).await;
+    });
+
+    // Spawn the telemetry publisher task
+    let telem_databroker = Arc::clone(&databroker);
+    let telem_nats = nats_client.clone();
+    let telem_handle = tokio::spawn(async move {
+        telemetry::run(telem_databroker, telem_nats).await;
+    });
+
+    // Wait for shutdown signal or task failure.
+    // If any task exits with an error, log it. The orchestrator or
+    // supervisor can restart the whole process.
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("Received shutdown signal, exiting");
         }
         result = cmd_handle => {
             match result {
-                Ok(()) => warn!("Command processor task exited"),
+                Ok(()) => warn!("Command processor task exited, restarting may be needed"),
                 Err(e) => error!("Command processor task failed: {e}"),
+            }
+        }
+        result = resp_handle => {
+            match result {
+                Ok(()) => warn!("Response relay task exited, restarting may be needed"),
+                Err(e) => error!("Response relay task failed: {e}"),
+            }
+        }
+        result = telem_handle => {
+            match result {
+                Ok(()) => warn!("Telemetry publisher task exited, restarting may be needed"),
+                Err(e) => error!("Telemetry publisher task failed: {e}"),
             }
         }
     }
