@@ -10,10 +10,24 @@
 /// If a signal value is not available, the safe default is assumed
 /// (speed = 0, door closed).
 pub fn check_safety_constraints(
-    _speed: Option<f64>,
-    _door_open: Option<bool>,
+    speed: Option<f64>,
+    door_open: Option<bool>,
 ) -> Result<(), String> {
-    todo!("Implement safety constraint checks")
+    // Check speed first: if >= 1.0 km/h, vehicle is moving
+    // If no signal value, default to safe (speed = 0)
+    let speed_value = speed.unwrap_or(0.0);
+    if speed_value >= 1.0 {
+        return Err("vehicle_moving".to_string());
+    }
+
+    // Check door state: if open, door is ajar
+    // If no signal value, default to safe (door closed)
+    let door_is_open = door_open.unwrap_or(false);
+    if door_is_open {
+        return Err("door_ajar".to_string());
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

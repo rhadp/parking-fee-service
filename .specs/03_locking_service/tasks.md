@@ -131,8 +131,8 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - [x] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
-- [ ] 4. Safety checks and lock/unlock execution
-  - [ ] 4.1 Implement `safety.rs`
+- [x] 4. Safety checks and lock/unlock execution
+  - [x] 4.1 Implement `safety.rs`
     - Implement `check_safety(databroker_client) -> Result<(), String>`
     - Read `Vehicle.Speed` from DATA_BROKER; if speed >= 1.0, return `Err("vehicle_moving")`
     - Read `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` from DATA_BROKER; if `true`, return `Err("door_ajar")`
@@ -140,13 +140,13 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Return `Ok(())` if all constraints pass
     - _Requirements: 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3_
 
-  - [ ] 4.2 Implement `executor.rs`
+  - [x] 4.2 Implement `executor.rs`
     - On `"lock"`: write `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked = true`
     - On `"unlock"`: write `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked = false`
     - Serialize `CommandResponse` to JSON and write to `Vehicle.Command.Door.Response`
     - _Requirements: 03-REQ-4.1, 03-REQ-4.2, 03-REQ-5.1, 03-REQ-5.2_
 
-  - [ ] 4.3 Wire processing pipeline in `main.rs`
+  - [x] 4.3 Wire processing pipeline in `main.rs`
     - Receive signal update from `Vehicle.Command.Door.Lock` subscription stream
     - Parse JSON using `Command::from_json`; on failure: write failure response (`"invalid_command"`), continue
     - Validate action; on unknown action: write failure response (`"invalid_action"`), continue
@@ -155,20 +155,20 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Write success response
     - _Requirements: 03-REQ-2.1, 03-REQ-2.2, 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3, 03-REQ-4.1, 03-REQ-4.2, 03-REQ-5.1, 03-REQ-5.2, 03-REQ-6.1_
 
-  - [ ] 4.4 Implement DATA_BROKER connection recovery
+  - [x] 4.4 Implement DATA_BROKER connection recovery
     - Detect broken DATA_BROKER streams during operation
     - Log error and retry connection with exponential backoff
     - Re-establish subscription to `Vehicle.Command.Door.Lock` after reconnection
     - _Requirements: 03-REQ-8.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All unit tests for safety validation pass
-    - [ ] With infra running, lock command with speed = 0 and door closed results in `IsLocked = true` and a success response
-    - [ ] Command with speed > 0 results in a `"vehicle_moving"` failure response
-    - [ ] Command with door open results in a `"door_ajar"` failure response
-    - [ ] Invalid commands produce appropriate failure responses
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
+  - [x] 4.V Verify task group 4
+    - [x] All unit tests for safety validation pass
+    - [x] With infra running, lock command with speed = 0 and door closed results in `IsLocked = true` and a success response
+    - [x] Command with speed > 0 results in a `"vehicle_moving"` failure response
+    - [x] Command with door open results in a `"door_ajar"` failure response
+    - [x] Invalid commands produce appropriate failure responses
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
 - [ ] 5. Integration testing
   - [ ] 5.1 Verify lock command happy path (TS-03-1)
