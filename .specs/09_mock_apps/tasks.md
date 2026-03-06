@@ -181,24 +181,24 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - [x] No lint issues: `cd mock/companion-app-cli && go vet ./...`
     - [x] Build succeeds: `go build ./mock/companion-app-cli/...`
 
-- [ ] 6. Checkpoint
-  - [ ] 6.1 Run full test suite
+- [x] 6. Checkpoint
+  - [x] 6.1 Run full test suite
     - `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor` -- all pass
     - `cd mock/parking-operator && go test ./... -v` -- all pass
     - `cd mock/parking-app-cli && go test ./... -v` -- all pass
     - `cd mock/companion-app-cli && go test ./... -v` -- all pass
 
-  - [ ] 6.2 Run linters
+  - [x] 6.2 Run linters
     - `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor` -- no warnings
     - `cd mock/parking-operator && go vet ./...` -- no issues
     - `cd mock/parking-app-cli && go vet ./...` -- no issues
     - `cd mock/companion-app-cli && go vet ./...` -- no issues
 
-  - [ ] 6.3 Build verification
+  - [x] 6.3 Build verification
     - All Rust sensor binaries build
     - All Go mock binaries build
 
-  - [ ] 6.4 Review Definition of Done
+  - [x] 6.4 Review Definition of Done
     - Confirm all items in the design.md Definition of Done are satisfied
 
 ## Traceability
