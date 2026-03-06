@@ -95,6 +95,21 @@ impl DatabrokerClient {
         })
     }
 
+    /// Attempt a single connection to DATA_BROKER via TCP (gRPC over HTTP/2).
+    ///
+    /// This is primarily used for integration testing when UDS is not available
+    /// (e.g., when DATA_BROKER runs in a container on macOS).
+    pub async fn try_connect_tcp(url: &str) -> Result<Self, tonic::transport::Error> {
+        let channel = Endpoint::try_from(url.to_string())?
+            .connect()
+            .await?;
+        let client = ValClient::new(channel);
+        Ok(DatabrokerClient {
+            client,
+            uds_path: url.to_string(),
+        })
+    }
+
     /// Returns the UDS path this client is connected to.
     pub fn uds_path(&self) -> &str {
         &self.uds_path

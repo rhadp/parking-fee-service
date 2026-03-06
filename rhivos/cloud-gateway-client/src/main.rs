@@ -1,23 +1,10 @@
-pub mod command;
-pub mod command_processor;
-pub mod config;
-pub mod databroker_client;
-pub mod nats_client;
-pub mod response_relay;
-pub mod telemetry;
-
-/// Generated Kuksa VAL v2 protobuf types.
-#[allow(clippy::doc_overindented_list_items)]
-pub mod kuksa_proto {
-    tonic::include_proto!("kuksa.val.v2");
-}
-
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use config::Config;
-use databroker_client::DatabrokerClient;
-use nats_client::NatsClient;
+use cloud_gateway_client::config::Config;
+use cloud_gateway_client::databroker_client::DatabrokerClient;
+use cloud_gateway_client::nats_client::NatsClient;
+use cloud_gateway_client::{command_processor, response_relay, telemetry};
 use tracing::{error, info, warn};
 
 #[tokio::main]
