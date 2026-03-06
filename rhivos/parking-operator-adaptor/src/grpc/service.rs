@@ -2,7 +2,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 
-use crate::session::SessionManager;
+use crate::operator::{OperatorClient, OperatorError};
+use crate::session::{SessionError, SessionManager, SessionState};
 
 /// Generated protobuf types from parking_adaptor.proto.
 pub mod pb {
@@ -10,16 +11,42 @@ pub mod pb {
 }
 
 /// gRPC service implementation for the ParkingAdaptor.
-/// Stub: RPC handlers will be implemented in task group 2.
-#[allow(dead_code)]
 pub struct ParkingAdaptorService {
     session: Arc<Mutex<SessionManager>>,
+    operator: Arc<OperatorClient>,
+    vehicle_id: String,
     zone_id: String,
 }
 
 impl ParkingAdaptorService {
-    pub fn new(session: Arc<Mutex<SessionManager>>, zone_id: String) -> Self {
-        Self { session, zone_id }
+    pub fn new(
+        session: Arc<Mutex<SessionManager>>,
+        operator: Arc<OperatorClient>,
+        vehicle_id: String,
+        zone_id: String,
+    ) -> Self {
+        Self {
+            session,
+            operator,
+            vehicle_id,
+            zone_id,
+        }
+    }
+
+    /// Maps an OperatorError to a gRPC Status.
+    fn map_operator_error(err: &OperatorError) -> Status {
+        match err {
+            OperatorError::Unreachable(msg) => {
+                Status::unavailable(format!("operator unreachable: {msg}"))
+            }
+            OperatorError::Timeout => Status::deadline_exceeded("operator request timed out"),
+            OperatorError::HttpError(code, body) => {
+                Status::internal(format!("operator returned HTTP {code}: {body}"))
+            }
+            OperatorError::ParseError(msg) => {
+                Status::internal(format!("failed to parse operator response: {msg}"))
+            }
+        }
     }
 }
 
@@ -27,34 +54,114 @@ impl ParkingAdaptorService {
 impl pb::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
     async fn start_session(
         &self,
-        _request: Request<pb::StartSessionRequest>,
+        request: Request<pb::StartSessionRequest>,
     ) -> Result<Response<pb::StartSessionResponse>, Status> {
-        // Stub: not yet implemented
-        Err(Status::unimplemented("not yet implemented"))
+        let zone_id = request.into_inner().zone_id;
+        let zone = if zone_id.is_empty() {
+            self.zone_id.clone()
+        } else {
+            zone_id
+        };
+
+        // Acquire lock and attempt state transition
+        let mut session = self.session.lock().await;
+        session.try_start(&zone).map_err(|e| match e {
+            SessionError::AlreadyActive => Status::already_exists("session already active"),
+            _ => Status::internal("invalid state transition"),
+        })?;
+
+        // Call operator REST API
+        match self
+            .operator
+            .start_session(&self.vehicle_id, &zone)
+            .await
+        {
+            Ok(resp) => {
+                session.confirm_start(&resp.session_id);
+                // TODO: publish SessionActive = true to DATA_BROKER (task group 3)
+                tracing::info!(session_id = %resp.session_id, "session started");
+                Ok(Response::new(pb::StartSessionResponse {
+                    session_id: resp.session_id,
+                    status: resp.status,
+                }))
+            }
+            Err(err) => {
+                tracing::error!(?err, "operator start_session failed");
+                session.fail_start();
+                Err(Self::map_operator_error(&err))
+            }
+        }
     }
 
     async fn stop_session(
         &self,
         _request: Request<pb::StopSessionRequest>,
     ) -> Result<Response<pb::StopSessionResponse>, Status> {
-        // Stub: not yet implemented
-        Err(Status::unimplemented("not yet implemented"))
+        // Acquire lock and attempt state transition
+        let mut session = self.session.lock().await;
+        let session_id = session.try_stop().map_err(|e| match e {
+            SessionError::NoActiveSession => Status::not_found("no active session"),
+            _ => Status::internal("invalid state transition"),
+        })?;
+
+        // Call operator REST API
+        match self.operator.stop_session(&session_id).await {
+            Ok(resp) => {
+                session.confirm_stop();
+                // TODO: publish SessionActive = false to DATA_BROKER (task group 3)
+                tracing::info!(session_id = %resp.session_id, "session stopped");
+                Ok(Response::new(pb::StopSessionResponse {
+                    session_id: resp.session_id,
+                    duration_seconds: resp.duration,
+                    fee: resp.fee,
+                    status: resp.status,
+                }))
+            }
+            Err(err) => {
+                tracing::error!(?err, "operator stop_session failed");
+                session.fail_stop();
+                Err(Self::map_operator_error(&err))
+            }
+        }
     }
 
     async fn get_status(
         &self,
         _request: Request<pb::GetStatusRequest>,
     ) -> Result<Response<pb::GetStatusResponse>, Status> {
-        // Stub: not yet implemented
-        Err(Status::unimplemented("not yet implemented"))
+        let session = self.session.lock().await;
+        let state = match session.state() {
+            SessionState::Idle => "idle",
+            SessionState::Starting => "starting",
+            SessionState::Active => "active",
+            SessionState::Stopping => "stopping",
+        };
+        let session_id = session.session_id().unwrap_or("").to_string();
+        let zone_id = session.zone_id().unwrap_or("").to_string();
+
+        Ok(Response::new(pb::GetStatusResponse {
+            state: state.to_string(),
+            session_id,
+            zone_id,
+        }))
     }
 
     async fn get_rate(
         &self,
         _request: Request<pb::GetRateRequest>,
     ) -> Result<Response<pb::GetRateResponse>, Status> {
-        // Stub: not yet implemented
-        Err(Status::unimplemented("not yet implemented"))
+        if self.zone_id.is_empty() {
+            return Err(Status::failed_precondition("no zone configured"));
+        }
+
+        // Return default rate information for the configured zone
+        // In a production system, this would query the operator
+        Ok(Response::new(pb::GetRateResponse {
+            rate_type: "per_hour".to_string(),
+            rate_amount: 2.50,
+            currency: "EUR".to_string(),
+            zone_id: self.zone_id.clone(),
+        }))
     }
 }
 
@@ -66,7 +173,13 @@ mod tests {
     /// Helper to create a service instance for testing.
     fn test_service(zone_id: &str) -> ParkingAdaptorService {
         let session = Arc::new(Mutex::new(SessionManager::new()));
-        ParkingAdaptorService::new(session, zone_id.to_string())
+        let operator = Arc::new(OperatorClient::new("http://localhost:8080"));
+        ParkingAdaptorService::new(
+            session,
+            operator,
+            "DEMO-VIN-001".to_string(),
+            zone_id.to_string(),
+        )
     }
 
     /// TS-08-5: GetStatus returns idle state when no session is active.
@@ -105,7 +218,13 @@ mod tests {
             s.try_start("zone-demo-1").unwrap();
             s.confirm_start("sess-123");
         }
-        let svc = ParkingAdaptorService::new(session, "zone-demo-1".to_string());
+        let operator = Arc::new(OperatorClient::new("http://localhost:8080"));
+        let svc = ParkingAdaptorService::new(
+            session,
+            operator,
+            "DEMO-VIN-001".to_string(),
+            "zone-demo-1".to_string(),
+        );
 
         let request = Request::new(pb::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),

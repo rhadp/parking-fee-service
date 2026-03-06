@@ -1,5 +1,4 @@
 //! Session state machine for the PARKING_OPERATOR_ADAPTOR.
-//! Stub: logic will be implemented in task group 2.
 
 /// Possible states for a parking session.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +21,6 @@ pub enum SessionError {
 pub struct SessionManager {
     state: SessionState,
     session_id: Option<String>,
-    #[allow(dead_code)]
     zone_id: Option<String>,
 }
 
@@ -52,38 +50,76 @@ impl SessionManager {
         self.session_id.as_deref()
     }
 
+    /// Returns the current zone ID, if any.
+    pub fn zone_id(&self) -> Option<&str> {
+        self.zone_id.as_deref()
+    }
+
     /// Attempts to transition from Idle to Starting.
-    /// Returns Err(AlreadyActive) if session is already active.
-    pub fn try_start(&mut self, _zone_id: &str) -> Result<(), SessionError> {
-        // Stub: not yet implemented
-        Err(SessionError::InvalidTransition)
+    /// Returns Err(AlreadyActive) if session is already active or starting.
+    pub fn try_start(&mut self, zone_id: &str) -> Result<(), SessionError> {
+        match self.state {
+            SessionState::Idle => {
+                self.state = SessionState::Starting;
+                self.zone_id = Some(zone_id.to_string());
+                Ok(())
+            }
+            SessionState::Active | SessionState::Starting => Err(SessionError::AlreadyActive),
+            SessionState::Stopping => Err(SessionError::InvalidTransition),
+        }
     }
 
     /// Confirms a successful start (Starting -> Active).
-    pub fn confirm_start(&mut self, _session_id: &str) {
-        // Stub: not yet implemented
+    pub fn confirm_start(&mut self, session_id: &str) {
+        if self.state == SessionState::Starting {
+            self.state = SessionState::Active;
+            self.session_id = Some(session_id.to_string());
+        }
     }
 
     /// Records a failed start (Starting -> Idle).
     pub fn fail_start(&mut self) {
-        // Stub: not yet implemented
+        if self.state == SessionState::Starting {
+            self.state = SessionState::Idle;
+            self.session_id = None;
+            self.zone_id = None;
+        }
     }
 
     /// Attempts to transition from Active to Stopping.
-    /// Returns Err(NoActiveSession) if no session is active.
+    /// Returns the session_id on success, or Err(NoActiveSession) if no session is active.
     pub fn try_stop(&mut self) -> Result<String, SessionError> {
-        // Stub: not yet implemented
-        Err(SessionError::InvalidTransition)
+        match self.state {
+            SessionState::Active => {
+                let session_id = self
+                    .session_id
+                    .clone()
+                    .ok_or(SessionError::InvalidTransition)?;
+                self.state = SessionState::Stopping;
+                Ok(session_id)
+            }
+            SessionState::Idle | SessionState::Stopping => Err(SessionError::NoActiveSession),
+            SessionState::Starting => Err(SessionError::InvalidTransition),
+        }
     }
 
     /// Confirms a successful stop (Stopping -> Idle).
     pub fn confirm_stop(&mut self) {
-        // Stub: not yet implemented
+        if self.state == SessionState::Stopping {
+            self.state = SessionState::Idle;
+            self.session_id = None;
+            self.zone_id = None;
+        }
     }
 
     /// Records a failed stop (Stopping -> Idle to avoid stuck state).
     pub fn fail_stop(&mut self) {
-        // Stub: not yet implemented
+        if self.state == SessionState::Stopping {
+            self.state = SessionState::Idle;
+            // session_id is kept as-is; the operator did not confirm stop
+            self.session_id = None;
+            self.zone_id = None;
+        }
     }
 }
 

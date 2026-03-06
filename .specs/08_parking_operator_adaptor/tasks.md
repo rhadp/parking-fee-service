@@ -64,19 +64,19 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - [x] `cd rhivos && cargo test -p parking-operator-adaptor` compiles but all tests fail
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
-- [ ] 2. Implement gRPC server (proto + service stub)
-  - [ ] 2.1 Implement configuration module
+- [x] 2. Implement gRPC server (proto + service stub)
+  - [x] 2.1 Implement configuration module
     - Create `src/config.rs` with `Config` struct reading from environment variables with defaults:
     - `PARKING_OPERATOR_URL` (default: `http://localhost:8080`), `DATA_BROKER_ADDR` (default: `http://localhost:55556`), `GRPC_PORT` (default: `50052`), `VEHICLE_ID` (default: `DEMO-VIN-001`), `ZONE_ID` (default: `zone-demo-1`)
     - _Requirements: 08-REQ-8.1_
 
-  - [ ] 2.2 Implement session state machine
+  - [x] 2.2 Implement session state machine
     - Implement `SessionState` enum with variants: `Idle`, `Starting`, `Active`, `Stopping`
     - Implement `SessionManager` with: `state()`, `try_start()`, `confirm_start(session_id)`, `fail_start()`, `try_stop()`, `confirm_stop()`, `fail_stop()`, `session_id()`
     - Protect state with `tokio::sync::Mutex`
     - _Requirements: 08-REQ-3.1, 08-REQ-4.1_
 
-  - [ ] 2.3 Implement ParkingAdaptor gRPC service
+  - [x] 2.3 Implement ParkingAdaptor gRPC service
     - Implement `src/grpc/service.rs` with struct implementing the `ParkingAdaptor` tonic trait
     - `StartSession`: acquire session lock, call `try_start`, call operator `start_session`, call `confirm_start` / `fail_start`, publish `SessionActive`
     - `StopSession`: acquire session lock, call `try_stop`, call operator `stop_session`, call `confirm_stop` / `fail_stop`, publish `SessionActive`
@@ -85,16 +85,16 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - Map errors to appropriate gRPC status codes
     - _Requirements: 08-REQ-1.1, 08-REQ-1.2, 08-REQ-1.3, 08-REQ-9.1_
 
-  - [ ] 2.4 Wire gRPC server in main.rs
+  - [x] 2.4 Wire gRPC server in main.rs
     - Read configuration, create `SessionManager`, start tonic gRPC server on configured port
     - Log startup message
     - _Requirements: 08-REQ-1.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Session state machine tests from task 1.3 pass
-    - [ ] gRPC tests from task 1.5 pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
+  - [x] 2.V Verify task group 2
+    - [x] Session state machine tests from task 1.3 pass
+    - [x] gRPC tests from task 1.5 pass
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
 - [ ] 3. Implement DATA_BROKER subscription and state writing
   - [ ] 3.1 Implement DATA_BROKER subscriber
