@@ -42,9 +42,27 @@ impl Command {
     /// - JSON is well-formed and contains all required fields
     /// - `action` is `"lock"` or `"unlock"`
     /// - `command_id` is a valid UUID string
-    pub fn from_json(_data: &[u8]) -> Result<Self, CommandError> {
-        // TODO: implement in task group 3
-        todo!("Command::from_json not yet implemented")
+    pub fn from_json(data: &[u8]) -> Result<Self, CommandError> {
+        let cmd: Command = serde_json::from_slice(data)
+            .map_err(|e| CommandError::ParseError(e.to_string()))?;
+
+        // Validate action is "lock" or "unlock"
+        if cmd.action != "lock" && cmd.action != "unlock" {
+            return Err(CommandError::ValidationError(format!(
+                "invalid action '{}': must be 'lock' or 'unlock'",
+                cmd.action
+            )));
+        }
+
+        // Validate command_id is a valid UUID
+        uuid::Uuid::parse_str(&cmd.command_id).map_err(|e| {
+            CommandError::ValidationError(format!(
+                "invalid command_id '{}': not a valid UUID: {e}",
+                cmd.command_id
+            ))
+        })?;
+
+        Ok(cmd)
     }
 }
 

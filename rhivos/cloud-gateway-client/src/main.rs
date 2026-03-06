@@ -1,10 +1,22 @@
 pub mod command;
+pub mod command_processor;
 pub mod config;
+pub mod databroker_client;
 pub mod nats_client;
 
+/// Generated Kuksa VAL v2 protobuf types.
+#[allow(clippy::doc_overindented_list_items)]
+pub mod kuksa_proto {
+    tonic::include_proto!("kuksa.val.v2");
+}
+
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use config::Config;
+use databroker_client::DatabrokerClient;
 use nats_client::NatsClient;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() {
@@ -37,10 +49,23 @@ async fn main() {
     };
 
     // Subscribe to commands
-    let mut _command_sub = match nats_client.subscribe_commands().await {
+    let command_sub = match nats_client.subscribe_commands().await {
         Ok(sub) => sub,
         Err(e) => {
             error!("Failed to subscribe to command subject: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    // Connect to DATA_BROKER via gRPC over UDS
+    info!(
+        path = %config.databroker_uds_path,
+        "Connecting to DATA_BROKER"
+    );
+    let databroker = match DatabrokerClient::connect(&config.databroker_uds_path).await {
+        Ok(db) => Arc::new(Mutex::new(db)),
+        Err(e) => {
+            error!("Failed to connect to DATA_BROKER: {e}");
             std::process::exit(1);
         }
     };
@@ -51,10 +76,22 @@ async fn main() {
         config.vin
     );
 
-    // Wait for shutdown signal
+    // Spawn the command processor task
+    let cmd_databroker = Arc::clone(&databroker);
+    let cmd_handle = tokio::spawn(async move {
+        command_processor::run(command_sub, cmd_databroker).await;
+    });
+
+    // Wait for shutdown signal or task failure
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("Received shutdown signal, exiting");
+        }
+        result = cmd_handle => {
+            match result {
+                Ok(()) => warn!("Command processor task exited"),
+                Err(e) => error!("Command processor task failed: {e}"),
+            }
         }
     }
 
