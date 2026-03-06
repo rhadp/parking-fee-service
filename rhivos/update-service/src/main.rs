@@ -1,11 +1,17 @@
-fn main() {
-    println!("update-service starting...");
+pub mod config;
+pub mod container;
+pub mod grpc;
+pub mod manager;
+pub mod oci;
+pub mod offload;
+pub mod state;
+
+/// Generated protobuf types for update_service.v1.
+#[allow(clippy::doc_overindented_list_items)]
+pub mod proto {
+    tonic::include_proto!("update_service.v1");
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_startup() {
-        assert!(true, "update-service skeleton compiles and starts");
-    }
+fn main() {
+    println!("update-service starting...");
 }

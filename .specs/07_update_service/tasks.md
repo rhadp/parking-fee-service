@@ -26,17 +26,17 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Initialize Cargo crate
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Initialize Cargo crate
     - Create `rhivos/update-service/Cargo.toml` with dependencies: tonic, prost, tokio (full), uuid, toml, tracing, tracing-subscriber
     - Dev dependencies: mockall, tonic (features: transport), tokio-test
     - Add crate to `rhivos/Cargo.toml` workspace members
 
-  - [ ] 1.2 Create proto file
+  - [x] 1.2 Create proto file
     - Create `proto/update_service/v1/update_service.proto` with the full service definition as specified in design.md
     - Create `rhivos/update-service/build.rs` for tonic-build compilation
 
-  - [ ] 1.3 Create type stubs and trait definitions
+  - [x] 1.3 Create type stubs and trait definitions
     - Create minimal stub files so that tests compile:
     - `src/main.rs` -- minimal main with module declarations
     - `src/state.rs` -- `AdapterState` enum stub with `UNKNOWN` variant, `StateMachine` trait stub
@@ -47,7 +47,7 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - `src/grpc.rs` -- gRPC service struct stub
     - `src/offload.rs` -- offload timer stub
 
-  - [ ] 1.4 Write state machine tests
+  - [x] 1.4 Write state machine tests
     - Create `rhivos/update-service/src/state_test.rs` with test functions
     - `test_valid_transitions` -- all valid transitions from 07-REQ-6.1
     - `test_invalid_transitions` -- invalid transitions are rejected
@@ -55,7 +55,7 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - Tests should compile but fail because the state machine is not yet implemented
     - _Test Spec: TS-07-P1_
 
-  - [ ] 1.5 Write manager tests
+  - [x] 1.5 Write manager tests
     - Create `rhivos/update-service/src/manager_test.rs` with test functions
     - `test_install_adapter_happy_path` (TS-07-1)
     - `test_single_adapter_enforcement` (TS-07-4)
@@ -71,7 +71,7 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - Tests use mockall-generated mocks for `OciPuller` and `ContainerRuntime` traits; tests should compile but fail
     - _Test Spec: TS-07-1, TS-07-4, TS-07-5, TS-07-6, TS-07-7, TS-07-E1 through TS-07-E6_
 
-  - [ ] 1.6 Write gRPC integration tests
+  - [x] 1.6 Write gRPC integration tests
     - Create `rhivos/update-service/src/grpc_test.rs` with test functions
     - `test_grpc_install_and_watch` (TS-07-1, TS-07-2)
     - `test_grpc_list_adapters` (TS-07-5)
@@ -80,9 +80,9 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - Tests start an in-process tonic server with mocked dependencies and use a tonic client; tests should compile but fail
     - _Test Spec: TS-07-1, TS-07-2, TS-07-5, TS-07-6, TS-07-7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `cd rhivos && cargo test -p update-service` compiles but all tests fail (or are marked `#[ignore]`)
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+  - [x] 1.V Verify task group 1
+    - [x] `cd rhivos && cargo test -p update-service` compiles but all tests fail (or are marked `#[ignore]`)
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
 - [ ] 2. Implement gRPC server and proto definitions
   - [ ] 2.1 Finalize proto compilation
