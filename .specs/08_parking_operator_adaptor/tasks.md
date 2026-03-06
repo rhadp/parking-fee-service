@@ -96,25 +96,25 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
-- [ ] 3. Implement DATA_BROKER subscription and state writing
-  - [ ] 3.1 Implement DATA_BROKER subscriber
+- [x] 3. Implement DATA_BROKER subscription and state writing
+  - [x] 3.1 Implement DATA_BROKER subscriber
     - `BrokerSubscriber::new(addr)` -- connects to Kuksa Databroker via gRPC (network TCP)
     - `subscribe_lock_events() -> impl Stream<Item = bool>` -- subscribes to `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`
     - Handle connection errors by logging and retrying with backoff
     - _Requirements: 08-REQ-2.1_
 
-  - [ ] 3.2 Implement DATA_BROKER publisher
+  - [x] 3.2 Implement DATA_BROKER publisher
     - `BrokerPublisher::new(addr)` -- connects to Kuksa Databroker via gRPC
     - `set_session_active(active: bool)` -- writes `Vehicle.Parking.SessionActive` to DATA_BROKER
     - _Requirements: 08-REQ-6.1, 08-REQ-6.2_
 
-  - [ ] 3.3 Write unit tests for broker modules
+  - [x] 3.3 Write unit tests for broker modules
     - `test_subscriber_connects`, `test_publisher_sets_session_active_true`, `test_publisher_sets_session_active_false`
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Broker module tests pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
+  - [x] 3.V Verify task group 3
+    - [x] Broker module tests pass
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
 - [ ] 4. Implement autonomous session management (lock/unlock events)
   - [ ] 4.1 Implement operator REST client models
