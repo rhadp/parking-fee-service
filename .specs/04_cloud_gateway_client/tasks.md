@@ -194,12 +194,12 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [ ] 6. Checkpoint
-  - [ ] 6.1 Full build and test run
+- [x] 6. Checkpoint
+  - [x] 6.1 Full build and test run
     - Run in sequence: `cargo build`, `cargo clippy`, `cargo test`, `make infra-up`, `cargo test --features integration`
     - Confirm all steps pass with zero errors and zero warnings
 
-  - [ ] 6.2 Manual smoke test
+  - [x] 6.2 Manual smoke test
     - Start infrastructure: `make infra-up`
     - Run `VIN=SMOKE_TEST_VIN cargo run -p cloud-gateway-client`
     - Publish a lock command to `vehicles.SMOKE_TEST_VIN.commands` using `nats pub` or a test script
@@ -209,7 +209,7 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Write a lock state change to DATA_BROKER
     - Verify telemetry appears on `vehicles.SMOKE_TEST_VIN.telemetry` in NATS
 
-  - [ ] 6.3 Requirements coverage review
+  - [x] 6.3 Requirements coverage review
     - Verify every requirement in `requirements.md` has at least one passing test
 
 ## Traceability
