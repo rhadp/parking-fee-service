@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 
+use crate::broker::BrokerPublisher;
 use crate::operator::{OperatorClient, OperatorError};
 use crate::session::{SessionError, SessionManager, SessionState};
 
@@ -14,6 +15,7 @@ pub mod pb {
 pub struct ParkingAdaptorService {
     session: Arc<Mutex<SessionManager>>,
     operator: Arc<OperatorClient>,
+    publisher: Arc<Mutex<Option<BrokerPublisher>>>,
     vehicle_id: String,
     zone_id: String,
 }
@@ -22,12 +24,14 @@ impl ParkingAdaptorService {
     pub fn new(
         session: Arc<Mutex<SessionManager>>,
         operator: Arc<OperatorClient>,
+        publisher: Arc<Mutex<Option<BrokerPublisher>>>,
         vehicle_id: String,
         zone_id: String,
     ) -> Self {
         Self {
             session,
             operator,
+            publisher,
             vehicle_id,
             zone_id,
         }
@@ -46,6 +50,14 @@ impl ParkingAdaptorService {
             OperatorError::ParseError(msg) => {
                 Status::internal(format!("failed to parse operator response: {msg}"))
             }
+        }
+    }
+
+    /// Publish session active state to DATA_BROKER (best-effort).
+    async fn publish_session_active(&self, active: bool) {
+        let mut pub_guard = self.publisher.lock().await;
+        if let Some(ref mut pub_client) = *pub_guard {
+            pub_client.set_session_active(active).await;
         }
     }
 }
@@ -78,7 +90,9 @@ impl pb::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
         {
             Ok(resp) => {
                 session.confirm_start(&resp.session_id);
-                // TODO: publish SessionActive = true to DATA_BROKER (task group 3)
+                // Drop session lock before publishing to avoid deadlock
+                drop(session);
+                self.publish_session_active(true).await;
                 tracing::info!(session_id = %resp.session_id, "session started");
                 Ok(Response::new(pb::StartSessionResponse {
                     session_id: resp.session_id,
@@ -108,7 +122,9 @@ impl pb::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
         match self.operator.stop_session(&session_id).await {
             Ok(resp) => {
                 session.confirm_stop();
-                // TODO: publish SessionActive = false to DATA_BROKER (task group 3)
+                // Drop session lock before publishing to avoid deadlock
+                drop(session);
+                self.publish_session_active(false).await;
                 tracing::info!(session_id = %resp.session_id, "session stopped");
                 Ok(Response::new(pb::StopSessionResponse {
                     session_id: resp.session_id,
@@ -174,9 +190,11 @@ mod tests {
     fn test_service(zone_id: &str) -> ParkingAdaptorService {
         let session = Arc::new(Mutex::new(SessionManager::new()));
         let operator = Arc::new(OperatorClient::new("http://localhost:8080"));
+        let publisher = Arc::new(Mutex::new(None));
         ParkingAdaptorService::new(
             session,
             operator,
+            publisher,
             "DEMO-VIN-001".to_string(),
             zone_id.to_string(),
         )
@@ -219,9 +237,11 @@ mod tests {
             s.confirm_start("sess-123");
         }
         let operator = Arc::new(OperatorClient::new("http://localhost:8080"));
+        let publisher = Arc::new(Mutex::new(None));
         let svc = ParkingAdaptorService::new(
             session,
             operator,
+            publisher,
             "DEMO-VIN-001".to_string(),
             "zone-demo-1".to_string(),
         );

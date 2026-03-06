@@ -116,36 +116,36 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
-- [ ] 4. Implement autonomous session management (lock/unlock events)
-  - [ ] 4.1 Implement operator REST client models
+- [x] 4. Implement autonomous session management (lock/unlock events)
+  - [x] 4.1 Implement operator REST client models
     - Implement serde structs: `StartRequest`, `StartResponse`, `StopRequest`, `StopResponse`, `StatusResponse`
     - Add `Serialize`/`Deserialize` derives
     - _Requirements: 08-REQ-7.1, 08-REQ-7.2_
 
-  - [ ] 4.2 Implement operator REST client
+  - [x] 4.2 Implement operator REST client
     - `OperatorClient::new(base_url)` -- creates reqwest client with 5s timeout
     - `start_session(vehicle_id, zone_id)`, `stop_session(session_id)`, `get_status(session_id)`
     - `OperatorError` enum: `Unreachable`, `Timeout`, `HttpError(status, body)`, `ParseError`
     - _Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.3_
 
-  - [ ] 4.3 Implement autonomous event loop
+  - [x] 4.3 Implement autonomous event loop
     - Spawn a tokio task that subscribes to lock events via `BrokerSubscriber`
     - On `IsLocked = true` (if idle): `try_start` -> operator `start_session` -> `confirm_start` / `fail_start` -> publish `SessionActive`
     - On `IsLocked = false` (if active): `try_stop` -> operator `stop_session` -> `confirm_stop` / `fail_stop` -> publish `SessionActive`
     - Share `SessionManager` with gRPC handlers via `Arc<Mutex<...>>`
     - _Requirements: 08-REQ-3.1, 08-REQ-4.1_
 
-  - [ ] 4.4 Integration test: full lock/unlock cycle
+  - [x] 4.4 Integration test: full lock/unlock cycle
     - Test that starts DATA_BROKER, mock operator, and adaptor
     - Write `IsLocked = true`, assert `SessionActive = true` and `GetStatus` returns active
     - Write `IsLocked = false`, assert `SessionActive = false` and `GetStatus` returns idle
     - _Test Spec: TS-08-1, TS-08-2, TS-08-3, TS-08-4_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Operator client tests from task 1.4 pass
-    - [ ] Integration tests for lock/unlock cycle pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
+  - [x] 4.V Verify task group 4
+    - [x] Operator client tests from task 1.4 pass
+    - [x] Integration tests for lock/unlock cycle pass
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
 - [ ] 5. Integration tests: REST and error handling
   - [ ] 5.1 Integration test: REST start/stop cycle

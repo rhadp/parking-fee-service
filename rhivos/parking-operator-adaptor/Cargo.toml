@@ -25,3 +25,5 @@ tonic-build = "0.12"
 
 [dev-dependencies]
 tokio-test = "0.4"
+axum = "0.7"
+uuid = { version = "1", features = ["v4"] }
