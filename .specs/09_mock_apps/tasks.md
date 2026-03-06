@@ -76,31 +76,31 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - [x] All companion-app-cli tests compile but fail: `cd mock/companion-app-cli && go test ./... -v`
     - [x] No linter warnings introduced
 
-- [ ] 2. Implement mock sensors
-  - [ ] 2.1 Implement location-sensor
+- [x] 2. Implement mock sensors
+  - [x] 2.1 Implement location-sensor
     - Parse CLI arguments using `clap`: `--lat` (f64, required), `--lon` (f64, required), `--broker-addr` (string, default `http://localhost:55556`)
     - Connect to DATA_BROKER via gRPC (tonic client for kuksa.val.v1)
     - Send `SetRequest` for `Vehicle.CurrentLocation.Latitude` and `Vehicle.CurrentLocation.Longitude`
     - Print confirmation, exit with code 0 on success or code 1 on failure
     - _Requirements: 09-REQ-1.1, 09-REQ-7.1, 09-REQ-8.2_
 
-  - [ ] 2.2 Implement speed-sensor
+  - [x] 2.2 Implement speed-sensor
     - Parse CLI arguments: `--speed` (f32, required), `--broker-addr` (string, default `http://localhost:55556`)
     - Connect to DATA_BROKER via gRPC
     - Send `SetRequest` for `Vehicle.Speed`
     - Print confirmation and exit
     - _Requirements: 09-REQ-2.1, 09-REQ-7.1, 09-REQ-8.2_
 
-  - [ ] 2.3 Implement door-sensor
+  - [x] 2.3 Implement door-sensor
     - Parse CLI arguments: `--open` (bool flag) and `--closed` (bool flag), mutually exclusive, one required; `--broker-addr` (string, default `http://localhost:55556`)
     - Connect to DATA_BROKER via gRPC
     - Send `SetRequest` for `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` with `true` (--open) or `false` (--closed)
     - Print confirmation and exit
     - _Requirements: 09-REQ-3.1, 09-REQ-7.1, 09-REQ-8.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Sensor tests pass: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor`
+  - [x] 2.V Verify task group 2
+    - [x] Sensor tests pass: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor`
 
 - [ ] 3. Implement mock PARKING_OPERATOR
   - [ ] 3.1 Implement data model and session store
