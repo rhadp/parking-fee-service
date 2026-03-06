@@ -227,28 +227,28 @@
     - [x] All tests pass with race detector: `cd backend/cloud-gateway && go test -race ./... -v`
     - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
 
-- [ ] 6. Checkpoint -- CLOUD_GATEWAY Complete
-  - [ ] 6.1 Run full test suite
+- [x] 6. Checkpoint -- CLOUD_GATEWAY Complete
+  - [x] 6.1 Run full test suite
     - `cd backend/cloud-gateway && go test ./... -v`
     - `cd backend/cloud-gateway && go test -race ./... -v`
     - Confirm all tests pass
 
-  - [ ] 6.2 Run linter
+  - [x] 6.2 Run linter
     - `cd backend/cloud-gateway && go vet ./...`
     - Confirm no issues
 
-  - [ ] 6.3 Verify build
+  - [x] 6.3 Verify build
     - `cd backend/cloud-gateway && go build .`
     - Confirm binary builds successfully
 
-  - [ ] 6.4 Smoke test
+  - [x] 6.4 Smoke test
     - Start NATS server (containerized): `podman run -d --name nats-test -p 4222:4222 nats:latest`
     - Start CLOUD_GATEWAY: `cd backend/cloud-gateway && go run .`
     - Verify: `curl http://localhost:8081/health` returns `{"status":"ok"}`
     - Verify: `curl -X POST http://localhost:8081/vehicles/VIN12345/commands -H "Authorization: Bearer companion-token-vehicle-1" -H "Content-Type: application/json" -d '{"command_id":"test-1","type":"lock","doors":["driver"]}'` returns 202
     - Stop services
 
-  - [ ] 6.5 Review Definition of Done
+  - [x] 6.5 Review Definition of Done
     - Confirm all items in design.md Definition of Done are satisfied
     - Ensure all requirements are covered by passing tests
 
