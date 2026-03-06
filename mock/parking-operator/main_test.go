@@ -2,9 +2,19 @@ package main
 
 import "testing"
 
-func TestValidCommands(t *testing.T) {
-	if len(validCommands) == 0 {
-		t.Fatal("expected at least one valid command")
+// TestNewSessionStore verifies the session store can be created.
+func TestNewSessionStore(t *testing.T) {
+	store := NewSessionStore()
+	if store == nil {
+		t.Fatal("expected non-nil session store")
 	}
-	t.Logf("parking-operator has %d valid commands", len(validCommands))
+}
+
+// TestNewHandler verifies the handler can be created.
+func TestNewHandler(t *testing.T) {
+	store := NewSessionStore()
+	h := NewHandler(store)
+	if h == nil {
+		t.Fatal("expected non-nil handler")
+	}
 }

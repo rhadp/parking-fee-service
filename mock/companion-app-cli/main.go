@@ -3,36 +3,28 @@ package main
 import (
 	"fmt"
 	"os"
-)
 
-var validCommands = []string{"lock", "unlock", "status"}
+	"github.com/parking-fee-service/mock/companion-app-cli/cmd"
+)
 
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(0)
+		os.Exit(1)
 	}
 
-	cmd := os.Args[1]
-	for _, valid := range validCommands {
-		if cmd == valid {
-			fmt.Printf("companion-app-cli: executing '%s'...\n", cmd)
-			os.Exit(0)
-		}
+	subcmd := os.Args[1]
+	if err := cmd.Run(subcmd, os.Args[2:]); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
-
-	fmt.Fprintf(os.Stderr, "Error: unknown command '%s'\n", cmd)
-	fmt.Fprintf(os.Stderr, "Valid commands: %v\n", validCommands)
-	os.Exit(1)
 }
 
 func printUsage() {
-	fmt.Println("Usage: companion-app-cli <command>")
-	fmt.Println()
-	fmt.Println("A mock CLI app simulating the companion app for integration testing.")
-	fmt.Println()
-	fmt.Println("Commands:")
-	for _, cmd := range validCommands {
-		fmt.Printf("  %s\n", cmd)
+	fmt.Fprintln(os.Stderr, "Usage: companion-app-cli <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Subcommands:")
+	for _, name := range cmd.SubcommandNames() {
+		fmt.Fprintf(os.Stderr, "  %s\n", name)
 	}
 }

@@ -2,37 +2,28 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 )
 
-var validCommands = []string{"add-zone", "list-zones", "check-fee"}
-
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(0)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9090"
 	}
 
-	cmd := os.Args[1]
-	for _, valid := range validCommands {
-		if cmd == valid {
-			fmt.Printf("parking-operator: executing '%s'...\n", cmd)
-			os.Exit(0)
-		}
-	}
+	store := NewSessionStore()
+	h := NewHandler(store)
 
-	fmt.Fprintf(os.Stderr, "Error: unknown command '%s'\n", cmd)
-	fmt.Fprintf(os.Stderr, "Valid commands: %v\n", validCommands)
-	os.Exit(1)
-}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /parking/start", h.HandleStartParking)
+	mux.HandleFunc("POST /parking/stop", h.HandleStopParking)
+	mux.HandleFunc("GET /parking/status", h.HandleParkingStatus)
 
-func printUsage() {
-	fmt.Println("Usage: parking-operator <command>")
-	fmt.Println()
-	fmt.Println("A mock CLI app simulating the parking operator for integration testing.")
-	fmt.Println()
-	fmt.Println("Commands:")
-	for _, cmd := range validCommands {
-		fmt.Printf("  %s\n", cmd)
+	addr := ":" + port
+	fmt.Printf("parking-operator listening on %s\n", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }

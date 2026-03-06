@@ -6,4 +6,7 @@ members = [
     "update-service",
     "parking-operator-adaptor",
     "mock-sensors",
+    "location-sensor",
+    "speed-sensor",
+    "door-sensor",
 ]

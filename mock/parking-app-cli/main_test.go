@@ -1,10 +1,15 @@
 package main
 
-import "testing"
+import (
+	"testing"
 
-func TestValidCommands(t *testing.T) {
-	if len(validCommands) == 0 {
-		t.Fatal("expected at least one valid command")
+	"github.com/parking-fee-service/mock/parking-app-cli/cmd"
+)
+
+// TS-09-E4: No arguments should produce a non-empty subcommand list.
+func TestSubcommandNames_NonEmpty(t *testing.T) {
+	names := cmd.SubcommandNames()
+	if len(names) == 0 {
+		t.Fatal("expected at least one subcommand")
 	}
-	t.Logf("parking-app-cli has %d valid commands", len(validCommands))
 }
