@@ -22,6 +22,7 @@ use crate::container::MockContainerRuntime;
 use crate::grpc::UpdateServiceImpl;
 use crate::manager::AdapterManager;
 use crate::oci::MockOciPuller;
+use crate::offload::OffloadTimer;
 use crate::proto::update_service_server::UpdateServiceServer;
 
 #[tokio::main]
@@ -46,6 +47,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(MockContainerRuntime::new());
 
     let manager = Arc::new(AdapterManager::new(oci, container));
+
+    // Start offload timer as a background task
+    let offload_timer = OffloadTimer::new(
+        Arc::clone(&manager),
+        config.inactivity_timeout_secs,
+    );
+    tokio::spawn(async move {
+        offload_timer.run().await;
+    });
+
     let service = UpdateServiceImpl::new(manager);
 
     let addr = format!("0.0.0.0:{}", config.grpc_port).parse()?;

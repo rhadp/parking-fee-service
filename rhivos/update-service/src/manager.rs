@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::{broadcast, Mutex};
+use tokio::time::Instant;
 use tracing::{info, warn};
 
 use crate::container::ContainerRuntime;
@@ -395,6 +395,60 @@ impl AdapterManager {
     pub async fn list_adapters(&self) -> Vec<AdapterRecord> {
         let adapters = self.adapters.lock().await;
         adapters.values().cloned().collect()
+    }
+
+    /// Offload adapters that have been in STOPPED state longer than the given timeout.
+    ///
+    /// Returns the list of adapter IDs that were offloaded.
+    pub async fn offload_inactive_adapters(
+        &self,
+        inactivity_timeout: std::time::Duration,
+    ) -> Vec<String> {
+        // Collect candidates (adapters in STOPPED state past timeout)
+        let candidates: Vec<String> = {
+            let adapters = self.adapters.lock().await;
+            adapters
+                .iter()
+                .filter(|(_, r)| {
+                    r.state == AdapterState::Stopped
+                        && r.last_activity.elapsed() >= inactivity_timeout
+                })
+                .map(|(id, _)| id.clone())
+                .collect()
+        };
+
+        let mut offloaded = Vec::new();
+        for adapter_id in candidates {
+            info!("offloading inactive adapter {}", adapter_id);
+
+            // Transition to OFFLOADING
+            {
+                let mut adapters = self.adapters.lock().await;
+                if let Some(record) = adapters.get(&adapter_id) {
+                    if record.state == AdapterState::Stopped {
+                        let _ = Self::transition_state_locked(
+                            &mut adapters,
+                            &self.event_tx,
+                            &adapter_id,
+                            AdapterState::Offloading,
+                        );
+                    }
+                }
+            }
+
+            // Remove container (best effort)
+            let _ = self.container.remove(&adapter_id).await;
+
+            // Remove from adapter list
+            {
+                let mut adapters = self.adapters.lock().await;
+                adapters.remove(&adapter_id);
+            }
+
+            offloaded.push(adapter_id);
+        }
+
+        offloaded
     }
 
     /// Get the status of a single adapter.
