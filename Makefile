@@ -1,6 +1,12 @@
 # Root Makefile - Build orchestration for all components
 # Provides uniform targets across Rust and Go toolchains
 
+# Load .env file if present and export all variables to sub-processes
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
 .PHONY: build test lint clean infra-up infra-down proto
 
 # Go module directories

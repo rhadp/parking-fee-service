@@ -5,6 +5,15 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Load .env if present
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    . "$PROJECT_ROOT/.env"
+    set +a
+fi
 TOTAL_PASS=0
 TOTAL_FAIL=0
 SCRIPTS_RUN=0

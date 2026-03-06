@@ -1,3 +1,6 @@
+# Environment
+.env
+
 # agent-fox
 .agent-fox/
 !.agent-fox/memory.jsonl
