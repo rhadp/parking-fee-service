@@ -166,39 +166,39 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
-- [ ] 6. Integration tests: manual override and consistency
-  - [ ] 6.1 Integration test: manual start and stop
+- [x] 6. Integration tests: manual override and consistency
+  - [x] 6.1 Integration test: manual start and stop
     - Call `StartSession` via gRPC, verify session active, verify `SessionActive = true` on DATA_BROKER
     - Call `StopSession` via gRPC, verify session idle, verify `SessionActive = false`
     - _Test Spec: TS-08-7, TS-08-8_
 
-  - [ ] 6.2 Integration test: double lock / double unlock
+  - [x] 6.2 Integration test: double lock / double unlock
     - Two consecutive `IsLocked = true` events, verify only one operator start call (TS-08-P1)
     - Two consecutive `IsLocked = false` events, verify only one operator stop call (TS-08-P2)
     - _Test Spec: TS-08-P1, TS-08-P2_
 
-  - [ ] 6.3 Integration test: manual start then autonomous unlock
+  - [x] 6.3 Integration test: manual start then autonomous unlock
     - Call `StartSession` via gRPC
     - Write `IsLocked = true` to DATA_BROKER (should be ignored, session already active -- TS-08-P5)
     - Write `IsLocked = false` to DATA_BROKER (should trigger stop -- TS-08-P3)
     - Verify session is idle
     - _Test Spec: TS-08-P3, TS-08-P5_
 
-  - [ ] 6.4 Integration test: state-signal consistency
+  - [x] 6.4 Integration test: state-signal consistency
     - Full cycle of lock/start, verify `SessionActive`, unlock/stop, verify `SessionActive`
     - At every step, `Vehicle.Parking.SessionActive` on DATA_BROKER matches the adaptor's internal state
     - _Test Spec: TS-08-P4_
 
-  - [ ] 6.5 Integration test: error gRPC calls
+  - [x] 6.5 Integration test: error gRPC calls
     - `StartSession` when session already active returns `ALREADY_EXISTS` (TS-08-E3)
     - `StopSession` when no session active returns `NOT_FOUND` (TS-08-E4)
     - `GetRate` with no zone returns `FAILED_PRECONDITION` (TS-08-E6)
     - _Test Spec: TS-08-E3, TS-08-E4, TS-08-E6_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All manual override and consistency tests pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
+  - [x] 6.V Verify task group 6
+    - [x] All manual override and consistency tests pass
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
 - [ ] 7. Checkpoint
   - [ ] 7.1 Run all unit tests
