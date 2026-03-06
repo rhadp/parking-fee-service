@@ -84,25 +84,25 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - [x] `cd rhivos && cargo test -p update-service` compiles but all tests fail (or are marked `#[ignore]`)
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
-- [ ] 2. Implement gRPC server and proto definitions
-  - [ ] 2.1 Finalize proto compilation
+- [x] 2. Implement gRPC server and proto definitions
+  - [x] 2.1 Finalize proto compilation
     - Ensure `build.rs` compiles the proto file and generated code is importable via `tonic::include_proto!("update_service.v1")`
 
-  - [ ] 2.2 Implement gRPC service skeleton
+  - [x] 2.2 Implement gRPC service skeleton
     - Implement `src/grpc.rs` with a struct `UpdateServiceImpl` that implements the tonic-generated `UpdateService` trait
     - Each method returns `Err(Status::unimplemented("..."))` initially
     - Wire the service into `main.rs` with tonic `Server::builder`
 
-  - [ ] 2.3 Implement configuration loading
+  - [x] 2.3 Implement configuration loading
     - Implement `src/config.rs` with `Config` struct: `grpc_port`, `registry_base_url`, `inactivity_timeout_secs`, `storage_path`
     - `Config::load(path: Option<&str>)` function that loads from TOML file or defaults
     - Environment variable overrides with `UPDATE_SERVICE_` prefix
     - _Requirements: 07-REQ-9_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] `cd rhivos && cargo build -p update-service` succeeds
-    - [ ] Server starts and responds with UNIMPLEMENTED to all RPCs
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+  - [x] 2.V Verify task group 2
+    - [x] `cd rhivos && cargo build -p update-service` succeeds
+    - [x] Server starts and responds with UNIMPLEMENTED to all RPCs
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
 - [ ] 3. Implement OCI pull and checksum verification
   - [ ] 3.1 Define OciPuller trait

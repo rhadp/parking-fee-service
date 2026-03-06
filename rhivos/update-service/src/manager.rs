@@ -26,6 +26,7 @@ pub struct StateEvent {
 }
 
 /// Manages adapter lifecycle, enforces constraints, and emits state events.
+#[allow(dead_code)]
 pub struct AdapterManager {
     pub(crate) adapters: Mutex<HashMap<String, AdapterRecord>>,
     pub(crate) event_tx: broadcast::Sender<StateEvent>,
