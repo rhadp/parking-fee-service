@@ -125,26 +125,26 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - [x] All tests pass: `cd mock/parking-operator && go test ./... -v`
     - [x] No lint issues: `cd mock/parking-operator && go vet ./...`
 
-- [ ] 4. Implement parking-app-cli
-  - [ ] 4.1 Create shared internal packages
+- [x] 4. Implement parking-app-cli
+  - [x] 4.1 Create shared internal packages
     - `internal/config/config.go` -- Read environment variables with defaults; flag-overrides-env precedence
     - `internal/output/output.go` -- `PrintJSON`, `PrintError` helpers
     - `internal/restclient/client.go` -- HTTP client wrapper with 10-second timeout
     - `internal/grpcclient/client.go` -- gRPC `Dial(addr)` helper with insecure credentials and 10-second timeout
     - _Requirements: 09-REQ-8.1_
 
-  - [ ] 4.2 Implement subcommand dispatch
+  - [x] 4.2 Implement subcommand dispatch
     - Parse `os.Args[1]` and route to appropriate handler
     - Print usage and exit code 1 for unknown subcommands or no arguments
     - List all 9 available subcommands in usage message
     - _Requirements: 09-REQ-4.1_
 
-  - [ ] 4.3 Implement REST subcommands (lookup, adapter-info)
+  - [x] 4.3 Implement REST subcommands (lookup, adapter-info)
     - `lookup.go` -- Parse `--lat` and `--lon`, GET `{PARKING_FEE_SERVICE_URL}/operators?lat={lat}&lon={lon}`, print response
     - `adapter_info.go` -- Parse `--operator-id`, GET `{PARKING_FEE_SERVICE_URL}/operators/{id}/adapter`, print response
     - _Requirements: 09-REQ-4.2_
 
-  - [ ] 4.4 Implement gRPC subcommands (install, watch, list, remove, status)
+  - [x] 4.4 Implement gRPC subcommands (install, watch, list, remove, status)
     - `install.go` -- Parse `--image-ref`, `--checksum`; call `InstallAdapter`; print response
     - `watch.go` -- Call `WatchAdapterStates` (streaming); print events; handle Ctrl+C
     - `list.go` -- Call `ListAdapters`; print response
@@ -152,15 +152,15 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - `status.go` -- Parse `--adapter-id`; call `GetAdapterStatus`; print response
     - _Requirements: 09-REQ-4.3_
 
-  - [ ] 4.5 Implement session management subcommands (start-session, stop-session)
+  - [x] 4.5 Implement session management subcommands (start-session, stop-session)
     - `start_session.go` -- Parse `--zone-id`; dial PARKING_OPERATOR_ADAPTOR; call `StartSession`; print response
     - `stop_session.go` -- Parse `--session-id`; dial PARKING_OPERATOR_ADAPTOR; call `StopSession`; print response
     - _Requirements: 09-REQ-4.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All tests pass: `cd mock/parking-app-cli && go test ./... -v`
-    - [ ] No lint issues: `cd mock/parking-app-cli && go vet ./...`
-    - [ ] Build succeeds: `go build ./mock/parking-app-cli/...`
+  - [x] 4.V Verify task group 4
+    - [x] All tests pass: `cd mock/parking-app-cli && go test ./... -v`
+    - [x] No lint issues: `cd mock/parking-app-cli && go vet ./...`
+    - [x] Build succeeds: `go build ./mock/parking-app-cli/...`
 
 - [ ] 5. Implement companion-app-cli
   - [ ] 5.1 Create shared internal packages

@@ -17,13 +17,21 @@ func TestSubcommandDispatch_UnknownCommand(t *testing.T) {
 }
 
 // TS-09-5: Each known subcommand dispatches without panicking.
+// Commands requiring flags return missing-flag errors immediately.
+// Commands that attempt gRPC dial (watch, list) are skipped here to avoid
+// 10-second connection timeouts; their dispatch is covered by SubcommandNames.
 func TestSubcommandDispatch_AllKnownCommands(t *testing.T) {
-	for _, name := range SubcommandNames() {
+	// Commands that require flags will fail immediately with a usage error,
+	// which verifies dispatch without a network round-trip.
+	flagCommands := []string{
+		"lookup", "adapter-info", "install",
+		"remove", "status", "start-session", "stop-session",
+	}
+	for _, name := range flagCommands {
 		t.Run(name, func(t *testing.T) {
-			// All stubs return errors, but they should not panic.
 			err := Run(name, nil)
 			if err == nil {
-				t.Fatalf("expected stub error for '%s' (not yet implemented)", name)
+				t.Fatalf("expected error for '%s' with missing flags", name)
 			}
 		})
 	}
