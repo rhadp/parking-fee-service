@@ -199,17 +199,17 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
-- [ ] 7. Checkpoint
-  - [ ] 7.1 Run full test suite
+- [x] 7. Checkpoint
+  - [x] 7.1 Run full test suite
     - `cd rhivos && cargo test -p update-service` -- confirm all tests pass
 
-  - [ ] 7.2 Run linter
+  - [x] 7.2 Run linter
     - `cd rhivos && cargo clippy -p update-service -- -D warnings` -- confirm no warnings
 
-  - [ ] 7.3 Verify proto compilation
+  - [x] 7.3 Verify proto compilation
     - `cd rhivos && cargo build -p update-service` -- confirm proto compilation succeeds
 
-  - [ ] 7.4 Review Definition of Done
+  - [x] 7.4 Review Definition of Done
     - gRPC server starts on configured port
     - InstallAdapter flow works end-to-end (with mocked podman)
     - WatchAdapterStates streams events
