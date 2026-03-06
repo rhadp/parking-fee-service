@@ -4,11 +4,11 @@
 
 - Doc-tests can produce false positives in discoverability checks; verify test results carefully when implementing documentation testing. _(spec: 01_project_setup, confidence: medium)_
 - The `|| true` pattern can mask exit codes when used incorrectly in shell scripts; capture exit codes explicitly before applying error suppression. _(spec: 01_project_setup, confidence: high)_
-- Kuksa Databroker 0.5.0 uses TCP port 55556 by default; ensure all references (docker-compose.yml, Makefile, configuration) are updated consistently to avoid port mismatches. _(spec: 02_data_broker, confidence: high)_
+- Kuksa Databroker 0.5.0 uses TCP port 55556 by default; ensure all references (compose.yml, Makefile, configuration) are updated consistently to avoid port mismatches. _(spec: 02_data_broker, confidence: high)_
 - Kuksa 0.5.0 API uses PublishValue instead of the older Actuate method for publishing values. _(spec: 02_data_broker, confidence: high)_
 - ListMetadata in Kuksa 0.5.0 no longer includes a Path field, requiring test adjustments when upgrading from earlier versions. _(spec: 02_data_broker, confidence: high)_
-- UDS directory must be created before infrastructure startup; this is typically handled in the Makefile to ensure the mount point exists before Docker containers attempt to use it. _(spec: 02_data_broker, confidence: high)_
-- Docker-compose configuration must include all required services (e.g., NATS) or tests will fail with connection errors. _(spec: 01_project_setup, confidence: high)_
+- UDS directory must be created before infrastructure startup; this is typically handled in the Makefile to ensure the mount point exists before containers attempt to use it. _(spec: 02_data_broker, confidence: high)_
+- Compose configuration must include all required services (e.g., NATS) or tests will fail with connection errors. _(spec: 01_project_setup, confidence: high)_
 - Kuksa Databroker 0.5.0 strictly rejects type mismatches in signal read/write operations, which should be tested as an edge case in integration tests. _(spec: 02_data_broker, confidence: high)_
 - Kuksa Databroker 0.5.0 does not implement the gRPC health check service, so health check endpoints cannot be relied upon in this version. _(spec: 02_data_broker, confidence: high)_
 
@@ -25,9 +25,9 @@
 - Proto-generated gRPC client stubs must be added as dependencies alongside Go module dependencies when setting up integration test infrastructure. _(spec: 02_data_broker, confidence: high)_
 - Ray-casting point-in-polygon algorithm is an effective method for geofence matching to determine if a location falls within a defined boundary. _(spec: 05_parking_fee_service, confidence: high)_
 - Haversine distance calculation combined with distance-to-segment projection enables accurate proximity-based matching for geofence matching engines. _(spec: 05_parking_fee_service, confidence: high)_
-- Docker Compose services should include health checks to enable wait-for-healthy logic in orchestration scripts, allowing proper synchronization of service startup. _(spec: 01_project_setup, confidence: high)_
+- Compose services should include health checks to enable wait-for-healthy logic in orchestration scripts, allowing proper synchronization of service startup. _(spec: 01_project_setup, confidence: high)_
 - Makefile infra-up targets benefit from port polling with timeout logic (e.g., 30s) to wait for services to become healthy before proceeding with dependent operations. _(spec: 01_project_setup, confidence: high)_
-- When adding Docker/Podman services, include health checks and restart policies in docker-compose.yml to ensure reliable container lifecycle management. _(spec: 02_data_broker, confidence: high)_
+- When adding Podman services, include health checks and restart policies in compose.yml to ensure reliable container lifecycle management. _(spec: 02_data_broker, confidence: high)_
 - Go 1.22 introduced enhanced ServeMux with pattern matching capabilities, enabling more sophisticated routing without external libraries. _(spec: 05_parking_fee_service, confidence: high)_
 - Helper functions like writeJSON and writeError reduce boilerplate in HTTP handlers and improve consistency across endpoints. _(spec: 05_parking_fee_service, confidence: high)_
 - Recovery middleware should be implemented to gracefully handle panics in HTTP handlers and prevent server crashes. _(spec: 05_parking_fee_service, confidence: high)_
@@ -37,14 +37,14 @@
 - A unified make test target should orchestrate multiple toolchain test runners to ensure comprehensive testing across the entire project. _(spec: 01_project_setup, confidence: high)_
 - When initializing a Go project with external dependencies like NATS, create stub files for each logical module (model, auth, store, nats_client, handler, config) before writing comprehensive tests to ensure all imports resolve. _(spec: 06_cloud_gateway, confidence: high)_
 - Organize test coverage across multiple dimensions: handler tests, integration tests with external systems (NATS), and property-based tests to catch edge cases and invariant violations. _(spec: 06_cloud_gateway, confidence: high)_
-- VSS overlay files can be created with custom signals and mounted alongside standard VSS signal definitions in docker-compose for flexible signal configuration. _(spec: 02_data_broker, confidence: high)_
+- VSS overlay files can be created with custom signals and mounted alongside standard VSS signal definitions in compose.yml for flexible signal configuration. _(spec: 02_data_broker, confidence: high)_
 - Custom VSS signals can be organized in overlay files (e.g., Vehicle.Parking.SessionActive, Vehicle.Command.Door.*) for domain-specific extensions. _(spec: 02_data_broker, confidence: high)_
 - Token validation middleware should extract bearer tokens and implement VIN-based authorization to control access to vehicle-specific endpoints. _(spec: 06_cloud_gateway, confidence: high)_
 - Command and telemetry stores must be thread-safe and enforce terminal state protection to prevent invalid state transitions after completion. _(spec: 06_cloud_gateway, confidence: high)_
 - Data models, authentication, storage, and REST handlers are distinct concerns that should be separated into different modules for maintainability. _(spec: 06_cloud_gateway, confidence: medium)_
-- Kuksa Databroker supports dual listeners on both Unix Domain Socket (UDS) and TCP; UDS requires explicit --unix-socket flag and bind mount volume configuration in docker-compose.yml. _(spec: 02_data_broker, confidence: high)_
+- Kuksa Databroker supports dual listeners on both Unix Domain Socket (UDS) and TCP; UDS requires explicit --unix-socket flag and bind mount volume configuration in compose.yml. _(spec: 02_data_broker, confidence: high)_
 - When configuring dual protocol listeners in containerized environments, TCP and UDS paths should be tested separately as they have different failure modes and platform support characteristics. _(spec: 02_data_broker, confidence: medium)_
-- Makefile should detect and use available container runtime (podman or docker) rather than hardcoding one, improving portability across development environments. _(spec: 01_project_setup, confidence: high)_
+- Makefile uses Podman as the container runtime for local development infrastructure. _(spec: 01_project_setup, confidence: high)_
 - When setting up a new Rust service module, establish failing spec tests across multiple modules (config, command, safety, integration) before implementation to define the contract. _(spec: 03_locking_service, confidence: high)_
 - Use todo!() stubs in test implementations to create intentionally failing tests while keeping the project compilable and clippy-clean. _(spec: 03_locking_service, confidence: high)_
 - Integration tests should compile successfully even when unit tests fail, indicating proper separation of test concerns and feature flag usage. _(spec: 03_locking_service, confidence: medium)_

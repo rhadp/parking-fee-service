@@ -8,11 +8,11 @@
 
 **Reason:** The `02_data_broker` spec overrides the initial port choice. All downstream specs (04, 08, 09) reference port 55556 consistently. The test scripts in `tests/setup/test_infra.sh` were updated to check for 55556.
 
-## Container Runtime: Podman Support
+## Container Runtime: Podman
 
-**Spec says:** `design.md` references Docker and Docker Compose for local infrastructure.
+**Spec says:** `design.md` originally referenced Docker and Docker Compose for local infrastructure.
 
-**Implementation:** The Makefile detects `podman` or `docker` at runtime using `$(CONTAINER_RT)` and constructs the compose command accordingly. This supports environments where Docker is not installed but Podman is available (including systems where `docker` is aliased to `podman` in the shell but not available as a binary to Make).
+**Implementation:** The project uses Podman exclusively. The Makefile detects `podman` at runtime using `$(CONTAINER_RT)` and constructs the compose command accordingly. The compose file is at `deployments/compose.yml`.
 
 ## Go Skeleton Exit Behavior
 

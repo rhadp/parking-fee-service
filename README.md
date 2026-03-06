@@ -20,7 +20,7 @@ Install the following tools before building or running the project:
 | [protoc](https://grpc.io/docs/protoc-installation/) | 3.x | Protocol Buffer compiler |
 | [protoc-gen-go](https://pkg.go.dev/google.golang.org/protobuf/cmd/protoc-gen-go) | 1.34+ | Go protobuf code generation |
 | [protoc-gen-go-grpc](https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc) | 1.4+ | Go gRPC code generation |
-| [Podman](https://podman.io) or [Docker](https://docs.docker.com/get-docker/) | 4.x+ | Container runtime for local infrastructure |
+| [Podman](https://podman.io) | 4.x+ | Container runtime for local infrastructure |
 | GNU Make | 3.81+ | Build orchestration |
 
 ## Quick Start
@@ -83,7 +83,7 @@ parking-fee-service/
 ├── android/                        # COMPANION_APP placeholder (Flutter, future)
 │
 ├── infra/                          # Local development infrastructure
-│   ├── docker-compose.yml          #   NATS (:4222) + Kuksa Databroker (:55556)
+│   ├── compose.yml                 #   NATS (:4222) + Kuksa Databroker (:55556)
 │   └── nats/nats-server.conf      #   NATS server configuration
 │
 ├── tests/

@@ -15,10 +15,10 @@ GO_MOCK_MODULES := mock/parking-app-cli mock/companion-app-cli mock/parking-oper
 GO_ALL_MODULES := $(GO_BACKEND_MODULES) $(GO_MOCK_MODULES)
 
 # Compose file path
-COMPOSE_FILE := deployments/docker-compose.yml
+COMPOSE_FILE := deployments/compose.yml
 
-# Detect container runtime (prefer podman, fall back to docker)
-CONTAINER_RT := $(or $(shell command -v podman 2>/dev/null),$(shell command -v docker 2>/dev/null))
+# Detect container runtime
+CONTAINER_RT := $(shell command -v podman 2>/dev/null)
 COMPOSE_CMD := $(CONTAINER_RT) compose
 
 ##@ Build
@@ -76,8 +76,8 @@ clean: ## Remove all build artifacts
 
 infra-up: ## Start local infrastructure (NATS, Kuksa Databroker)
 	@if [ -z "$(CONTAINER_RT)" ]; then \
-		echo "ERROR: Docker or Podman is not installed or not in PATH"; \
-		echo "Please install Docker (https://docs.docker.com/get-docker/) or Podman."; \
+		echo "ERROR: Podman is not installed or not in PATH"; \
+		echo "Please install Podman: https://podman.io/getting-started/installation"; \
 		exit 1; \
 	fi
 	$(COMPOSE_CMD) -f $(COMPOSE_FILE) up -d

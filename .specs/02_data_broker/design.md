@@ -247,8 +247,8 @@ In production, Kuksa's JWT-based access control would enforce this ownership. Fo
 | Eclipse Kuksa Databroker | Latest stable binary from [GitHub releases](https://github.com/eclipse-kuksa/kuksa-databroker) | Vehicle signal broker |
 | COVESA VSS | v5.1 | Standard vehicle signal tree |
 | gRPC | As provided by Kuksa | Signal access protocol |
-| Docker / Podman | As available in local dev env | Container runtime (for local dev) |
-| docker-compose | As configured in 01_project_setup | Local infrastructure orchestration |
+| Podman | As available in local dev env | Container runtime (for local dev) |
+| Podman Compose | As configured in 01_project_setup | Local infrastructure orchestration |
 
 ## Definition of Done
 

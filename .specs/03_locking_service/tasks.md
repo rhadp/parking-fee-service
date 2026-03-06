@@ -16,7 +16,7 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
 
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Requires Rust workspace with `locking-service` crate skeleton; requires Kuksa Databroker in `docker-compose.yml` via `make infra-up` |
+| 01_project_setup | 2 | 1 | Requires Rust workspace with `locking-service` crate skeleton; requires Kuksa Databroker in `compose.yml` via `make infra-up` |
 | 02_data_broker | 3 | 1 | Requires running DATA_BROKER with VSS signals configured (standard + custom overlay) |
 
 ## Test Commands

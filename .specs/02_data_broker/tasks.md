@@ -56,8 +56,8 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
 
 - [x] 2. Download and configure Kuksa Databroker binary
-  - [x] 2.1 Add Kuksa Databroker to docker-compose
-    - Add `databroker` service to the project's `docker-compose.yml`
+  - [x] 2.1 Add Kuksa Databroker to compose.yml
+    - Add `databroker` service to the project's `compose.yml`
     - Image: `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` (pinned to validated tag)
     - Container name: `databroker`
     - Port mapping: `55556:55556`
@@ -87,7 +87,7 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - Validate JSON syntax: `python3 -m json.tool config/vss/vss_overlay.json`
     - _Requirements: 02-REQ-2.1_
 
-  - [x] 3.3 Mount overlay in docker-compose
+  - [x] 3.3 Mount overlay in compose.yml
     - Add volume mount for `./config/vss/vss_overlay.json` to the databroker container
     - Add `--vss` flag with comma-separated VSS v5.1 + overlay files
     - Verify container logs show overlay loaded successfully

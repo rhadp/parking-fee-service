@@ -23,7 +23,7 @@ echo "========================================"
 echo "  Project Setup Spec Tests"
 echo "========================================"
 
-# Define test scripts in order (infra tests last since they need Docker)
+# Define test scripts in order (infra tests last since they need Podman)
 TEST_SCRIPTS=(
     "test_directories.sh"
     "test_build.sh"

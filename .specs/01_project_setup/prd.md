@@ -17,7 +17,7 @@ The goal is to create a fully functional development foundation where every comp
   - `mobile/` -- Flutter/Dart (COMPANION_APP placeholder directory only)
   - `mock/` -- Go/Rust mock CLI apps (parking-app-cli, companion-app-cli, parking-operator)
   - `proto/` -- Shared .proto definitions
-  - `deployments/` -- Docker/Podman compose files for local infra
+  - `deployments/` -- Podman Compose files for local infra
 - Create skeleton implementations for each component (except Android apps -- just placeholder dirs)
 - Create mock CLI apps for PARKING_APP and COMPANION_APP
 - Create local build capabilities (root Makefile + per-component build files)
@@ -54,7 +54,7 @@ parking-fee-service/
     companion-app-cli/             # Go - simulates COMPANION_APP
     parking-operator/              # Go - simulates parking operator REST API
   proto/                           # Shared .proto definitions
-  deployments/                     # Docker/Podman compose files
+  deployments/                     # Podman Compose files
   Makefile                         # Root build orchestration
 ```
 
@@ -63,7 +63,7 @@ parking-fee-service/
 - **Rust** (edition 2021): RHIVOS services, using Cargo workspace
 - **Go** (1.22+): Backend services and mock CLI apps, using Go workspace
 - **Protocol Buffers** (proto3): Shared interface definitions
-- **Docker Compose / Podman Compose**: Local infrastructure
+- **Podman Compose**: Local infrastructure
 - **NATS** (nats-server container): Message broker for vehicle-cloud communication
 - **Eclipse Kuksa Databroker** (container): VSS-compliant vehicle signal broker
 - **Make**: Build orchestration

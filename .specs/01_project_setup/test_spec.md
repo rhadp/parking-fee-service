@@ -451,14 +451,14 @@ ASSERT NOT directory_exists(REPO_ROOT / "rhivos" / "target")
 - Repository is checked out.
 
 **Input:**
-- Path: `deployments/docker-compose.yml`
+- Path: `deployments/compose.yml`
 
 **Expected:**
 - File exists and defines services for NATS and Kuksa Databroker.
 
 **Assertion pseudocode:**
 ```
-content = read_file(REPO_ROOT / "deployments" / "docker-compose.yml")
+content = read_file(REPO_ROOT / "deployments" / "compose.yml")
 ASSERT "nats" IN content
 ASSERT "kuksa" IN content OR "databroker" IN content
 ASSERT "4222" IN content
@@ -472,7 +472,7 @@ ASSERT "55555" IN content
 **Description:** Verify `make infra-up` starts containers and services are reachable.
 
 **Preconditions:**
-- Docker or Podman is installed and running.
+- Podman is installed and running.
 
 **Input:**
 - Command: `make infra-up`
@@ -508,7 +508,7 @@ run_command("make infra-down", cwd=REPO_ROOT)  // Cleanup
 ```
 run_command("make infra-up", cwd=REPO_ROOT)
 run_command("make infra-down", cwd=REPO_ROOT)
-result = run_command("docker compose -f deployments/docker-compose.yml ps -q")
+result = run_command("podman compose -f deployments/compose.yml ps -q")
 ASSERT result.stdout.strip() == ""
 ```
 
@@ -702,7 +702,7 @@ FOR EACH binary IN all_skeleton_binaries:
 ```
 run_command("make infra-up", cwd=REPO_ROOT)
 run_command("make infra-down", cwd=REPO_ROOT)
-result = run_command("docker compose -f deployments/docker-compose.yml ps -q")
+result = run_command("podman compose -f deployments/compose.yml ps -q")
 ASSERT result.stdout.strip() == ""
 ```
 

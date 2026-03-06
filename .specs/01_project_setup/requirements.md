@@ -15,7 +15,7 @@ This document specifies the requirements for the initial project setup of the pa
 | Kuksa Databroker | Eclipse Kuksa's VSS-compliant vehicle signal broker providing gRPC pub/sub for vehicle signals |
 | Proto definitions | Protocol Buffer (.proto) files defining gRPC service interfaces and message types |
 | Mock CLI app | A command-line program that simulates the interface of a real component for integration testing |
-| Compose file | A YAML file (docker-compose.yml or podman-compose.yml) defining multi-container local infrastructure |
+| Compose file | A YAML file (compose.yml) defining multi-container local infrastructure |
 | VIN | Vehicle Identification Number, used to uniquely identify a vehicle in the system |
 
 ## Requirements
@@ -113,14 +113,14 @@ This document specifies the requirements for the initial project setup of the pa
 
 #### Acceptance Criteria
 
-1. `01-REQ-7.1` THE `deployments/` directory SHALL contain a compose file (docker-compose.yml or podman-compose.yml) that defines NATS server and Kuksa Databroker services.
+1. `01-REQ-7.1` THE `deployments/` directory SHALL contain a compose file (compose.yml) that defines NATS server and Kuksa Databroker services.
 2. `01-REQ-7.2` WHEN `make infra-up` is executed, THE infrastructure SHALL start NATS server and Kuksa Databroker containers and they SHALL be reachable on their configured ports within 30 seconds.
 3. `01-REQ-7.3` WHEN `make infra-down` is executed, THE infrastructure SHALL stop and remove all containers started by `make infra-up`.
 
 #### Edge Cases
 
 1. `01-REQ-7.E1` IF a container port is already in use, THEN the compose file SHALL fail with a clear error message indicating the port conflict.
-2. `01-REQ-7.E2` IF Docker/Podman is not installed or not running, THEN `make infra-up` SHALL report a clear error indicating the missing dependency.
+2. `01-REQ-7.E2` IF Podman is not installed or not running, THEN `make infra-up` SHALL report a clear error indicating the missing dependency.
 
 ### Requirement 8: Mock CLI App Skeletons
 

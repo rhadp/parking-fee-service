@@ -133,7 +133,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - `test` target: runs `cargo test` in rhivos/ + `go test ./...` in each Go module
     - `lint` target: runs `cargo clippy` in rhivos/ + `go vet ./...` in each Go module
     - `clean` target: runs `cargo clean` in rhivos/ + `go clean` in each Go module
-    - `infra-up`/`infra-down`: delegates to docker compose
+    - `infra-up`/`infra-down`: delegates to podman compose
     - _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.E1_
 
   - [x] 3.2 Verify Makefile targets
@@ -152,23 +152,23 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - [x] All existing tests still pass: `bash tests/setup/run_all.sh` (excluding infra tests)
     - [x] Requirements 01-REQ-6.*, 01-REQ-9.3 acceptance criteria met
 
-- [x] 4. Setup local infrastructure (docker-compose)
-  - [x] 4.1 Create docker-compose.yml
-    - Create `deployments/docker-compose.yml`
+- [x] 4. Setup local infrastructure (podman compose)
+  - [x] 4.1 Create compose.yml
+    - Create `deployments/compose.yml`
     - Define NATS service: image `nats:latest`, ports 4222 and 8222
     - Define Kuksa Databroker service: image `ghcr.io/eclipse-kuksa/kuksa-databroker:master`, port 55555
     - Add health check configurations for both services
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3_
 
   - [x] 4.2 Wire Makefile infra targets
-    - Ensure `make infra-up` runs `docker compose -f deployments/docker-compose.yml up -d`
-    - Ensure `make infra-down` runs `docker compose -f deployments/docker-compose.yml down`
+    - Ensure `make infra-up` runs `podman compose -f deployments/compose.yml up -d`
+    - Ensure `make infra-down` runs `podman compose -f deployments/compose.yml down`
     - Add wait-for-healthy logic or timeout to infra-up
     - _Requirements: 01-REQ-7.2, 01-REQ-7.3, 01-REQ-7.E1, 01-REQ-7.E2_
 
   - [x] 4.V Verify task group 4
     - [x] Infrastructure tests pass: `bash tests/setup/test_infra.sh`
-    - [x] `make infra-up` starts containers: `make infra-up && docker compose -f deployments/docker-compose.yml ps`
+    - [x] `make infra-up` starts containers: `make infra-up && podman compose -f deployments/compose.yml ps`
     - [x] NATS reachable on port 4222
     - [x] Kuksa Databroker reachable on port 55555
     - [x] `make infra-down` stops containers cleanly: `make infra-down`
@@ -260,7 +260,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
 ## Notes
 
 - This spec is infrastructure-heavy: tests are shell scripts rather than unit tests in a framework.
-- Infrastructure tests (task group 4) require Docker or Podman to be installed and running.
+- Infrastructure tests (task group 4) require Podman to be installed and running.
 - Proto validation tests require `protoc` to be installed.
 - The `android/` and `mobile/` directories are intentionally minimal placeholders -- they will be populated by separate specs.
 - Mock CLI apps use Go's `flag` or `cobra` package for subcommand handling. The specific library choice is an implementation decision.

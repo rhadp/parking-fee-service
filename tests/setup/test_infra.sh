@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Test Spec: TS-01-20, TS-01-21, TS-01-22, TS-01-P5
-# Tests for local infrastructure (docker-compose)
+# Tests for local infrastructure (podman compose)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-COMPOSE_FILE="$REPO_ROOT/deployments/docker-compose.yml"
+COMPOSE_FILE="$REPO_ROOT/deployments/compose.yml"
 PASS=0
 FAIL=0
 
@@ -14,9 +14,9 @@ fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
 
 # Cleanup function to ensure containers are removed on exit/interrupt
 cleanup_containers() {
-    if [ -n "${DOCKER_CMD:-}" ] && [ -f "$COMPOSE_FILE" ]; then
+    if [ -n "${CONTAINER_CMD:-}" ] && [ -f "$COMPOSE_FILE" ]; then
         echo "  Cleaning up test containers..."
-        $DOCKER_CMD compose -f "$COMPOSE_FILE" down --volumes --remove-orphans 2>/dev/null || true
+        $CONTAINER_CMD compose -f "$COMPOSE_FILE" down --volumes --remove-orphans 2>/dev/null || true
     fi
 }
 trap cleanup_containers EXIT
@@ -27,7 +27,7 @@ echo "=== Infrastructure Tests ==="
 echo ""
 echo "--- TS-01-20: Compose File Contents ---"
 if [ -f "$COMPOSE_FILE" ]; then
-    pass "deployments/docker-compose.yml exists"
+    pass "deployments/compose.yml exists"
     content=$(cat "$COMPOSE_FILE")
     if echo "$content" | grep -qi "nats"; then
         pass "Compose file defines NATS service"
@@ -50,26 +50,24 @@ if [ -f "$COMPOSE_FILE" ]; then
         fail "Compose file does not expose Kuksa port 55556"
     fi
 else
-    fail "deployments/docker-compose.yml does not exist"
+    fail "deployments/compose.yml does not exist"
 fi
 
-# Check if Docker/Podman is available and running for live tests
-DOCKER_CMD=""
+# Check if Podman is available and running for live tests
+CONTAINER_CMD=""
 if command -v podman &>/dev/null && podman info >/dev/null 2>&1; then
-    DOCKER_CMD="podman"
-elif command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
-    DOCKER_CMD="docker"
+    CONTAINER_CMD="podman"
 fi
 
-if [ -z "$DOCKER_CMD" ]; then
+if [ -z "$CONTAINER_CMD" ]; then
     echo ""
-    echo "  SKIP: Docker/Podman not available, skipping live infrastructure tests"
+    echo "  SKIP: Podman not available, skipping live infrastructure tests"
     echo "  (TS-01-21, TS-01-22, TS-01-P5 require container runtime)"
 else
     # Ensure clean state before starting tests
     echo ""
     echo "--- Pre-test cleanup ---"
-    $DOCKER_CMD compose -f "$COMPOSE_FILE" down --volumes --remove-orphans 2>/dev/null || true
+    $CONTAINER_CMD compose -f "$COMPOSE_FILE" down --volumes --remove-orphans 2>/dev/null || true
 
     # TS-01-21: Infrastructure starts and services are reachable (01-REQ-7.2)
     echo ""
@@ -119,13 +117,13 @@ else
         fi
 
         # Check no containers remain
-        remaining=$($DOCKER_CMD compose -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l | tr -d ' ')
+        remaining=$($CONTAINER_CMD compose -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l | tr -d ' ')
         if [ "$remaining" -eq 0 ]; then
             pass "No containers remain after infra-down"
         else
             fail "$remaining containers still running after infra-down"
             # Clean up
-            $DOCKER_CMD compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+            $CONTAINER_CMD compose -f "$COMPOSE_FILE" down 2>/dev/null || true
         fi
 
         # TS-01-P5: Infrastructure lifecycle property (Property 5)
@@ -133,12 +131,12 @@ else
         echo "--- TS-01-P5: Infrastructure Lifecycle Property ---"
         (cd "$REPO_ROOT" && make infra-up 2>/dev/null) || true
         (cd "$REPO_ROOT" && make infra-down 2>/dev/null) || true
-        remaining=$($DOCKER_CMD compose -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l | tr -d ' ')
+        remaining=$($CONTAINER_CMD compose -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l | tr -d ' ')
         if [ "$remaining" -eq 0 ]; then
             pass "Infrastructure lifecycle leaves no orphaned containers"
         else
             fail "Infrastructure lifecycle leaves $remaining orphaned containers"
-            $DOCKER_CMD compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+            $CONTAINER_CMD compose -f "$COMPOSE_FILE" down 2>/dev/null || true
         fi
     else
         fail "Compose file not found, cannot test infrastructure"

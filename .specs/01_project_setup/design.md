@@ -61,7 +61,7 @@ parking-fee-service/
 │       └── v1/
 │           └── common.proto              # Common message types
 ├── deployments/                          # Local infrastructure
-│   └── docker-compose.yml                # NATS + Kuksa Databroker
+│   └── compose.yml                       # NATS + Kuksa Databroker
 └── .specs/                               # Specification documents
 ```
 
@@ -84,8 +84,8 @@ parking-fee-service/
 | `test` | Run all unit tests | `cargo test` in rhivos/ + `go test ./...` in backend/ and mock/ modules |
 | `lint` | Run all linters | `cargo clippy` in rhivos/ + `go vet ./...` in backend/ and mock/ modules |
 | `clean` | Remove all build artifacts | `cargo clean` in rhivos/ + `go clean` in backend/ and mock/ modules |
-| `infra-up` | Start local infrastructure | `docker compose -f deployments/docker-compose.yml up -d` |
-| `infra-down` | Stop local infrastructure | `docker compose -f deployments/docker-compose.yml down` |
+| `infra-up` | Start local infrastructure | `podman compose -f deployments/compose.yml up -d` |
+| `infra-down` | Stop local infrastructure | `podman compose -f deployments/compose.yml down` |
 | `proto` | Validate proto files | `protoc --lint_out=. proto/**/*.proto` (or buf lint) |
 
 ### Per-Component Builds
@@ -149,9 +149,9 @@ func TestStartup(t *testing.T) {
 
 ## Local Infrastructure
 
-### Docker Compose Configuration
+### Podman Compose Configuration
 
-The `deployments/docker-compose.yml` defines two services:
+The `deployments/compose.yml` defines two services:
 
 | Service | Image | Ports | Purpose |
 |---------|-------|-------|---------|
@@ -242,7 +242,7 @@ The proto files use `parking.v1` as the package namespace. Additional service-sp
 | Proto file has syntax error | protoc reports error clearly | 01-REQ-5.E1 |
 | Component build failure during `make build` | Non-zero exit, clear error output | 01-REQ-6.E1 |
 | Container port already in use | Compose reports port conflict | 01-REQ-7.E1 |
-| Docker/Podman not installed | `make infra-up` reports missing dependency | 01-REQ-7.E2 |
+| Podman not installed | `make infra-up` reports missing dependency | 01-REQ-7.E2 |
 | Unknown subcommand to mock CLI | Error message with valid subcommands, non-zero exit | 01-REQ-8.E1 |
 | No tests in a package | Test runner reports "no test files" | 01-REQ-9.E1 |
 
@@ -255,8 +255,8 @@ The proto files use `parking.v1` as the package namespace. Additional service-sp
 | Go | 1.22+ | Backend services and mock CLI apps |
 | Protocol Buffers | proto3 | Interface definitions |
 | protoc | Latest | Proto file compilation and validation |
-| Docker / Podman | Latest | Container runtime for local infrastructure |
-| Docker Compose / Podman Compose | Latest | Multi-container orchestration |
+| Podman | Latest | Container runtime for local infrastructure |
+| Podman Compose | Latest | Multi-container orchestration |
 | NATS Server | Latest (nats:latest image) | Message broker |
 | Eclipse Kuksa Databroker | master (ghcr.io/eclipse-kuksa/kuksa-databroker:master) | Vehicle signal broker |
 | GNU Make | 3.81+ | Build orchestration |

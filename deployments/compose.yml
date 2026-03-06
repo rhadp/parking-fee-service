@@ -1,4 +1,4 @@
-# Local development infrastructure
+# Local development infrastructure (Podman Compose)
 # Start: make infra-up
 # Stop:  make infra-down
 
