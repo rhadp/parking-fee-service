@@ -1,18 +1,7 @@
-pub mod command;
-pub mod config;
-pub mod databroker_client;
-pub mod executor;
-pub mod safety;
-
-/// Generated Kuksa VAL v2 protobuf types.
-#[allow(clippy::doc_overindented_list_items)]
-pub mod kuksa_proto {
-    tonic::include_proto!("kuksa.val.v2");
-}
-
-use command::{Command, CommandResponse, ValidationError};
-use config::Config;
-use databroker_client::{DatabrokerClient, SignalValue};
+use locking_service::command::{Command, CommandResponse, ValidationError};
+use locking_service::config::Config;
+use locking_service::databroker_client::{DatabrokerClient, SignalValue};
+use locking_service::kuksa_proto;
 use tracing::{error, info, warn};
 
 /// VSS signal path for incoming lock/unlock commands.
@@ -185,7 +174,7 @@ async fn process_command(client: &mut DatabrokerClient, cmd_json: &str) {
             };
 
             let response = CommandResponse::failure(command_id, reason, now);
-            executor::write_response(client, &response).await;
+            locking_service::executor::write_response(client, &response).await;
             return;
         }
     };
@@ -196,32 +185,32 @@ async fn process_command(client: &mut DatabrokerClient, cmd_json: &str) {
     let speed = read_speed(client).await;
     let door_open = read_door_open(client).await;
 
-    if let Err(reason) = safety::check_safety_constraints(speed, door_open) {
+    if let Err(reason) = locking_service::safety::check_safety_constraints(speed, door_open) {
         info!(
             command_id = %command_id,
             reason = %reason,
             "Command rejected due to safety constraint"
         );
         let response = CommandResponse::failure(command_id, reason, now);
-        executor::write_response(client, &response).await;
+        locking_service::executor::write_response(client, &response).await;
         return;
     }
 
     // Step 4: Execute lock/unlock
-    if let Err(e) = executor::execute_lock_action(client, &cmd.action).await {
+    if let Err(e) = locking_service::executor::execute_lock_action(client, &cmd.action).await {
         error!(
             command_id = %command_id,
             error = %e,
             "Failed to execute lock action"
         );
         let response = CommandResponse::failure(command_id, "execution_failed".to_string(), now);
-        executor::write_response(client, &response).await;
+        locking_service::executor::write_response(client, &response).await;
         return;
     }
 
     // Step 5: Write success response
     let response = CommandResponse::success(command_id, now);
-    executor::write_response(client, &response).await;
+    locking_service::executor::write_response(client, &response).await;
 }
 
 /// Read `Vehicle.Speed` from DATA_BROKER.

@@ -87,6 +87,36 @@ impl DatabrokerClient {
         Ok(DatabrokerClient { client })
     }
 
+    /// Connect to DATA_BROKER via TCP at the given address (e.g. "http://localhost:55556").
+    ///
+    /// Used for integration testing when UDS is not available.
+    pub async fn connect_tcp(addr: &str) -> Result<Self, tonic::transport::Error> {
+        let mut backoff_secs = INITIAL_BACKOFF_SECS;
+
+        loop {
+            match Endpoint::try_from(addr.to_string()) {
+                Ok(endpoint) => match endpoint.connect().await {
+                    Ok(channel) => {
+                        let client = ValClient::new(channel);
+                        info!(addr = %addr, "Connected to DATA_BROKER via TCP");
+                        return Ok(DatabrokerClient { client });
+                    }
+                    Err(e) => {
+                        warn!(
+                            addr = %addr,
+                            backoff_secs = backoff_secs,
+                            error = %e,
+                            "DATA_BROKER unreachable via TCP, retrying"
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
+                        backoff_secs = (backoff_secs * 2).min(MAX_BACKOFF_SECS);
+                    }
+                },
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
     /// Subscribe to signal changes at the given VSS path.
     ///
     /// Returns a tonic streaming response of `SubscribeResponse` messages.
@@ -134,6 +164,28 @@ impl DatabrokerClient {
                 timestamp: None,
                 value: Some(kuksa_proto::Value {
                     typed_value: Some(TypedValue::Bool(value)),
+                }),
+            }),
+        };
+
+        self.client.publish_value(request).await?;
+        Ok(())
+    }
+
+    /// Write a float value to a signal in DATA_BROKER.
+    pub async fn set_signal_float(
+        &mut self,
+        path: &str,
+        value: f32,
+    ) -> Result<(), tonic::Status> {
+        let request = PublishValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(kuksa_proto::signal_id::Signal::Path(path.to_string())),
+            }),
+            data_point: Some(Datapoint {
+                timestamp: None,
+                value: Some(kuksa_proto::Value {
+                    typed_value: Some(TypedValue::Float(value)),
                 }),
             }),
         };
