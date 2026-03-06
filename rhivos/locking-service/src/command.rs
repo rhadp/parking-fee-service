@@ -37,25 +37,87 @@ impl Command {
     ///
     /// Returns `Ok(Command)` if the JSON is well-formed and all required fields
     /// are present and valid. Returns `Err(ValidationError)` otherwise.
-    pub fn from_json(_json_str: &str) -> Result<Self, ValidationError> {
-        todo!("Implement JSON parsing and validation")
+    ///
+    /// Validation order:
+    /// 1. Parse JSON structure
+    /// 2. Check all required fields are present and non-empty
+    /// 3. Validate `action` is `"lock"` or `"unlock"`
+    pub fn from_json(json_str: &str) -> Result<Self, ValidationError> {
+        // Step 1: Parse as generic JSON value first to give better field-level errors
+        let value: serde_json::Value = serde_json::from_str(json_str)
+            .map_err(|e| ValidationError::MalformedJson(e.to_string()))?;
+
+        let obj = value
+            .as_object()
+            .ok_or_else(|| ValidationError::MalformedJson("expected JSON object".to_string()))?;
+
+        // Step 2: Check required fields are present and non-empty
+        Self::check_required_string(obj, "command_id")?;
+        Self::check_required_string(obj, "action")?;
+        Self::check_required_string(obj, "source")?;
+        Self::check_required_string(obj, "vin")?;
+
+        if !obj.contains_key("timestamp") {
+            return Err(ValidationError::MissingField("timestamp".to_string()));
+        }
+
+        if !obj.contains_key("doors") {
+            return Err(ValidationError::MissingField("doors".to_string()));
+        }
+
+        // Step 3: Validate action value
+        let action = obj["action"].as_str().unwrap();
+        if action != "lock" && action != "unlock" {
+            return Err(ValidationError::InvalidAction(action.to_string()));
+        }
+
+        // Now deserialize into the typed struct (all fields validated)
+        let cmd: Command = serde_json::from_value(value)
+            .map_err(|e| ValidationError::MalformedJson(e.to_string()))?;
+
+        Ok(cmd)
+    }
+
+    /// Check that a required string field is present and non-empty.
+    fn check_required_string(
+        obj: &serde_json::Map<String, serde_json::Value>,
+        field: &str,
+    ) -> Result<(), ValidationError> {
+        match obj.get(field) {
+            None => Err(ValidationError::MissingField(field.to_string())),
+            Some(v) => match v.as_str() {
+                Some(s) if !s.is_empty() => Ok(()),
+                Some(_) => Err(ValidationError::MissingField(field.to_string())),
+                None => Err(ValidationError::MissingField(field.to_string())),
+            },
+        }
     }
 }
 
 impl CommandResponse {
     /// Create a success response.
-    pub fn success(_command_id: String, _timestamp: u64) -> Self {
-        todo!("Implement success response construction")
+    pub fn success(command_id: String, timestamp: u64) -> Self {
+        CommandResponse {
+            command_id,
+            status: "success".to_string(),
+            reason: None,
+            timestamp,
+        }
     }
 
     /// Create a failure response.
-    pub fn failure(_command_id: String, _reason: String, _timestamp: u64) -> Self {
-        todo!("Implement failure response construction")
+    pub fn failure(command_id: String, reason: String, timestamp: u64) -> Self {
+        CommandResponse {
+            command_id,
+            status: "failed".to_string(),
+            reason: Some(reason),
+            timestamp,
+        }
     }
 
     /// Serialize the response to a JSON string.
     pub fn to_json(&self) -> String {
-        todo!("Implement response serialization")
+        serde_json::to_string(self).expect("CommandResponse serialization should not fail")
     }
 }
 
