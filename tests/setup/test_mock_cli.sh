@@ -11,6 +11,25 @@ FAIL=0
 pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
 
+# Portable timeout: run command with a deadline (seconds).
+# Usage: run_with_timeout <seconds> <command...>
+# Sets RWT_OUTPUT and RWT_EXIT.
+run_with_timeout() {
+    local secs=$1; shift
+    local tmpfile
+    tmpfile=$(mktemp)
+    ( "$@" > "$tmpfile" 2>&1 ) &
+    local pid=$!
+    ( sleep "$secs" && kill "$pid" 2>/dev/null ) &
+    local watchdog=$!
+    wait "$pid" 2>/dev/null
+    RWT_EXIT=$?
+    kill "$watchdog" 2>/dev/null || true
+    wait "$watchdog" 2>/dev/null || true
+    RWT_OUTPUT=$(cat "$tmpfile")
+    rm -f "$tmpfile"
+}
+
 echo "=== Mock CLI and Sensor Tests ==="
 
 # TS-01-23: Mock CLI apps build successfully (01-REQ-8.1, 01-REQ-8.2, 01-REQ-8.3)
@@ -41,8 +60,8 @@ echo "--- TS-01-24: Mock CLI Usage Output ---"
 for app in parking-app-cli companion-app-cli parking-operator; do
     app_dir="$REPO_ROOT/mock/$app"
     if [ -d "$app_dir" ]; then
-        output=$(cd "$app_dir" && go run . 2>&1) || true
-        exit_code=$?
+        exit_code=0
+        output=$(cd "$app_dir" && go run . 2>&1) || exit_code=$?
         if [ $exit_code -eq 0 ]; then
             pass "Mock app '$app' exits with code 0 (no args)"
         else
@@ -73,8 +92,8 @@ echo "--- TS-01-P7: Mock CLI Usage Output Property ---"
 for app in parking-app-cli companion-app-cli parking-operator; do
     app_dir="$REPO_ROOT/mock/$app"
     if [ -d "$app_dir" ]; then
-        output=$(cd "$app_dir" && go run . 2>&1) || true
-        exit_code=$?
+        exit_code=0
+        output=$(cd "$app_dir" && go run . 2>&1) || exit_code=$?
         if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
             pass "Mock app '$app' exits 0 with non-empty output"
         else
@@ -115,8 +134,8 @@ echo "--- TS-01-E6: No Tests Handled Gracefully ---"
 # This is inherent Go behavior - go test ./... succeeds with "no test files" output
 for module_dir in backend/parking-fee-service backend/cloud-gateway; do
     if [ -d "$REPO_ROOT/$module_dir" ]; then
-        result=$(cd "$REPO_ROOT/$module_dir" && go test ./... 2>&1) || true
-        exit_code=$?
+        exit_code=0
+        result=$(cd "$REPO_ROOT/$module_dir" && go test ./... 2>&1) || exit_code=$?
         if [ $exit_code -eq 0 ]; then
             pass "go test ./... in '$module_dir' succeeds (handles no-test packages gracefully)"
         else
