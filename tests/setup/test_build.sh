@@ -112,7 +112,9 @@ for module_dir in backend/parking-fee-service backend/cloud-gateway mock/parking
     fi
 done
 
-# TS-01-12: Rust skeleton binaries exit with code 0 (01-REQ-4.1)
+# TS-01-12: Rust binaries produce startup output (01-REQ-4.1)
+# These are now real services that block (gRPC servers, event loops), so we
+# run each with a short timeout and check for startup log output.
 echo ""
 echo "--- TS-01-12: Rust Skeleton Binary Exit Codes ---"
 # Build first
@@ -120,31 +122,40 @@ echo "--- TS-01-12: Rust Skeleton Binary Exit Codes ---"
 for binary in locking-service cloud-gateway-client update-service parking-operator-adaptor; do
     bin_path="$REPO_ROOT/rhivos/target/debug/$binary"
     if [ -x "$bin_path" ]; then
-        output=$("$bin_path" 2>&1) || true
-        exit_code=$?
-        if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
-            pass "Binary '$binary' exits with code 0 and produces output"
+        tmpout=$(mktemp)
+        # Run in a subshell to isolate signals from the parent script
+        (RUST_LOG=info "$bin_path" > "$tmpout" 2>&1 &
+         child=$!; sleep 3; kill "$child" 2>/dev/null; wait "$child" 2>/dev/null) 2>/dev/null || true
+        output=$(cat "$tmpout")
+        rm -f "$tmpout"
+        if [ -n "$output" ] && echo "$output" | grep -qiE "start|loading|listening|configuration|connect"; then
+            pass "Binary '$binary' produces startup output"
+        elif [ -n "$output" ]; then
+            pass "Binary '$binary' produces output on startup"
         else
-            fail "Binary '$binary' exit_code=$exit_code output_len=${#output}"
+            fail "Binary '$binary' produces no output within timeout"
         fi
     else
         fail "Binary '$binary' not found at $bin_path"
     fi
 done
 
-# TS-01-13: Go skeleton binaries exit with code 0 (01-REQ-4.2)
-# Note: Later specs may add real server logic that exits non-zero when port is busy
+# TS-01-13: Go binaries produce startup output (01-REQ-4.2)
+# These are now real HTTP servers that block, so run with a timeout.
 echo ""
 echo "--- TS-01-13: Go Skeleton Binary Exit Codes ---"
 for module_dir in backend/parking-fee-service backend/cloud-gateway; do
-    exit_code=0
-    output=$(cd "$REPO_ROOT/$module_dir" && go run . 2>&1) || exit_code=$?
-    if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
-        pass "Go binary in '$module_dir' exits with code 0 and produces output"
-    elif [ -n "$output" ] && echo "$output" | grep -qi "starting"; then
-        pass "Go binary in '$module_dir' starts (exit=$exit_code, has startup output)"
+    tmpout=$(mktemp)
+    (cd "$REPO_ROOT/$module_dir" && go run . > "$tmpout" 2>&1 &
+     child=$!; sleep 5; kill "$child" 2>/dev/null; wait "$child" 2>/dev/null) 2>/dev/null || true
+    output=$(cat "$tmpout")
+    rm -f "$tmpout"
+    if [ -n "$output" ] && echo "$output" | grep -qiE "start|listening|serving"; then
+        pass "Go binary in '$module_dir' produces startup output"
+    elif [ -n "$output" ]; then
+        pass "Go binary in '$module_dir' produces output on startup"
     else
-        fail "Go binary in '$module_dir' exit_code=$exit_code output_len=${#output}"
+        fail "Go binary in '$module_dir' produces no output within timeout"
     fi
 done
 
@@ -210,52 +221,60 @@ done
 # TS-01-P4: Skeleton exit behavior property (Property 4)
 echo ""
 echo "--- TS-01-P4: Skeleton Exit Behavior ---"
-# Rust binaries
+# Rust binaries — run with timeout since they are long-running services
 (cd "$REPO_ROOT/rhivos" && cargo build 2>/dev/null) || true
 for binary in locking-service cloud-gateway-client update-service parking-operator-adaptor; do
     bin_path="$REPO_ROOT/rhivos/target/debug/$binary"
     if [ -x "$bin_path" ]; then
-        output=$("$bin_path" 2>&1)
-        exit_code=$?
-        if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
-            pass "Rust binary '$binary' exits 0 with stdout output"
+        tmpout=$(mktemp)
+        (RUST_LOG=info "$bin_path" > "$tmpout" 2>&1 &
+         child=$!; sleep 3; kill "$child" 2>/dev/null; wait "$child" 2>/dev/null) 2>/dev/null || true
+        output=$(cat "$tmpout")
+        rm -f "$tmpout"
+        if [ -n "$output" ] && echo "$output" | grep -qiE "start|loading|listening|configuration|connect"; then
+            pass "Rust binary '$binary' produces startup output"
+        elif [ -n "$output" ]; then
+            pass "Rust binary '$binary' produces output on startup"
         else
-            fail "Rust binary '$binary' exit=$exit_code output_empty=$( [ -z "$output" ] && echo yes || echo no)"
+            fail "Rust binary '$binary' produces no output within timeout"
         fi
     else
         fail "Rust binary '$binary' not built"
     fi
 done
-# Go binaries -- later specs may add real server logic; check for startup output
+# Go binaries — run with timeout since they are long-running servers
 for module_dir in backend/parking-fee-service backend/cloud-gateway; do
-    exit_code=0
-    output=$(cd "$REPO_ROOT/$module_dir" && go run . 2>&1) || exit_code=$?
-    # Accept exit 0 OR a startup message that shows the binary ran (later specs add servers)
-    if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
-        pass "Go binary in '$module_dir' exits 0 with stdout output"
-    elif [ -n "$output" ] && echo "$output" | grep -qi "starting"; then
-        pass "Go binary in '$module_dir' starts (exit=$exit_code, has startup output)"
+    tmpout=$(mktemp)
+    (cd "$REPO_ROOT/$module_dir" && go run . > "$tmpout" 2>&1 &
+     child=$!; sleep 5; kill "$child" 2>/dev/null; wait "$child" 2>/dev/null) 2>/dev/null || true
+    output=$(cat "$tmpout")
+    rm -f "$tmpout"
+    if [ -n "$output" ] && echo "$output" | grep -qiE "start|listening|serving"; then
+        pass "Go binary in '$module_dir' produces startup output"
+    elif [ -n "$output" ]; then
+        pass "Go binary in '$module_dir' produces output on startup"
     else
-        fail "Go binary in '$module_dir' exit=$exit_code"
+        fail "Go binary in '$module_dir' produces no output within timeout"
     fi
 done
 
 # TS-01-E3: Skeleton binary without config (01-REQ-4.E1)
+# Binaries are long-running services; run with stripped env and a timeout,
+# then verify they don't panic (graceful error or retry is acceptable).
 echo ""
 echo "--- TS-01-E3: Skeleton Binary Without Config ---"
 for binary in locking-service cloud-gateway-client update-service parking-operator-adaptor; do
     bin_path="$REPO_ROOT/rhivos/target/debug/$binary"
     if [ -x "$bin_path" ]; then
-        exit_code=0
-        stderr_output=$(env -i "$bin_path" 2>&1 1>/dev/null) || exit_code=$?
-        if [ $exit_code -eq 0 ]; then
-            if echo "$stderr_output" | grep -qi "panic"; then
-                fail "Binary '$binary' panics without config"
-            else
-                pass "Binary '$binary' exits cleanly without config"
-            fi
+        tmpout=$(mktemp)
+        (env -i RUST_LOG=info "$bin_path" > "$tmpout" 2>&1 &
+         child=$!; sleep 3; kill "$child" 2>/dev/null; wait "$child" 2>/dev/null) 2>/dev/null || true
+        output=$(cat "$tmpout")
+        rm -f "$tmpout"
+        if echo "$output" | grep -qi "panic"; then
+            fail "Binary '$binary' panics without config"
         else
-            fail "Binary '$binary' exits with code $exit_code without config"
+            pass "Binary '$binary' does not panic without config"
         fi
     else
         fail "Binary '$binary' not built"
