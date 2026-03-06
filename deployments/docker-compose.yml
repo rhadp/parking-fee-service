@@ -2,6 +2,8 @@
 # Start: make infra-up
 # Stop:  make infra-down
 
+name: parking-fee-service
+
 services:
   nats:
     image: nats:latest

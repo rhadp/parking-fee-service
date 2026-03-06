@@ -85,7 +85,7 @@ infra-up: ## Start local infrastructure (NATS, Kuksa Databroker)
 	@echo "Infrastructure started. NATS on :4222, Kuksa Databroker on :55556"
 
 infra-down: ## Stop and remove local infrastructure containers
-	$(COMPOSE_CMD) -f $(COMPOSE_FILE) down --remove-orphans
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) down --volumes --remove-orphans
 
 ##@ Proto
 
