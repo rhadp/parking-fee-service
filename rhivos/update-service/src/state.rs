@@ -31,9 +31,20 @@ impl AdapterState {
     /// INSTALLING->RUNNING, INSTALLING->ERROR, RUNNING->STOPPED,
     /// RUNNING->ERROR, STOPPED->RUNNING, STOPPED->OFFLOADING,
     /// ERROR->DOWNLOADING
-    pub fn can_transition_to(&self, _target: AdapterState) -> bool {
-        // Stub: not yet implemented
-        todo!("state machine transitions not yet implemented")
+    pub fn can_transition_to(&self, target: AdapterState) -> bool {
+        matches!(
+            (self, target),
+            (AdapterState::Unknown, AdapterState::Downloading)
+                | (AdapterState::Downloading, AdapterState::Installing)
+                | (AdapterState::Downloading, AdapterState::Error)
+                | (AdapterState::Installing, AdapterState::Running)
+                | (AdapterState::Installing, AdapterState::Error)
+                | (AdapterState::Running, AdapterState::Stopped)
+                | (AdapterState::Running, AdapterState::Error)
+                | (AdapterState::Stopped, AdapterState::Running)
+                | (AdapterState::Stopped, AdapterState::Offloading)
+                | (AdapterState::Error, AdapterState::Downloading)
+        )
     }
 
     /// Convert from proto i32 value to domain AdapterState.
