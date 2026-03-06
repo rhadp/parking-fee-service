@@ -104,27 +104,27 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - [x] Server starts and responds with UNIMPLEMENTED to all RPCs
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
-- [ ] 3. Implement OCI pull and checksum verification
-  - [ ] 3.1 Define OciPuller trait
+- [x] 3. Implement OCI pull and checksum verification
+  - [x] 3.1 Define OciPuller trait
     - Define the `OciPuller` trait in `src/oci.rs` with `pull_image` and `remove_image` methods
     - Add `#[automock]` attribute for mockall
 
-  - [ ] 3.2 Implement PodmanOciPuller
+  - [x] 3.2 Implement PodmanOciPuller
     - `pull_image`: Runs `podman pull <image_ref>`, then `podman inspect` to extract the digest
     - `remove_image`: Runs `podman rmi <image_ref>`
     - Maps podman errors to `OciError` variants
     - _Requirements: 07-REQ-2_
 
-  - [ ] 3.3 Implement checksum verification
+  - [x] 3.3 Implement checksum verification
     - Add `verify_checksum(digest, expected) -> Result<(), ChecksumError>` function
     - Computes SHA-256, formats as `sha256:<hex>`, compares with expected
     - Returns `Ok(())` on match, `Err(ChecksumError::Mismatch{...})` otherwise
     - _Requirements: 07-REQ-2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] OCI-related tests (TS-07-3, TS-07-E1) pass with mocked podman
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+  - [x] 3.V Verify task group 3
+    - [x] OCI-related tests (TS-07-3, TS-07-E1) pass with mocked podman
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
 - [ ] 4. Implement container lifecycle management (podman)
   - [ ] 4.1 Define ContainerRuntime trait
