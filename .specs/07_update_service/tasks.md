@@ -126,12 +126,12 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
-- [ ] 4. Implement container lifecycle management (podman)
-  - [ ] 4.1 Define ContainerRuntime trait
+- [x] 4. Implement container lifecycle management (podman)
+  - [x] 4.1 Define ContainerRuntime trait
     - Define the `ContainerRuntime` trait in `src/container.rs` with `run`, `stop`, `remove`, `status` methods
     - Add `#[automock]` attribute
 
-  - [ ] 4.2 Implement PodmanRuntime
+  - [x] 4.2 Implement PodmanRuntime
     - `run`: Executes `podman run -d --name <name> <image_ref>`
     - `stop`: Executes `podman stop <name>`
     - `remove`: Executes `podman rm -f <name>`
@@ -139,10 +139,10 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - All commands via `tokio::process::Command`
     - _Requirements: 07-REQ-1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Container runtime tests pass with mocked commands; TS-07-E3 passes
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+  - [x] 4.V Verify task group 4
+    - [x] Container runtime tests pass with mocked commands; TS-07-E3 passes
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
 - [ ] 5. Implement state machine and streaming
   - [ ] 5.1 Implement state machine
