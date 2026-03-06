@@ -47,13 +47,20 @@ impl Config {
 mod tests {
     use super::*;
     use std::env;
+    use std::sync::Mutex;
+
+    /// Mutex to serialize tests that modify environment variables.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     /// Helper to run config tests with isolated env vars.
     /// Restores original values after the closure runs.
+    /// Uses a mutex to prevent concurrent env var modifications.
     fn with_env_vars<F>(vars: &[(&str, Option<&str>)], f: F)
     where
         F: FnOnce(),
     {
+        let _guard = ENV_LOCK.lock().expect("env lock poisoned");
+
         // Save originals
         let originals: Vec<_> = vars
             .iter()
@@ -63,8 +70,8 @@ mod tests {
         // Set or remove vars
         for (key, val) in vars {
             match val {
-                Some(v) => env::set_var(key, v),
-                None => env::remove_var(key),
+                Some(v) => unsafe { env::set_var(key, v) },
+                None => unsafe { env::remove_var(key) },
             }
         }
 
@@ -73,8 +80,8 @@ mod tests {
         // Restore originals
         for (key, original) in originals {
             match original {
-                Some(v) => env::set_var(key, v),
-                None => env::remove_var(key),
+                Some(v) => unsafe { env::set_var(key, v) },
+                None => unsafe { env::remove_var(key) },
             }
         }
     }

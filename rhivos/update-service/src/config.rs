@@ -107,6 +107,12 @@ mod tests {
 
     #[test]
     fn test_load_from_toml_file() {
+        // Clear env vars so they don't override TOML values.
+        std::env::remove_var("UPDATE_SERVICE_GRPC_PORT");
+        std::env::remove_var("UPDATE_SERVICE_REGISTRY_BASE_URL");
+        std::env::remove_var("UPDATE_SERVICE_INACTIVITY_TIMEOUT_SECS");
+        std::env::remove_var("UPDATE_SERVICE_STORAGE_PATH");
+
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         writeln!(
             tmp,
@@ -128,6 +134,12 @@ storage_path = "/tmp/adapters"
 
     #[test]
     fn test_load_partial_toml_uses_defaults() {
+        // Clear env vars so they don't override TOML values.
+        std::env::remove_var("UPDATE_SERVICE_GRPC_PORT");
+        std::env::remove_var("UPDATE_SERVICE_REGISTRY_BASE_URL");
+        std::env::remove_var("UPDATE_SERVICE_INACTIVITY_TIMEOUT_SECS");
+        std::env::remove_var("UPDATE_SERVICE_STORAGE_PATH");
+
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         writeln!(tmp, r#"grpc_port = 12345"#).unwrap();
 
