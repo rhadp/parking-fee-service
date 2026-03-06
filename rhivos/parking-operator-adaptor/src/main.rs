@@ -1,11 +1,11 @@
-fn main() {
-    println!("parking-operator-adaptor starting...");
-}
+pub mod config;
+pub mod grpc;
+pub mod operator;
+pub mod session;
+pub mod broker;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_startup() {
-        assert!(true, "parking-operator-adaptor skeleton compiles and starts");
-    }
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+    tracing::info!("parking-operator-adaptor starting...");
 }
