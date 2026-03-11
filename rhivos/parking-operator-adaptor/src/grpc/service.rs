@@ -1,3 +1,4 @@
+use crate::broker::BrokerPublisher;
 use crate::operator::client::{OperatorClient, OperatorError};
 use crate::session::{SessionManager, SessionState};
 use std::sync::Arc;
@@ -14,6 +15,7 @@ pub struct ParkingAdaptorService {
     session: Arc<Mutex<SessionManager>>,
     operator: Arc<OperatorClient>,
     vehicle_id: String,
+    publisher: Option<Arc<Mutex<BrokerPublisher>>>,
 }
 
 impl ParkingAdaptorService {
@@ -22,11 +24,13 @@ impl ParkingAdaptorService {
         session: Arc<Mutex<SessionManager>>,
         operator: Arc<OperatorClient>,
         vehicle_id: String,
+        publisher: Option<Arc<Mutex<BrokerPublisher>>>,
     ) -> Self {
         Self {
             session,
             operator,
             vehicle_id,
+            publisher,
         }
     }
 }
@@ -63,11 +67,24 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
             return Err(tonic::Status::already_exists("session already active"));
         }
 
+        // Release lock before making the HTTP call
+        drop(session);
+
         // Call operator REST API to start session
         match self.operator.start_session(&self.vehicle_id, &zone_id).await {
             Ok(resp) => {
                 info!(session_id = %resp.session_id, "session started via gRPC");
+                let mut session = self.session.lock().await;
                 session.confirm_start(resp.session_id.clone());
+
+                // Publish SessionActive = true to DATA_BROKER
+                if let Some(pub_ref) = &self.publisher {
+                    let mut pub_lock = pub_ref.lock().await;
+                    if let Err(e) = pub_lock.set_session_active(true).await {
+                        error!(error = %e, "failed to publish SessionActive=true");
+                    }
+                }
+
                 Ok(tonic::Response::new(proto::StartSessionResponse {
                     session_id: resp.session_id,
                     status: resp.status,
@@ -75,6 +92,7 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
             }
             Err(e) => {
                 error!(error = %e, "operator start_session failed");
+                let mut session = self.session.lock().await;
                 session.fail_start();
                 Err(operator_error_to_status(&e))
             }
@@ -94,11 +112,24 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
 
         let session_id = session.session_id().unwrap_or_default().to_string();
 
+        // Release lock before making the HTTP call
+        drop(session);
+
         // Call operator REST API to stop session
         match self.operator.stop_session(&session_id).await {
             Ok(resp) => {
                 info!(session_id = %resp.session_id, duration = resp.duration, fee = resp.fee, "session stopped via gRPC");
+                let mut session = self.session.lock().await;
                 session.confirm_stop();
+
+                // Publish SessionActive = false to DATA_BROKER
+                if let Some(pub_ref) = &self.publisher {
+                    let mut pub_lock = pub_ref.lock().await;
+                    if let Err(e) = pub_lock.set_session_active(false).await {
+                        error!(error = %e, "failed to publish SessionActive=false");
+                    }
+                }
+
                 Ok(tonic::Response::new(proto::StopSessionResponse {
                     session_id: resp.session_id,
                     duration_seconds: resp.duration,
@@ -108,6 +139,7 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
             }
             Err(e) => {
                 error!(error = %e, "operator stop_session failed");
+                let mut session = self.session.lock().await;
                 session.fail_stop();
                 Err(operator_error_to_status(&e))
             }
@@ -162,7 +194,7 @@ mod tests {
     fn make_service(zone_id: Option<String>) -> ParkingAdaptorService {
         let session = Arc::new(Mutex::new(SessionManager::new(zone_id)));
         let operator = Arc::new(OperatorClient::new("http://localhost:8080".to_string()));
-        ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string())
+        ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string(), None)
     }
 
     /// TS-08-5: GetStatus returns idle state when no session is active.
@@ -203,7 +235,7 @@ mod tests {
             s.confirm_start("session-123".to_string());
         }
         let operator = Arc::new(OperatorClient::new("http://localhost:8080".to_string()));
-        let svc = ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string());
+        let svc = ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string(), None);
         let request = tonic::Request::new(proto::StartSessionRequest {
             zone_id: "zone-1".to_string(),
         });

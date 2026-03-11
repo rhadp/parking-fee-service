@@ -1,3 +1,8 @@
+use std::time::Duration;
+
+use reqwest::Client;
+use tracing::{error, info};
+
 use super::models::*;
 
 /// Error types for operator REST client operations.
@@ -15,43 +20,146 @@ pub enum OperatorError {
 
 /// REST client for communicating with the PARKING_OPERATOR.
 pub struct OperatorClient {
-    _base_url: String,
+    base_url: String,
+    client: Client,
 }
 
 impl OperatorClient {
     /// Create a new OperatorClient with the given base URL.
     pub fn new(base_url: String) -> Self {
-        Self {
-            _base_url: base_url,
-        }
+        let client = Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .expect("failed to create HTTP client");
+        Self { base_url, client }
     }
 
     /// Start a parking session via POST /parking/start.
     pub async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        // Stub: will be implemented in task group 4
-        todo!("OperatorClient::start_session not yet implemented")
+        let url = format!("{}/parking/start", self.base_url);
+        let timestamp = chrono::Utc::now().timestamp();
+        let body = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp,
+        };
+
+        info!(%url, %vehicle_id, %zone_id, "sending start_session request");
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    OperatorError::Timeout
+                } else {
+                    OperatorError::Unreachable(e.to_string())
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response.text().await.unwrap_or_default();
+            error!(http_status = %status, body = %body_text, "operator start_session failed");
+            return Err(OperatorError::HttpError {
+                status: status.as_u16(),
+                body: body_text,
+            });
+        }
+
+        response
+            .json::<StartResponse>()
+            .await
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 
     /// Stop a parking session via POST /parking/stop.
     pub async fn stop_session(
         &self,
-        _session_id: &str,
+        session_id: &str,
     ) -> Result<StopResponse, OperatorError> {
-        // Stub: will be implemented in task group 4
-        todo!("OperatorClient::stop_session not yet implemented")
+        let url = format!("{}/parking/stop", self.base_url);
+        let timestamp = chrono::Utc::now().timestamp();
+        let body = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp,
+        };
+
+        info!(%url, %session_id, "sending stop_session request");
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    OperatorError::Timeout
+                } else {
+                    OperatorError::Unreachable(e.to_string())
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response.text().await.unwrap_or_default();
+            error!(http_status = %status, body = %body_text, "operator stop_session failed");
+            return Err(OperatorError::HttpError {
+                status: status.as_u16(),
+                body: body_text,
+            });
+        }
+
+        response
+            .json::<StopResponse>()
+            .await
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 
     /// Query session status via GET /parking/status/{session_id}.
     pub async fn get_status(
         &self,
-        _session_id: &str,
+        session_id: &str,
     ) -> Result<StatusResponse, OperatorError> {
-        // Stub: will be implemented in task group 4
-        todo!("OperatorClient::get_status not yet implemented")
+        let url = format!("{}/parking/status/{}", self.base_url, session_id);
+
+        info!(%url, %session_id, "sending get_status request");
+
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    OperatorError::Timeout
+                } else {
+                    OperatorError::Unreachable(e.to_string())
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response.text().await.unwrap_or_default();
+            error!(http_status = %status, body = %body_text, "operator get_status failed");
+            return Err(OperatorError::HttpError {
+                status: status.as_u16(),
+                body: body_text,
+            });
+        }
+
+        response
+            .json::<StatusResponse>()
+            .await
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 }
 
@@ -121,5 +229,41 @@ mod tests {
         assert_eq!(resp.rate_type, "per_hour");
         assert_eq!(resp.rate_amount, 2.50);
         assert_eq!(resp.currency, "EUR");
+    }
+
+    /// TS-08-7.E1: Verify OperatorClient handles unreachable operator gracefully.
+    #[tokio::test]
+    async fn test_start_session_unreachable() {
+        let client = OperatorClient::new("http://127.0.0.1:19876".to_string());
+        let result = client.start_session("VIN-001", "zone-1").await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OperatorError::Unreachable(_) => {} // expected
+            other => panic!("expected Unreachable, got: {other:?}"),
+        }
+    }
+
+    /// Verify OperatorClient handles unreachable operator on stop.
+    #[tokio::test]
+    async fn test_stop_session_unreachable() {
+        let client = OperatorClient::new("http://127.0.0.1:19876".to_string());
+        let result = client.stop_session("session-123").await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OperatorError::Unreachable(_) => {}
+            other => panic!("expected Unreachable, got: {other:?}"),
+        }
+    }
+
+    /// Verify OperatorClient handles unreachable operator on get_status.
+    #[tokio::test]
+    async fn test_get_status_unreachable() {
+        let client = OperatorClient::new("http://127.0.0.1:19876".to_string());
+        let result = client.get_status("session-123").await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OperatorError::Unreachable(_) => {}
+            other => panic!("expected Unreachable, got: {other:?}"),
+        }
     }
 }
