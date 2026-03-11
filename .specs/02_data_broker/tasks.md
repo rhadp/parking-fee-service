@@ -22,8 +22,8 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create DATA_BROKER test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create DATA_BROKER test file
     - Create `tests/setup/databroker_test.go` with test functions for each test spec entry
     - `TestDataBrokerHealth` -- verify gRPC connectivity to `localhost:55556` (TS-02-1)
     - `TestDataBrokerStandardSignals` -- query metadata for 5 standard VSS signals (TS-02-2)
@@ -32,28 +32,28 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - `TestDataBrokerUDSAccess` -- connect and operate via UDS (TS-02-5)
     - _Test Spec: TS-02-1 through TS-02-5_
 
-  - [ ] 1.2 Write property test functions
+  - [x] 1.2 Write property test functions
     - `TestDataBrokerWriteReadRoundTrip` -- table-driven subtests for all 8 signals (TS-02-P1)
     - `TestDataBrokerSubscription` -- subscribe, write from separate goroutine, verify delivery (TS-02-P2)
     - `TestDataBrokerOverlayMerge` -- verify custom and standard signals coexist (TS-02-P3)
     - _Test Spec: TS-02-P1 through TS-02-P3_
 
-  - [ ] 1.3 Write edge case test functions
+  - [x] 1.3 Write edge case test functions
     - `TestDataBrokerNonExistentSignal` -- get/set on `Vehicle.NonExistent.Signal` (TS-02-E1)
     - `TestDataBrokerUnsetSignal` -- read signal never written, verify no value (TS-02-E2)
     - `TestDataBrokerTypeMismatch` -- write string to bool signal (TS-02-E3)
     - `TestDataBrokerHealthDuringStartup` -- verify health check behavior (TS-02-E4)
     - _Test Spec: TS-02-E1 through TS-02-E4_
 
-  - [ ] 1.4 Add Kuksa gRPC client dependency
+  - [x] 1.4 Add Kuksa gRPC client dependency
     - Add Go dependencies for gRPC connectivity to Kuksa Databroker
     - Use official Kuksa client library or raw gRPC with Kuksa proto definitions
     - Update `tests/setup/go.mod` and run `go mod tidy`
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no infrastructure exists yet
-    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no infrastructure exists yet
+    - [x] No linter warnings: `cd tests/setup && go vet ./...`
 
 - [ ] 2. Download and configure Kuksa Databroker binary
   - [ ] 2.1 Add Kuksa Databroker to compose.yml
