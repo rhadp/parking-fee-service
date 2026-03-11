@@ -16,6 +16,7 @@ use cloud_gateway_client::config::Config;
 use cloud_gateway_client::databroker_client::{DataBrokerClient, SignalValue};
 use cloud_gateway_client::nats_client::NatsClient;
 use futures::StreamExt;
+use serial_test::serial;
 
 /// Default TCP address for DATA_BROKER in the test environment.
 const DATABROKER_ADDR: &str = "127.0.0.1:55556";
@@ -76,6 +77,7 @@ fn valid_command_json(command_id: &str, action: &str, vin: &str) -> String {
 /// Verify that the CLOUD_GATEWAY_CLIENT connects to NATS and subscribes
 /// to `vehicles.{VIN}.commands`.
 #[tokio::test]
+#[serial]
 async fn test_nats_connection_and_command_subscription() {
     let vin = "TEST_VIN_TS04_1";
     let nats_client = connect_nats(vin).await;
@@ -110,6 +112,7 @@ async fn test_nats_connection_and_command_subscription() {
 /// Publish a valid command via NATS, process it through the command processor,
 /// and verify it is written to `Vehicle.Command.Door.Lock` on DATA_BROKER.
 #[tokio::test]
+#[serial]
 async fn test_command_reception_and_databroker_write() {
     let vin = "TEST_VIN_TS04_P1";
     let nats_client = connect_nats(vin).await;
@@ -175,6 +178,7 @@ async fn test_command_reception_and_databroker_write() {
 /// Write a response to `Vehicle.Command.Door.Response` on DATA_BROKER and
 /// verify it is published to `vehicles.{VIN}.command_responses` on NATS.
 #[tokio::test]
+#[serial]
 async fn test_response_relay_databroker_to_nats() {
     let vin = "TEST_VIN_TS04_P2";
     let nats_client = connect_nats(vin).await;
@@ -244,6 +248,7 @@ async fn test_response_relay_databroker_to_nats() {
 /// Write `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked = true` to DATA_BROKER
 /// and verify telemetry is published to `vehicles.{VIN}.telemetry` on NATS.
 #[tokio::test]
+#[serial]
 async fn test_telemetry_publishing_on_signal_change() {
     let vin = "TEST_VIN_TS04_P3";
     let nats_client = connect_nats(vin).await;
@@ -304,6 +309,7 @@ async fn test_telemetry_publishing_on_signal_change() {
 /// Write latitude, longitude, and parking session active signals and verify
 /// each produces a telemetry message on NATS.
 #[tokio::test]
+#[serial]
 async fn test_telemetry_multiple_signals() {
     let vin = "TEST_VIN_TS04_P4";
     let nats_client = connect_nats(vin).await;
@@ -392,6 +398,7 @@ async fn test_telemetry_multiple_signals() {
 /// Publish a lock command on NATS -> verify DATA_BROKER write -> write
 /// response on DATA_BROKER -> verify response on NATS.
 #[tokio::test]
+#[serial]
 async fn test_full_command_round_trip() {
     let vin = "TEST_VIN_TS04_P5";
     let nats_client = connect_nats(vin).await;
@@ -486,6 +493,7 @@ async fn test_full_command_round_trip() {
 /// Verify that malformed JSON on the command subject is handled gracefully
 /// and the service continues processing valid commands.
 #[tokio::test]
+#[serial]
 async fn test_malformed_command_json() {
     let vin = "TEST_VIN_TS04_E1";
     let nats_client = connect_nats(vin).await;
@@ -559,6 +567,7 @@ async fn test_malformed_command_json() {
 /// Verify that a command JSON missing required fields is rejected and not
 /// written to DATA_BROKER.
 #[tokio::test]
+#[serial]
 async fn test_command_missing_required_fields() {
     let vin = "TEST_VIN_TS04_E2";
     let nats_client = connect_nats(vin).await;
@@ -627,6 +636,7 @@ async fn test_command_missing_required_fields() {
 ///
 /// Verify that a command with an action other than "lock" or "unlock" is rejected.
 #[tokio::test]
+#[serial]
 async fn test_command_invalid_action() {
     let vin = "TEST_VIN_TS04_E3";
     let nats_client = connect_nats(vin).await;
@@ -687,6 +697,7 @@ async fn test_command_invalid_action() {
 ///
 /// Verify that commands for other VINs are not processed by this client.
 #[tokio::test]
+#[serial]
 async fn test_vin_isolation() {
     let vin_a = "VIN_AAA";
     let vin_b = "VIN_BBB";

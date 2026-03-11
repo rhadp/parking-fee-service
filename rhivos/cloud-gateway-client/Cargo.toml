@@ -24,6 +24,7 @@ uuid = { version = "1", features = ["v4"] }
 tonic-build = "0.12"
 
 [dev-dependencies]
+serial_test = "3"
 
 [features]
 integration = []
