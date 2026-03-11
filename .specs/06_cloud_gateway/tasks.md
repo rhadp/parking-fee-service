@@ -86,7 +86,7 @@
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `cd backend/cloud-gateway && go vet ./...`
 
-- [-] 2. Implement REST API and token validation
+- [x] 2. Implement REST API and token validation
   - [x] 2.1 Implement data model types
     - Complete `backend/cloud-gateway/model.go` with full struct definitions including JSON tags
     - Include `CommandRequest`, `CommandStatus`, `NATSCommand`, `NATSCommandResponse`, `TelemetryData`, `ErrorResponse`
@@ -159,14 +159,14 @@
     - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
     - [x] Requirements 06-REQ-1, 06-REQ-3, 06-REQ-7 acceptance criteria met
 
-- [ ] 4. Implement response forwarding and telemetry
-  - [ ] 4.1 Implement telemetry subscription
+- [x] 4. Implement response forwarding and telemetry
+  - [x] 4.1 Implement telemetry subscription
     - Add to `backend/cloud-gateway/nats_client.go`:
       - `SubscribeTelemetry(vin string, handler func(TelemetryData))` -- subscribes to `vehicles.{vin}.telemetry`
       - Parses JSON; logs and discards invalid JSON messages
     - _Requirements: 06-REQ-5.1, 06-REQ-5.E1_
 
-  - [ ] 4.2 Implement configuration
+  - [x] 4.2 Implement configuration
     - Create `backend/cloud-gateway/config.go` with:
       - `Config` struct: `HTTPPort`, `NATSURL`, `KnownVINs []string`
       - `LoadConfig()` -- reads from environment variables with sensible defaults
@@ -175,7 +175,7 @@
       - Default known VINs: `["VIN12345", "VIN67890"]`
     - _Requirements: 06-REQ-7.2_
 
-  - [ ] 4.3 Implement main.go server wiring
+  - [x] 4.3 Implement main.go server wiring
     - Create `backend/cloud-gateway/main.go` with:
       - Load configuration
       - Create token store with demo tokens
@@ -190,17 +190,17 @@
       - Start HTTP server
     - _Requirements: all_
 
-  - [ ] 4.4 Wire property tests
+  - [x] 4.4 Wire property tests
     - Ensure all property tests (TS-06-P1 through TS-06-P7) pass with the full implementation
     - _Test Spec: TS-06-P1 through TS-06-P7_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Telemetry tests pass: `cd backend/cloud-gateway && go test -v -run "TestTelemetry"`
-    - [ ] Property tests pass: `cd backend/cloud-gateway && go test -v -run "TestProperty"`
-    - [ ] All tests pass: `cd backend/cloud-gateway && go test ./... -v`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Build succeeds: `cd backend/cloud-gateway && go build .`
-    - [ ] Requirements 06-REQ-5 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Telemetry tests pass: `cd backend/cloud-gateway && go test -v -run "TestTelemetry"`
+    - [x] Property tests pass: `cd backend/cloud-gateway && go test -v -run "TestProperty"`
+    - [x] All tests pass: `cd backend/cloud-gateway && go test ./... -v`
+    - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
+    - [x] Build succeeds: `cd backend/cloud-gateway && go build .`
+    - [x] Requirements 06-REQ-5 acceptance criteria met
 
 - [ ] 5. Integration tests
   - [ ] 5.1 End-to-end command flow test
