@@ -576,9 +576,25 @@ func TestDataBrokerUnsetSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
+	// Use a standard VSS signal that no other test writes to.
+	// Vehicle.CurrentLocation.Altitude is part of the standard VSS tree
+	// and is not written by any other test in this suite.
+	const unsetSignal = "Vehicle.CurrentLocation.Altitude"
+
+	// Verify the signal exists first via metadata.
+	mdResp, err := client.ListMetadata(ctx, &kuksavalv2.ListMetadataRequest{
+		Root: unsetSignal,
+	})
+	if err != nil {
+		t.Fatalf("ListMetadata for %s failed: %v", unsetSignal, err)
+	}
+	if len(mdResp.GetMetadata()) == 0 {
+		t.Skipf("signal %s not found in VSS tree; skipping unset signal test", unsetSignal)
+	}
+
 	// Read a signal that has never been written.
 	// GetValue should return a Datapoint with no value (value is None/nil).
-	dp, err := getValue(ctx, client, "Vehicle.Parking.SessionActive")
+	dp, err := getValue(ctx, client, unsetSignal)
 	if err != nil {
 		// NOT_FOUND would be wrong -- the signal exists but has no value.
 		t.Fatalf("get unset signal failed: %v (signal should exist but have no value)", err)
