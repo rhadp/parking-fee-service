@@ -28,41 +28,41 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create Rust crate skeleton for parking-operator-adaptor
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create Rust crate skeleton for parking-operator-adaptor
     - Add `parking-operator-adaptor` to the Rust workspace in `rhivos/Cargo.toml`
     - Create `rhivos/parking-operator-adaptor/Cargo.toml` with dependencies: `tonic`, `prost`, `tokio`, `reqwest`, `serde`, `serde_json`, `tracing`, `tracing-subscriber`
     - Create `rhivos/parking-operator-adaptor/src/main.rs` with a minimal `#[tokio::main]` entry point that compiles
     - Create `rhivos/parking-operator-adaptor/build.rs` for tonic-build proto compilation of `proto/parking_adaptor.proto`
     - Verify: `cd rhivos && cargo build -p parking-operator-adaptor` succeeds
 
-  - [ ] 1.2 Create proto/parking_adaptor.proto
+  - [x] 1.2 Create proto/parking_adaptor.proto
     - Create `proto/parking_adaptor.proto` with the `ParkingAdaptor` service definition (`StartSession`, `StopSession`, `GetStatus`, `GetRate` RPCs)
     - `StopSessionRequest` has no fields (empty message)
     - `GetRateResponse` includes `rate_type`, `rate_amount`, `currency`, and `zone_id`
     - Verify: proto compiles via `cargo build -p parking-operator-adaptor`
 
-  - [ ] 1.3 Write failing unit tests for session state machine
+  - [x] 1.3 Write failing unit tests for session state machine
     - Create `src/session/mod.rs` and `src/session/state.rs` with minimal `SessionState` enum and `SessionManager` struct (compiles but no logic)
     - Write `#[cfg(test)]` tests: `test_idle_to_starting_on_lock`, `test_starting_to_active_on_operator_ok`, `test_active_to_stopping_on_unlock`, `test_stopping_to_idle_on_operator_ok`, `test_double_lock_ignored` (TS-08-P1), `test_double_unlock_ignored` (TS-08-P2), `test_starting_to_idle_on_operator_error`
     - All tests should fail
     - _Test Spec: TS-08-1, TS-08-2, TS-08-P1, TS-08-P2_
 
-  - [ ] 1.4 Write failing unit tests for operator REST client
+  - [x] 1.4 Write failing unit tests for operator REST client
     - Create `src/operator/mod.rs`, `client.rs`, and `models.rs` with minimal struct stubs
     - Write `#[cfg(test)]` tests: `test_start_session_request_format`, `test_stop_session_request_format`, `test_start_session_response_parse`, `test_stop_session_response_parse`, `test_status_query_response_parse`
     - All tests should fail
     - _Test Spec: TS-08-9, TS-08-10_
 
-  - [ ] 1.5 Write failing unit tests for gRPC service
+  - [x] 1.5 Write failing unit tests for gRPC service
     - Create `src/grpc/mod.rs` and `src/grpc/service.rs` with minimal stubs
     - Write `#[cfg(test)]` tests: `test_get_status_idle` (TS-08-5), `test_get_rate` (TS-08-6), `test_start_session_already_active` (TS-08-E3), `test_stop_session_no_active` (TS-08-E4)
     - All tests should fail
     - _Test Spec: TS-08-5, TS-08-6, TS-08-E3, TS-08-E4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `cd rhivos && cargo test -p parking-operator-adaptor` compiles but all tests fail
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
+  - [x] 1.V Verify task group 1
+    - [x] `cd rhivos && cargo test -p parking-operator-adaptor` compiles but all tests fail
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
 - [ ] 2. Implement gRPC server (proto + service stub)
   - [ ] 2.1 Implement configuration module
