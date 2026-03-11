@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 #[cfg(test)]
@@ -36,10 +37,97 @@ pub trait OciPuller: Send + Sync {
 }
 
 /// Verify that the SHA-256 hash of the digest string matches the expected checksum.
-pub fn verify_checksum(_digest: &str, _expected: &str) -> Result<(), OciError> {
-    // Stub: always returns error. Implementation in task group 3.
-    Err(OciError::ChecksumMismatch {
-        expected: _expected.to_string(),
-        actual: "not-implemented".to_string(),
-    })
+///
+/// The `expected` checksum should be in the format `sha256:<hex>`.
+/// This function computes SHA-256 of the `digest` string bytes and compares
+/// the result against the expected value.
+pub fn verify_checksum(digest: &str, expected: &str) -> Result<(), OciError> {
+    let hash = Sha256::digest(digest.as_bytes());
+    let computed = format!("sha256:{}", hex::encode(hash));
+
+    if computed == expected {
+        Ok(())
+    } else {
+        Err(OciError::ChecksumMismatch {
+            expected: expected.to_string(),
+            actual: computed,
+        })
+    }
 }
+
+/// OCI image puller implementation using podman CLI.
+///
+/// Shells out to `podman pull` and `podman inspect` for image operations,
+/// and `podman rmi` for image removal.
+pub struct PodmanOciPuller;
+
+impl PodmanOciPuller {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for PodmanOciPuller {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl OciPuller for PodmanOciPuller {
+    async fn pull_image(&self, image_ref: &str) -> Result<PullResult, OciError> {
+        // Pull the image
+        let pull_output = tokio::process::Command::new("podman")
+            .args(["pull", image_ref])
+            .output()
+            .await
+            .map_err(|e| OciError::PullFailed(format!("failed to execute podman pull: {e}")))?;
+
+        if !pull_output.status.success() {
+            let stderr = String::from_utf8_lossy(&pull_output.stderr);
+            return Err(OciError::PullFailed(stderr.trim().to_string()));
+        }
+
+        // Inspect to get the digest
+        let inspect_output = tokio::process::Command::new("podman")
+            .args(["inspect", image_ref, "--format", "{{.Digest}}"])
+            .output()
+            .await
+            .map_err(|e| {
+                OciError::PullFailed(format!("failed to execute podman inspect: {e}"))
+            })?;
+
+        if !inspect_output.status.success() {
+            let stderr = String::from_utf8_lossy(&inspect_output.stderr);
+            return Err(OciError::PullFailed(format!(
+                "failed to inspect image digest: {}",
+                stderr.trim()
+            )));
+        }
+
+        let digest = String::from_utf8_lossy(&inspect_output.stdout)
+            .trim()
+            .to_string();
+
+        Ok(PullResult { digest })
+    }
+
+    async fn remove_image(&self, image_ref: &str) -> Result<(), OciError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rmi", image_ref])
+            .output()
+            .await
+            .map_err(|e| OciError::RemoveFailed(format!("failed to execute podman rmi: {e}")))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(OciError::RemoveFailed(stderr.trim().to_string()));
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[path = "oci_test.rs"]
+mod oci_test;
