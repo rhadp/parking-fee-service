@@ -144,14 +144,14 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
-- [ ] 5. Implement state machine and streaming
-  - [ ] 5.1 Implement state machine
+- [x] 5. Implement state machine and streaming
+  - [x] 5.1 Implement state machine
     - `AdapterState` enum with all 7 states
     - `AdapterState::can_transition_to(&self, target: AdapterState) -> bool` method encoding valid transitions from 07-REQ-6.1
     - `AdapterRecord` struct holding `adapter_id`, `image_ref`, `state`, `last_activity` timestamp
     - _Requirements: 07-REQ-6_
 
-  - [ ] 5.2 Implement AdapterManager
+  - [x] 5.2 Implement AdapterManager
     - `AdapterManager` struct holding a `HashMap<String, AdapterRecord>`, a `broadcast::Sender<AdapterStateEvent>`, and references to `OciPuller` and `ContainerRuntime`
     - `install_adapter(image_ref, checksum)` -- full flow: check single-adapter constraint, pull, verify, install, start
     - `remove_adapter(adapter_id)`, `list_adapters()`, `get_adapter_status(adapter_id)`
@@ -159,7 +159,7 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - Private `transition_state(adapter_id, new_state)` that validates transitions and emits events
     - _Requirements: 07-REQ-1, 07-REQ-4, 07-REQ-5, 07-REQ-7_
 
-  - [ ] 5.3 Wire gRPC methods to AdapterManager
+  - [x] 5.3 Wire gRPC methods to AdapterManager
     - Update `src/grpc.rs` to delegate all RPC calls to `AdapterManager`
     - `InstallAdapter` -> `manager.install_adapter()`
     - `WatchAdapterStates` -> `manager.subscribe_state_events()` wrapped in a tonic streaming response
@@ -168,13 +168,13 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - `GetAdapterStatus` -> `manager.get_adapter_status()`
     - _Requirements: 07-REQ-1, 07-REQ-3, 07-REQ-4, 07-REQ-5, 07-REQ-10_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] State machine tests (TS-07-P1) pass
-    - [ ] Manager tests (TS-07-1, TS-07-4, TS-07-5, TS-07-6, TS-07-7, TS-07-E1 through TS-07-E6) pass
-    - [ ] Streaming tests (TS-07-2) pass
-    - [ ] gRPC integration tests pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+  - [x] 5.V Verify task group 5
+    - [x] State machine tests (TS-07-P1) pass
+    - [x] Manager tests (TS-07-1, TS-07-4, TS-07-5, TS-07-6, TS-07-7, TS-07-E1 through TS-07-E6) pass
+    - [x] Streaming tests (TS-07-2) pass
+    - [x] gRPC integration tests pass
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
 - [ ] 6. Implement offloading and single-adapter constraint
   - [ ] 6.1 Implement offload timer

@@ -13,9 +13,30 @@ pub enum AdapterState {
 impl AdapterState {
     /// Returns true if transitioning from `self` to `target` is a valid
     /// state machine transition per 07-REQ-6.1.
-    pub fn can_transition_to(&self, _target: AdapterState) -> bool {
-        // Stub: always returns false. Implementation in task group 5.
-        false
+    ///
+    /// Valid transitions:
+    ///   UNKNOWN -> DOWNLOADING
+    ///   DOWNLOADING -> INSTALLING
+    ///   DOWNLOADING -> ERROR
+    ///   INSTALLING -> RUNNING
+    ///   INSTALLING -> ERROR
+    ///   RUNNING -> STOPPED
+    ///   RUNNING -> ERROR
+    ///   STOPPED -> RUNNING
+    ///   STOPPED -> OFFLOADING
+    pub fn can_transition_to(&self, target: AdapterState) -> bool {
+        matches!(
+            (self, target),
+            (AdapterState::Unknown, AdapterState::Downloading)
+                | (AdapterState::Downloading, AdapterState::Installing)
+                | (AdapterState::Downloading, AdapterState::Error)
+                | (AdapterState::Installing, AdapterState::Running)
+                | (AdapterState::Installing, AdapterState::Error)
+                | (AdapterState::Running, AdapterState::Stopped)
+                | (AdapterState::Running, AdapterState::Error)
+                | (AdapterState::Stopped, AdapterState::Running)
+                | (AdapterState::Stopped, AdapterState::Offloading)
+        )
     }
 
     /// Returns all defined adapter states.
