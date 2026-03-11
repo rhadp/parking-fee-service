@@ -55,8 +55,8 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - [x] All spec tests FAIL (red) -- no infrastructure exists yet
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
 
-- [ ] 2. Download and configure Kuksa Databroker binary
-  - [ ] 2.1 Add Kuksa Databroker to compose.yml
+- [x] 2. Download and configure Kuksa Databroker binary
+  - [x] 2.1 Add Kuksa Databroker to compose.yml
     - Add `databroker` service to the project's `compose.yml`
     - Image: `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` (pinned to validated tag)
     - Container name: `databroker`
@@ -65,16 +65,16 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - Restart policy: `unless-stopped`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2, 02-REQ-8.1_
 
-  - [ ] 2.2 Validate container startup and teardown
+  - [x] 2.2 Validate container startup and teardown
     - Run `make infra-up` and verify container starts and reaches healthy state
     - Run `make infra-down` and verify clean teardown
     - _Requirements: 02-REQ-1.2, 02-REQ-8.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests TS-02-1 pass: `cd tests/setup && go test -run TestDataBrokerHealth -v`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v`
-    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
-    - [ ] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-8.1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests TS-02-1 pass: `cd tests/setup && go test -run TestDataBrokerHealth -v`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v`
+    - [x] No linter warnings: `cd tests/setup && go vet ./...`
+    - [x] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-8.1 acceptance criteria met
 
 - [ ] 3. Create VSS overlay file with custom signals
   - [ ] 3.1 Create overlay directory structure

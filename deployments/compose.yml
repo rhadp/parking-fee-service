@@ -11,13 +11,22 @@ services:
       retries: 5
       start_period: 5s
 
-  kuksa-databroker:
-    image: ghcr.io/eclipse-kuksa/kuksa-databroker:main
+  databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
+    container_name: databroker
+    command:
+      - "--address"
+      - "0.0.0.0"
+      - "--port"
+      - "55556"
+      - "--insecure"
+      - "--disable-authorization"
     ports:
-      - "55555:55555"
+      - "55556:55556"
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 55555 || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost 55556 || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 5
       start_period: 5s
+    restart: unless-stopped

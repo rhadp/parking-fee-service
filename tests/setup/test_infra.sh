@@ -17,7 +17,7 @@ test_compose_file_services() {
         result=1
     fi
     assert_file_contains "$compose" "4222" || result=1
-    assert_file_contains "$compose" "55555" || result=1
+    assert_file_contains "$compose" "55556" || result=1
     return $result
 }
 
@@ -52,13 +52,13 @@ test_infra_starts() {
         fi
     done
 
-    # Check Kuksa on port 55555
+    # Check Kuksa on port 55556
     waited=0
-    while ! nc -z localhost 55555 2>/dev/null; do
+    while ! nc -z localhost 55556 2>/dev/null; do
         sleep 1
         waited=$((waited + 1))
         if [[ $waited -ge $max_wait ]]; then
-            echo "  Kuksa Databroker not reachable on port 55555 after ${max_wait}s"
+            echo "  Kuksa Databroker not reachable on port 55556 after ${max_wait}s"
             result=1
             break
         fi

@@ -43,7 +43,7 @@ infra-up:
 	@echo "Waiting for services to become healthy (up to 30s)..."
 	@elapsed=0; \
 	while [ $$elapsed -lt 30 ]; do \
-		if nc -z localhost 4222 2>/dev/null && nc -z localhost 55555 2>/dev/null; then \
+		if nc -z localhost 4222 2>/dev/null && nc -z localhost 55556 2>/dev/null; then \
 			echo "All services are reachable."; \
 			exit 0; \
 		fi; \
