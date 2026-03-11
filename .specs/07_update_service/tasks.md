@@ -176,28 +176,28 @@ This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a
     - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
-- [ ] 6. Implement offloading and single-adapter constraint
-  - [ ] 6.1 Implement offload timer
+- [x] 6. Implement offloading and single-adapter constraint
+  - [x] 6.1 Implement offload timer
     - `OffloadTimer` struct that runs as a tokio background task
     - Periodically checks all adapters in STOPPED state
     - If `now - last_activity > inactivity_timeout`, transitions the adapter to OFFLOADING and removes it via `AdapterManager`
     - Check interval: `inactivity_timeout / 10` (minimum 60 seconds)
     - _Requirements: 07-REQ-8_
 
-  - [ ] 6.2 Wire offload timer into main
+  - [x] 6.2 Wire offload timer into main
     - Start the `OffloadTimer` as a tokio spawn in `main.rs`, passing a shared `Arc<AdapterManager>`
 
-  - [ ] 6.3 Verify single-adapter constraint end-to-end
+  - [x] 6.3 Verify single-adapter constraint end-to-end
     - Ensure the single-adapter constraint works through the full gRPC path
     - Installing adapter B while adapter A is RUNNING stops A first
     - After the sequence, only B is RUNNING
     - _Requirements: 07-REQ-7_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Offload tests (TS-07-8) pass
-    - [ ] Property test TS-07-P2 passes
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+  - [x] 6.V Verify task group 6
+    - [x] Offload tests (TS-07-8) pass
+    - [x] Property test TS-07-P2 passes
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p update-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
 
 - [ ] 7. Checkpoint
   - [ ] 7.1 Run full test suite

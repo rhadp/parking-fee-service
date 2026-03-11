@@ -16,6 +16,7 @@ use crate::container::{ContainerRuntime, PodmanRuntime};
 use crate::grpc::UpdateServiceImpl;
 use crate::manager::AdapterManager;
 use crate::oci::{OciPuller, PodmanOciPuller};
+use crate::offload::OffloadTimer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -49,7 +50,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let container_runtime: Arc<dyn ContainerRuntime> = Arc::new(PodmanRuntime::new());
     let manager = Arc::new(AdapterManager::new(oci_puller, container_runtime));
 
-    let service = UpdateServiceImpl::new(manager);
+    let service = UpdateServiceImpl::new(manager.clone());
+
+    // Start the offload timer as a background task
+    let offload_timer = OffloadTimer::new(manager, config.inactivity_timeout_secs);
+    tokio::spawn(async move {
+        offload_timer.run().await;
+    });
 
     info!("UPDATE_SERVICE listening on {}", addr);
 

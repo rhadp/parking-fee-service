@@ -361,6 +361,67 @@ impl AdapterManager {
     pub fn subscribe_state_events(&self) -> broadcast::Receiver<StateEvent> {
         self.event_tx.subscribe()
     }
+
+    /// Offload adapters that have been in STOPPED state longer than
+    /// the given `inactivity_timeout`.
+    ///
+    /// This is called periodically by the `OffloadTimer` background task.
+    /// Returns the list of adapter IDs that were offloaded.
+    pub async fn offload_inactive_adapters(
+        &self,
+        inactivity_timeout: std::time::Duration,
+    ) -> Vec<String> {
+        // Collect adapter IDs eligible for offloading
+        let eligible: Vec<String> = {
+            let adapters = self.adapters.read().await;
+            adapters
+                .values()
+                .filter(|a| {
+                    a.state == AdapterState::Stopped
+                        && a.last_activity.elapsed() >= inactivity_timeout
+                })
+                .map(|a| a.adapter_id.clone())
+                .collect()
+        };
+
+        let mut offloaded = Vec::new();
+        for adapter_id in eligible {
+            // Transition to OFFLOADING
+            {
+                let mut adapters = self.adapters.write().await;
+                if let Some(record) = adapters.get_mut(&adapter_id) {
+                    // Double-check still STOPPED (may have changed)
+                    if record.state != AdapterState::Stopped {
+                        continue;
+                    }
+                    if let Err(e) = Self::transition_state_inner(
+                        record,
+                        AdapterState::Offloading,
+                        &self.event_tx,
+                    ) {
+                        warn!(adapter_id = %adapter_id, error = %e, "failed to transition to OFFLOADING");
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            }
+
+            // Remove the container
+            let _ = self.container_runtime.remove(&adapter_id).await;
+
+            // Remove from the adapter map
+            {
+                let mut adapters = self.adapters.write().await;
+                adapters.remove(&adapter_id);
+            }
+
+            info!(adapter_id = %adapter_id, "adapter offloaded due to inactivity");
+            offloaded.push(adapter_id);
+        }
+
+        offloaded
+    }
 }
 
 #[cfg(test)]
