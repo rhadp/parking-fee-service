@@ -200,19 +200,19 @@ This plan implements the PARKING_OPERATOR_ADAPTOR component that bridges vehicle
     - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p parking-operator-adaptor`
 
-- [ ] 7. Checkpoint
-  - [ ] 7.1 Run all unit tests
+- [x] 7. Checkpoint
+  - [x] 7.1 Run all unit tests
     - `cd rhivos && cargo test -p parking-operator-adaptor` -- all tests must pass
 
-  - [ ] 7.2 Run lint
+  - [x] 7.2 Run lint
     - `cd rhivos && cargo clippy -p parking-operator-adaptor` -- no warnings or errors
 
-  - [ ] 7.3 Run integration tests
+  - [x] 7.3 Run integration tests
     - Start infrastructure: `make infra-up`
     - Run all integration tests, verify all pass
     - Stop infrastructure: `make infra-down`
 
-  - [ ] 7.4 Verify Definition of Done
+  - [x] 7.4 Verify Definition of Done
     - Verify all items from the Definition of Done in `design.md` are satisfied
     - Document any deviations or known limitations
 
