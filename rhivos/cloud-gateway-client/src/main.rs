@@ -3,6 +3,8 @@ pub mod command_processor;
 pub mod config;
 pub mod databroker_client;
 pub mod nats_client;
+pub mod response_relay;
+pub mod telemetry;
 
 use config::Config;
 use databroker_client::DataBrokerClient;
@@ -49,8 +51,7 @@ async fn main() {
     };
 
     // Connect to DATA_BROKER via gRPC over UDS
-    let databroker = DataBrokerClient::connect(&config.databroker_uds_path).await;
-    let databroker = match databroker {
+    let databroker = match DataBrokerClient::connect(&config.databroker_uds_path).await {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to connect to DATA_BROKER: {}", e);
@@ -60,16 +61,65 @@ async fn main() {
 
     info!("CLOUD_GATEWAY_CLIENT started for VIN={}", config.vin);
 
-    // Await shutdown signal (SIGTERM/SIGINT)
-    let shutdown = tokio::signal::ctrl_c();
-
     let uds_path = config.databroker_uds_path.clone();
+    let vin = config.vin.clone();
 
-    tokio::select! {
-        _ = command_processor::run(commands_sub, databroker, uds_path) => {
-            info!("Command processor stopped");
+    // Spawn three concurrent pipelines
+    let cmd_uds = uds_path.clone();
+    let cmd_task = tokio::spawn(async move {
+        command_processor::run(commands_sub, databroker.clone(), cmd_uds).await;
+    });
+
+    let relay_nats = nats_client.clone();
+    let relay_uds = uds_path.clone();
+    let relay_databroker = DataBrokerClient::connect(&uds_path).await;
+    let relay_task = tokio::spawn(async move {
+        match relay_databroker {
+            Ok(db) => {
+                response_relay::run(db, relay_nats, relay_uds).await;
+            }
+            Err(e) => {
+                error!("Response relay failed to connect to DATA_BROKER: {}", e);
+            }
         }
-        _ = shutdown => {
+    });
+
+    let telem_nats = nats_client.clone();
+    let telem_uds = uds_path.clone();
+    let telem_vin = vin.clone();
+    let telem_databroker = DataBrokerClient::connect(&uds_path).await;
+    let telem_task = tokio::spawn(async move {
+        match telem_databroker {
+            Ok(db) => {
+                telemetry::run(db, telem_nats, telem_uds, telem_vin).await;
+            }
+            Err(e) => {
+                error!("Telemetry publisher failed to connect to DATA_BROKER: {}", e);
+            }
+        }
+    });
+
+    // Wait for shutdown signal or any task to complete
+    tokio::select! {
+        result = cmd_task => {
+            match result {
+                Ok(()) => info!("Command processor stopped"),
+                Err(e) => error!("Command processor task failed: {}", e),
+            }
+        }
+        result = relay_task => {
+            match result {
+                Ok(()) => info!("Response relay stopped"),
+                Err(e) => error!("Response relay task failed: {}", e),
+            }
+        }
+        result = telem_task => {
+            match result {
+                Ok(()) => info!("Telemetry publisher stopped"),
+                Err(e) => error!("Telemetry publisher task failed: {}", e),
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
             info!("Shutdown signal received, stopping CLOUD_GATEWAY_CLIENT");
         }
     }
