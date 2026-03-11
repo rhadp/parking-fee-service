@@ -33,7 +33,26 @@ impl Config {
     ///
     /// Returns an error if `VIN` is not set.
     pub fn from_env() -> Result<Self, ConfigError> {
-        todo!("Implement config parsing from environment variables")
+        let vin = std::env::var("VIN").map_err(|_| ConfigError {
+            message: "VIN environment variable is required but not set".to_string(),
+        })?;
+
+        let nats_url =
+            std::env::var("NATS_URL").unwrap_or_else(|_| Self::DEFAULT_NATS_URL.to_string());
+
+        let nats_tls_enabled = std::env::var("NATS_TLS_ENABLED")
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
+        let databroker_uds_path = std::env::var("DATABROKER_UDS_PATH")
+            .unwrap_or_else(|_| Self::DEFAULT_UDS_PATH.to_string());
+
+        Ok(Config {
+            vin,
+            nats_url,
+            nats_tls_enabled,
+            databroker_uds_path,
+        })
     }
 }
 
