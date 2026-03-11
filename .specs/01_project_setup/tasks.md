@@ -123,11 +123,11 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - [x] Go backend tests pass: `cd backend/parking-fee-service && go test ./... && cd ../cloud-gateway && go test ./...`
     - [x] Mock CLI apps build and run: `cd mock/parking-app-cli && go run .`
     - [x] Proto file is valid proto3
-    - [ ] All build tests pass: `bash tests/setup/test_build.sh`
+    - [x] All build tests pass: `bash tests/setup/test_build.sh`
     - [x] Requirements 01-REQ-1.* through 01-REQ-5.*, 01-REQ-8.*, 01-REQ-10.* acceptance criteria met
 
-- [ ] 3. Setup build system (root Makefile + per-component builds)
-  - [ ] 3.1 Create root Makefile
+- [x] 3. Setup build system (root Makefile + per-component builds)
+  - [x] 3.1 Create root Makefile
     - Define targets: `build`, `test`, `lint`, `clean`, `infra-up`, `infra-down`, `proto`
     - `build` target: runs `cargo build` in rhivos/ + `go build ./...` in each Go module
     - `test` target: runs `cargo test` in rhivos/ + `go test ./...` in each Go module
@@ -136,21 +136,21 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - `infra-up`/`infra-down`: delegates to podman compose
     - _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.E1_
 
-  - [ ] 3.2 Verify Makefile targets
+  - [x] 3.2 Verify Makefile targets
     - Run `make build` and confirm exit code 0
     - Run `make test` and confirm all tests pass
     - Run `make clean` and confirm build artifacts removed
     - Run `make lint` and confirm no warnings
     - _Requirements: 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-9.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Makefile tests pass: `bash tests/setup/test_makefile.sh`
-    - [ ] `make build` succeeds: `make build`
-    - [ ] `make test` succeeds: `make test`
-    - [ ] `make lint` succeeds: `make lint`
-    - [ ] `make clean` removes artifacts: `make clean && test ! -d rhivos/target`
-    - [ ] All existing tests still pass: `bash tests/setup/run_all.sh` (excluding infra tests)
-    - [ ] Requirements 01-REQ-6.*, 01-REQ-9.3 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Makefile tests pass: `bash tests/setup/test_makefile.sh`
+    - [x] `make build` succeeds: `make build`
+    - [x] `make test` succeeds: `make test`
+    - [x] `make lint` succeeds: `make lint`
+    - [x] `make clean` removes artifacts: `make clean && test ! -d rhivos/target`
+    - [x] All existing tests still pass: `bash tests/setup/run_all.sh` (excluding infra tests)
+    - [x] Requirements 01-REQ-6.*, 01-REQ-9.3 acceptance criteria met
 
 - [ ] 4. Setup local infrastructure (podman compose)
   - [ ] 4.1 Create compose.yml

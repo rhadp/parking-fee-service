@@ -333,8 +333,10 @@ test_make_build_failure_reporting() {
     echo "THIS IS NOT VALID RUST @@@@" > "$main_rs"
 
     local output exit_code
-    output=$(cd "$REPO_ROOT" && make build 2>&1) || true
+    set +e
+    output=$(cd "$REPO_ROOT" && make build 2>&1)
     exit_code=$?
+    set -e
 
     # Restore original
     echo "$backup" > "$main_rs"
