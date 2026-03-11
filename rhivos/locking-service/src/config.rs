@@ -10,7 +10,9 @@ impl Config {
 
     /// Parse configuration from environment variables.
     pub fn from_env() -> Self {
-        todo!("Implement config parsing from environment variables")
+        let databroker_uds_path = std::env::var("DATABROKER_UDS_PATH")
+            .unwrap_or_else(|_| Self::DEFAULT_UDS_PATH.to_string());
+        Config { databroker_uds_path }
     }
 }
 

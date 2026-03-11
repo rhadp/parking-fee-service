@@ -75,14 +75,14 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - [x] `cargo test -p locking-service --features integration` compiles (with infra running); all integration tests fail
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
-- [ ] 2. DATA_BROKER gRPC client
-  - [ ] 2.1 Implement `config.rs`
+- [x] 2. DATA_BROKER gRPC client
+  - [x] 2.1 Implement `config.rs`
     - Parse environment variable `DATABROKER_UDS_PATH`
     - Return a `Config` struct
     - Apply default value `/tmp/kuksa/databroker.sock` when unset
     - _Requirements: 03-REQ-1.1_
 
-  - [ ] 2.2 Implement `databroker_client.rs`
+  - [x] 2.2 Implement `databroker_client.rs`
     - Create a tonic gRPC client that connects to DATA_BROKER via Unix Domain Socket at the configured path
     - Implement `subscribe_signal(path) -> Stream<SignalUpdate>` for subscribing to signal changes
     - Implement `get_signal(path) -> Option<Value>` for reading a signal's current value
@@ -90,7 +90,7 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Handle connection errors with retry and exponential backoff (1s, 2s, 4s, ..., max 30s)
     - _Requirements: 03-REQ-1.1, 03-REQ-1.2_
 
-  - [ ] 2.3 Implement `main.rs` startup
+  - [x] 2.3 Implement `main.rs` startup
     - Load configuration
     - Connect to DATA_BROKER via gRPC/UDS with retry
     - Subscribe to `Vehicle.Command.Door.Lock`
@@ -98,12 +98,12 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Log "LOCKING_SERVICE started"
     - _Requirements: 03-REQ-1.1, 03-REQ-1.2, 03-REQ-7.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Unit tests for config pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] `cargo build -p locking-service` succeeds
-    - [ ] Binary connects to DATA_BROKER (with `make infra-up`) and subscribes to the command signal
-    - [ ] SIGTERM causes a clean exit with code 0
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
+  - [x] 2.V Verify task group 2
+    - [x] Unit tests for config pass: `cd rhivos && cargo test -p locking-service`
+    - [x] `cargo build -p locking-service` succeeds
+    - [x] Binary connects to DATA_BROKER (with `make infra-up`) and subscribes to the command signal
+    - [x] SIGTERM causes a clean exit with code 0
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
 - [ ] 3. Command parsing and validation
   - [ ] 3.1 Implement `command.rs` -- Command struct and parsing
