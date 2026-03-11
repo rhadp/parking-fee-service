@@ -28,8 +28,8 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Unit test scaffolding for configuration
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Unit test scaffolding for configuration
     - Create `src/config.rs` tests
     - Test that `VIN` is parsed from environment
     - Test that missing `VIN` produces an error
@@ -38,7 +38,7 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Test that `DATABROKER_UDS_PATH` defaults to `/tmp/kuksa/databroker.sock` when unset
     - _Test Spec: TS-04-2, TS-04-3_
 
-  - [ ] 1.2 Unit test scaffolding for command validation
+  - [x] 1.2 Unit test scaffolding for command validation
     - Create `src/command.rs` tests
     - Test valid command JSON parses and validates successfully
     - Test malformed JSON returns a parse error
@@ -48,7 +48,7 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Test JSON with invalid `command_id` (not a UUID) returns a validation error
     - _Test Spec: TS-04-E1, TS-04-E2, TS-04-E3_
 
-  - [ ] 1.3 Integration test scaffolding
+  - [x] 1.3 Integration test scaffolding
     - Create `tests/integration.rs` with `#[cfg(feature = "integration")]` gated tests
     - Test NATS connection and command subscription (TS-04-1)
     - Test command pipeline: NATS -> DATA_BROKER (TS-04-P1)
@@ -59,13 +59,13 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - All tests should assert expected outcomes but fail because the implementation does not exist yet
     - _Test Spec: TS-04-1, TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5, TS-04-E5_
 
-  - [ ] 1.4 Add `integration` feature flag to Cargo.toml
+  - [x] 1.4 Add `integration` feature flag to Cargo.toml
     - Add a Cargo feature `integration` (no dependencies, used only for `#[cfg(feature = "integration")]` gating)
 
-  - [ ] 1.V Verify task group 1
-    - [ ] `cargo test -p cloud-gateway-client` compiles; all unit tests fail
-    - [ ] `cargo test -p cloud-gateway-client --features integration` compiles (with infra running); all integration tests fail
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [x] 1.V Verify task group 1
+    - [x] `cargo test -p cloud-gateway-client` compiles; all unit tests fail
+    - [x] `cargo test -p cloud-gateway-client --features integration` compiles (with infra running); all integration tests fail
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
 - [ ] 2. NATS client (connect and subscribe to commands)
   - [ ] 2.1 Implement `config.rs`
