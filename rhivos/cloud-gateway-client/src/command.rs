@@ -39,23 +39,32 @@ impl Command {
     /// Parse and validate a command from a JSON string.
     ///
     /// Returns the parsed command or a validation error.
-    pub fn from_json(_json_str: &str) -> Result<Self, ValidationError> {
-        todo!("Implement JSON parsing and validation for Command")
+    pub fn from_json(json_str: &str) -> Result<Self, ValidationError> {
+        let cmd: Command =
+            serde_json::from_str(json_str).map_err(|e| ValidationError::MalformedJson(e.to_string()))?;
+        Ok(cmd)
     }
 
     /// Validate the action field is "lock" or "unlock".
     pub fn validate_action(&self) -> Result<(), ValidationError> {
-        todo!("Implement action validation")
+        if self.action != "lock" && self.action != "unlock" {
+            return Err(ValidationError::InvalidAction(self.action.clone()));
+        }
+        Ok(())
     }
 
     /// Validate the command_id field is a valid UUID.
     pub fn validate_command_id(&self) -> Result<(), ValidationError> {
-        todo!("Implement command_id UUID validation")
+        uuid::Uuid::parse_str(&self.command_id)
+            .map_err(|_| ValidationError::InvalidCommandId(self.command_id.clone()))?;
+        Ok(())
     }
 
     /// Run all validations on the command.
     pub fn validate(&self) -> Result<(), ValidationError> {
-        todo!("Implement full command validation")
+        self.validate_command_id()?;
+        self.validate_action()?;
+        Ok(())
     }
 }
 

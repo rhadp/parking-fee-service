@@ -94,21 +94,21 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - [x] Binary connects to NATS (with `make infra-up`) and subscribes to the command subject
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [ ] 3. Command validation and DATA_BROKER write
-  - [ ] 3.1 Implement `command.rs`
+- [x] 3. Command validation and DATA_BROKER write
+  - [x] 3.1 Implement `command.rs`
     - Define `Command` struct with serde deserialization
     - Implement validation: required fields (`command_id`, `action`, `doors`, `source`, `vin`, `timestamp`), valid `action` values (`"lock"` or `"unlock"`), valid UUID for `command_id`
     - Return structured validation errors
     - _Requirements: 04-REQ-2.1_
 
-  - [ ] 3.2 Implement `databroker_client.rs`
+  - [x] 3.2 Implement `databroker_client.rs`
     - Create a tonic gRPC client that connects to DATA_BROKER via Unix Domain Socket
     - Implement `set_signal(path, value)` to write a string signal
     - Implement `subscribe_signal(paths)` to subscribe to one or more signals and return a stream of updates
     - Handle connection errors with retry and exponential backoff (1s, 2s, 4s, ..., max 30s)
     - _Requirements: 04-REQ-5.1_
 
-  - [ ] 3.3 Implement `command_processor.rs`
+  - [x] 3.3 Implement `command_processor.rs`
     - Read messages from the NATS subscription stream
     - Deserialize and validate each message using `command.rs`
     - On valid command: write the JSON to `Vehicle.Command.Door.Lock` on DATA_BROKER
@@ -117,17 +117,17 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Handle DATA_BROKER unreachable: log error and discard
     - _Requirements: 04-REQ-2.1, 04-REQ-5.1_
 
-  - [ ] 3.4 Wire command processor into `main.rs`
+  - [x] 3.4 Wire command processor into `main.rs`
     - Spawn the command processor as a tokio task in the main startup sequence
     - _Requirements: 04-REQ-2.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Unit tests for command validation pass
+  - [x] 3.V Verify task group 3
+    - [x] Unit tests for command validation pass
     - [ ] With infra running, publishing a valid command on NATS results in the command appearing on `Vehicle.Command.Door.Lock` in DATA_BROKER
     - [ ] Malformed commands are logged and discarded
     - [ ] Spec tests TS-04-P1, TS-04-E1, TS-04-E2, TS-04-E3 pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
 - [ ] 4. Telemetry publishing and response relay
   - [ ] 4.1 Implement `response_relay.rs`

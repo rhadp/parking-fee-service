@@ -1,9 +1,11 @@
 pub mod command;
+pub mod command_processor;
 pub mod config;
+pub mod databroker_client;
 pub mod nats_client;
 
 use config::Config;
-use futures::StreamExt;
+use databroker_client::DataBrokerClient;
 use nats_client::NatsClient;
 use tracing::{error, info};
 
@@ -38,10 +40,20 @@ async fn main() {
     };
 
     // Subscribe to commands subject
-    let mut commands_sub = match nats_client.subscribe_commands().await {
+    let commands_sub = match nats_client.subscribe_commands().await {
         Ok(sub) => sub,
         Err(e) => {
             error!("Failed to subscribe to commands: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Connect to DATA_BROKER via gRPC over UDS
+    let databroker = DataBrokerClient::connect(&config.databroker_uds_path).await;
+    let databroker = match databroker {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Failed to connect to DATA_BROKER: {}", e);
             std::process::exit(1);
         }
     };
@@ -51,18 +63,11 @@ async fn main() {
     // Await shutdown signal (SIGTERM/SIGINT)
     let shutdown = tokio::signal::ctrl_c();
 
+    let uds_path = config.databroker_uds_path.clone();
+
     tokio::select! {
-        _ = async {
-            // Command processing loop placeholder - will be replaced in task group 3
-            while let Some(msg) = commands_sub.next().await {
-                info!(
-                    "Received command on {}: {} bytes",
-                    nats_client.commands_subject(),
-                    msg.payload.len()
-                );
-            }
-        } => {
-            info!("Command subscription stream ended");
+        _ = command_processor::run(commands_sub, databroker, uds_path) => {
+            info!("Command processor stopped");
         }
         _ = shutdown => {
             info!("Shutdown signal received, stopping CLOUD_GATEWAY_CLIENT");
