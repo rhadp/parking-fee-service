@@ -1,10 +1,12 @@
 pub mod command;
 pub mod config;
 pub mod databroker_client;
+pub mod executor;
 pub mod safety;
 
+use command::{Command, CommandResponse, ValidationError};
 use config::Config;
-use databroker_client::DataBrokerClient;
+use databroker_client::{DataBrokerClient, SignalValue};
 use tracing::{error, info};
 
 /// Command signal path in DATA_BROKER.
@@ -100,52 +102,56 @@ async fn main() {
 }
 
 /// Process a single command JSON string from the subscription stream.
+///
+/// Follows the command processing flow:
+/// 1. Parse JSON -> reject malformed with "invalid_command"
+/// 2. Validate fields -> reject missing fields with "invalid_command"
+/// 3. Validate action -> reject unknown action with "invalid_action"
+/// 4. Safety checks -> reject constraint violations with specific reason
+/// 5. Execute lock/unlock -> write state and success response
 async fn process_command(json_str: &str, client: &mut DataBrokerClient) {
-    use command::{Command, CommandResponse, ValidationError};
-    use databroker_client::SignalValue;
-
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
 
-    // Parse and validate the command.
+    // Step 1 & 2: Parse and validate the command JSON.
     let cmd = match Command::from_json(json_str) {
         Ok(cmd) => cmd,
         Err(ValidationError::MalformedJson(e)) => {
             tracing::warn!("Malformed command JSON: {}", e);
             let resp =
                 CommandResponse::failure("unknown".to_string(), "invalid_command".to_string(), now);
-            write_response(client, &resp).await;
+            executor::write_response(client, &resp).await;
             return;
         }
         Err(ValidationError::MissingField(field)) => {
             tracing::warn!("Command missing required field: {}", field);
             let resp =
                 CommandResponse::failure("unknown".to_string(), "invalid_command".to_string(), now);
-            write_response(client, &resp).await;
+            executor::write_response(client, &resp).await;
             return;
         }
         Err(ValidationError::InvalidAction(action)) => {
             tracing::warn!("Invalid action: {}", action);
             let resp =
                 CommandResponse::failure("unknown".to_string(), "invalid_action".to_string(), now);
-            write_response(client, &resp).await;
+            executor::write_response(client, &resp).await;
             return;
         }
     };
 
     let command_id = cmd.command_id.clone();
 
-    // Validate action.
+    // Step 3: Validate action is "lock" or "unlock".
     if let Err(ValidationError::InvalidAction(_)) = cmd.validate_action() {
         tracing::warn!(command_id = %command_id, "Invalid action: {}", cmd.action);
         let resp = CommandResponse::failure(command_id, "invalid_action".to_string(), now);
-        write_response(client, &resp).await;
+        executor::write_response(client, &resp).await;
         return;
     }
 
-    // Safety checks.
+    // Step 4: Safety constraint checks.
     let speed = match client.get_signal("Vehicle.Speed").await {
         Ok(Some(SignalValue::Float(f))) => Some(f as f64),
         Ok(Some(SignalValue::Double(d))) => Some(d),
@@ -163,42 +169,21 @@ async fn process_command(json_str: &str, client: &mut DataBrokerClient) {
     if let Err(reason) = safety::check_safety_constraints(speed, door_open) {
         info!(command_id = %command_id, reason = %reason, "Safety constraint violated");
         let resp = CommandResponse::failure(command_id, reason, now);
-        write_response(client, &resp).await;
+        executor::write_response(client, &resp).await;
         return;
     }
 
-    // Execute lock/unlock.
-    let lock_value = cmd.action == "lock";
-    if let Err(e) = client
-        .set_signal(
-            "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
-            SignalValue::Bool(lock_value),
-        )
-        .await
-    {
-        error!(command_id = %command_id, "Failed to write lock state: {}", e);
-    }
+    // Step 5: Execute lock/unlock and write success response.
+    let _ = executor::execute_lock_command(client, &cmd.action, &command_id).await;
 
-    // Write success response.
     let resp = CommandResponse::success(command_id, now);
-    write_response(client, &resp).await;
-}
-
-/// Write a command response to the DATA_BROKER response signal.
-async fn write_response(client: &mut DataBrokerClient, resp: &command::CommandResponse) {
-    let json = resp.to_json();
-    if let Err(e) = client
-        .set_signal(
-            "Vehicle.Command.Door.Response",
-            databroker_client::SignalValue::String(json),
-        )
-        .await
-    {
-        error!("Failed to write command response: {}", e);
-    }
+    executor::write_response(client, &resp).await;
 }
 
 /// Handle DATA_BROKER reconnection with subscription restoration.
+///
+/// Detects broken streams, logs the error, and retries with exponential backoff
+/// until the connection is re-established and subscriptions are restored.
 async fn handle_reconnect(
     client: &mut DataBrokerClient,
     stream: &mut tonic::Streaming<databroker_client::kuksa::val::v2::SubscribeResponse>,
