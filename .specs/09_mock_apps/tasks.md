@@ -162,24 +162,24 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - [x] No lint issues: `cd mock/parking-app-cli && go vet ./...`
     - [x] Build succeeds: `go build ./mock/parking-app-cli/...`
 
-- [ ] 5. Implement companion-app-cli
-  - [ ] 5.1 Create shared internal packages
+- [x] 5. Implement companion-app-cli
+  - [x] 5.1 Create shared internal packages
     - `internal/config/config.go` -- Read `CLOUD_GATEWAY_URL`, `BEARER_TOKEN` with defaults
     - `internal/output/output.go` -- Same pattern as parking-app-cli
     - `internal/restclient/client.go` -- HTTP client wrapper with bearer token support
     - _Requirements: 09-REQ-5.1_
 
-  - [ ] 5.2 Implement subcommand dispatch and commands
+  - [x] 5.2 Implement subcommand dispatch and commands
     - Dispatch for `lock`, `unlock`, `status`
     - `lock.go` -- Parse `--vin`; generate UUID; POST to `/vehicles/{vin}/commands` with lock payload; include bearer token; warn if token missing
     - `unlock.go` -- Same as lock but `"type": "unlock"`
     - `status.go` -- Parse `--vin`; GET `/vehicles/{vin}/status`; include bearer token
     - _Requirements: 09-REQ-5.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All tests pass: `cd mock/companion-app-cli && go test ./... -v`
-    - [ ] No lint issues: `cd mock/companion-app-cli && go vet ./...`
-    - [ ] Build succeeds: `go build ./mock/companion-app-cli/...`
+  - [x] 5.V Verify task group 5
+    - [x] All tests pass: `cd mock/companion-app-cli && go test ./... -v`
+    - [x] No lint issues: `cd mock/companion-app-cli && go vet ./...`
+    - [x] Build succeeds: `go build ./mock/companion-app-cli/...`
 
 - [ ] 6. Checkpoint
   - [ ] 6.1 Run full test suite

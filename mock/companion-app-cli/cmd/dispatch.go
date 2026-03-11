@@ -6,11 +6,14 @@ import "fmt"
 var ValidSubcommands = []string{"lock", "unlock", "status"}
 
 // Dispatch routes the given subcommand name to its handler.
-func Dispatch(subcmd string, args []string) error {
-	// TODO: implement proper dispatch
+func Dispatch(subcmd string, args []string, gatewayURL, bearerToken string) error {
 	switch subcmd {
-	case "lock", "unlock", "status":
-		return fmt.Errorf("subcommand %q: not yet implemented", subcmd)
+	case "lock":
+		return RunLock(args, gatewayURL, bearerToken)
+	case "unlock":
+		return RunUnlock(args, gatewayURL, bearerToken)
+	case "status":
+		return RunStatus(args, gatewayURL, bearerToken)
 	default:
 		return fmt.Errorf("unknown subcommand: %q", subcmd)
 	}
