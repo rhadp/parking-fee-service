@@ -208,12 +208,12 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - [x] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
-- [ ] 6. Checkpoint
-  - [ ] 6.1 Full build and test run
+- [x] 6. Checkpoint
+  - [x] 6.1 Full build and test run
     - Run in sequence: `cargo build`, `cargo clippy`, `cargo test`, `make infra-up`, `cargo test --features integration`
     - Confirm all steps pass with zero errors and zero warnings
 
-  - [ ] 6.2 Manual smoke test
+  - [x] 6.2 Manual smoke test
     - Start infrastructure: `make infra-up`
     - Run `cargo run -p locking-service`
     - Set `Vehicle.Speed = 0.0` and `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen = false`
@@ -223,7 +223,7 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - Set `Vehicle.Speed = 50.0`, write another lock command, verify `"vehicle_moving"` response
     - Send SIGTERM and verify exit with code 0
 
-  - [ ] 6.3 Requirements coverage review
+  - [x] 6.3 Requirements coverage review
     - Verify every requirement in `requirements.md` has at least one passing test
 
 ## Traceability
