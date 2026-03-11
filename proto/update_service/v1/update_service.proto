@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package update_service.v1;
+
+service UpdateService {
+  // Pull, verify, install, and start an adapter container.
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+
+  // Server-streaming RPC for adapter state transitions.
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+
+  // List all known adapters with current states.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+
+  // Stop and remove an adapter.
+  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
+
+  // Query status of a specific adapter.
+  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
+}
+
+enum AdapterState {
+  ADAPTER_STATE_UNKNOWN = 0;
+  ADAPTER_STATE_DOWNLOADING = 1;
+  ADAPTER_STATE_INSTALLING = 2;
+  ADAPTER_STATE_RUNNING = 3;
+  ADAPTER_STATE_STOPPED = 4;
+  ADAPTER_STATE_ERROR = 5;
+  ADAPTER_STATE_OFFLOADING = 6;
+}
+
+message InstallAdapterRequest {
+  string image_ref = 1;
+  string checksum_sha256 = 2;
+}
+
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  AdapterState state = 3;
+}
+
+message WatchAdapterStatesRequest {}
+
+message AdapterStateEvent {
+  string adapter_id = 1;
+  AdapterState old_state = 2;
+  AdapterState new_state = 3;
+  int64 timestamp = 4;
+}
+
+message ListAdaptersRequest {}
+
+message ListAdaptersResponse {
+  repeated AdapterInfo adapters = 1;
+}
+
+message AdapterInfo {
+  string adapter_id = 1;
+  string image_ref = 2;
+  AdapterState state = 3;
+}
+
+message RemoveAdapterRequest {
+  string adapter_id = 1;
+}
+
+message RemoveAdapterResponse {
+  bool success = 1;
+}
+
+message GetAdapterStatusRequest {
+  string adapter_id = 1;
+}
+
+message GetAdapterStatusResponse {
+  string adapter_id = 1;
+  string image_ref = 2;
+  AdapterState state = 3;
+  string error_message = 4;
+}
