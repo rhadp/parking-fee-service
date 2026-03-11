@@ -6,7 +6,7 @@ use tokio::sync::{broadcast, RwLock};
 use tracing::{info, warn};
 
 use crate::container::ContainerRuntime;
-use crate::oci::{self, OciPuller};
+use crate::oci::{verify_checksum, OciError, OciPuller};
 use crate::state::AdapterState;
 
 /// An adapter record tracking its identity, image, state, and activity.
@@ -69,7 +69,7 @@ pub enum ManagerError {
 /// Holds all adapter records and coordinates OCI pulling, checksum
 /// verification, container management, and state transitions.
 pub struct AdapterManager {
-    adapters: RwLock<HashMap<String, AdapterRecord>>,
+    adapters: Arc<RwLock<HashMap<String, AdapterRecord>>>,
     event_tx: broadcast::Sender<StateEvent>,
     oci_puller: Arc<dyn OciPuller>,
     container_runtime: Arc<dyn ContainerRuntime>,
@@ -83,72 +83,40 @@ impl AdapterManager {
     ) -> Self {
         let (event_tx, _) = broadcast::channel(256);
         Self {
-            adapters: RwLock::new(HashMap::new()),
+            adapters: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
             oci_puller,
             container_runtime,
         }
     }
 
-    /// Generate a unix timestamp in seconds.
-    fn now_timestamp() -> i64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64
-    }
-
-    /// Derive an adapter_id from an image_ref.
-    /// Strips registry prefix and replaces special chars.
-    fn derive_adapter_id(image_ref: &str) -> String {
-        // Use the last component of the image ref (repo:tag), replacing special chars
-        let parts: Vec<&str> = image_ref.rsplitn(2, '/').collect();
-        let base = parts[0];
-        base.replace([':', '/'], "-")
-    }
-
-    /// Transition an adapter's state, validating the transition and emitting an event.
-    /// Returns error if the transition is invalid.
-    fn transition_state_inner(
-        record: &mut AdapterRecord,
-        new_state: AdapterState,
+    /// Emit a state transition event and update the adapter record in the map.
+    async fn transition(
+        adapters: &Arc<RwLock<HashMap<String, AdapterRecord>>>,
         event_tx: &broadcast::Sender<StateEvent>,
-    ) -> Result<(), ManagerError> {
-        let old_state = record.state;
-        if !old_state.can_transition_to(new_state) {
-            warn!(
-                adapter_id = %record.adapter_id,
-                ?old_state,
-                ?new_state,
-                "rejected invalid state transition"
-            );
-            return Err(ManagerError::InvalidTransition {
-                from: old_state,
-                to: new_state,
+        adapter_id: &str,
+        new_state: AdapterState,
+        error_message: Option<String>,
+    ) {
+        let mut map = adapters.write().await;
+        if let Some(record) = map.get_mut(adapter_id) {
+            let old_state = record.state;
+            record.state = new_state;
+            record.last_activity = std::time::Instant::now();
+            if let Some(ref msg) = error_message {
+                record.error_message = Some(msg.clone());
+            }
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            let _ = event_tx.send(StateEvent {
+                adapter_id: adapter_id.to_string(),
+                old_state,
+                new_state,
+                timestamp,
             });
         }
-
-        record.state = new_state;
-        record.last_activity = Instant::now();
-
-        let event = StateEvent {
-            adapter_id: record.adapter_id.clone(),
-            old_state,
-            new_state,
-            timestamp: Self::now_timestamp(),
-        };
-
-        // Best-effort broadcast; if no receivers, that's fine
-        let _ = event_tx.send(event);
-
-        info!(
-            adapter_id = %record.adapter_id,
-            ?old_state,
-            ?new_state,
-            "adapter state transition"
-        );
-
-        Ok(())
     }
 
     /// Install an adapter from the given OCI image reference, verifying the checksum.
@@ -170,172 +138,163 @@ impl AdapterManager {
         image_ref: &str,
         checksum_sha256: &str,
     ) -> Result<InstallResult, ManagerError> {
-        let adapter_id = Self::derive_adapter_id(image_ref);
+        // Check if the same image is already running (AlreadyExists guard).
+        {
+            let map = self.adapters.read().await;
+            for record in map.values() {
+                if record.image_ref == image_ref && record.state == AdapterState::Running {
+                    return Err(ManagerError::AlreadyExists(record.adapter_id.clone()));
+                }
+            }
+        }
+
+        // Pull image from OCI registry — can fail immediately.
+        let pull_result = self
+            .oci_puller
+            .pull_image(image_ref)
+            .await
+            .map_err(|e| ManagerError::RegistryUnavailable(e.to_string()))?;
+
+        // Verify checksum — can fail immediately.
+        verify_checksum(&pull_result.digest, checksum_sha256).map_err(|e| match e {
+            OciError::ChecksumMismatch { expected, actual } => {
+                ManagerError::ChecksumMismatch { expected, actual }
+            }
+            other => ManagerError::Internal(other.to_string()),
+        })?;
+
+        // Generate identifiers.
+        let adapter_id = uuid::Uuid::new_v4().to_string();
         let job_id = uuid::Uuid::new_v4().to_string();
 
-        // Check if this image_ref is already installed and RUNNING
-        {
-            let adapters = self.adapters.read().await;
-            if let Some(existing) = adapters.values().find(|a| a.image_ref == image_ref) {
-                if existing.state == AdapterState::Running {
-                    return Err(ManagerError::AlreadyExists(existing.adapter_id.clone()));
-                }
+        // Stop any currently Running adapters (single-adapter enforcement).
+        let running_ids: Vec<String> = {
+            let map = self.adapters.read().await;
+            map.values()
+                .filter(|r| r.state == AdapterState::Running)
+                .map(|r| r.adapter_id.clone())
+                .collect()
+        };
+
+        for running_id in running_ids {
+            let _ = self.container_runtime.stop(&running_id).await;
+            let mut map = self.adapters.write().await;
+            if let Some(record) = map.get_mut(&running_id) {
+                let old_state = record.state;
+                record.state = AdapterState::Stopped;
+                record.last_activity = std::time::Instant::now();
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+                let _ = self.event_tx.send(StateEvent {
+                    adapter_id: running_id.clone(),
+                    old_state,
+                    new_state: AdapterState::Stopped,
+                    timestamp,
+                });
             }
         }
 
-        // Single-adapter constraint: stop any currently running adapter
+        // Insert new adapter record in Downloading state and emit Unknown→Downloading.
         {
-            let mut adapters = self.adapters.write().await;
-            let running_ids: Vec<String> = adapters
-                .values()
-                .filter(|a| a.state == AdapterState::Running)
-                .map(|a| a.adapter_id.clone())
-                .collect();
+            let mut map = self.adapters.write().await;
+            map.insert(
+                adapter_id.clone(),
+                AdapterRecord {
+                    adapter_id: adapter_id.clone(),
+                    image_ref: image_ref.to_string(),
+                    state: AdapterState::Downloading,
+                    error_message: None,
+                    last_activity: std::time::Instant::now(),
+                },
+            );
+        }
 
-            for rid in running_ids {
-                if let Some(record) = adapters.get_mut(&rid) {
-                    // Stop the container
-                    let _ = self.container_runtime.stop(&rid).await;
-                    Self::transition_state_inner(record, AdapterState::Stopped, &self.event_tx)?;
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = self.event_tx.send(StateEvent {
+            adapter_id: adapter_id.clone(),
+            old_state: AdapterState::Unknown,
+            new_state: AdapterState::Downloading,
+            timestamp,
+        });
+
+        // Spawn background task: Downloading → Installing → Running (or Error).
+        let adapters_clone = Arc::clone(&self.adapters);
+        let event_tx_clone = self.event_tx.clone();
+        let container_runtime_clone = Arc::clone(&self.container_runtime);
+        let adapter_id_clone = adapter_id.clone();
+        let image_ref_clone = image_ref.to_string();
+
+        tokio::spawn(async move {
+            // Transition: Downloading → Installing
+            Self::transition(
+                &adapters_clone,
+                &event_tx_clone,
+                &adapter_id_clone,
+                AdapterState::Installing,
+                None,
+            )
+            .await;
+
+            // Run the container.
+            match container_runtime_clone
+                .run(&adapter_id_clone, &image_ref_clone)
+                .await
+            {
+                Ok(()) => {
+                    // Transition: Installing → Running
+                    Self::transition(
+                        &adapters_clone,
+                        &event_tx_clone,
+                        &adapter_id_clone,
+                        AdapterState::Running,
+                        None,
+                    )
+                    .await;
                 }
-            }
-        }
-
-        // Create the adapter record in UNKNOWN state
-        let mut record = AdapterRecord {
-            adapter_id: adapter_id.clone(),
-            image_ref: image_ref.to_string(),
-            state: AdapterState::Unknown,
-            error_message: None,
-            last_activity: Instant::now(),
-        };
-
-        // Transition to DOWNLOADING
-        Self::transition_state_inner(&mut record, AdapterState::Downloading, &self.event_tx)?;
-
-        // Store the record
-        {
-            let mut adapters = self.adapters.write().await;
-            adapters.insert(adapter_id.clone(), record);
-        }
-
-        // The install result reports the initial state as DOWNLOADING
-        let result = InstallResult {
-            job_id,
-            adapter_id: adapter_id.clone(),
-            state: AdapterState::Downloading,
-        };
-
-        // Pull the image
-        let pull_result = match self.oci_puller.pull_image(image_ref).await {
-            Ok(r) => r,
-            Err(e) => {
-                // Transition to ERROR
-                let mut adapters = self.adapters.write().await;
-                if let Some(record) = adapters.get_mut(&adapter_id) {
-                    let _ = Self::transition_state_inner(
-                        record,
+                Err(e) => {
+                    // Transition: Installing → Error
+                    Self::transition(
+                        &adapters_clone,
+                        &event_tx_clone,
+                        &adapter_id_clone,
                         AdapterState::Error,
-                        &self.event_tx,
-                    );
-                    record.error_message = Some(e.to_string());
+                        Some(e.to_string()),
+                    )
+                    .await;
                 }
-                return Err(ManagerError::RegistryUnavailable(e.to_string()));
             }
-        };
+        });
 
-        // Verify checksum
-        if let Err(e) = oci::verify_checksum(&pull_result.digest, checksum_sha256) {
-            // Clean up the image
-            let _ = self.oci_puller.remove_image(image_ref).await;
-            // Transition to ERROR
-            let mut adapters = self.adapters.write().await;
-            if let Some(record) = adapters.get_mut(&adapter_id) {
-                let _ =
-                    Self::transition_state_inner(record, AdapterState::Error, &self.event_tx);
-                record.error_message = Some(e.to_string());
-            }
-            match e {
-                oci::OciError::ChecksumMismatch { expected, actual } => {
-                    return Err(ManagerError::ChecksumMismatch { expected, actual });
-                }
-                other => return Err(ManagerError::Internal(other.to_string())),
-            }
-        }
-
-        // Transition to INSTALLING
-        {
-            let mut adapters = self.adapters.write().await;
-            if let Some(record) = adapters.get_mut(&adapter_id) {
-                Self::transition_state_inner(record, AdapterState::Installing, &self.event_tx)?;
-            }
-        }
-
-        // Run the container
-        if let Err(e) = self.container_runtime.run(&adapter_id, image_ref).await {
-            let mut adapters = self.adapters.write().await;
-            if let Some(record) = adapters.get_mut(&adapter_id) {
-                let _ =
-                    Self::transition_state_inner(record, AdapterState::Error, &self.event_tx);
-                record.error_message = Some(e.to_string());
-            }
-            return Err(ManagerError::ContainerStartFailed(e.to_string()));
-        }
-
-        // Transition to RUNNING
-        {
-            let mut adapters = self.adapters.write().await;
-            if let Some(record) = adapters.get_mut(&adapter_id) {
-                Self::transition_state_inner(record, AdapterState::Running, &self.event_tx)?;
-            }
-        }
-
-        Ok(result)
+        Ok(InstallResult {
+            job_id,
+            adapter_id,
+            state: AdapterState::Downloading,
+        })
     }
 
     /// Remove an adapter by ID, stopping it if running.
     pub async fn remove_adapter(&self, adapter_id: &str) -> Result<(), ManagerError> {
-        // Check existence
-        {
-            let adapters = self.adapters.read().await;
-            if !adapters.contains_key(adapter_id) {
-                return Err(ManagerError::NotFound(adapter_id.to_string()));
+        // Verify adapter exists.
+        let state = {
+            let map = self.adapters.read().await;
+            match map.get(adapter_id) {
+                Some(r) => r.state,
+                None => return Err(ManagerError::NotFound(adapter_id.to_string())),
             }
+        };
+
+        // Stop container if it's running.
+        if state == AdapterState::Running || state == AdapterState::Installing {
+            let _ = self.container_runtime.stop(adapter_id).await;
         }
 
-        // Stop if running
-        {
-            let mut adapters = self.adapters.write().await;
-            if let Some(record) = adapters.get_mut(adapter_id) {
-                if record.state == AdapterState::Running {
-                    let _ = self.container_runtime.stop(adapter_id).await;
-                    Self::transition_state_inner(
-                        record,
-                        AdapterState::Stopped,
-                        &self.event_tx,
-                    )?;
-                }
-            }
-        }
-
-        // Transition to OFFLOADING
-        {
-            let mut adapters = self.adapters.write().await;
-            if let Some(record) = adapters.get_mut(adapter_id) {
-                Self::transition_state_inner(
-                    record,
-                    AdapterState::Offloading,
-                    &self.event_tx,
-                )?;
-            }
-        }
-
-        // Remove the container and the record
-        let _ = self.container_runtime.remove(adapter_id).await;
-        {
-            let mut adapters = self.adapters.write().await;
-            adapters.remove(adapter_id);
-        }
+        // Remove from the adapters map.
+        self.adapters.write().await.remove(adapter_id);
 
         Ok(())
     }
@@ -350,9 +309,8 @@ impl AdapterManager {
         &self,
         adapter_id: &str,
     ) -> Result<AdapterRecord, ManagerError> {
-        let adapters = self.adapters.read().await;
-        adapters
-            .get(adapter_id)
+        let map = self.adapters.read().await;
+        map.get(adapter_id)
             .cloned()
             .ok_or_else(|| ManagerError::NotFound(adapter_id.to_string()))
     }
