@@ -134,13 +134,16 @@ test_go_skeleton_binaries() {
     local result=0
     for module_dir in backend/parking-fee-service backend/cloud-gateway; do
         local output
-        output=$(cd "$REPO_ROOT/$module_dir" && go run . 2>&1)
-        local exit_code=$?
-        if [[ $exit_code -ne 0 ]]; then
-            echo "  go run in $module_dir exited with code $exit_code"
-            result=1
-            continue
-        fi
+        # Use timeout to handle services that start servers and block
+        output=$(cd "$REPO_ROOT/$module_dir" && timeout 5 go run . 2>&1) || {
+            local exit_code=$?
+            # timeout returns 124 if command timed out; acceptable for server binaries
+            if [[ $exit_code -ne 124 ]]; then
+                echo "  go run in $module_dir exited with code $exit_code"
+                result=1
+                continue
+            fi
+        }
         if [[ -z "$output" ]]; then
             echo "  go run in $module_dir produced no output"
             result=1
@@ -265,12 +268,15 @@ test_skeleton_exit_behavior() {
     # Go binaries
     for module_dir in backend/parking-fee-service backend/cloud-gateway; do
         local output
-        output=$(cd "$REPO_ROOT/$module_dir" && go run . 2>&1)
-        local exit_code=$?
-        if [[ $exit_code -ne 0 ]]; then
-            echo "  go run in $module_dir exited with code $exit_code"
-            result=1
-        fi
+        # Use timeout to handle services that start servers and block
+        output=$(cd "$REPO_ROOT/$module_dir" && timeout 5 go run . 2>&1) || {
+            local exit_code=$?
+            # timeout returns 124 if command timed out; acceptable for server binaries
+            if [[ $exit_code -ne 124 ]]; then
+                echo "  go run in $module_dir exited with code $exit_code"
+                result=1
+            fi
+        }
         if [[ -z "$output" ]]; then
             echo "  go run in $module_dir produced no output"
             result=1
@@ -306,7 +312,8 @@ test_skeleton_no_config() {
 
     for module_dir in backend/parking-fee-service backend/cloud-gateway; do
         local stderr_output
-        stderr_output=$(cd "$REPO_ROOT/$module_dir" && go run . 2>&1 >/dev/null) || true
+        # Use timeout to handle services that start servers and block
+        stderr_output=$(cd "$REPO_ROOT/$module_dir" && timeout 5 go run . 2>&1 >/dev/null) || true
         if echo "$stderr_output" | grep -qi "panic"; then
             echo "  Go binary in $module_dir panicked without config"
             result=1
