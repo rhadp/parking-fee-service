@@ -1,29 +1,32 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(0)
+	defaultPort := "9090"
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		defaultPort = envPort
 	}
 
-	switch os.Args[1] {
-	case "help":
-		printUsage()
-	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown subcommand %q\n", os.Args[1])
-		fmt.Fprintln(os.Stderr, "Valid subcommands: help")
-		os.Exit(1)
-	}
-}
+	port := flag.String("port", defaultPort, "HTTP server port")
+	flag.Parse()
 
-func printUsage() {
-	fmt.Println("Usage: parking-operator <subcommand>")
-	fmt.Println()
-	fmt.Println("Subcommands:")
-	fmt.Println("  help    Show this help message")
+	store := NewSessionStore()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/parking/start", HandleStartParking(store))
+	mux.HandleFunc("/parking/stop", HandleStopParking(store))
+	mux.HandleFunc("/parking/status", HandleParkingStatus(store))
+
+	addr := fmt.Sprintf(":%s", *port)
+	log.Printf("parking-operator listening on %s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
 }
