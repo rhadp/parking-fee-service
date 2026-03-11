@@ -1,0 +1,1 @@
+// Mock door sensor module
