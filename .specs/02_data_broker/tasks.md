@@ -149,15 +149,15 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
     - [x] All requirements acceptance criteria met
 
-- [ ] 6. Checkpoint -- DATA_BROKER Complete
-  - [ ] 6.1 Full verification run
+- [x] 6. Checkpoint -- DATA_BROKER Complete
+  - [x] 6.1 Full verification run
     - Run: `make infra-up && cd tests/setup && go test -run TestDataBroker -v && make infra-down`
     - Verify all tests pass end-to-end
     - All 12 tests pass (1 UDS test skipped on macOS due to Podman VM boundary)
-  - [ ] 6.2 Requirements verification
+  - [x] 6.2 Requirements verification
     - Confirm every requirement has at least one passing test (see traceability table)
     - All 20 requirements verified: 18 with passing tests, 2 documented as not separately testable (02-REQ-2.E1, 02-REQ-4.E1)
-  - [ ] 6.3 Document Kuksa version-specific findings
+  - [x] 6.3 Document Kuksa version-specific findings
     - If any Kuksa behavior differs from design assumptions, update design.md
     - All 7 divergences documented in `docs/errata/02_data_broker_kuksa_api.md`; no additional findings
 
