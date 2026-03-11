@@ -51,16 +51,14 @@ func HandleCommandSubmit(commandStore *CommandStore, natsClient *NATSClient, kno
 			Source:    "companion_app",
 		}
 
-		// Publish to NATS if client is available
-		if natsClient != nil {
-			if !natsClient.IsConnected() {
-				writeError(w, http.StatusServiceUnavailable, "messaging service unavailable")
-				return
-			}
-			if err := natsClient.PublishCommand(vin, natsCmd); err != nil {
-				writeError(w, http.StatusServiceUnavailable, "messaging service unavailable")
-				return
-			}
+		// Publish to NATS
+		if natsClient == nil || !natsClient.IsConnected() {
+			writeError(w, http.StatusServiceUnavailable, "messaging service unavailable")
+			return
+		}
+		if err := natsClient.PublishCommand(vin, natsCmd); err != nil {
+			writeError(w, http.StatusServiceUnavailable, "messaging service unavailable")
+			return
 		}
 
 		// Store command as pending

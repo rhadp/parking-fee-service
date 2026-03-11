@@ -33,6 +33,24 @@ func newTestRouter(natsClient *NATSClient) (*http.Handler, *CommandStore) {
 	return &router, commandStore
 }
 
+// newTestRouterWithNATS creates a test router with an embedded NATS server.
+// Returns the router, command store, and a cleanup function.
+func newTestRouterWithNATS(t *testing.T) (*http.Handler, *CommandStore, func()) {
+	t.Helper()
+	ns, natsURL := startEmbeddedNATS(t)
+	client, err := NewNATSClient(natsURL)
+	if err != nil {
+		ns.Shutdown()
+		t.Fatalf("failed to create NATS client: %v", err)
+	}
+	router, cs := newTestRouter(client)
+	cleanup := func() {
+		client.Close()
+		ns.Shutdown()
+	}
+	return router, cs, cleanup
+}
+
 // TS-06-5: Health Check Returns 200 OK
 func TestHealthCheck(t *testing.T) {
 	router, _ := newTestRouter(nil)
@@ -60,7 +78,8 @@ func TestHealthCheck(t *testing.T) {
 
 // TS-06-2: Bearer Token Validation - Valid Token
 func TestBearerTokenValid(t *testing.T) {
-	router, _ := newTestRouter(nil)
+	router, _, cleanup := newTestRouterWithNATS(t)
+	defer cleanup()
 
 	body := `{"command_id":"cmd-002","type":"unlock","doors":["driver"]}`
 	req := httptest.NewRequest(http.MethodPost, "/vehicles/VIN12345/commands", bytes.NewBufferString(body))
