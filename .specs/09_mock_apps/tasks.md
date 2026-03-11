@@ -37,8 +37,8 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create Rust sensor test scaffolding
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create Rust sensor test scaffolding
     - Add three sensor crates to the Rust workspace (`rhivos/Cargo.toml`)
     - Create minimal `Cargo.toml` and `src/main.rs` for each crate with stub `main()` functions
     - Add inline test modules:
@@ -48,33 +48,33 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - Verify: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor` -- tests compile but fail
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-E1, TS-09-E2_
 
-  - [ ] 1.2 Create parking-operator test scaffolding
+  - [x] 1.2 Create parking-operator test scaffolding
     - Create `mock/parking-operator/go.mod` and minimal stub files (`main.go`, `handler.go`, `session.go`, `models.go`)
     - Create `mock/parking-operator/handler_test.go` with: `TestStartSession_Valid` (TS-09-7), `TestStopSession_Valid` (TS-09-8), `TestGetStatus_ReturnsAllSessions` (TS-09-9), `TestGetStatus_EmptyWhenNoSessions` (TS-09-E9), `TestStartSession_MalformedBody` (TS-09-E7), `TestStopSession_UnknownSession` (TS-09-E8), `TestSessionStoreConsistency` (TS-09-P8)
     - Add `mock/parking-operator` to the root `go.work` file
     - Verify: `cd mock/parking-operator && go test ./... -v` -- tests compile but fail
     - _Test Spec: TS-09-7, TS-09-8, TS-09-9, TS-09-E7, TS-09-E8, TS-09-E9, TS-09-P8_
 
-  - [ ] 1.3 Create parking-app-cli test scaffolding
+  - [x] 1.3 Create parking-app-cli test scaffolding
     - Create `mock/parking-app-cli/go.mod` and minimal stub files
     - Create test files with: `TestSubcommandDispatch_UnknownCommand` (TS-09-E4), `TestSubcommandDispatch_NoArguments` (TS-09-E4), `TestLookup_MissingFlags` (TS-09-E3), `TestAdapterInfo_MissingFlags` (TS-09-E3), `TestInstall_MissingFlags` (TS-09-E3), `TestRemove_MissingFlags` (TS-09-E3), `TestStatus_MissingFlags` (TS-09-E3), `TestStartSession_MissingFlags` (TS-09-E3), `TestStopSession_MissingFlags` (TS-09-E3), `TestLookup_CorrectRESTEndpoint` (TS-09-P1), `TestAdapterInfo_CorrectRESTEndpoint` (TS-09-P2), `TestInstall_CorrectGRPCMethod` (TS-09-P3), `TestServiceUnreachable_REST` (TS-09-E5), `TestServiceUnreachable_GRPC` (TS-09-E6)
     - Add `mock/parking-app-cli` to the root `go.work` file
     - Verify: `cd mock/parking-app-cli && go test ./... -v` -- tests compile but fail
     - _Test Spec: TS-09-5, TS-09-P1, TS-09-P2, TS-09-P3, TS-09-E3, TS-09-E4, TS-09-E5, TS-09-E6_
 
-  - [ ] 1.4 Create companion-app-cli test scaffolding
+  - [x] 1.4 Create companion-app-cli test scaffolding
     - Create `mock/companion-app-cli/go.mod` and minimal stub files
     - Create test files with: `TestSubcommandDispatch_UnknownCommand` (TS-09-E4), `TestSubcommandDispatch_NoArguments` (TS-09-E4), `TestLock_MissingFlags` (TS-09-E3), `TestUnlock_MissingFlags` (TS-09-E3), `TestStatus_MissingFlags` (TS-09-E3), `TestLock_CorrectPayload` (TS-09-P4), `TestUnlock_CorrectPayload` (TS-09-P5), `TestStatus_CorrectEndpoint` (TS-09-P6), `TestBearerToken_IncludedInRequests` (TS-09-P4), `TestServiceUnreachable_REST` (TS-09-E5)
     - Add `mock/companion-app-cli` to the root `go.work` file
     - Verify: `cd mock/companion-app-cli && go test ./... -v` -- tests compile but fail
     - _Test Spec: TS-09-6, TS-09-P4, TS-09-P5, TS-09-P6, TS-09-E3, TS-09-E4, TS-09-E5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All sensor tests compile but fail: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
-    - [ ] All parking-operator tests compile but fail: `cd mock/parking-operator && go test ./... -v`
-    - [ ] All parking-app-cli tests compile but fail: `cd mock/parking-app-cli && go test ./... -v`
-    - [ ] All companion-app-cli tests compile but fail: `cd mock/companion-app-cli && go test ./... -v`
-    - [ ] No linter warnings introduced
+  - [x] 1.V Verify task group 1
+    - [x] All sensor tests compile but fail: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
+    - [x] All parking-operator tests compile but fail: `cd mock/parking-operator && go test ./... -v`
+    - [x] All parking-app-cli tests compile but fail: `cd mock/parking-app-cli && go test ./... -v`
+    - [x] All companion-app-cli tests compile but fail: `cd mock/companion-app-cli && go test ./... -v`
+    - [x] No linter warnings introduced
 
 - [ ] 2. Implement mock sensors
   - [ ] 2.1 Implement location-sensor
