@@ -99,4 +99,37 @@ mod tests {
         let result = check_safety_constraints(None, None);
         assert!(result.is_ok(), "Both signals missing should default to safe");
     }
+
+    // --- TS-03-P1: Property test -- no state change on constraint violation ---
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// TS-03-P1: For all speed >= 1.0 OR door_open == true, check_safety_constraints
+        /// must return Err, ensuring no lock state modification would occur.
+        #[test]
+        fn prop_safety_rejects_when_any_constraint_violated(
+            speed in 0.0f64..200.0,
+            door_open in proptest::bool::ANY,
+        ) {
+            let result = check_safety_constraints(Some(speed), Some(door_open));
+            if speed >= 1.0 || door_open {
+                prop_assert!(result.is_err(),
+                    "Safety check must reject when speed={} or door_open={}", speed, door_open);
+            }
+        }
+
+        /// TS-03-P3: Successful safety check implies all constraints were satisfied.
+        #[test]
+        fn prop_successful_safety_implies_safe_state(
+            speed in 0.0f64..200.0,
+            door_open in proptest::bool::ANY,
+        ) {
+            let result = check_safety_constraints(Some(speed), Some(door_open));
+            if result.is_ok() {
+                prop_assert!(speed < 1.0, "Successful check implies speed < 1.0");
+                prop_assert!(!door_open, "Successful check implies door is not open");
+            }
+        }
+    }
 }

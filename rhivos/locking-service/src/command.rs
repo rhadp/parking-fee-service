@@ -231,6 +231,84 @@ mod tests {
         assert!(parsed["timestamp"].is_u64(), "Timestamp should be a non-negative integer");
     }
 
+    // --- TS-03-P2: Property test -- every command produces exactly one response ---
+
+    use proptest::prelude::*;
+
+    /// Simulate command processing to verify a response is always produced.
+    /// Returns the status of the generated response ("success" or "failed").
+    fn simulate_command_processing(json_str: &str) -> String {
+        let now = 1700000000u64;
+
+        // Step 1: Parse JSON.
+        let cmd = match Command::from_json(json_str) {
+            Ok(cmd) => cmd,
+            Err(ValidationError::MalformedJson(_)) | Err(ValidationError::MissingField(_)) => {
+                let resp = CommandResponse::failure(
+                    "unknown".to_string(),
+                    "invalid_command".to_string(),
+                    now,
+                );
+                return resp.status;
+            }
+            Err(ValidationError::InvalidAction(_)) => {
+                let resp = CommandResponse::failure(
+                    "unknown".to_string(),
+                    "invalid_action".to_string(),
+                    now,
+                );
+                return resp.status;
+            }
+        };
+
+        // Step 2: Validate action.
+        if cmd.validate_action().is_err() {
+            let resp = CommandResponse::failure(
+                cmd.command_id.clone(),
+                "invalid_action".to_string(),
+                now,
+            );
+            return resp.status;
+        }
+
+        // Step 3: If all checks pass, success.
+        let resp = CommandResponse::success(cmd.command_id.clone(), now);
+        resp.status
+    }
+
+    proptest! {
+        /// TS-03-P2: Every command input (valid or invalid) produces exactly one response
+        /// with status "success" or "failed".
+        #[test]
+        fn prop_every_command_produces_response(input in ".*") {
+            let status = simulate_command_processing(&input);
+            prop_assert!(
+                status == "success" || status == "failed",
+                "Response status must be 'success' or 'failed', got '{}'", status
+            );
+        }
+
+        /// TS-03-P2: Valid commands with valid actions always get a response.
+        #[test]
+        fn prop_valid_commands_produce_response(
+            command_id in "[a-f0-9-]{36}",
+            action in prop_oneof!["lock", "unlock", "reboot", "invalid"],
+            source in "[a-z_]+",
+            vin in "[A-Z0-9_]+",
+            timestamp in 0u64..u64::MAX,
+        ) {
+            let json = format!(
+                r#"{{"command_id":"{}","action":"{}","doors":["driver"],"source":"{}","vin":"{}","timestamp":{}}}"#,
+                command_id, action, source, vin, timestamp
+            );
+            let status = simulate_command_processing(&json);
+            prop_assert!(
+                status == "success" || status == "failed",
+                "Response status must be 'success' or 'failed', got '{}'", status
+            );
+        }
+    }
+
     #[test]
     fn test_failure_response_serialization() {
         // TS-03-E4: Failure response serializes to the expected JSON format

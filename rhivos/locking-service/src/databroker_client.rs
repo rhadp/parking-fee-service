@@ -161,6 +161,16 @@ impl DataBrokerClient {
         Ok(())
     }
 
+    /// Connect to DATA_BROKER via TCP (host:port).
+    ///
+    /// Used primarily for integration tests where the UDS socket is inside a container.
+    pub async fn connect_tcp(addr: &str) -> Result<Self, tonic::transport::Error> {
+        let uri = format!("http://{}", addr);
+        let channel = Endpoint::try_from(uri)?.connect().await?;
+        let client = ValClient::new(channel);
+        Ok(DataBrokerClient { client })
+    }
+
     /// Reconnect to DATA_BROKER with exponential backoff.
     ///
     /// Used for connection recovery during operation.

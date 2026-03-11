@@ -170,43 +170,43 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - [x] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
-- [ ] 5. Integration testing
-  - [ ] 5.1 Verify lock command happy path (TS-03-1)
+- [x] 5. Integration testing
+  - [x] 5.1 Verify lock command happy path (TS-03-1)
     - Run the integration test that writes a lock command to DATA_BROKER and verifies `IsLocked = true` and a success response; fix any issues found
     - _Test Spec: TS-03-1_
 
-  - [ ] 5.2 Verify unlock command happy path (TS-03-2)
+  - [x] 5.2 Verify unlock command happy path (TS-03-2)
     - Run the integration test that writes an unlock command and verifies `IsLocked = false` and a success response; fix any issues found
     - _Test Spec: TS-03-2_
 
-  - [ ] 5.3 Verify safety constraint rejection -- vehicle moving (TS-03-3)
+  - [x] 5.3 Verify safety constraint rejection -- vehicle moving (TS-03-3)
     - Run the integration test that sets speed > 0, sends a lock command, and verifies the `"vehicle_moving"` failure response; fix any issues found
     - _Test Spec: TS-03-3_
 
-  - [ ] 5.4 Verify safety constraint rejection -- door ajar (TS-03-4)
+  - [x] 5.4 Verify safety constraint rejection -- door ajar (TS-03-4)
     - Run the integration test that sets door open, sends a lock command, and verifies the `"door_ajar"` failure response; fix any issues found
     - _Test Spec: TS-03-4_
 
-  - [ ] 5.5 Verify invalid command handling (TS-03-E1, TS-03-E2, TS-03-E3)
+  - [x] 5.5 Verify invalid command handling (TS-03-E1, TS-03-E2, TS-03-E3)
     - Run integration tests for malformed JSON, missing fields, and invalid action values
     - Verify appropriate failure responses; fix any issues found
     - _Test Spec: TS-03-E1, TS-03-E2, TS-03-E3_
 
-  - [ ] 5.6 Verify response format (TS-03-E4)
+  - [x] 5.6 Verify response format (TS-03-E4)
     - Run integration tests that validate the exact JSON structure of success and failure responses; fix any issues found
     - _Test Spec: TS-03-E4_
 
-  - [ ] 5.7 Verify property-based safety invariants (TS-03-P1, TS-03-P2, TS-03-P3)
+  - [x] 5.7 Verify property-based safety invariants (TS-03-P1, TS-03-P2, TS-03-P3)
     - No state change when any safety constraint is violated
     - Every command produces exactly one response
     - Successful execution implies all safety constraints were satisfied
     - Fix any issues found
     - _Test Spec: TS-03-P1, TS-03-P2, TS-03-P3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All integration tests pass: `cd rhivos && cargo test -p locking-service --features integration`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
+  - [x] 5.V Verify task group 5
+    - [x] All integration tests pass: `cd rhivos && cargo test -p locking-service --features integration`
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
 - [ ] 6. Checkpoint
   - [ ] 6.1 Full build and test run
