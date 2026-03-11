@@ -2,6 +2,9 @@ package main
 
 import (
 	_ "embed"
+	"encoding/json"
+	"fmt"
+	"os"
 )
 
 //go:embed config.json
@@ -28,6 +31,22 @@ type OperatorConfig struct {
 
 // LoadConfig loads configuration from filePath, or falls back to embedded default if filePath is empty.
 func LoadConfig(filePath string) (*Config, error) {
-	// TODO: implement
-	return nil, nil
+	var data []byte
+
+	if filePath == "" {
+		data = defaultConfigJSON
+	} else {
+		var err error
+		data, err = os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+		}
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
+	}
+
+	return &cfg, nil
 }

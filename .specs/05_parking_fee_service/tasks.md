@@ -86,12 +86,12 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `cd backend/parking-fee-service && go vet ./...`
 
-- [ ] 2. Data models and configuration loading
-  - [ ] 2.1 Implement data model types
+- [x] 2. Data models and configuration loading
+  - [x] 2.1 Implement data model types
     - Complete `backend/parking-fee-service/model.go` with full struct definitions including JSON tags for `LatLon`, `Zone`, `Operator`, `RateType`, `AdapterMetadata`, `ErrorResponse`.
     - _Requirements: 05-REQ-6.1, 05-REQ-6.2_
 
-  - [ ] 2.2 Implement configuration loader
+  - [x] 2.2 Implement configuration loader
     - Create `backend/parking-fee-service/config.go` with:
       - `Config`, `Settings`, `OperatorConfig` structs
       - `LoadConfig(filePath string) (*Config, error)` function
@@ -100,11 +100,11 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - Error return for missing or invalid config files
     - _Requirements: 05-REQ-7.1, 05-REQ-7.2, 05-REQ-7.E1_
 
-  - [ ] 2.3 Create default configuration file
+  - [x] 2.3 Create default configuration file
     - Create `backend/parking-fee-service/config.json` with the demo data (two Munich zones, two operators with rate info and adapter metadata).
     - _Requirements: 05-REQ-7.1_
 
-  - [ ] 2.4 Implement in-memory store
+  - [x] 2.4 Implement in-memory store
     - Create `backend/parking-fee-service/store.go` with:
       - `Store` struct holding zones, operators, adapter metadata, and settings
       - `NewStore(cfg *Config) *Store` constructor
@@ -112,11 +112,11 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - `GetAdapterMetadata(operatorID string) (*AdapterMetadata, bool)`
     - _Requirements: 05-REQ-1.1, 05-REQ-4.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestConfig' -v`
-    - [ ] Store metadata tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestGetAdapter' -v`
-    - [ ] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v` (remaining tests still fail as expected)
-    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+  - [x] 2.V Verify task group 2
+    - [x] Config tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestConfig' -v`
+    - [x] Store metadata tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestGetAdapter' -v`
+    - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v` (remaining tests still fail as expected)
+    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
 - [ ] 3. Geofence matching (point-in-polygon + proximity)
   - [ ] 3.1 Implement point-in-polygon (ray casting)
