@@ -26,6 +26,7 @@ tonic-build = "0.12"
 [dev-dependencies]
 mockall = "0.13"
 tokio-test = "0.4"
+axum = "0.7"
 
 [features]
 integration = []
