@@ -28,14 +28,14 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Initialize Go module and create model stubs
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Initialize Go module and create model stubs
     - Create `backend/parking-fee-service/go.mod` with module path `github.com/rhadp/parking-fee-service/backend/parking-fee-service` and Go 1.22+ directive.
     - Add module to root `go.work` file if it exists.
     - Create `backend/parking-fee-service/model.go` with minimal struct stubs for `LatLon`, `Zone`, `Operator`, `AdapterMetadata`, `ErrorResponse`, and `RateType` constants so test files compile.
     - _Test Spec: setup for all tests_
 
-  - [ ] 1.2 Write handler integration tests
+  - [x] 1.2 Write handler integration tests
     - Create `backend/parking-fee-service/handler_test.go` with test functions:
       - `TestOperatorLookupInsideZone` (TS-05-1)
       - `TestOperatorLookupNearZone` (TS-05-2)
@@ -50,7 +50,7 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Tests use `httptest.NewRecorder` and must compile but fail.
     - _Test Spec: TS-05-1 through TS-05-6, TS-05-E1 through TS-05-E4_
 
-  - [ ] 1.3 Write geofence unit tests
+  - [x] 1.3 Write geofence unit tests
     - Create `backend/parking-fee-service/geofence_test.go` with test functions:
       - `TestPointInPolygonInside` -- point inside a rectangle
       - `TestPointInPolygonOutside` -- point far outside
@@ -62,7 +62,7 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Tests must compile but fail.
     - _Test Spec: TS-05-P1, TS-05-P2_
 
-  - [ ] 1.4 Write config and store tests
+  - [x] 1.4 Write config and store tests
     - Create `backend/parking-fee-service/config_test.go` with:
       - `TestConfigLoadFromFile` (TS-05-7) -- load from temp JSON file
       - `TestConfigLoadDefault` (TS-05-7) -- load embedded default
@@ -74,17 +74,17 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Tests must compile but fail.
     - _Test Spec: TS-05-7, TS-05-E5_
 
-  - [ ] 1.5 Write property tests for response format and adapter integrity
+  - [x] 1.5 Write property tests for response format and adapter integrity
     - Add to `backend/parking-fee-service/handler_test.go`:
       - `TestPropertyResponseFormat` (TS-05-P3) -- all endpoints return JSON
       - `TestPropertyOperatorAdapterIntegrity` (TS-05-P4) -- every lookup result has valid adapter
     - Tests must compile but fail.
     - _Test Spec: TS-05-P3, TS-05-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `cd backend/parking-fee-service && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `cd backend/parking-fee-service && go vet ./...`
 
 - [ ] 2. Data models and configuration loading
   - [ ] 2.1 Implement data model types
