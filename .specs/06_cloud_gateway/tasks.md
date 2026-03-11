@@ -202,30 +202,30 @@
     - [x] Build succeeds: `cd backend/cloud-gateway && go build .`
     - [x] Requirements 06-REQ-5 acceptance criteria met
 
-- [ ] 5. Integration tests
-  - [ ] 5.1 End-to-end command flow test
+- [x] 5. Integration tests
+  - [x] 5.1 End-to-end command flow test
     - Create `backend/cloud-gateway/integration_test.go` with:
       - `TestEndToEndCommandFlow` -- full cycle: submit command via REST, verify NATS publish, simulate NATS response, query status via REST
       - Uses embedded NATS server and httptest server
     - _Test Spec: TS-06-1, TS-06-4_
 
-  - [ ] 5.2 Multi-vehicle routing test
+  - [x] 5.2 Multi-vehicle routing test
     - Add to integration test file:
       - `TestMultiVehicleRouting` -- submit commands for two different VINs, verify each reaches the correct NATS subject and responses route back correctly
     - _Test Spec: TS-06-3_
     - _Requirements: 06-REQ-7.1, 06-REQ-7.2_
 
-  - [ ] 5.3 Error scenario integration tests
+  - [x] 5.3 Error scenario integration tests
     - Add to integration test file:
       - `TestNATSDisconnectRecovery` -- verify 503 on NATS failure, recovery on reconnect
       - `TestConcurrentCommandSubmission` -- submit multiple commands concurrently, verify no race conditions
     - _Test Spec: TS-06-E8_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Integration tests pass: `cd backend/cloud-gateway && go test -v -run "TestEndToEnd|TestMultiVehicle|TestNATSDisconnect|TestConcurrent"`
-    - [ ] All tests pass: `cd backend/cloud-gateway && go test ./... -v`
-    - [ ] All tests pass with race detector: `cd backend/cloud-gateway && go test -race ./... -v`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
+  - [x] 5.V Verify task group 5
+    - [x] Integration tests pass: `cd backend/cloud-gateway && go test -v -run "TestEndToEnd|TestMultiVehicle|TestNATSDisconnect|TestConcurrent"`
+    - [x] All tests pass: `cd backend/cloud-gateway && go test ./... -v`
+    - [x] All tests pass with race detector: `cd backend/cloud-gateway && go test -race ./... -v`
+    - [x] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
 
 - [ ] 6. Checkpoint -- CLOUD_GATEWAY Complete
   - [ ] 6.1 Run full test suite
