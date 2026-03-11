@@ -21,8 +21,12 @@ services:
       - "55556"
       - "--insecure"
       - "--disable-authorization"
+      - "--vss"
+      - "vss_release_4.0.json,/config/vss_overlay.json"
     ports:
       - "55556:55556"
+    volumes:
+      - ../config/vss/vss_overlay.json:/config/vss_overlay.json:ro
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 55556 || exit 1"]
       interval: 5s
