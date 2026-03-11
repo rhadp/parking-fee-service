@@ -1,3 +1,7 @@
+pub mod command;
+pub mod config;
+pub mod safety;
+
 fn main() {
     println!("locking-service starting...");
 }
