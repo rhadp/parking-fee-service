@@ -36,10 +36,19 @@ pub trait OciPuller: Send + Sync {
 }
 
 /// Verify that the SHA-256 hash of the digest string matches the expected checksum.
-pub fn verify_checksum(_digest: &str, _expected: &str) -> Result<(), OciError> {
-    // Stub: always returns error. Implementation in task group 3.
-    Err(OciError::ChecksumMismatch {
-        expected: _expected.to_string(),
-        actual: "not-implemented".to_string(),
-    })
+///
+/// The checksum is computed by hashing the raw digest string bytes with SHA-256
+/// and encoding as `sha256:{hex}`. This matches the format used by the tests.
+pub fn verify_checksum(digest: &str, expected: &str) -> Result<(), OciError> {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(digest.as_bytes());
+    let actual = format!("sha256:{}", hex::encode(hash));
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(OciError::ChecksumMismatch {
+            expected: expected.to_string(),
+            actual,
+        })
+    }
 }
