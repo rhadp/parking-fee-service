@@ -1,7 +1,0 @@
-go 1.24.0
-
-use (
-	./companion-app-cli
-	./parking-app-cli
-	./parking-operator
-)

@@ -28,14 +28,14 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Initialize Go module and create model stubs
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Initialize Go module and create model stubs
     - Create `backend/parking-fee-service/go.mod` with module path `github.com/rhadp/parking-fee-service/backend/parking-fee-service` and Go 1.22+ directive.
     - Add module to root `go.work` file if it exists.
     - Create `backend/parking-fee-service/model.go` with minimal struct stubs for `LatLon`, `Zone`, `Operator`, `AdapterMetadata`, `ErrorResponse`, and `RateType` constants so test files compile.
     - _Test Spec: setup for all tests_
 
-  - [x] 1.2 Write handler integration tests
+  - [ ] 1.2 Write handler integration tests
     - Create `backend/parking-fee-service/handler_test.go` with test functions:
       - `TestOperatorLookupInsideZone` (TS-05-1)
       - `TestOperatorLookupNearZone` (TS-05-2)
@@ -50,7 +50,7 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Tests use `httptest.NewRecorder` and must compile but fail.
     - _Test Spec: TS-05-1 through TS-05-6, TS-05-E1 through TS-05-E4_
 
-  - [x] 1.3 Write geofence unit tests
+  - [ ] 1.3 Write geofence unit tests
     - Create `backend/parking-fee-service/geofence_test.go` with test functions:
       - `TestPointInPolygonInside` -- point inside a rectangle
       - `TestPointInPolygonOutside` -- point far outside
@@ -62,7 +62,7 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Tests must compile but fail.
     - _Test Spec: TS-05-P1, TS-05-P2_
 
-  - [x] 1.4 Write config and store tests
+  - [ ] 1.4 Write config and store tests
     - Create `backend/parking-fee-service/config_test.go` with:
       - `TestConfigLoadFromFile` (TS-05-7) -- load from temp JSON file
       - `TestConfigLoadDefault` (TS-05-7) -- load embedded default
@@ -74,24 +74,24 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Tests must compile but fail.
     - _Test Spec: TS-05-7, TS-05-E5_
 
-  - [x] 1.5 Write property tests for response format and adapter integrity
+  - [ ] 1.5 Write property tests for response format and adapter integrity
     - Add to `backend/parking-fee-service/handler_test.go`:
       - `TestPropertyResponseFormat` (TS-05-P3) -- all endpoints return JSON
       - `TestPropertyOperatorAdapterIntegrity` (TS-05-P4) -- every lookup result has valid adapter
     - Tests must compile but fail.
     - _Test Spec: TS-05-P3, TS-05-P4_
 
-  - [x] 1.V Verify task group 1
-    - [x] All spec tests exist and are syntactically valid
-    - [x] All spec tests FAIL (red) -- no implementation yet
-    - [x] No linter warnings introduced: `cd backend/parking-fee-service && go vet ./...`
+  - [ ] 1.V Verify task group 1
+    - [ ] All spec tests exist and are syntactically valid
+    - [ ] All spec tests FAIL (red) -- no implementation yet
+    - [ ] No linter warnings introduced: `cd backend/parking-fee-service && go vet ./...`
 
-- [x] 2. Data models and configuration loading
-  - [x] 2.1 Implement data model types
+- [ ] 2. Data models and configuration loading
+  - [ ] 2.1 Implement data model types
     - Complete `backend/parking-fee-service/model.go` with full struct definitions including JSON tags for `LatLon`, `Zone`, `Operator`, `RateType`, `AdapterMetadata`, `ErrorResponse`.
     - _Requirements: 05-REQ-6.1, 05-REQ-6.2_
 
-  - [x] 2.2 Implement configuration loader
+  - [ ] 2.2 Implement configuration loader
     - Create `backend/parking-fee-service/config.go` with:
       - `Config`, `Settings`, `OperatorConfig` structs
       - `LoadConfig(filePath string) (*Config, error)` function
@@ -100,11 +100,11 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - Error return for missing or invalid config files
     - _Requirements: 05-REQ-7.1, 05-REQ-7.2, 05-REQ-7.E1_
 
-  - [x] 2.3 Create default configuration file
+  - [ ] 2.3 Create default configuration file
     - Create `backend/parking-fee-service/config.json` with the demo data (two Munich zones, two operators with rate info and adapter metadata).
     - _Requirements: 05-REQ-7.1_
 
-  - [x] 2.4 Implement in-memory store
+  - [ ] 2.4 Implement in-memory store
     - Create `backend/parking-fee-service/store.go` with:
       - `Store` struct holding zones, operators, adapter metadata, and settings
       - `NewStore(cfg *Config) *Store` constructor
@@ -112,52 +112,52 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - `GetAdapterMetadata(operatorID string) (*AdapterMetadata, bool)`
     - _Requirements: 05-REQ-1.1, 05-REQ-4.1_
 
-  - [x] 2.V Verify task group 2
-    - [x] Config tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestConfig' -v`
-    - [x] Store metadata tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestGetAdapter' -v`
-    - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v` (remaining tests still fail as expected)
-    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+  - [ ] 2.V Verify task group 2
+    - [ ] Config tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestConfig' -v`
+    - [ ] Store metadata tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestGetAdapter' -v`
+    - [ ] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v` (remaining tests still fail as expected)
+    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
-- [x] 3. Geofence matching (point-in-polygon + proximity)
-  - [x] 3.1 Implement point-in-polygon (ray casting)
+- [ ] 3. Geofence matching (point-in-polygon + proximity)
+  - [ ] 3.1 Implement point-in-polygon (ray casting)
     - Create `backend/parking-fee-service/geofence.go` with:
       - `PointInPolygon(point LatLon, polygon []LatLon) bool` -- ray-casting algorithm
       - Points on boundary treated as inside (using epsilon check)
     - _Requirements: 05-REQ-2.1, 05-REQ-2.2_
 
-  - [x] 3.2 Implement Haversine distance and distance-to-segment
+  - [ ] 3.2 Implement Haversine distance and distance-to-segment
     - Add to `backend/parking-fee-service/geofence.go`:
       - `HaversineDistance(a, b LatLon) float64` -- geodesic distance in meters
       - `DistanceToSegment(point, segA, segB LatLon) float64` -- min distance to segment in meters
       - `MinDistanceToPolygon(point LatLon, polygon []LatLon) float64`
     - _Requirements: 05-REQ-3.1_
 
-  - [x] 3.3 Implement proximity matching and wire into store
+  - [ ] 3.3 Implement proximity matching and wire into store
     - Add to `backend/parking-fee-service/geofence.go`:
       - `PointInOrNearPolygon(point LatLon, polygon []LatLon, thresholdMeters float64) bool`
     - Update `Store.FindOperatorsByLocation` to use `PointInOrNearPolygon` with the configured proximity threshold.
     - _Requirements: 05-REQ-3.1, 05-REQ-3.2_
 
-  - [x] 3.V Verify task group 3
-    - [x] Geofence tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestPoint|TestProperty(Geofence|Proximity)' -v`
-    - [x] Store location tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestFindOperators' -v`
-    - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
-    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+  - [ ] 3.V Verify task group 3
+    - [ ] Geofence tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestPoint|TestProperty(Geofence|Proximity)' -v`
+    - [ ] Store location tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestFindOperators' -v`
+    - [ ] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
+    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
-- [x] 4. REST API endpoints
-  - [x] 4.1 Implement JSON response helpers and recovery middleware
+- [ ] 4. REST API endpoints
+  - [ ] 4.1 Implement JSON response helpers and recovery middleware
     - Create `backend/parking-fee-service/handler.go` with:
       - `writeJSON(w http.ResponseWriter, status int, data any)` -- sets Content-Type, writes JSON
       - `writeError(w http.ResponseWriter, status int, message string)` -- writes JSON error response
       - `recoveryMiddleware(next http.Handler) http.Handler` -- recovers panics, returns 500
     - _Requirements: 05-REQ-8.1, 05-REQ-8.2, 05-REQ-8.E2_
 
-  - [x] 4.2 Implement health handler
+  - [ ] 4.2 Implement health handler
     - Add `HandleHealth(w http.ResponseWriter, r *http.Request)` to handler.go.
     - Returns `{"status": "ok"}` with HTTP 200.
     - _Requirements: 05-REQ-5.1_
 
-  - [x] 4.3 Implement operator lookup handler
+  - [ ] 4.3 Implement operator lookup handler
     - Add `HandleOperatorLookup(store *Store) http.HandlerFunc` to handler.go:
       - Parse and validate `lat` and `lon` query parameters
       - Return 400 for missing, non-numeric, or out-of-range values
@@ -165,14 +165,14 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - Return JSON array (empty array if no matches)
     - _Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.E1, 05-REQ-1.E2_
 
-  - [x] 4.4 Implement adapter metadata handler and default 404 handler
+  - [ ] 4.4 Implement adapter metadata handler and default 404 handler
     - Add `HandleAdapterMetadata(store *Store) http.HandlerFunc` to handler.go:
       - Extract operator ID from URL path
       - Return 404 if not found, otherwise return adapter metadata JSON
     - Add default 404 handler for undefined routes returning JSON error.
     - _Requirements: 05-REQ-4.1, 05-REQ-4.E1, 05-REQ-8.E1_
 
-  - [x] 4.5 Implement main.go server entry point
+  - [ ] 4.5 Implement main.go server entry point
     - Create `backend/parking-fee-service/main.go` with:
       - Load configuration (from file path env var or embedded default)
       - Create store from config
@@ -182,22 +182,22 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
       - Log startup message to stdout
     - _Requirements: 05-REQ-7.1, 05-REQ-7.2_
 
-  - [x] 4.V Verify task group 4
-    - [x] All handler tests pass: `cd backend/parking-fee-service && go test ./... -run 'Test(Operator|Adapter|Health|Invalid|Undefined|Property)' -v`
-    - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
-    - [x] Build succeeds: `cd backend/parking-fee-service && go build .`
-    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+  - [ ] 4.V Verify task group 4
+    - [ ] All handler tests pass: `cd backend/parking-fee-service && go test ./... -run 'Test(Operator|Adapter|Health|Invalid|Undefined|Property)' -v`
+    - [ ] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
+    - [ ] Build succeeds: `cd backend/parking-fee-service && go build .`
+    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
-- [x] 5. Integration tests
-  - [x] 5.1 Run full test suite and verify all tests pass
+- [ ] 5. Integration tests
+  - [ ] 5.1 Run full test suite and verify all tests pass
     - Execute `cd backend/parking-fee-service && go test ./... -v`
     - All TS-05-* tests must pass.
     - _Test Spec: TS-05-1 through TS-05-7, TS-05-E1 through TS-05-E5, TS-05-P1 through TS-05-P4_
 
-  - [x] 5.2 Run linter
+  - [ ] 5.2 Run linter
     - Execute `cd backend/parking-fee-service && go vet ./...` -- no issues.
 
-  - [x] 5.3 Manual smoke test
+  - [ ] 5.3 Manual smoke test
     - Start server: `cd backend/parking-fee-service && go run .`
     - Verify: `curl http://localhost:8080/health` returns `{"status":"ok"}`
     - Verify: `curl "http://localhost:8080/operators?lat=48.1395&lon=11.5625"` returns muc-central
@@ -205,13 +205,13 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Verify: `curl "http://localhost:8080/operators?lat=52.52&lon=13.40"` returns `[]`
     - Verify: `curl http://localhost:8080/operators/unknown/adapter` returns 404
 
-  - [x] 5.V Verify task group 5
-    - [x] All tests pass: `cd backend/parking-fee-service && go test ./... -v`
-    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
-    - [x] Build succeeds: `cd backend/parking-fee-service && go build .`
-    - [x] All Definition of Done criteria from design.md are satisfied
+  - [ ] 5.V Verify task group 5
+    - [ ] All tests pass: `cd backend/parking-fee-service && go test ./... -v`
+    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+    - [ ] Build succeeds: `cd backend/parking-fee-service && go build .`
+    - [ ] All Definition of Done criteria from design.md are satisfied
 
-- [x] 6. Checkpoint -- PARKING_FEE_SERVICE Complete
+- [ ] 6. Checkpoint -- PARKING_FEE_SERVICE Complete
   - Ensure all tests pass, ask the user if questions arise.
   - Review Definition of Done from design.md.
 
@@ -221,7 +221,7 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
 |----------|------------------------|
 | `- [ ]`  | Not started (required) |
 | `- [ ]*` | Not started (optional) |
-| `- [x]`  | Completed              |
+| `- [X]`  | Completed              |
 | `- [-]`  | In progress            |
 | `- [~]`  | Queued                 |
 

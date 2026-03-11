@@ -23,20 +23,20 @@ This plan creates the foundational monorepo structure, skeleton implementations,
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Create test directory structure
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Create test directory structure
     - Create `tests/setup/` directory at repo root
     - Create `tests/setup/run_all.sh` as the test runner entry point
     - _Test Spec: TS-01-1 through TS-01-26, TS-01-P1 through TS-01-P7, TS-01-E1 through TS-01-E6_
 
-  - [x] 1.2 Implement directory structure tests
+  - [ ] 1.2 Implement directory structure tests
     - Create `tests/setup/test_directories.sh`
     - Test for existence of all required top-level and nested directories (TS-01-1 through TS-01-4)
     - Test placeholder directories contain only README.md (TS-01-E1, TS-01-E2)
     - Test directory completeness property (TS-01-P1)
     - _Test Spec: TS-01-1, TS-01-2, TS-01-3, TS-01-4, TS-01-E1, TS-01-E2, TS-01-P1_
 
-  - [x] 1.3 Implement build and workspace tests
+  - [ ] 1.3 Implement build and workspace tests
     - Create `tests/setup/test_build.sh`
     - Test Rust workspace Cargo.toml exists and lists members (TS-01-5)
     - Test Rust workspace builds and tests pass (TS-01-6, TS-01-7)
@@ -51,7 +51,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Test make build failure reporting (TS-01-E4)
     - _Test Spec: TS-01-5 through TS-01-14, TS-01-P2, TS-01-P3, TS-01-P4, TS-01-E3, TS-01-E4_
 
-  - [x] 1.4 Implement Makefile and proto tests
+  - [ ] 1.4 Implement Makefile and proto tests
     - Create `tests/setup/test_makefile.sh`
     - Test root Makefile has all required targets (TS-01-16)
     - Test make build/test/clean succeed (TS-01-17, TS-01-18, TS-01-19)
@@ -60,7 +60,7 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Test proto validity property (TS-01-P6)
     - _Test Spec: TS-01-15, TS-01-16, TS-01-17, TS-01-18, TS-01-19, TS-01-25, TS-01-P6_
 
-  - [x] 1.5 Implement infrastructure and mock CLI tests
+  - [ ] 1.5 Implement infrastructure and mock CLI tests
     - Create `tests/setup/test_infra.sh`
     - Test compose file defines NATS and Kuksa services (TS-01-20)
     - Test infrastructure starts and services are reachable (TS-01-21)
@@ -75,19 +75,19 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Test no-tests-graceful handling (TS-01-E6)
     - _Test Spec: TS-01-20 through TS-01-26, TS-01-P5, TS-01-P7, TS-01-E5, TS-01-E6_
 
-  - [x] 1.V Verify task group 1
-    - [x] All test scripts exist and are syntactically valid: `bash -n tests/setup/*.sh`
-    - [x] All spec tests FAIL (red) -- no implementation yet
-    - [x] Test runner entry point works: `bash tests/setup/run_all.sh` (expected: all fail)
+  - [ ] 1.V Verify task group 1
+    - [ ] All test scripts exist and are syntactically valid: `bash -n tests/setup/*.sh`
+    - [ ] All spec tests FAIL (red) -- no implementation yet
+    - [ ] Test runner entry point works: `bash tests/setup/run_all.sh` (expected: all fail)
 
-- [x] 2. Create repo structure and skeleton projects
-  - [x] 2.1 Create top-level directory structure
+- [ ] 2. Create repo structure and skeleton projects
+  - [ ] 2.1 Create top-level directory structure
     - Create directories: `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/`
     - Create `android/README.md` with placeholder text
     - Create `mobile/README.md` with placeholder text
     - _Requirements: 01-REQ-1.1, 01-REQ-1.E1, 01-REQ-1.E2_
 
-  - [x] 2.2 Create Rust workspace and skeleton crates
+  - [ ] 2.2 Create Rust workspace and skeleton crates
     - Create `rhivos/Cargo.toml` with workspace members
     - Create skeleton `main.rs` for each binary crate: locking-service, cloud-gateway-client, update-service, parking-operator-adaptor
     - Create skeleton `lib.rs` for mock-sensors with modules: location, speed, door
@@ -95,14 +95,14 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Each skeleton prints a startup message and includes one passing test
     - _Requirements: 01-REQ-1.2, 01-REQ-2.1, 01-REQ-2.2, 01-REQ-2.3, 01-REQ-4.1, 01-REQ-4.3, 01-REQ-10.1, 01-REQ-10.2_
 
-  - [x] 2.3 Create Go backend workspace and skeleton modules
+  - [ ] 2.3 Create Go backend workspace and skeleton modules
     - Create `backend/go.work` listing both modules
     - Create `backend/parking-fee-service/` with go.mod and skeleton main.go
     - Create `backend/cloud-gateway/` with go.mod and skeleton main.go
     - Each skeleton prints a startup message and includes one passing test
     - _Requirements: 01-REQ-1.3, 01-REQ-3.1, 01-REQ-3.3, 01-REQ-3.4, 01-REQ-4.2, 01-REQ-4.3_
 
-  - [x] 2.4 Create mock CLI apps and Go workspace
+  - [ ] 2.4 Create mock CLI apps and Go workspace
     - Create `mock/go.work` listing all mock app modules
     - Create `mock/parking-app-cli/` with go.mod, main.go (prints usage, handles subcommands)
     - Create `mock/companion-app-cli/` with go.mod, main.go (prints usage, handles subcommands)
@@ -110,24 +110,24 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - Each app prints usage when run without args, errors on unknown subcommands
     - _Requirements: 01-REQ-1.4, 01-REQ-3.2, 01-REQ-8.1, 01-REQ-8.2, 01-REQ-8.3, 01-REQ-8.4, 01-REQ-8.E1_
 
-  - [x] 2.5 Create shared proto definitions
+  - [ ] 2.5 Create shared proto definitions
     - Create `proto/parking/v1/common.proto` with proto3 syntax and package declaration
     - Include placeholder message types (Location, VehicleIdentifier)
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2_
 
-  - [x] 2.V Verify task group 2
-    - [x] Directory structure tests pass: `bash tests/setup/test_directories.sh`
-    - [x] Rust workspace builds: `cd rhivos && cargo build`
-    - [x] Rust tests pass: `cd rhivos && cargo test`
-    - [x] Go backend builds: `cd backend/parking-fee-service && go build ./... && cd ../cloud-gateway && go build ./...`
-    - [x] Go backend tests pass: `cd backend/parking-fee-service && go test ./... && cd ../cloud-gateway && go test ./...`
-    - [x] Mock CLI apps build and run: `cd mock/parking-app-cli && go run .`
-    - [x] Proto file is valid proto3
-    - [x] All build tests pass: `bash tests/setup/test_build.sh`
-    - [x] Requirements 01-REQ-1.* through 01-REQ-5.*, 01-REQ-8.*, 01-REQ-10.* acceptance criteria met
+  - [ ] 2.V Verify task group 2
+    - [ ] Directory structure tests pass: `bash tests/setup/test_directories.sh`
+    - [ ] Rust workspace builds: `cd rhivos && cargo build`
+    - [ ] Rust tests pass: `cd rhivos && cargo test`
+    - [ ] Go backend builds: `cd backend/parking-fee-service && go build ./... && cd ../cloud-gateway && go build ./...`
+    - [ ] Go backend tests pass: `cd backend/parking-fee-service && go test ./... && cd ../cloud-gateway && go test ./...`
+    - [ ] Mock CLI apps build and run: `cd mock/parking-app-cli && go run .`
+    - [ ] Proto file is valid proto3
+    - [ ] All build tests pass: `bash tests/setup/test_build.sh`
+    - [ ] Requirements 01-REQ-1.* through 01-REQ-5.*, 01-REQ-8.*, 01-REQ-10.* acceptance criteria met
 
-- [x] 3. Setup build system (root Makefile + per-component builds)
-  - [x] 3.1 Create root Makefile
+- [ ] 3. Setup build system (root Makefile + per-component builds)
+  - [ ] 3.1 Create root Makefile
     - Define targets: `build`, `test`, `lint`, `clean`, `infra-up`, `infra-down`, `proto`
     - `build` target: runs `cargo build` in rhivos/ + `go build ./...` in each Go module
     - `test` target: runs `cargo test` in rhivos/ + `go test ./...` in each Go module
@@ -136,74 +136,74 @@ This plan creates the foundational monorepo structure, skeleton implementations,
     - `infra-up`/`infra-down`: delegates to podman compose
     - _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.E1_
 
-  - [x] 3.2 Verify Makefile targets
+  - [ ] 3.2 Verify Makefile targets
     - Run `make build` and confirm exit code 0
     - Run `make test` and confirm all tests pass
     - Run `make clean` and confirm build artifacts removed
     - Run `make lint` and confirm no warnings
     - _Requirements: 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-9.3_
 
-  - [x] 3.V Verify task group 3
-    - [x] Makefile tests pass: `bash tests/setup/test_makefile.sh`
-    - [x] `make build` succeeds: `make build`
-    - [x] `make test` succeeds: `make test`
-    - [x] `make lint` succeeds: `make lint`
-    - [x] `make clean` removes artifacts: `make clean && test ! -d rhivos/target`
-    - [x] All existing tests still pass: `bash tests/setup/run_all.sh` (excluding infra tests)
-    - [x] Requirements 01-REQ-6.*, 01-REQ-9.3 acceptance criteria met
+  - [ ] 3.V Verify task group 3
+    - [ ] Makefile tests pass: `bash tests/setup/test_makefile.sh`
+    - [ ] `make build` succeeds: `make build`
+    - [ ] `make test` succeeds: `make test`
+    - [ ] `make lint` succeeds: `make lint`
+    - [ ] `make clean` removes artifacts: `make clean && test ! -d rhivos/target`
+    - [ ] All existing tests still pass: `bash tests/setup/run_all.sh` (excluding infra tests)
+    - [ ] Requirements 01-REQ-6.*, 01-REQ-9.3 acceptance criteria met
 
-- [x] 4. Setup local infrastructure (podman compose)
-  - [x] 4.1 Create compose.yml
+- [ ] 4. Setup local infrastructure (podman compose)
+  - [ ] 4.1 Create compose.yml
     - Create `deployments/compose.yml`
     - Define NATS service: image `nats:latest`, ports 4222 and 8222
     - Define Kuksa Databroker service: image `ghcr.io/eclipse-kuksa/kuksa-databroker:master`, port 55555
     - Add health check configurations for both services
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3_
 
-  - [x] 4.2 Wire Makefile infra targets
+  - [ ] 4.2 Wire Makefile infra targets
     - Ensure `make infra-up` runs `podman compose -f deployments/compose.yml up -d`
     - Ensure `make infra-down` runs `podman compose -f deployments/compose.yml down`
     - Add wait-for-healthy logic or timeout to infra-up
     - _Requirements: 01-REQ-7.2, 01-REQ-7.3, 01-REQ-7.E1, 01-REQ-7.E2_
 
-  - [x] 4.V Verify task group 4
-    - [x] Infrastructure tests pass: `bash tests/setup/test_infra.sh`
-    - [x] `make infra-up` starts containers: `make infra-up && podman compose -f deployments/compose.yml ps`
-    - [x] NATS reachable on port 4222
-    - [x] Kuksa Databroker reachable on port 55555
-    - [x] `make infra-down` stops containers cleanly: `make infra-down`
-    - [x] All existing tests still pass: `bash tests/setup/run_all.sh`
-    - [x] Requirements 01-REQ-7.* acceptance criteria met
+  - [ ] 4.V Verify task group 4
+    - [ ] Infrastructure tests pass: `bash tests/setup/test_infra.sh`
+    - [ ] `make infra-up` starts containers: `make infra-up && podman compose -f deployments/compose.yml ps`
+    - [ ] NATS reachable on port 4222
+    - [ ] Kuksa Databroker reachable on port 55555
+    - [ ] `make infra-down` stops containers cleanly: `make infra-down`
+    - [ ] All existing tests still pass: `bash tests/setup/run_all.sh`
+    - [ ] Requirements 01-REQ-7.* acceptance criteria met
 
-- [x] 5. Configure test runners
-  - [x] 5.1 Verify Rust test runner configuration
+- [ ] 5. Configure test runners
+  - [ ] 5.1 Verify Rust test runner configuration
     - Confirm `cargo test` in rhivos/ discovers and runs all workspace tests
     - Confirm test output format is usable (names, pass/fail counts)
     - _Requirements: 01-REQ-9.1_
 
-  - [x] 5.2 Verify Go test runner configuration
+  - [ ] 5.2 Verify Go test runner configuration
     - Confirm `go test ./...` in each Go module discovers and runs all tests
     - Confirm test output includes pass/fail status
     - _Requirements: 01-REQ-9.2_
 
-  - [x] 5.3 Verify make test integration
+  - [ ] 5.3 Verify make test integration
     - Confirm `make test` runs both Rust and Go tests
     - Confirm combined output shows results from all toolchains
     - _Requirements: 01-REQ-9.3_
 
-  - [x] 5.V Verify task group 5
-    - [x] Mock CLI tests pass: `bash tests/setup/test_mock_cli.sh`
-    - [x] All spec tests pass: `bash tests/setup/run_all.sh`
-    - [x] `make test` succeeds: `make test`
-    - [x] `make lint` succeeds: `make lint`
-    - [x] Requirements 01-REQ-9.* acceptance criteria met
+  - [ ] 5.V Verify task group 5
+    - [ ] Mock CLI tests pass: `bash tests/setup/test_mock_cli.sh`
+    - [ ] All spec tests pass: `bash tests/setup/run_all.sh`
+    - [ ] `make test` succeeds: `make test`
+    - [ ] `make lint` succeeds: `make lint`
+    - [ ] Requirements 01-REQ-9.* acceptance criteria met
 
-- [x] 6. Checkpoint - Project Setup Complete
-  - [x] All spec tests pass: `bash tests/setup/run_all.sh`
-  - [x] All component tests pass: `make test`
-  - [x] All linters pass: `make lint`
-  - [x] Infrastructure lifecycle works: `make infra-up && make infra-down`
-  - [x] Ensure all tests pass, ask the user if questions arise.
+- [ ] 6. Checkpoint - Project Setup Complete
+  - [ ] All spec tests pass: `bash tests/setup/run_all.sh`
+  - [ ] All component tests pass: `make test`
+  - [ ] All linters pass: `make lint`
+  - [ ] Infrastructure lifecycle works: `make infra-up && make infra-down`
+  - [ ] Ensure all tests pass, ask the user if questions arise.
 
 ## Traceability
 

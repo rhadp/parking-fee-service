@@ -28,8 +28,8 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Unit test scaffolding for configuration
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Unit test scaffolding for configuration
     - Create `src/config.rs` tests
     - Test that `VIN` is parsed from environment
     - Test that missing `VIN` produces an error
@@ -38,7 +38,7 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Test that `DATABROKER_UDS_PATH` defaults to `/tmp/kuksa/databroker.sock` when unset
     - _Test Spec: TS-04-2, TS-04-3_
 
-  - [x] 1.2 Unit test scaffolding for command validation
+  - [ ] 1.2 Unit test scaffolding for command validation
     - Create `src/command.rs` tests
     - Test valid command JSON parses and validates successfully
     - Test malformed JSON returns a parse error
@@ -48,7 +48,7 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Test JSON with invalid `command_id` (not a UUID) returns a validation error
     - _Test Spec: TS-04-E1, TS-04-E2, TS-04-E3_
 
-  - [x] 1.3 Integration test scaffolding
+  - [ ] 1.3 Integration test scaffolding
     - Create `tests/integration.rs` with `#[cfg(feature = "integration")]` gated tests
     - Test NATS connection and command subscription (TS-04-1)
     - Test command pipeline: NATS -> DATA_BROKER (TS-04-P1)
@@ -59,56 +59,56 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - All tests should assert expected outcomes but fail because the implementation does not exist yet
     - _Test Spec: TS-04-1, TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5, TS-04-E5_
 
-  - [x] 1.4 Add `integration` feature flag to Cargo.toml
+  - [ ] 1.4 Add `integration` feature flag to Cargo.toml
     - Add a Cargo feature `integration` (no dependencies, used only for `#[cfg(feature = "integration")]` gating)
 
-  - [x] 1.V Verify task group 1
-    - [x] `cargo test -p cloud-gateway-client` compiles; all unit tests fail
-    - [x] `cargo test -p cloud-gateway-client --features integration` compiles (with infra running); all integration tests fail
-    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [ ] 1.V Verify task group 1
+    - [ ] `cargo test -p cloud-gateway-client` compiles; all unit tests fail
+    - [ ] `cargo test -p cloud-gateway-client --features integration` compiles (with infra running); all integration tests fail
+    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [x] 2. NATS client (connect and subscribe to commands)
-  - [x] 2.1 Implement `config.rs`
+- [ ] 2. NATS client (connect and subscribe to commands)
+  - [ ] 2.1 Implement `config.rs`
     - Parse environment variables: `VIN`, `NATS_URL`, `NATS_TLS_ENABLED`, `DATABROKER_UDS_PATH`
     - Return a `Config` struct
     - Exit with error if `VIN` is missing; apply defaults for optional variables
     - _Requirements: 04-REQ-1.1_
 
-  - [x] 2.2 Implement `nats_client.rs`
+  - [ ] 2.2 Implement `nats_client.rs`
     - Connect to NATS server using `async_nats::connect()` (plain) or `async_nats::ConnectOptions` with TLS (when `NATS_TLS_ENABLED=true`)
     - Provide methods to subscribe to a subject and to publish to a subject
     - Leverage async-nats built-in reconnection (no custom reconnect logic needed)
     - Log connection, disconnection, and reconnection events
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2_
 
-  - [x] 2.3 Implement `main.rs` startup for NATS
+  - [ ] 2.3 Implement `main.rs` startup for NATS
     - Load configuration
     - Connect to NATS
     - Subscribe to `vehicles.{VIN}.commands`
     - Log "CLOUD_GATEWAY_CLIENT started for VIN={VIN}"
     - _Requirements: 04-REQ-1.1, 04-REQ-7.1_
 
-  - [x] 2.V Verify task group 2
-    - [x] Unit tests for config pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [x] `cargo build -p cloud-gateway-client` succeeds
-    - [x] Binary connects to NATS (with `make infra-up`) and subscribes to the command subject
-    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [ ] 2.V Verify task group 2
+    - [ ] Unit tests for config pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [ ] `cargo build -p cloud-gateway-client` succeeds
+    - [ ] Binary connects to NATS (with `make infra-up`) and subscribes to the command subject
+    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [x] 3. Command validation and DATA_BROKER write
-  - [x] 3.1 Implement `command.rs`
+- [ ] 3. Command validation and DATA_BROKER write
+  - [ ] 3.1 Implement `command.rs`
     - Define `Command` struct with serde deserialization
     - Implement validation: required fields (`command_id`, `action`, `doors`, `source`, `vin`, `timestamp`), valid `action` values (`"lock"` or `"unlock"`), valid UUID for `command_id`
     - Return structured validation errors
     - _Requirements: 04-REQ-2.1_
 
-  - [x] 3.2 Implement `databroker_client.rs`
+  - [ ] 3.2 Implement `databroker_client.rs`
     - Create a tonic gRPC client that connects to DATA_BROKER via Unix Domain Socket
     - Implement `set_signal(path, value)` to write a string signal
     - Implement `subscribe_signal(paths)` to subscribe to one or more signals and return a stream of updates
     - Handle connection errors with retry and exponential backoff (1s, 2s, 4s, ..., max 30s)
     - _Requirements: 04-REQ-5.1_
 
-  - [x] 3.3 Implement `command_processor.rs`
+  - [ ] 3.3 Implement `command_processor.rs`
     - Read messages from the NATS subscription stream
     - Deserialize and validate each message using `command.rs`
     - On valid command: write the JSON to `Vehicle.Command.Door.Lock` on DATA_BROKER
@@ -117,20 +117,20 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Handle DATA_BROKER unreachable: log error and discard
     - _Requirements: 04-REQ-2.1, 04-REQ-5.1_
 
-  - [x] 3.4 Wire command processor into `main.rs`
+  - [ ] 3.4 Wire command processor into `main.rs`
     - Spawn the command processor as a tokio task in the main startup sequence
     - _Requirements: 04-REQ-2.1_
 
-  - [x] 3.V Verify task group 3
-    - [x] Unit tests for command validation pass
-    - [x] With infra running, publishing a valid command on NATS results in the command appearing on `Vehicle.Command.Door.Lock` in DATA_BROKER
-    - [x] Malformed commands are logged and discarded
-    - [x] Spec tests TS-04-P1, TS-04-E1, TS-04-E2, TS-04-E3 pass
-    - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [ ] 3.V Verify task group 3
+    - [ ] Unit tests for command validation pass
+    - [ ] With infra running, publishing a valid command on NATS results in the command appearing on `Vehicle.Command.Door.Lock` in DATA_BROKER
+    - [ ] Malformed commands are logged and discarded
+    - [ ] Spec tests TS-04-P1, TS-04-E1, TS-04-E2, TS-04-E3 pass
+    - [ ] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [x] 4. Telemetry publishing and response relay
-  - [x] 4.1 Implement `response_relay.rs`
+- [ ] 4. Telemetry publishing and response relay
+  - [ ] 4.1 Implement `response_relay.rs`
     - Subscribe to `Vehicle.Command.Door.Response` on DATA_BROKER via `databroker_client.subscribe_signal()`
     - On each response update, read the JSON string value
     - Publish the response JSON to `vehicles.{VIN}.command_responses` on NATS
@@ -138,68 +138,68 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Handle unparseable response JSON from DATA_BROKER: log warning and skip
     - _Requirements: 04-REQ-3.1_
 
-  - [x] 4.2 Implement `telemetry.rs`
+  - [ ] 4.2 Implement `telemetry.rs`
     - Subscribe to DATA_BROKER signals: `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`, `Vehicle.CurrentLocation.Latitude`, `Vehicle.CurrentLocation.Longitude`, `Vehicle.Parking.SessionActive`
     - On each signal change, construct a telemetry JSON message with `vin`, `signal`, `value`, and `timestamp`
     - Publish to `vehicles.{VIN}.telemetry` on NATS
     - Only publish on actual value changes, not on periodic schedule
     - _Requirements: 04-REQ-4.1_
 
-  - [x] 4.3 Wire response relay and telemetry into `main.rs`
+  - [ ] 4.3 Wire response relay and telemetry into `main.rs`
     - Spawn `response_relay` and `telemetry` as tokio tasks alongside `command_processor`
     - Ensure all three tasks run concurrently
     - Add shutdown signal handling (SIGTERM/SIGINT) that closes NATS and DATA_BROKER connections
     - If any task exits with an error, log and attempt restart
     - _Requirements: 04-REQ-7.1_
 
-  - [x] 4.V Verify task group 4
-    - [x] Writing a response to `Vehicle.Command.Door.Response` on DATA_BROKER results in the response appearing on NATS
-    - [x] Writing telemetry signals to DATA_BROKER results in telemetry messages on NATS
-    - [x] Spec tests TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5 pass
-    - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [ ] 4.V Verify task group 4
+    - [ ] Writing a response to `Vehicle.Command.Door.Response` on DATA_BROKER results in the response appearing on NATS
+    - [ ] Writing telemetry signals to DATA_BROKER results in telemetry messages on NATS
+    - [ ] Spec tests TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5 pass
+    - [ ] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [x] 5. Integration tests
-  - [x] 5.1 Verify command pipeline end-to-end (TS-04-P1)
+- [ ] 5. Integration tests
+  - [ ] 5.1 Verify command pipeline end-to-end (TS-04-P1)
     - Run the integration test that publishes a command via NATS and verifies it appears on DATA_BROKER; fix any issues found
     - _Test Spec: TS-04-P1_
 
-  - [x] 5.2 Verify response relay end-to-end (TS-04-P2)
+  - [ ] 5.2 Verify response relay end-to-end (TS-04-P2)
     - Run the integration test that writes a response to DATA_BROKER and verifies it appears on NATS; fix any issues found
     - _Test Spec: TS-04-P2_
 
-  - [x] 5.3 Verify telemetry pipeline end-to-end (TS-04-P3, TS-04-P4)
+  - [ ] 5.3 Verify telemetry pipeline end-to-end (TS-04-P3, TS-04-P4)
     - Run the integration tests that write telemetry signals to DATA_BROKER and verify they appear on NATS; fix any issues found
     - _Test Spec: TS-04-P3, TS-04-P4_
 
-  - [x] 5.4 Verify full command round-trip (TS-04-P5)
+  - [ ] 5.4 Verify full command round-trip (TS-04-P5)
     - Run the integration test that exercises the complete command -> response flow; fix any issues found
     - _Test Spec: TS-04-P5_
 
-  - [x] 5.5 Verify error handling (TS-04-E1, TS-04-E2, TS-04-E3, TS-04-E6, TS-04-E7)
+  - [ ] 5.5 Verify error handling (TS-04-E1, TS-04-E2, TS-04-E3, TS-04-E6, TS-04-E7)
     - Run integration tests for malformed commands, missing fields, invalid action values, DATA_BROKER unavailability, and invalid tokens; fix any issues found
     - _Test Spec: TS-04-E1, TS-04-E2, TS-04-E3, TS-04-E6, TS-04-E7_
 
-  - [x] 5.6 Verify VIN isolation (TS-04-E5)
+  - [ ] 5.6 Verify VIN isolation (TS-04-E5)
     - Run the integration test that confirms commands for other VINs are not processed; fix any issues found
     - _Test Spec: TS-04-E5_
 
-  - [x] 5.7 Verify NATS reconnection (TS-04-E4)
+  - [ ] 5.7 Verify NATS reconnection (TS-04-E4)
     - Run the integration test that stops and restarts NATS, then confirms the client recovers; fix any issues found
     - NATS reconnection is handled by async-nats built-in mechanism; verified by connection event callback
     - _Test Spec: TS-04-E4_
 
-  - [x] 5.V Verify task group 5
-    - [x] All integration tests pass: `cd rhivos && cargo test -p cloud-gateway-client --features integration`
-    - [x] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
+  - [ ] 5.V Verify task group 5
+    - [ ] All integration tests pass: `cd rhivos && cargo test -p cloud-gateway-client --features integration`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p cloud-gateway-client`
 
-- [x] 6. Checkpoint
-  - [x] 6.1 Full build and test run
+- [ ] 6. Checkpoint
+  - [ ] 6.1 Full build and test run
     - Run in sequence: `cargo build`, `cargo clippy`, `cargo test`, `make infra-up`, `cargo test --features integration`
     - Confirm all steps pass with zero errors and zero warnings
 
-  - [x] 6.2 Manual smoke test
+  - [ ] 6.2 Manual smoke test
     - Start infrastructure: `make infra-up`
     - Run `VIN=SMOKE_TEST_VIN cargo run -p cloud-gateway-client`
     - Publish a lock command to `vehicles.SMOKE_TEST_VIN.commands` using `nats pub` or a test script
@@ -209,7 +209,7 @@ This plan implements the CLOUD_GATEWAY_CLIENT component that bridges NATS messag
     - Write a lock state change to DATA_BROKER
     - Verify telemetry appears on `vehicles.SMOKE_TEST_VIN.telemetry` in NATS
 
-  - [x] 6.3 Requirements coverage review
+  - [ ] 6.3 Requirements coverage review
     - Verify every requirement in `requirements.md` has at least one passing test
 
 ## Traceability

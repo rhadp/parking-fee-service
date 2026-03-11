@@ -37,8 +37,8 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Create Rust sensor test scaffolding
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Create Rust sensor test scaffolding
     - Add three sensor crates to the Rust workspace (`rhivos/Cargo.toml`)
     - Create minimal `Cargo.toml` and `src/main.rs` for each crate with stub `main()` functions
     - Add inline test modules:
@@ -48,103 +48,103 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - Verify: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor` -- tests compile but fail
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-E1, TS-09-E2_
 
-  - [x] 1.2 Create parking-operator test scaffolding
+  - [ ] 1.2 Create parking-operator test scaffolding
     - Create `mock/parking-operator/go.mod` and minimal stub files (`main.go`, `handler.go`, `session.go`, `models.go`)
     - Create `mock/parking-operator/handler_test.go` with: `TestStartSession_Valid` (TS-09-7), `TestStopSession_Valid` (TS-09-8), `TestGetStatus_ReturnsAllSessions` (TS-09-9), `TestGetStatus_EmptyWhenNoSessions` (TS-09-E9), `TestStartSession_MalformedBody` (TS-09-E7), `TestStopSession_UnknownSession` (TS-09-E8), `TestSessionStoreConsistency` (TS-09-P8)
     - Add `mock/parking-operator` to the root `go.work` file
     - Verify: `cd mock/parking-operator && go test ./... -v` -- tests compile but fail
     - _Test Spec: TS-09-7, TS-09-8, TS-09-9, TS-09-E7, TS-09-E8, TS-09-E9, TS-09-P8_
 
-  - [x] 1.3 Create parking-app-cli test scaffolding
+  - [ ] 1.3 Create parking-app-cli test scaffolding
     - Create `mock/parking-app-cli/go.mod` and minimal stub files
     - Create test files with: `TestSubcommandDispatch_UnknownCommand` (TS-09-E4), `TestSubcommandDispatch_NoArguments` (TS-09-E4), `TestLookup_MissingFlags` (TS-09-E3), `TestAdapterInfo_MissingFlags` (TS-09-E3), `TestInstall_MissingFlags` (TS-09-E3), `TestRemove_MissingFlags` (TS-09-E3), `TestStatus_MissingFlags` (TS-09-E3), `TestStartSession_MissingFlags` (TS-09-E3), `TestStopSession_MissingFlags` (TS-09-E3), `TestLookup_CorrectRESTEndpoint` (TS-09-P1), `TestAdapterInfo_CorrectRESTEndpoint` (TS-09-P2), `TestInstall_CorrectGRPCMethod` (TS-09-P3), `TestServiceUnreachable_REST` (TS-09-E5), `TestServiceUnreachable_GRPC` (TS-09-E6)
     - Add `mock/parking-app-cli` to the root `go.work` file
     - Verify: `cd mock/parking-app-cli && go test ./... -v` -- tests compile but fail
     - _Test Spec: TS-09-5, TS-09-P1, TS-09-P2, TS-09-P3, TS-09-E3, TS-09-E4, TS-09-E5, TS-09-E6_
 
-  - [x] 1.4 Create companion-app-cli test scaffolding
+  - [ ] 1.4 Create companion-app-cli test scaffolding
     - Create `mock/companion-app-cli/go.mod` and minimal stub files
     - Create test files with: `TestSubcommandDispatch_UnknownCommand` (TS-09-E4), `TestSubcommandDispatch_NoArguments` (TS-09-E4), `TestLock_MissingFlags` (TS-09-E3), `TestUnlock_MissingFlags` (TS-09-E3), `TestStatus_MissingFlags` (TS-09-E3), `TestLock_CorrectPayload` (TS-09-P4), `TestUnlock_CorrectPayload` (TS-09-P5), `TestStatus_CorrectEndpoint` (TS-09-P6), `TestBearerToken_IncludedInRequests` (TS-09-P4), `TestServiceUnreachable_REST` (TS-09-E5)
     - Add `mock/companion-app-cli` to the root `go.work` file
     - Verify: `cd mock/companion-app-cli && go test ./... -v` -- tests compile but fail
     - _Test Spec: TS-09-6, TS-09-P4, TS-09-P5, TS-09-P6, TS-09-E3, TS-09-E4, TS-09-E5_
 
-  - [x] 1.V Verify task group 1
-    - [x] All sensor tests compile but fail: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
-    - [x] All parking-operator tests compile but fail: `cd mock/parking-operator && go test ./... -v`
-    - [x] All parking-app-cli tests compile but fail: `cd mock/parking-app-cli && go test ./... -v`
-    - [x] All companion-app-cli tests compile but fail: `cd mock/companion-app-cli && go test ./... -v`
-    - [x] No linter warnings introduced
+  - [ ] 1.V Verify task group 1
+    - [ ] All sensor tests compile but fail: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
+    - [ ] All parking-operator tests compile but fail: `cd mock/parking-operator && go test ./... -v`
+    - [ ] All parking-app-cli tests compile but fail: `cd mock/parking-app-cli && go test ./... -v`
+    - [ ] All companion-app-cli tests compile but fail: `cd mock/companion-app-cli && go test ./... -v`
+    - [ ] No linter warnings introduced
 
-- [x] 2. Implement mock sensors
-  - [x] 2.1 Implement location-sensor
+- [ ] 2. Implement mock sensors
+  - [ ] 2.1 Implement location-sensor
     - Parse CLI arguments using `clap`: `--lat` (f64, required), `--lon` (f64, required), `--broker-addr` (string, default `http://localhost:55556`)
     - Connect to DATA_BROKER via gRPC (tonic client for kuksa.val.v1)
     - Send `SetRequest` for `Vehicle.CurrentLocation.Latitude` and `Vehicle.CurrentLocation.Longitude`
     - Print confirmation, exit with code 0 on success or code 1 on failure
     - _Requirements: 09-REQ-1.1, 09-REQ-7.1, 09-REQ-8.2_
 
-  - [x] 2.2 Implement speed-sensor
+  - [ ] 2.2 Implement speed-sensor
     - Parse CLI arguments: `--speed` (f32, required), `--broker-addr` (string, default `http://localhost:55556`)
     - Connect to DATA_BROKER via gRPC
     - Send `SetRequest` for `Vehicle.Speed`
     - Print confirmation and exit
     - _Requirements: 09-REQ-2.1, 09-REQ-7.1, 09-REQ-8.2_
 
-  - [x] 2.3 Implement door-sensor
+  - [ ] 2.3 Implement door-sensor
     - Parse CLI arguments: `--open` (bool flag) and `--closed` (bool flag), mutually exclusive, one required; `--broker-addr` (string, default `http://localhost:55556`)
     - Connect to DATA_BROKER via gRPC
     - Send `SetRequest` for `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` with `true` (--open) or `false` (--closed)
     - Print confirmation and exit
     - _Requirements: 09-REQ-3.1, 09-REQ-7.1, 09-REQ-8.2_
 
-  - [x] 2.V Verify task group 2
-    - [x] Sensor tests pass: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor`
+  - [ ] 2.V Verify task group 2
+    - [ ] Sensor tests pass: `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor`
 
-- [x] 3. Implement mock PARKING_OPERATOR
-  - [x] 3.1 Implement data model and session store
+- [ ] 3. Implement mock PARKING_OPERATOR
+  - [ ] 3.1 Implement data model and session store
     - Create `mock/parking-operator/models.go` with request/response types
     - Create `mock/parking-operator/session.go` with in-memory `SessionStore`: `NewSessionStore()`, `Create(vehicleID, zoneID)`, `Stop(sessionID)`, `List()`
     - Rate: 2.50 EUR/hr
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [x] 3.2 Implement HTTP handlers
+  - [ ] 3.2 Implement HTTP handlers
     - `HandleStartParking` -- parse JSON body, validate, create session, return 200 or 400
     - `HandleStopParking` -- parse JSON body, validate, stop session, return 200/404/400
     - `HandleParkingStatus` -- return all sessions as JSON array
     - `writeJSON` and `writeError` helpers
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [x] 3.3 Implement server entry point
+  - [ ] 3.3 Implement server entry point
     - Read port from `PORT` env var or `-port` flag (default: 9090)
     - Register routes: `POST /parking/start`, `POST /parking/stop`, `GET /parking/status`
     - Start HTTP server and log startup message
 
-  - [x] 3.V Verify task group 3
-    - [x] All tests pass: `cd mock/parking-operator && go test ./... -v`
-    - [x] No lint issues: `cd mock/parking-operator && go vet ./...`
+  - [ ] 3.V Verify task group 3
+    - [ ] All tests pass: `cd mock/parking-operator && go test ./... -v`
+    - [ ] No lint issues: `cd mock/parking-operator && go vet ./...`
 
-- [x] 4. Implement parking-app-cli
-  - [x] 4.1 Create shared internal packages
+- [ ] 4. Implement parking-app-cli
+  - [ ] 4.1 Create shared internal packages
     - `internal/config/config.go` -- Read environment variables with defaults; flag-overrides-env precedence
     - `internal/output/output.go` -- `PrintJSON`, `PrintError` helpers
     - `internal/restclient/client.go` -- HTTP client wrapper with 10-second timeout
     - `internal/grpcclient/client.go` -- gRPC `Dial(addr)` helper with insecure credentials and 10-second timeout
     - _Requirements: 09-REQ-8.1_
 
-  - [x] 4.2 Implement subcommand dispatch
+  - [ ] 4.2 Implement subcommand dispatch
     - Parse `os.Args[1]` and route to appropriate handler
     - Print usage and exit code 1 for unknown subcommands or no arguments
     - List all 9 available subcommands in usage message
     - _Requirements: 09-REQ-4.1_
 
-  - [x] 4.3 Implement REST subcommands (lookup, adapter-info)
+  - [ ] 4.3 Implement REST subcommands (lookup, adapter-info)
     - `lookup.go` -- Parse `--lat` and `--lon`, GET `{PARKING_FEE_SERVICE_URL}/operators?lat={lat}&lon={lon}`, print response
     - `adapter_info.go` -- Parse `--operator-id`, GET `{PARKING_FEE_SERVICE_URL}/operators/{id}/adapter`, print response
     - _Requirements: 09-REQ-4.2_
 
-  - [x] 4.4 Implement gRPC subcommands (install, watch, list, remove, status)
+  - [ ] 4.4 Implement gRPC subcommands (install, watch, list, remove, status)
     - `install.go` -- Parse `--image-ref`, `--checksum`; call `InstallAdapter`; print response
     - `watch.go` -- Call `WatchAdapterStates` (streaming); print events; handle Ctrl+C
     - `list.go` -- Call `ListAdapters`; print response
@@ -152,53 +152,53 @@ This plan implements all mock/demo tools: three Rust sensor simulators (location
     - `status.go` -- Parse `--adapter-id`; call `GetAdapterStatus`; print response
     - _Requirements: 09-REQ-4.3_
 
-  - [x] 4.5 Implement session management subcommands (start-session, stop-session)
+  - [ ] 4.5 Implement session management subcommands (start-session, stop-session)
     - `start_session.go` -- Parse `--zone-id`; dial PARKING_OPERATOR_ADAPTOR; call `StartSession`; print response
     - `stop_session.go` -- Parse `--session-id`; dial PARKING_OPERATOR_ADAPTOR; call `StopSession`; print response
     - _Requirements: 09-REQ-4.3_
 
-  - [x] 4.V Verify task group 4
-    - [x] All tests pass: `cd mock/parking-app-cli && go test ./... -v`
-    - [x] No lint issues: `cd mock/parking-app-cli && go vet ./...`
-    - [x] Build succeeds: `go build ./mock/parking-app-cli/...`
+  - [ ] 4.V Verify task group 4
+    - [ ] All tests pass: `cd mock/parking-app-cli && go test ./... -v`
+    - [ ] No lint issues: `cd mock/parking-app-cli && go vet ./...`
+    - [ ] Build succeeds: `go build ./mock/parking-app-cli/...`
 
-- [x] 5. Implement companion-app-cli
-  - [x] 5.1 Create shared internal packages
+- [ ] 5. Implement companion-app-cli
+  - [ ] 5.1 Create shared internal packages
     - `internal/config/config.go` -- Read `CLOUD_GATEWAY_URL`, `BEARER_TOKEN` with defaults
     - `internal/output/output.go` -- Same pattern as parking-app-cli
     - `internal/restclient/client.go` -- HTTP client wrapper with bearer token support
     - _Requirements: 09-REQ-5.1_
 
-  - [x] 5.2 Implement subcommand dispatch and commands
+  - [ ] 5.2 Implement subcommand dispatch and commands
     - Dispatch for `lock`, `unlock`, `status`
     - `lock.go` -- Parse `--vin`; generate UUID; POST to `/vehicles/{vin}/commands` with lock payload; include bearer token; warn if token missing
     - `unlock.go` -- Same as lock but `"type": "unlock"`
     - `status.go` -- Parse `--vin`; GET `/vehicles/{vin}/status`; include bearer token
     - _Requirements: 09-REQ-5.1_
 
-  - [x] 5.V Verify task group 5
-    - [x] All tests pass: `cd mock/companion-app-cli && go test ./... -v`
-    - [x] No lint issues: `cd mock/companion-app-cli && go vet ./...`
-    - [x] Build succeeds: `go build ./mock/companion-app-cli/...`
+  - [ ] 5.V Verify task group 5
+    - [ ] All tests pass: `cd mock/companion-app-cli && go test ./... -v`
+    - [ ] No lint issues: `cd mock/companion-app-cli && go vet ./...`
+    - [ ] Build succeeds: `go build ./mock/companion-app-cli/...`
 
-- [x] 6. Checkpoint
-  - [x] 6.1 Run full test suite
+- [ ] 6. Checkpoint
+  - [ ] 6.1 Run full test suite
     - `cd rhivos && cargo test -p location-sensor -p speed-sensor -p door-sensor` -- all pass
     - `cd mock/parking-operator && go test ./... -v` -- all pass
     - `cd mock/parking-app-cli && go test ./... -v` -- all pass
     - `cd mock/companion-app-cli && go test ./... -v` -- all pass
 
-  - [x] 6.2 Run linters
+  - [ ] 6.2 Run linters
     - `cd rhivos && cargo clippy -p location-sensor -p speed-sensor -p door-sensor` -- no warnings
     - `cd mock/parking-operator && go vet ./...` -- no issues
     - `cd mock/parking-app-cli && go vet ./...` -- no issues
     - `cd mock/companion-app-cli && go vet ./...` -- no issues
 
-  - [x] 6.3 Build verification
+  - [ ] 6.3 Build verification
     - All Rust sensor binaries build
     - All Go mock binaries build
 
-  - [x] 6.4 Review Definition of Done
+  - [ ] 6.4 Review Definition of Done
     - Confirm all items in the design.md Definition of Done are satisfied
 
 ## Traceability
