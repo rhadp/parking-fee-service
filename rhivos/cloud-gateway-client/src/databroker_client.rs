@@ -18,7 +18,8 @@ pub mod kuksa {
 }
 
 use kuksa::val::v2::{
-    val_client::ValClient, PublishValueRequest, SignalId, SubscribeRequest, SubscribeResponse,
+    val_client::ValClient, GetValueRequest, PublishValueRequest, SignalId, SubscribeRequest,
+    SubscribeResponse,
 };
 
 /// Signal value variants that can be read from or written to DATA_BROKER.
@@ -123,6 +124,47 @@ impl DataBrokerClient {
 
         let response = self.client.subscribe(request).await?;
         Ok(response.into_inner())
+    }
+
+    /// Read the current value of a signal from DATA_BROKER.
+    ///
+    /// Returns `None` if the signal has no current value.
+    pub async fn get_signal(&mut self, path: &str) -> Result<Option<SignalValue>, tonic::Status> {
+        let request = GetValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(kuksa::val::v2::signal_id::Signal::Path(path.to_string())),
+            }),
+        };
+
+        match self.client.get_value(request).await {
+            Ok(response) => {
+                let dp = response.into_inner().data_point;
+                match dp.and_then(|dp| dp.value).and_then(|v| v.typed_value) {
+                    Some(kuksa::val::v2::value::TypedValue::String(s)) => {
+                        Ok(Some(SignalValue::String(s)))
+                    }
+                    Some(kuksa::val::v2::value::TypedValue::Bool(b)) => {
+                        Ok(Some(SignalValue::Bool(b)))
+                    }
+                    Some(kuksa::val::v2::value::TypedValue::Double(d)) => {
+                        Ok(Some(SignalValue::Double(d)))
+                    }
+                    _ => Ok(None),
+                }
+            }
+            Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Connect to DATA_BROKER via TCP (host:port).
+    ///
+    /// Used primarily for integration tests where the UDS socket is inside a container.
+    pub async fn connect_tcp(addr: &str) -> Result<Self, tonic::transport::Error> {
+        let uri = format!("http://{}", addr);
+        let channel = Endpoint::try_from(uri)?.connect().await?;
+        let client = ValClient::new(channel);
+        Ok(DataBrokerClient { client })
     }
 
     /// Reconnect to DATA_BROKER with exponential backoff.

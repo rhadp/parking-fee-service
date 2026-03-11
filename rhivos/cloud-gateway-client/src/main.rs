@@ -1,14 +1,7 @@
-pub mod command;
-pub mod command_processor;
-pub mod config;
-pub mod databroker_client;
-pub mod nats_client;
-pub mod response_relay;
-pub mod telemetry;
-
-use config::Config;
-use databroker_client::DataBrokerClient;
-use nats_client::NatsClient;
+use cloud_gateway_client::config::Config;
+use cloud_gateway_client::databroker_client::DataBrokerClient;
+use cloud_gateway_client::nats_client::NatsClient;
+use cloud_gateway_client::{command_processor, response_relay, telemetry};
 use tracing::{error, info};
 
 #[tokio::main]
