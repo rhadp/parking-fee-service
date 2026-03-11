@@ -10,73 +10,85 @@ pub enum SessionState {
 /// Manages the parking session state machine.
 /// All transitions are serialized through this manager.
 pub struct SessionManager {
-    _state: SessionState,
-    _session_id: Option<String>,
-    _zone_id: Option<String>,
+    state: SessionState,
+    session_id: Option<String>,
+    zone_id: Option<String>,
 }
 
 impl SessionManager {
     /// Create a new SessionManager in the Idle state.
     pub fn new(zone_id: Option<String>) -> Self {
         Self {
-            _state: SessionState::Idle,
-            _session_id: None,
-            _zone_id: zone_id,
+            state: SessionState::Idle,
+            session_id: None,
+            zone_id,
         }
     }
 
     /// Returns the current session state.
     pub fn state(&self) -> &SessionState {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::state not yet implemented")
+        &self.state
     }
 
     /// Returns the current session ID, if any.
     pub fn session_id(&self) -> Option<&str> {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::session_id not yet implemented")
+        self.session_id.as_deref()
+    }
+
+    /// Returns the configured zone ID, if any.
+    pub fn zone_id(&self) -> Option<&str> {
+        self.zone_id.as_deref()
     }
 
     /// Attempt to transition from Idle to Starting.
     /// Returns Ok(()) if transition is valid, Err if session already active.
     pub fn try_start(&mut self) -> Result<(), SessionError> {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::try_start not yet implemented")
+        match self.state {
+            SessionState::Idle => {
+                self.state = SessionState::Starting;
+                Ok(())
+            }
+            _ => Err(SessionError::AlreadyActive),
+        }
     }
 
     /// Confirm a successful session start from the operator.
     /// Transitions from Starting to Active.
-    pub fn confirm_start(&mut self, _session_id: String) {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::confirm_start not yet implemented")
+    pub fn confirm_start(&mut self, session_id: String) {
+        self.state = SessionState::Active;
+        self.session_id = Some(session_id);
     }
 
     /// Handle a failed session start from the operator.
     /// Transitions from Starting back to Idle.
     pub fn fail_start(&mut self) {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::fail_start not yet implemented")
+        self.state = SessionState::Idle;
+        self.session_id = None;
     }
 
     /// Attempt to transition from Active to Stopping.
     /// Returns Ok(()) if transition is valid, Err if no session active.
     pub fn try_stop(&mut self) -> Result<(), SessionError> {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::try_stop not yet implemented")
+        match self.state {
+            SessionState::Active => {
+                self.state = SessionState::Stopping;
+                Ok(())
+            }
+            _ => Err(SessionError::NoActiveSession),
+        }
     }
 
     /// Confirm a successful session stop from the operator.
     /// Transitions from Stopping to Idle.
     pub fn confirm_stop(&mut self) {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::confirm_stop not yet implemented")
+        self.state = SessionState::Idle;
+        self.session_id = None;
     }
 
     /// Handle a failed session stop from the operator.
     /// Transitions from Stopping to Idle to avoid stuck state.
     pub fn fail_stop(&mut self) {
-        // Stub: will be implemented in task group 2
-        todo!("SessionManager::fail_stop not yet implemented")
+        self.state = SessionState::Idle;
     }
 }
 

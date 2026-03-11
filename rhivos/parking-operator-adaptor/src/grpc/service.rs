@@ -1,6 +1,8 @@
-use crate::session::SessionManager;
+use crate::operator::client::{OperatorClient, OperatorError};
+use crate::session::{SessionManager, SessionState};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tracing::{error, info};
 
 /// The generated protobuf module for parking_adaptor.
 pub mod proto {
@@ -9,13 +11,41 @@ pub mod proto {
 
 /// gRPC service implementation for ParkingAdaptor.
 pub struct ParkingAdaptorService {
-    _session: Arc<Mutex<SessionManager>>,
+    session: Arc<Mutex<SessionManager>>,
+    operator: Arc<OperatorClient>,
+    vehicle_id: String,
 }
 
 impl ParkingAdaptorService {
     /// Create a new ParkingAdaptorService.
-    pub fn new(session: Arc<Mutex<SessionManager>>) -> Self {
-        Self { _session: session }
+    pub fn new(
+        session: Arc<Mutex<SessionManager>>,
+        operator: Arc<OperatorClient>,
+        vehicle_id: String,
+    ) -> Self {
+        Self {
+            session,
+            operator,
+            vehicle_id,
+        }
+    }
+}
+
+/// Map an OperatorError to a tonic::Status.
+fn operator_error_to_status(err: &OperatorError) -> tonic::Status {
+    match err {
+        OperatorError::Unreachable(_) => {
+            tonic::Status::unavailable(format!("operator unreachable: {err}"))
+        }
+        OperatorError::Timeout => {
+            tonic::Status::deadline_exceeded("operator request timed out")
+        }
+        OperatorError::HttpError { status, body } => {
+            tonic::Status::internal(format!("operator HTTP {status}: {body}"))
+        }
+        OperatorError::ParseError(msg) => {
+            tonic::Status::internal(format!("operator response parse error: {msg}"))
+        }
     }
 }
 
@@ -23,34 +53,104 @@ impl ParkingAdaptorService {
 impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
     async fn start_session(
         &self,
-        _request: tonic::Request<proto::StartSessionRequest>,
+        request: tonic::Request<proto::StartSessionRequest>,
     ) -> Result<tonic::Response<proto::StartSessionResponse>, tonic::Status> {
-        // Stub: will be implemented in task group 2
-        todo!("StartSession not yet implemented")
+        let zone_id = request.into_inner().zone_id;
+        let mut session = self.session.lock().await;
+
+        // Try to transition from Idle to Starting
+        if let Err(_e) = session.try_start() {
+            return Err(tonic::Status::already_exists("session already active"));
+        }
+
+        // Call operator REST API to start session
+        match self.operator.start_session(&self.vehicle_id, &zone_id).await {
+            Ok(resp) => {
+                info!(session_id = %resp.session_id, "session started via gRPC");
+                session.confirm_start(resp.session_id.clone());
+                Ok(tonic::Response::new(proto::StartSessionResponse {
+                    session_id: resp.session_id,
+                    status: resp.status,
+                }))
+            }
+            Err(e) => {
+                error!(error = %e, "operator start_session failed");
+                session.fail_start();
+                Err(operator_error_to_status(&e))
+            }
+        }
     }
 
     async fn stop_session(
         &self,
         _request: tonic::Request<proto::StopSessionRequest>,
     ) -> Result<tonic::Response<proto::StopSessionResponse>, tonic::Status> {
-        // Stub: will be implemented in task group 2
-        todo!("StopSession not yet implemented")
+        let mut session = self.session.lock().await;
+
+        // Try to transition from Active to Stopping
+        if let Err(_e) = session.try_stop() {
+            return Err(tonic::Status::not_found("no active session"));
+        }
+
+        let session_id = session.session_id().unwrap_or_default().to_string();
+
+        // Call operator REST API to stop session
+        match self.operator.stop_session(&session_id).await {
+            Ok(resp) => {
+                info!(session_id = %resp.session_id, duration = resp.duration, fee = resp.fee, "session stopped via gRPC");
+                session.confirm_stop();
+                Ok(tonic::Response::new(proto::StopSessionResponse {
+                    session_id: resp.session_id,
+                    duration_seconds: resp.duration,
+                    fee: resp.fee,
+                    status: resp.status,
+                }))
+            }
+            Err(e) => {
+                error!(error = %e, "operator stop_session failed");
+                session.fail_stop();
+                Err(operator_error_to_status(&e))
+            }
+        }
     }
 
     async fn get_status(
         &self,
         _request: tonic::Request<proto::GetStatusRequest>,
     ) -> Result<tonic::Response<proto::GetStatusResponse>, tonic::Status> {
-        // Stub: will be implemented in task group 2
-        todo!("GetStatus not yet implemented")
+        let session = self.session.lock().await;
+        let state_str = match session.state() {
+            SessionState::Idle => "idle",
+            SessionState::Starting => "starting",
+            SessionState::Active => "active",
+            SessionState::Stopping => "stopping",
+        };
+        Ok(tonic::Response::new(proto::GetStatusResponse {
+            state: state_str.to_string(),
+            session_id: session.session_id().unwrap_or_default().to_string(),
+            zone_id: session.zone_id().unwrap_or_default().to_string(),
+        }))
     }
 
     async fn get_rate(
         &self,
         _request: tonic::Request<proto::GetRateRequest>,
     ) -> Result<tonic::Response<proto::GetRateResponse>, tonic::Status> {
-        // Stub: will be implemented in task group 2
-        todo!("GetRate not yet implemented")
+        let session = self.session.lock().await;
+        let zone_id = session.zone_id();
+        match zone_id {
+            None | Some("") => {
+                Err(tonic::Status::failed_precondition("no zone configured"))
+            }
+            Some(zone) => {
+                Ok(tonic::Response::new(proto::GetRateResponse {
+                    rate_type: "per_hour".to_string(),
+                    rate_amount: 2.50,
+                    currency: "EUR".to_string(),
+                    zone_id: zone.to_string(),
+                }))
+            }
+        }
     }
 }
 
@@ -61,7 +161,8 @@ mod tests {
 
     fn make_service(zone_id: Option<String>) -> ParkingAdaptorService {
         let session = Arc::new(Mutex::new(SessionManager::new(zone_id)));
-        ParkingAdaptorService::new(session)
+        let operator = Arc::new(OperatorClient::new("http://localhost:8080".to_string()));
+        ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string())
     }
 
     /// TS-08-5: GetStatus returns idle state when no session is active.
@@ -101,7 +202,8 @@ mod tests {
             s.try_start().unwrap();
             s.confirm_start("session-123".to_string());
         }
-        let svc = ParkingAdaptorService::new(session);
+        let operator = Arc::new(OperatorClient::new("http://localhost:8080".to_string()));
+        let svc = ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string());
         let request = tonic::Request::new(proto::StartSessionRequest {
             zone_id: "zone-1".to_string(),
         });
