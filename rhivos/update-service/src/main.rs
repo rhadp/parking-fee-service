@@ -12,44 +12,10 @@ use tonic::transport::Server;
 use tracing::{error, info};
 
 use crate::config::Config;
-use crate::container::ContainerRuntime;
+use crate::container::{ContainerRuntime, PodmanRuntime};
 use crate::grpc::UpdateServiceImpl;
 use crate::manager::AdapterManager;
 use crate::oci::{OciPuller, PodmanOciPuller};
-
-/// Placeholder container runtime for initial server startup.
-/// Will be replaced by PodmanRuntime in task group 4.
-struct StubContainerRuntime;
-
-#[async_trait::async_trait]
-impl ContainerRuntime for StubContainerRuntime {
-    async fn run(
-        &self,
-        _name: &str,
-        _image_ref: &str,
-    ) -> Result<(), container::ContainerError> {
-        Err(container::ContainerError::RunFailed("not implemented".into()))
-    }
-
-    async fn stop(&self, _name: &str) -> Result<(), container::ContainerError> {
-        Err(container::ContainerError::StopFailed("not implemented".into()))
-    }
-
-    async fn remove(&self, _name: &str) -> Result<(), container::ContainerError> {
-        Err(container::ContainerError::RemoveFailed(
-            "not implemented".into(),
-        ))
-    }
-
-    async fn status(
-        &self,
-        _name: &str,
-    ) -> Result<container::ContainerStatus, container::ContainerError> {
-        Err(container::ContainerError::StatusFailed(
-            "not implemented".into(),
-        ))
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,9 +44,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = format!("0.0.0.0:{}", config.grpc_port).parse()?;
 
-    // Create adapter manager with real OCI puller and stub container runtime
+    // Create adapter manager with real OCI puller and podman container runtime
     let oci_puller: Arc<dyn OciPuller> = Arc::new(PodmanOciPuller::new());
-    let container_runtime: Arc<dyn ContainerRuntime> = Arc::new(StubContainerRuntime);
+    let container_runtime: Arc<dyn ContainerRuntime> = Arc::new(PodmanRuntime::new());
     let manager = Arc::new(AdapterManager::new(oci_puller, container_runtime));
 
     let service = UpdateServiceImpl::new(manager);
