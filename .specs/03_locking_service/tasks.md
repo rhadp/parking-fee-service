@@ -105,31 +105,31 @@ This plan implements the LOCKING_SERVICE component that subscribes to lock/unloc
     - [x] SIGTERM causes a clean exit with code 0
     - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
-- [ ] 3. Command parsing and validation
-  - [ ] 3.1 Implement `command.rs` -- Command struct and parsing
+- [x] 3. Command parsing and validation
+  - [x] 3.1 Implement `command.rs` -- Command struct and parsing
     - Define `Command` struct with serde deserialization
     - Define `CommandResponse` struct with serde serialization
     - Implement `Command::from_json(json_str) -> Result<Command, ValidationError>`
     - _Requirements: 03-REQ-2.1_
 
-  - [ ] 3.2 Implement `command.rs` -- Validation logic
+  - [x] 3.2 Implement `command.rs` -- Validation logic
     - All required fields present and non-empty: `command_id`, `action`, `doors`, `source`, `vin`, `timestamp`
     - `action` must be `"lock"` or `"unlock"`
     - Return structured errors on failure
     - _Requirements: 03-REQ-2.1, 03-REQ-2.2, 03-REQ-6.1_
 
-  - [ ] 3.3 Implement `command.rs` -- Response construction
+  - [x] 3.3 Implement `command.rs` -- Response construction
     - `CommandResponse::success(command_id, timestamp) -> CommandResponse`
     - `CommandResponse::failure(command_id, reason, timestamp) -> CommandResponse`
     - `CommandResponse::to_json(&self) -> String`
     - _Requirements: 03-REQ-5.1, 03-REQ-5.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All unit tests for command parsing and validation pass
-    - [ ] `Command::from_json` correctly parses valid commands and rejects invalid ones
-    - [ ] Response serialization produces the expected JSON format
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
+  - [x] 3.V Verify task group 3
+    - [x] All unit tests for command parsing and validation pass
+    - [x] `Command::from_json` correctly parses valid commands and rejects invalid ones
+    - [x] Response serialization produces the expected JSON format
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p locking-service`
+    - [x] No linter warnings introduced: `cd rhivos && cargo clippy -p locking-service`
 
 - [ ] 4. Safety checks and lock/unlock execution
   - [ ] 4.1 Implement `safety.rs`

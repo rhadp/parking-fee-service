@@ -2,8 +2,25 @@
 ///
 /// Returns `Ok(())` if all safety constraints pass, or `Err(reason)` with
 /// the specific constraint violated.
-pub fn check_safety_constraints(_speed: Option<f64>, _door_open: Option<bool>) -> Result<(), String> {
-    todo!("Implement safety constraint checks")
+///
+/// If a safety signal has not been set (None), the check passes
+/// (safe default: assume stationary, door closed).
+pub fn check_safety_constraints(speed: Option<f64>, door_open: Option<bool>) -> Result<(), String> {
+    // Check speed first (design: speed is checked before door).
+    if let Some(s) = speed {
+        if s >= 1.0 {
+            return Err("vehicle_moving".to_string());
+        }
+    }
+
+    // Check door ajar.
+    if let Some(open) = door_open {
+        if open {
+            return Err("door_ajar".to_string());
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

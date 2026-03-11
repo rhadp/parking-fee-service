@@ -36,30 +36,63 @@ impl Command {
     /// Parse and validate a command from a JSON string.
     ///
     /// Returns the parsed command or a validation error.
-    pub fn from_json(_json_str: &str) -> Result<Self, ValidationError> {
-        todo!("Implement JSON parsing and validation for Command")
+    pub fn from_json(json_str: &str) -> Result<Self, ValidationError> {
+        let cmd: Command = serde_json::from_str(json_str)
+            .map_err(|e| ValidationError::MalformedJson(e.to_string()))?;
+
+        // Validate required fields are non-empty.
+        if cmd.command_id.is_empty() {
+            return Err(ValidationError::MissingField("command_id".to_string()));
+        }
+        if cmd.action.is_empty() {
+            return Err(ValidationError::MissingField("action".to_string()));
+        }
+        if cmd.doors.is_empty() {
+            return Err(ValidationError::MissingField("doors".to_string()));
+        }
+        if cmd.source.is_empty() {
+            return Err(ValidationError::MissingField("source".to_string()));
+        }
+        if cmd.vin.is_empty() {
+            return Err(ValidationError::MissingField("vin".to_string()));
+        }
+
+        Ok(cmd)
     }
 
     /// Validate the action field is "lock" or "unlock".
     pub fn validate_action(&self) -> Result<(), ValidationError> {
-        todo!("Implement action validation")
+        match self.action.as_str() {
+            "lock" | "unlock" => Ok(()),
+            other => Err(ValidationError::InvalidAction(other.to_string())),
+        }
     }
 }
 
 impl CommandResponse {
     /// Create a success response.
-    pub fn success(_command_id: String, _timestamp: u64) -> Self {
-        todo!("Implement success response construction")
+    pub fn success(command_id: String, timestamp: u64) -> Self {
+        CommandResponse {
+            command_id,
+            status: "success".to_string(),
+            reason: None,
+            timestamp,
+        }
     }
 
     /// Create a failure response.
-    pub fn failure(_command_id: String, _reason: String, _timestamp: u64) -> Self {
-        todo!("Implement failure response construction")
+    pub fn failure(command_id: String, reason: String, timestamp: u64) -> Self {
+        CommandResponse {
+            command_id,
+            status: "failed".to_string(),
+            reason: Some(reason),
+            timestamp,
+        }
     }
 
     /// Serialize the response to a JSON string.
     pub fn to_json(&self) -> String {
-        todo!("Implement response serialization")
+        serde_json::to_string(self).expect("CommandResponse serialization should not fail")
     }
 }
 
