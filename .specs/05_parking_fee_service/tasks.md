@@ -188,16 +188,16 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - [x] Build succeeds: `cd backend/parking-fee-service && go build .`
     - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
-- [ ] 5. Integration tests
-  - [ ] 5.1 Run full test suite and verify all tests pass
+- [x] 5. Integration tests
+  - [x] 5.1 Run full test suite and verify all tests pass
     - Execute `cd backend/parking-fee-service && go test ./... -v`
     - All TS-05-* tests must pass.
     - _Test Spec: TS-05-1 through TS-05-7, TS-05-E1 through TS-05-E5, TS-05-P1 through TS-05-P4_
 
-  - [ ] 5.2 Run linter
+  - [x] 5.2 Run linter
     - Execute `cd backend/parking-fee-service && go vet ./...` -- no issues.
 
-  - [ ] 5.3 Manual smoke test
+  - [x] 5.3 Manual smoke test
     - Start server: `cd backend/parking-fee-service && go run .`
     - Verify: `curl http://localhost:8080/health` returns `{"status":"ok"}`
     - Verify: `curl "http://localhost:8080/operators?lat=48.1395&lon=11.5625"` returns muc-central
@@ -205,11 +205,11 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - Verify: `curl "http://localhost:8080/operators?lat=52.52&lon=13.40"` returns `[]`
     - Verify: `curl http://localhost:8080/operators/unknown/adapter` returns 404
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All tests pass: `cd backend/parking-fee-service && go test ./... -v`
-    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
-    - [ ] Build succeeds: `cd backend/parking-fee-service && go build .`
-    - [ ] All Definition of Done criteria from design.md are satisfied
+  - [x] 5.V Verify task group 5
+    - [x] All tests pass: `cd backend/parking-fee-service && go test ./... -v`
+    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+    - [x] Build succeeds: `cd backend/parking-fee-service && go build .`
+    - [x] All Definition of Done criteria from design.md are satisfied
 
 - [ ] 6. Checkpoint -- PARKING_FEE_SERVICE Complete
   - Ensure all tests pass, ask the user if questions arise.
