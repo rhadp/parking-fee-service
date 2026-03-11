@@ -100,29 +100,29 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
     - [x] Requirements 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1 acceptance criteria met
 
-- [ ] 4. Configure dual listeners (UDS + TCP)
-  - [ ] 4.1 Configure TCP listener
+- [x] 4. Configure dual listeners (UDS + TCP)
+  - [x] 4.1 Configure TCP listener
     - Ensure databroker binds to `0.0.0.0:55556`
     - Verify cross-partition access from test host
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
 
-  - [ ] 4.2 Configure UDS listener
+  - [x] 4.2 Configure UDS listener
     - Add `--unix-socket` flag to enable UDS endpoint at `/tmp/kuksa/databroker.sock`
     - Create bind mount volume for the UDS socket path `/tmp/kuksa/`
     - Verify same-partition access via UDS (confirmed via container logs; skipped on macOS due to VM boundary)
     - _Requirements: 02-REQ-4.1, 02-REQ-4.2_
 
-  - [ ] 4.3 Verify both listeners work simultaneously
+  - [x] 4.3 Verify both listeners work simultaneously
     - Run signal operations via TCP and UDS concurrently
     - Verify both interfaces produce identical results
     - Note: UDS test skips on macOS (Podman VM boundary prevents host-side UDS access)
     - _Requirements: 02-REQ-4.2, 02-REQ-5.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests TS-02-4, TS-02-5 pass: `cd tests/setup && go test -run "TestDataBrokerCrossPartitionAccess|TestDataBrokerUDSAccess" -v`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v`
-    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
-    - [ ] Requirements 02-REQ-4.1, 02-REQ-4.2, 02-REQ-5.1, 02-REQ-5.2 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests TS-02-4, TS-02-5 pass: `cd tests/setup && go test -run "TestDataBrokerCrossPartitionAccess|TestDataBrokerUDSAccess" -v`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v`
+    - [x] No linter warnings: `cd tests/setup && go vet ./...`
+    - [x] Requirements 02-REQ-4.1, 02-REQ-4.2, 02-REQ-5.1, 02-REQ-5.2 acceptance criteria met
 
 - [ ] 5. Integration test with signal read/write
   - [ ] 5.1 Validate signal read/write round-trip

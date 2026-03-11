@@ -23,10 +23,13 @@ services:
       - "--disable-authorization"
       - "--vss"
       - "vss_release_4.0.json,/config/vss_overlay.json"
+      - "--unix-socket"
+      - "/tmp/kuksa/databroker.sock"
     ports:
       - "55556:55556"
     volumes:
       - ../config/vss/vss_overlay.json:/config/vss_overlay.json:ro
+      - kuksa-uds:/tmp/kuksa
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 55556 || exit 1"]
       interval: 5s
@@ -34,3 +37,6 @@ services:
       retries: 5
       start_period: 5s
     restart: unless-stopped
+
+volumes:
+  kuksa-uds:
