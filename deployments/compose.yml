@@ -1,0 +1,23 @@
+services:
+  nats:
+    image: nats:latest
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 4222 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  kuksa-databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:main
+    ports:
+      - "55555:55555"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 55555 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s

@@ -38,7 +38,19 @@ clean:
 
 # Start local infrastructure (NATS + Kuksa Databroker)
 infra-up:
+	@command -v podman >/dev/null 2>&1 || { echo "Error: podman is not installed or not in PATH"; exit 1; }
 	podman compose -f deployments/compose.yml up -d
+	@echo "Waiting for services to become healthy (up to 30s)..."
+	@elapsed=0; \
+	while [ $$elapsed -lt 30 ]; do \
+		if nc -z localhost 4222 2>/dev/null && nc -z localhost 55555 2>/dev/null; then \
+			echo "All services are reachable."; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+		elapsed=$$((elapsed + 1)); \
+	done; \
+	echo "Error: services did not become reachable within 30 seconds"; exit 1
 
 # Stop local infrastructure
 infra-down:
