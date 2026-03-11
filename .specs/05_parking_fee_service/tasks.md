@@ -118,31 +118,31 @@ This plan implements the PARKING_FEE_SERVICE as a standalone Go HTTP server with
     - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v` (remaining tests still fail as expected)
     - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
-- [ ] 3. Geofence matching (point-in-polygon + proximity)
-  - [ ] 3.1 Implement point-in-polygon (ray casting)
+- [x] 3. Geofence matching (point-in-polygon + proximity)
+  - [x] 3.1 Implement point-in-polygon (ray casting)
     - Create `backend/parking-fee-service/geofence.go` with:
       - `PointInPolygon(point LatLon, polygon []LatLon) bool` -- ray-casting algorithm
       - Points on boundary treated as inside (using epsilon check)
     - _Requirements: 05-REQ-2.1, 05-REQ-2.2_
 
-  - [ ] 3.2 Implement Haversine distance and distance-to-segment
+  - [x] 3.2 Implement Haversine distance and distance-to-segment
     - Add to `backend/parking-fee-service/geofence.go`:
       - `HaversineDistance(a, b LatLon) float64` -- geodesic distance in meters
       - `DistanceToSegment(point, segA, segB LatLon) float64` -- min distance to segment in meters
       - `MinDistanceToPolygon(point LatLon, polygon []LatLon) float64`
     - _Requirements: 05-REQ-3.1_
 
-  - [ ] 3.3 Implement proximity matching and wire into store
+  - [x] 3.3 Implement proximity matching and wire into store
     - Add to `backend/parking-fee-service/geofence.go`:
       - `PointInOrNearPolygon(point LatLon, polygon []LatLon, thresholdMeters float64) bool`
     - Update `Store.FindOperatorsByLocation` to use `PointInOrNearPolygon` with the configured proximity threshold.
     - _Requirements: 05-REQ-3.1, 05-REQ-3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Geofence tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestPoint|TestProperty(Geofence|Proximity)' -v`
-    - [ ] Store location tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestFindOperators' -v`
-    - [ ] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
-    - [ ] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
+  - [x] 3.V Verify task group 3
+    - [x] Geofence tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestPoint|TestProperty(Geofence|Proximity)' -v`
+    - [x] Store location tests pass: `cd backend/parking-fee-service && go test ./... -run 'TestFindOperators' -v`
+    - [x] All existing tests still pass: `cd backend/parking-fee-service && go test ./... -v`
+    - [x] No linter warnings: `cd backend/parking-fee-service && go vet ./...`
 
 - [ ] 4. REST API endpoints
   - [ ] 4.1 Implement JSON response helpers and recovery middleware
