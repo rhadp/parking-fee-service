@@ -15,19 +15,42 @@ func NewCommandStore() *CommandStore {
 
 // StoreCommand stores a new command with the given status.
 func (cs *CommandStore) StoreCommand(cmdID, status string) {
-	// Stub - to be implemented
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.commands[cmdID] = &CommandStatus{
+		CommandID: cmdID,
+		Status:    status,
+	}
 }
 
 // UpdateCommandStatus updates the status of an existing command.
 // Respects terminal states: does not update if already success/failed.
 func (cs *CommandStore) UpdateCommandStatus(cmdID, status, reason string) {
-	// Stub - to be implemented
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cmd, exists := cs.commands[cmdID]
+	if !exists {
+		return
+	}
+	// Do not update terminal states
+	if cmd.Status == "success" || cmd.Status == "failed" {
+		return
+	}
+	cmd.Status = status
+	cmd.Reason = reason
 }
 
 // GetCommandStatus retrieves the status of a command by ID.
 func (cs *CommandStore) GetCommandStatus(cmdID string) (*CommandStatus, bool) {
-	// Stub - to be implemented
-	return nil, false
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	cmd, exists := cs.commands[cmdID]
+	if !exists {
+		return nil, false
+	}
+	// Return a copy to avoid race conditions
+	copy := *cmd
+	return &copy, true
 }
 
 // TelemetryStore provides thread-safe storage for latest telemetry per VIN.
@@ -43,11 +66,19 @@ func NewTelemetryStore() *TelemetryStore {
 
 // StoreTelemetry stores telemetry data for the given VIN.
 func (ts *TelemetryStore) StoreTelemetry(vin string, data TelemetryData) {
-	// Stub - to be implemented
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.telemetry[vin] = &data
 }
 
 // GetTelemetry retrieves the latest telemetry for the given VIN.
 func (ts *TelemetryStore) GetTelemetry(vin string) (*TelemetryData, bool) {
-	// Stub - to be implemented
-	return nil, false
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+	data, exists := ts.telemetry[vin]
+	if !exists {
+		return nil, false
+	}
+	copy := *data
+	return &copy, true
 }
