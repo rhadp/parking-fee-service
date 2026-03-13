@@ -26,16 +26,38 @@ pub enum CommandError {
 ///
 /// Expects the header value in the form "Bearer <token>". Returns true iff the
 /// embedded token matches the configured expected token.
-pub fn validate_bearer_token(_header: Option<&str>, _expected: &str) -> bool {
-    todo!("validate_bearer_token: parse 'Bearer <token>' from header, compare to expected")
+pub fn validate_bearer_token(header: Option<&str>, expected: &str) -> bool {
+    match header {
+        None => false,
+        Some(value) => match value.strip_prefix("Bearer ") {
+            Some(token) => token == expected,
+            None => false,
+        },
+    }
 }
 
 /// Parse and validate a raw NATS command payload.
 ///
 /// Returns `Ok(IncomingCommand)` when the payload is valid JSON with a non-empty
 /// `command_id` and an `action` of `"lock"` or `"unlock"`. Returns `Err` otherwise.
-pub fn parse_and_validate_command(_payload: &[u8]) -> Result<IncomingCommand, CommandError> {
-    todo!("parse_and_validate_command: deserialize JSON, check command_id and action")
+pub fn parse_and_validate_command(payload: &[u8]) -> Result<IncomingCommand, CommandError> {
+    let cmd: IncomingCommand = serde_json::from_slice(payload)
+        .map_err(|e| CommandError::JsonParseFailed(e.to_string()))?;
+
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::ValidationFailed(
+            "command_id must be non-empty".to_string(),
+        ));
+    }
+
+    if cmd.action != "lock" && cmd.action != "unlock" {
+        return Err(CommandError::ValidationFailed(format!(
+            "action must be 'lock' or 'unlock', got '{}'",
+            cmd.action
+        )));
+    }
+
+    Ok(cmd)
 }
 
 #[cfg(test)]

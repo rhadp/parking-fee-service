@@ -30,7 +30,19 @@ impl std::error::Error for ConfigError {}
 /// Optional: NATS_URL (default: nats://localhost:4222), DATABROKER_ADDR (default: http://localhost:55556),
 ///           BEARER_TOKEN (default: demo-token)
 pub fn load_config() -> Result<Config, ConfigError> {
-    todo!("load_config: read VIN (required), NATS_URL, DATABROKER_ADDR, BEARER_TOKEN from env")
+    let vin = std::env::var("VIN").map_err(|_| ConfigError::MissingVin)?;
+    let nats_url = std::env::var("NATS_URL")
+        .unwrap_or_else(|_| "nats://localhost:4222".to_string());
+    let databroker_addr = std::env::var("DATABROKER_ADDR")
+        .unwrap_or_else(|_| "http://localhost:55556".to_string());
+    let bearer_token = std::env::var("BEARER_TOKEN")
+        .unwrap_or_else(|_| "demo-token".to_string());
+    Ok(Config {
+        vin,
+        nats_url,
+        databroker_addr,
+        bearer_token,
+    })
 }
 
 #[cfg(test)]

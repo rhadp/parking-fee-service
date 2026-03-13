@@ -18,10 +18,10 @@ pub async fn relay_response<N: NatsPublisher>(_nats: &N, _vin: &str, _response_j
 /// Sets the `Vehicle.Command.Door.Lock` signal to the given JSON value.
 /// Returns an error if the broker set operation fails.
 pub async fn forward_command<B: BrokerClient>(
-    _broker: &B,
-    _command_json: &str,
+    broker: &B,
+    command_json: &str,
 ) -> Result<(), BrokerError> {
-    todo!("forward_command: set Vehicle.Command.Door.Lock to command_json in DATA_BROKER")
+    broker.set_string(SIGNAL_LOCK_COMMAND, command_json).await
 }
 
 /// Publish an aggregated telemetry message to NATS.

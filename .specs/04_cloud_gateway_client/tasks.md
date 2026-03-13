@@ -72,23 +72,24 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p cloud-gateway-client 2>&1 | grep FAILED`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
 
-- [ ] 2. Config and command validation modules
-  - [ ] 2.1 Implement config module
+- [x] 2. Config and command validation modules
+  - [x] 2.1 Implement config module
     - Define `Config` struct
     - Read VIN (required, error if missing), NATS_URL (default nats://localhost:4222), DATABROKER_ADDR (default http://localhost:55556), BEARER_TOKEN (default demo-token)
     - _Requirements: 04-REQ-1.1, 04-REQ-5.1, 04-REQ-6.1, 04-REQ-6.E1_
 
-  - [ ] 2.2 Implement command validation module
+  - [x] 2.2 Implement command validation module
     - Implement `validate_bearer_token(header, expected)`: parse "Bearer <token>", compare
     - Implement `parse_and_validate_command(payload)`: deserialize JSON, check command_id non-empty, action is lock/unlock
     - Define `IncomingCommand` struct with serde Deserialize
+    - Also implemented `forward_command` in relay.rs (required to pass `-- config command` filter)
     - _Requirements: 04-REQ-2.1, 04-REQ-2.2, 04-REQ-2.E1, 04-REQ-2.E2, 04-REQ-2.E3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and command tests pass: `cd rhivos && cargo test -p cloud-gateway-client -- config command`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] _Test Spec: TS-04-1, TS-04-3, TS-04-4, TS-04-5, TS-04-12, TS-04-13, TS-04-E3, TS-04-E4, TS-04-E5, TS-04-E10_
+  - [x] 2.V Verify task group 2
+    - [x] Config and command tests pass: `cd rhivos && cargo test -p cloud-gateway-client -- config command`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] _Test Spec: TS-04-1, TS-04-3, TS-04-4, TS-04-5, TS-04-12, TS-04-13, TS-04-E3, TS-04-E4, TS-04-E5, TS-04-E10_
 
 - [ ] 3. Telemetry and response relay modules
   - [ ] 3.1 Implement telemetry module
