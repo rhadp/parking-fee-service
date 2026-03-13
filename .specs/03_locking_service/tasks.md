@@ -145,13 +145,13 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
   - No integration tests yet (those require live DATA_BROKER)
   - Ask the user if questions arise
 
-- [ ] 5. DATA_BROKER gRPC client and main loop
-  - [ ] 5.1 Vendor Kuksa proto definitions
+- [x] 5. DATA_BROKER gRPC client and main loop
+  - [x] 5.1 Vendor Kuksa proto definitions
     - Add `kuksa.val.v1` proto files to `rhivos/locking-service/proto/`
     - Configure `build.rs` with tonic-build to generate Rust code from protos
     - _Requirements: 03-REQ-1.1 (gRPC client)_
 
-  - [ ] 5.2 Implement real BrokerClient
+  - [x] 5.2 Implement real BrokerClient
     - Implement the `BrokerClient` trait using tonic-generated kuksa.val.v1 client
     - `connect(addr)`: establish gRPC channel
     - `subscribe(signal)`: create kuksa Subscribe stream
@@ -159,7 +159,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `set_bool`, `set_string`: kuksa Set with type conversion
     - _Requirements: 03-REQ-1.1, 03-REQ-1.3_
 
-  - [ ] 5.3 Implement main loop
+  - [x] 5.3 Implement main loop
     - Parse config, connect to DATA_BROKER with retry logic
     - Publish initial lock state (IsLocked = false)
     - Subscribe to Vehicle.Command.Door.Lock
@@ -168,16 +168,16 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - Log version, address, and ready status on startup
     - _Requirements: 03-REQ-1.1, 03-REQ-1.2, 03-REQ-4.3, 03-REQ-6.1, 03-REQ-6.2_
 
-  - [ ] 5.4 Implement retry logic
+  - [x] 5.4 Implement retry logic
     - Connection retry: exponential backoff 1s, 2s, 4s, up to 5 attempts
     - Subscription retry: up to 3 resubscribe attempts
     - Response publish failure: log and continue
     - _Requirements: 03-REQ-1.E1, 03-REQ-1.E2, 03-REQ-5.E1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Binary compiles: `cd rhivos && cargo build -p locking-service`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+  - [x] 5.V Verify task group 5
+    - [x] Binary compiles: `cd rhivos && cargo build -p locking-service`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
 
 - [ ] 6. Integration test validation
   - [ ] 6.1 Create integration test module
