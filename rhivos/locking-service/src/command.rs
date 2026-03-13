@@ -42,20 +42,19 @@ impl CommandError {
 
 /// Parse a JSON string into a LockCommand.
 pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
-    serde_json::from_str::<LockCommand>(json)
-        .map_err(|e| CommandError::InvalidJson(e.to_string()))
+    serde_json::from_str(json).map_err(|e| match e.classify() {
+        serde_json::error::Category::Syntax | serde_json::error::Category::Eof => {
+            CommandError::InvalidJson(e.to_string())
+        }
+        _ => CommandError::InvalidCommand(e.to_string()),
+    })
 }
 
 /// Validate a parsed LockCommand.
 pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
     if cmd.command_id.is_empty() {
         return Err(CommandError::InvalidCommand(
-            "command_id must be non-empty".to_string(),
-        ));
-    }
-    if !cmd.doors.contains(&"driver".to_string()) {
-        return Err(CommandError::UnsupportedDoor(
-            "doors must contain 'driver'".to_string(),
+            "command_id must not be empty".to_string(),
         ));
     }
     for door in &cmd.doors {
