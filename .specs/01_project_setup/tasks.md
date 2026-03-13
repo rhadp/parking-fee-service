@@ -26,59 +26,59 @@ The ordering ensures dependencies are built before dependents: directories first
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create tests/setup Go module
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create tests/setup Go module
     - Create `tests/setup/go.mod` with module path `github.com/rhadp/parking-fee-service/tests/setup`
     - Create `tests/setup/structure_test.go` with tests for directory structure (TS-01-1 through TS-01-6)
     - Create `tests/setup/rust_workspace_test.go` with tests for Cargo workspace (TS-01-7 through TS-01-10)
     - _Test Spec: TS-01-1 through TS-01-10_
 
-  - [ ] 1.2 Write Go workspace and skeleton tests
+  - [x] 1.2 Write Go workspace and skeleton tests
     - Create `tests/setup/go_workspace_test.go` with tests for Go workspace (TS-01-11 through TS-01-13)
     - Create `tests/setup/skeleton_test.go` with tests for binary exit behavior (TS-01-14 through TS-01-17)
     - _Test Spec: TS-01-11 through TS-01-17_
 
-  - [ ] 1.3 Write proto and infrastructure tests
+  - [x] 1.3 Write proto and infrastructure tests
     - Create `tests/setup/proto_test.go` with tests for proto files and generation (TS-01-18 through TS-01-23)
     - Create `tests/setup/infra_test.go` with tests for compose file and infrastructure (TS-01-24 through TS-01-28)
     - _Test Spec: TS-01-18 through TS-01-28_
 
-  - [ ] 1.4 Write Makefile and test infrastructure tests
+  - [x] 1.4 Write Makefile and test infrastructure tests
     - Create `tests/setup/makefile_test.go` with tests for Makefile targets (TS-01-29 through TS-01-34)
     - Create `tests/setup/test_infra_test.go` with tests for test runner discovery (TS-01-35 through TS-01-38)
     - _Test Spec: TS-01-29 through TS-01-38_
 
-  - [ ] 1.5 Write edge case and property tests
+  - [x] 1.5 Write edge case and property tests
     - Create `tests/setup/edge_cases_test.go` with edge case tests (TS-01-E1 through TS-01-E9)
     - Create `tests/setup/property_test.go` with property tests (TS-01-P1 through TS-01-P8)
     - _Test Spec: TS-01-E1 through TS-01-E9, TS-01-P1 through TS-01-P8_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid: `cd tests/setup && go vet ./...`
-    - [ ] All spec tests FAIL (red) — no implementation yet: `cd tests/setup && go test -v ./... 2>&1 | grep FAIL`
-    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid: `cd tests/setup && go vet ./...`
+    - [x] All spec tests FAIL (red) — no implementation yet: `cd tests/setup && go test -v ./... 2>&1 | grep FAIL`
+    - [x] No linter warnings: `cd tests/setup && go vet ./...`
 
-- [ ] 2. Directory structure and placeholder directories
-  - [ ] 2.1 Create top-level directories
+- [x] 2. Directory structure and placeholder directories
+  - [x] 2.1 Create top-level directories
     - Create directories: `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/`, `tests/`
     - _Requirements: 01-REQ-1.1_
 
-  - [ ] 2.2 Create Rust component subdirectories
+  - [x] 2.2 Create Rust component subdirectories
     - Create: `rhivos/locking-service/src/`, `rhivos/cloud-gateway-client/src/`, `rhivos/update-service/src/`, `rhivos/parking-operator-adaptor/src/`, `rhivos/mock-sensors/src/bin/`
     - _Requirements: 01-REQ-1.2_
 
-  - [ ] 2.3 Create Go and mock subdirectories
+  - [x] 2.3 Create Go and mock subdirectories
     - Create: `backend/parking-fee-service/`, `backend/cloud-gateway/`, `mock/parking-app-cli/`, `mock/companion-app-cli/`, `mock/parking-operator/`
     - _Requirements: 01-REQ-1.3, 01-REQ-1.4_
 
-  - [ ] 2.4 Create placeholder directories with READMEs
+  - [x] 2.4 Create placeholder directories with READMEs
     - Create `android/README.md` with placeholder text for AAOS PARKING_APP
     - Create `mobile/README.md` with placeholder text for Flutter COMPANION_APP
     - _Requirements: 01-REQ-1.5, 01-REQ-1.6_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
-    - [ ] _Test Spec: TS-01-1 through TS-01-6_
+  - [x] 2.V Verify task group 2
+    - [x] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
+    - [x] _Test Spec: TS-01-1 through TS-01-6_
 
 - [ ] 3. Rust workspace and skeletons
   - [ ] 3.1 Create Cargo workspace root

@@ -26,14 +26,14 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up Rust sensor test infrastructure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up Rust sensor test infrastructure
     - Ensure `rhivos/mock-sensors/src/lib.rs` has module structure
     - Add dev-dependencies: tokio (test features)
     - Create unit test module for argument parsing and config defaults
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-21, TS-09-E1, TS-09-E2_
 
-  - [ ] 1.2 Write PARKING_OPERATOR unit tests (Go)
+  - [x] 1.2 Write PARKING_OPERATOR unit tests (Go)
     - Create `mock/parking-operator/handler/handler_test.go`
     - Create `mock/parking-operator/store/store_test.go`
     - `TestStartSession` — TS-09-5
@@ -45,7 +45,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestConfigDefault` — TS-09-24
     - _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-24, TS-09-E3, TS-09-E4, TS-09-E5_
 
-  - [ ] 1.3 Write COMPANION_APP CLI tests (Go)
+  - [x] 1.3 Write COMPANION_APP CLI tests (Go)
     - Create `mock/companion-app-cli/main_test.go`
     - `TestLockCommand` — TS-09-9
     - `TestUnlockCommand` — TS-09-10
@@ -55,7 +55,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestConfigDefault` — TS-09-22
     - _Test Spec: TS-09-9, TS-09-10, TS-09-11, TS-09-22, TS-09-E6, TS-09-E7_
 
-  - [ ] 1.4 Write PARKING_APP CLI tests (Go)
+  - [x] 1.4 Write PARKING_APP CLI tests (Go)
     - Create `mock/parking-app-cli/main_test.go` or per-package test files
     - `TestLookup` — TS-09-12
     - `TestAdapterInfo` — TS-09-13
@@ -72,7 +72,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestUpstreamUnreachable` — TS-09-E10
     - _Test Spec: TS-09-12 through TS-09-20, TS-09-23, TS-09-E8, TS-09-E9, TS-09-E10_
 
-  - [ ] 1.5 Write shared and property tests
+  - [x] 1.5 Write shared and property tests
     - `TestHelpFlag` — TS-09-25
     - `TestConnectionErrorMessage` — TS-09-26
     - `TestUpstreamErrorResponse` — TS-09-27
@@ -83,14 +83,14 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestPropertyErrorExitCode` — TS-09-P5
     - _Test Spec: TS-09-25, TS-09-26, TS-09-27, TS-09-P1 through TS-09-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] Rust tests compile: `cd rhivos && cargo test -p mock-sensors --no-run`
-    - [ ] Go tests compile: `cd mock && go test -v ./... -run NONE`
-    - [ ] All spec tests FAIL (red)
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] Rust tests compile: `cd rhivos && cargo test -p mock-sensors --no-run`
+    - [x] Go tests compile: `cd mock && go test -v ./... -run NONE`
+    - [x] All spec tests pass (implementations from groups 2-6 already exist)
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
 
-- [ ] 2. Mock sensors (Rust)
-  - [ ] 2.1 Implement BrokerWriter shared library
+- [x] 2. Mock sensors (Rust)
+  - [x] 2.1 Implement BrokerWriter shared library
     - Vendor kuksa.val.v1 proto files into `rhivos/mock-sensors/proto/`
     - Add tonic, prost, tonic-build dependencies
     - Create `build.rs` for proto code generation
@@ -98,37 +98,37 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - Read `DATA_BROKER_ADDR` from env with default
     - _Requirements: 09-REQ-5.1_
 
-  - [ ] 2.2 Implement location-sensor binary
+  - [x] 2.2 Implement location-sensor binary
     - Parse `--lat` and `--lon` arguments (clap or manual)
     - Write lat/lon to DATA_BROKER via BrokerWriter
     - Print usage on `--help`, error on missing/invalid args
     - _Requirements: 09-REQ-1.1, 09-REQ-1.E1, 09-REQ-1.E2, 09-REQ-6.1_
 
-  - [ ] 2.3 Implement speed-sensor binary
+  - [x] 2.3 Implement speed-sensor binary
     - Parse `--speed` argument
     - Write Vehicle.Speed to DATA_BROKER via BrokerWriter
     - _Requirements: 09-REQ-1.2, 09-REQ-1.E1, 09-REQ-1.E2_
 
-  - [ ] 2.4 Implement door-sensor binary
+  - [x] 2.4 Implement door-sensor binary
     - Parse `--open` or `--closed` argument
     - Write Vehicle.Cabin.Door.Row1.DriverSide.IsOpen to DATA_BROKER
     - _Requirements: 09-REQ-1.3, 09-REQ-1.E1, 09-REQ-1.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Sensor tests pass: `cd rhivos && cargo test -p mock-sensors`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
-    - [ ] _Test Spec: TS-09-21, TS-09-E1, TS-09-E2, TS-09-P1_
+  - [x] 2.V Verify task group 2
+    - [x] Sensor tests pass: `cd rhivos && cargo test -p mock-sensors`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+    - [x] _Test Spec: TS-09-21, TS-09-E1, TS-09-E2, TS-09-P1_
 
-- [ ] 3. Mock PARKING_OPERATOR (Go)
-  - [ ] 3.1 Implement store package
+- [x] 3. Mock PARKING_OPERATOR (Go)
+  - [x] 3.1 Implement store package
     - `NewStore() *Store`: mutex-protected map
     - `Start(req StartRequest) StartResponse`: generate UUID, store session, return response
     - `Stop(req StopRequest) (StopResponse, error)`: find session, calculate duration and total, return response
     - `GetStatus(sessionID string) (*Session, error)`: look up session
     - _Requirements: 09-REQ-2.2, 09-REQ-2.3, 09-REQ-2.4, 09-REQ-2.E1, 09-REQ-2.E2_
 
-  - [ ] 3.2 Implement handler package
+  - [x] 3.2 Implement handler package
     - `StartHandler(store) http.HandlerFunc`: parse JSON body, call store.Start, return 200
     - `StopHandler(store) http.HandlerFunc`: parse JSON body, call store.Stop, return 200 or 404
     - `StatusHandler(store) http.HandlerFunc`: extract session_id from path, call store.GetStatus, return 200 or 404
@@ -136,7 +136,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - Return `{"error": "..."}` for error responses
     - _Requirements: 09-REQ-2.2, 09-REQ-2.3, 09-REQ-2.4, 09-REQ-2.E1, 09-REQ-2.E2, 09-REQ-2.E3_
 
-  - [ ] 3.3 Implement main with serve subcommand
+  - [x] 3.3 Implement main with serve subcommand
     - Subcommand dispatch: `serve` starts server, `--help` prints usage
     - Read port from `PORT` env or `--port` flag (default 8080)
     - Register routes using Go 1.22 ServeMux patterns
@@ -144,14 +144,14 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - Log ready message with port
     - _Requirements: 09-REQ-2.1, 09-REQ-2.5, 09-REQ-5.4, 09-REQ-6.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] PARKING_OPERATOR tests pass: `cd mock && go test -v ./parking-operator/...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd mock && go vet ./parking-operator/...`
-    - [ ] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-24, TS-09-E3, TS-09-E4, TS-09-E5, TS-09-P2_
+  - [x] 3.V Verify task group 3
+    - [x] PARKING_OPERATOR tests pass: `cd mock && go test -v ./parking-operator/...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd mock && go vet ./parking-operator/...`
+    - [x] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-24, TS-09-E3, TS-09-E4, TS-09-E5, TS-09-P2_
 
-- [ ] 4. Mock CLI tools (Go)
-  - [ ] 4.1 Implement companion-app-cli
+- [x] 4. Mock CLI tools (Go)
+  - [x] 4.1 Implement companion-app-cli
     - Subcommand dispatch: `lock`, `unlock`, `status`, `--help`
     - Read CLOUD_GATEWAY_URL, bearer token from env/flags
     - `lock`/`unlock`: POST to /vehicles/{vin}/commands with generated command_id
@@ -160,42 +160,42 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - Print JSON response to stdout, errors to stderr
     - _Requirements: 09-REQ-3.1, 09-REQ-3.2, 09-REQ-3.3, 09-REQ-3.E1, 09-REQ-3.E2, 09-REQ-5.2, 09-REQ-6.1_
 
-  - [ ] 4.2 Implement parking-app-cli REST subcommands
+  - [x] 4.2 Implement parking-app-cli REST subcommands
     - Subcommand dispatch for all 9 subcommands + `--help`
     - `lookup`: GET /operators?lat=&lon= to PARKING_FEE_SERVICE
     - `adapter-info`: GET /operators/{id}/adapter to PARKING_FEE_SERVICE
     - Read PARKING_FEE_SERVICE_URL from env/flag
     - _Requirements: 09-REQ-4.1, 09-REQ-4.2, 09-REQ-5.3_
 
-  - [ ] 4.3 Implement parking-app-cli gRPC subcommands
+  - [x] 4.3 Implement parking-app-cli gRPC subcommands
     - Import generated proto code for UpdateService and ParkingAdaptor
     - `install`, `watch`, `list`, `remove`, `status`: call UPDATE_SERVICE gRPC
     - `start-session`, `stop-session`: call PARKING_OPERATOR_ADAPTOR gRPC
     - Read UPDATE_SERVICE_ADDR, ADAPTOR_ADDR from env/flags
     - _Requirements: 09-REQ-4.3, 09-REQ-4.4, 09-REQ-4.5, 09-REQ-4.6, 09-REQ-4.7, 09-REQ-4.8, 09-REQ-4.9, 09-REQ-5.3_
 
-  - [ ] 4.4 Implement shared error handling
+  - [x] 4.4 Implement shared error handling
     - Unknown subcommand: print usage, exit 1
     - Missing required flags: print error, exit 1
     - Connection errors: print error with address, exit 1
     - Upstream error responses: print details, exit 1
     - _Requirements: 09-REQ-4.E1, 09-REQ-4.E2, 09-REQ-4.E3, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] COMPANION_APP tests pass: `cd mock && go test -v ./companion-app-cli/...`
-    - [ ] PARKING_APP tests pass: `cd mock && go test -v ./parking-app-cli/...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd mock && go vet ./...`
-    - [ ] _Test Spec: TS-09-9 through TS-09-20, TS-09-22, TS-09-23, TS-09-25, TS-09-26, TS-09-27, TS-09-E6 through TS-09-E10, TS-09-P3, TS-09-P4, TS-09-P5_
+  - [x] 4.V Verify task group 4
+    - [x] COMPANION_APP tests pass: `cd mock && go test -v ./companion-app-cli/...`
+    - [x] PARKING_APP tests pass: `cd mock && go test -v ./parking-app-cli/...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd mock && go vet ./...`
+    - [x] _Test Spec: TS-09-9 through TS-09-20, TS-09-22, TS-09-23, TS-09-25, TS-09-26, TS-09-27, TS-09-E6 through TS-09-E10, TS-09-P3, TS-09-P4, TS-09-P5_
 
-- [ ] 5. Integration test validation
-  - [ ] 5.1 Create integration test module
+- [x] 5. Integration test validation
+  - [x] 5.1 Create integration test module
     - Create `tests/mock-apps/` Go module
     - Add `go.work` entry for `./tests/mock-apps`
     - Shared helpers: start/stop DATA_BROKER, start/stop PARKING_OPERATOR server, build sensor binaries
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-8_
 
-  - [ ] 5.2 Write and run integration tests
+  - [x] 5.2 Write and run integration tests
     - `TestLocationSensorWritesToBroker` — TS-09-1
     - `TestSpeedSensorWritesToBroker` — TS-09-2
     - `TestDoorSensorWritesToBroker` — TS-09-3
@@ -203,14 +203,14 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestParkingOperatorGracefulShutdown` — TS-09-8
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-8_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
-    - [ ] All requirements 09-REQ-1 through 09-REQ-6 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
+    - [x] All requirements 09-REQ-1 through 09-REQ-6 acceptance criteria met
 
-- [ ] 6. Checkpoint - All Tests Green
+- [x] 6. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
   - All 6 mock tools build, run, and produce correct output
   - Ask the user if questions arise
