@@ -56,4 +56,18 @@ Custom signals are defined in a VSS overlay file shared across all vehicle servi
 
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Uses repo structure and skeleton from group 2 |
+| 01_project_setup | 7 | 1 | Uses compose.yml and VSS overlay from group 7 (infrastructure) |
+
+## Clarifications
+
+The following clarifications were resolved during requirements analysis.
+
+- **C1 (Container, not native binary):** For local development, DATA_BROKER runs as the Kuksa Databroker container already defined in `deployments/compose.yml` by spec 01. The PRD's "pre-built binary" language means no custom wrapper code is written — the container image is used as-is. This spec configures that container correctly for dual listeners and validates signal availability.
+- **C2 (Scope vs. spec 01):** Spec 01 created a skeleton compose.yml with a basic Kuksa container (TCP only, port 55556). This spec's deliverables are: (a) update compose.yml to enable UDS listener alongside TCP, (b) validate and complete the VSS overlay with correct metadata for all 8 signals, (c) pin the Kuksa image to a specific version for reproducibility, (d) create integration tests that verify databroker connectivity and signal read/write via both TCP and UDS.
+- **C3 (UDS socket path):** The UDS socket path is `/tmp/kuksa-databroker.sock`, exposed to same-partition consumers via a shared volume mount in compose.yml.
+- **C4 (Dual listener configuration):** Kuksa Databroker supports dual listeners via CLI flags: `--address 0.0.0.0:55555` (TCP, mapped to host 55556) and `--uds-path /tmp/kuksa-databroker.sock` (UDS). Both are configured as command args in compose.yml.
+- **C5 (Access control):** For the demo scope, Kuksa Databroker runs in permissive mode (no token-based authorization). The "access control" mentioned in the PRD is architectural — enforced by partition isolation, not by databroker config. Token-based auth is out of scope.
+- **C6 (Standard VSS signals):** Standard VSS v5.1 signals (IsLocked, IsOpen, Latitude, Longitude, Speed) are included in the default Kuksa Databroker image. Only the 3 custom signals (Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response) require overlay entries.
+- **C7 (Image version):** Pin to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` for reproducibility. The version can be updated via compose.yml as needed.
+- **C8 (Testing approach):** Integration tests start the databroker container, connect via gRPC (both TCP and UDS), verify custom signals can be set/get, and verify standard VSS signals are present in the metadata. Tests use the `kuksa-client` CLI or direct gRPC calls.
+- **C9 (VSS overlay completeness):** The overlay created by spec 01 contains the correct 3 custom signals. This spec validates the overlay is loaded correctly by the databroker and signals are accessible. No structural changes to the overlay file are needed unless testing reveals issues.

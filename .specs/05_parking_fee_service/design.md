@@ -1,412 +1,281 @@
-# Design Document: PARKING_FEE_SERVICE (Spec 05)
+# Design Document: PARKING_FEE_SERVICE
 
 ## Overview
 
-The PARKING_FEE_SERVICE is a standalone Go HTTP server providing REST endpoints for parking operator discovery and adapter metadata retrieval. It loads zone and operator data from a JSON configuration file at startup, stores it in memory, and uses a geofence engine (ray-casting point-in-polygon plus Haversine-based proximity matching) to resolve location queries. No database or external runtime dependencies are required.
+The PARKING_FEE_SERVICE is a Go HTTP server (`backend/parking-fee-service`) providing three REST endpoints for parking operator discovery, adapter metadata retrieval, and health checks. It loads operator/zone data from a JSON config file at startup, stores it in memory, and uses point-in-polygon + proximity matching for location queries. Built entirely with Go standard library — no external dependencies.
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    PA["PARKING_APP"] -->|"GET /operators?lat=&lon="| PFS["PARKING_FEE_SERVICE\n:8080"]
+    PA -->|"GET /operators/{id}/adapter"| PFS
+    PA -->|"GET /health"| PFS
+
+    PFS -->|"loads at startup"| CFG["config.json"]
+    PFS -->|"in-memory"| Store["Zones + Operators\n(geofence polygons)"]
+
+    subgraph PARKING_FEE_SERVICE
+        Handler["HTTP Handlers"]
+        Geo["Geofence Engine\n(ray casting + Haversine)"]
+        Store2["Config Store"]
+    end
+
+    Handler --> Geo
+    Handler --> Store2
 ```
-                     +----------------------------+
-                     |   PARKING_FEE_SERVICE      |
-                     |   (Go HTTP server :8080)   |
-                     +----------------------------+
-                     |                            |
-  GET /operators?    |  +---------------------+   |
-  lat=..&lon=..  --->|  | Operator Handler    |   |
-                     |  +---------------------+   |
-                     |          |                  |
-  GET /operators/    |  +---------------------+   |
-  {id}/adapter   --->|  | Adapter Handler     |   |
-                     |  +---------------------+   |
-                     |          |                  |
-  GET /health    --->|  | Health Handler      |   |
-                     |  +---------------------+   |
-                     |          |                  |
-                     |  +---------------------+   |
-                     |  | Geofence Engine     |   |
-                     |  +---------------------+   |
-                     |          |                  |
-                     |  +---------------------+   |
-                     |  | Config / Store      |   |
-                     |  | (Zones, Operators,  |   |
-                     |  |  Adapter Metadata,  |   |
-                     |  |  Settings)          |   |
-                     |  +---------------------+   |
-                     +----------------------------+
+
+```mermaid
+sequenceDiagram
+    participant PA as PARKING_APP
+    participant PFS as PARKING_FEE_SERVICE
+    participant Store as Config Store
+    participant Geo as Geofence Engine
+
+    PA->>PFS: GET /operators?lat=48.137&lon=11.575
+    PFS->>PFS: Parse & validate lat/lon
+    PFS->>Geo: FindZones(48.137, 11.575, threshold)
+    Geo->>Store: Get all zones
+    Store-->>Geo: zones[]
+    Geo->>Geo: Point-in-polygon for each zone
+    Geo->>Geo: Proximity check for non-matching zones
+    Geo-->>PFS: matching zone IDs
+    PFS->>Store: Get operators for zone IDs
+    Store-->>PFS: operators[]
+    PFS-->>PA: 200 [{id, name, zone_id, rate}]
 ```
 
 ### Module Responsibilities
 
-1. **main.go** -- Server entry point: loads configuration, wires dependencies, registers routes, starts HTTP server.
-2. **config.go** -- Configuration loading: reads JSON config file or falls back to embedded default config; exposes typed config structs.
-3. **model.go** -- Data model types: `Zone`, `Operator`, `AdapterMetadata`, `LatLon`, `ErrorResponse`, rate type constants.
-4. **store.go** -- In-memory data store: holds zones, operators, and adapter metadata; provides lookup methods.
-5. **geofence.go** -- Geofence engine: point-in-polygon (ray casting), Haversine distance, proximity matching.
-6. **handler.go** -- HTTP handlers: request parsing, validation, response formatting, error handling, recovery middleware.
+1. **main** — Entry point: loads config, sets up HTTP routes, starts server, handles shutdown signals.
+2. **config** — Configuration loading and parsing: reads JSON file, provides defaults, validates structure.
+3. **handler** — HTTP request handlers: operator lookup, adapter metadata, health check.
+4. **geo** — Geofence engine: point-in-polygon (ray casting), Haversine distance, proximity matching.
+5. **store** — In-memory data store: zones and operators indexed for fast lookup by zone ID and operator ID.
+6. **model** — Core data types: Zone, Operator, Rate, AdapterMeta, Coordinate.
 
 ## Components and Interfaces
 
-### Module Structure
+### REST API
 
+| Method | Path | Request | Response (200) | Errors |
+|--------|------|---------|----------------|--------|
+| GET | `/operators?lat={lat}&lon={lon}` | Query params | `[{Operator}]` | 400 |
+| GET | `/operators/{id}/adapter` | Path param | `{AdapterMeta}` | 404 |
+| GET | `/health` | — | `{"status":"ok"}` | — |
+
+### Core Data Types
+
+```go
+type Coordinate struct {
+    Lat float64 `json:"lat"`
+    Lon float64 `json:"lon"`
+}
+
+type Zone struct {
+    ID       string       `json:"id"`
+    Name     string       `json:"name"`
+    Polygon  []Coordinate `json:"polygon"`
+}
+
+type Rate struct {
+    Type     string  `json:"type"`     // "per-hour" | "flat-fee"
+    Amount   float64 `json:"amount"`
+    Currency string  `json:"currency"` // "EUR"
+}
+
+type AdapterMeta struct {
+    ImageRef      string `json:"image_ref"`
+    ChecksumSHA256 string `json:"checksum_sha256"`
+    Version       string `json:"version"`
+}
+
+type Operator struct {
+    ID      string      `json:"id"`
+    Name    string      `json:"name"`
+    ZoneID  string      `json:"zone_id"`
+    Rate    Rate        `json:"rate"`
+    Adapter AdapterMeta `json:"adapter"`
+}
+
+type Config struct {
+    Port               int        `json:"port"`
+    ProximityThreshold float64    `json:"proximity_threshold_meters"`
+    Zones              []Zone     `json:"zones"`
+    Operators          []Operator `json:"operators"`
+}
 ```
-backend/parking-fee-service/
-  go.mod
-  go.sum
-  main.go
-  config.go
-  config_test.go
-  model.go
-  store.go
-  store_test.go
-  geofence.go
-  geofence_test.go
-  handler.go
-  handler_test.go
-  config.json              # Default configuration file (also embedded)
+
+### Module Interfaces
+
+```go
+// config package
+func LoadConfig(path string) (*Config, error)
+func DefaultConfig() *Config
+
+// geo package
+func PointInPolygon(point Coordinate, polygon []Coordinate) bool
+func HaversineDistance(a, b Coordinate) float64
+func DistanceToPolygonEdge(point Coordinate, polygon []Coordinate) float64
+func FindMatchingZones(point Coordinate, zones []Zone, threshold float64) []string
+
+// store package
+type Store struct { /* indexed zones and operators */ }
+func NewStore(zones []Zone, operators []Operator) *Store
+func (s *Store) GetZone(id string) (*Zone, bool)
+func (s *Store) GetOperator(id string) (*Operator, bool)
+func (s *Store) GetOperatorsByZoneIDs(zoneIDs []string) []Operator
+
+// handler package
+func NewOperatorHandler(store *Store, geo GeoEngine) http.HandlerFunc
+func NewAdapterHandler(store *Store) http.HandlerFunc
+func HealthHandler() http.HandlerFunc
 ```
 
 ## Data Models
 
-### LatLon
-
-```go
-type LatLon struct {
-    Lat float64 `json:"lat"`
-    Lon float64 `json:"lon"`
-}
-```
-
-### Zone
-
-```go
-type Zone struct {
-    ID      string   `json:"id"`
-    Name    string   `json:"name"`
-    Polygon []LatLon `json:"polygon"`
-}
-```
-
-### RateType
-
-```go
-type RateType string
-
-const (
-    RatePerHour RateType = "per_hour"
-    RateFlatFee RateType = "flat_fee"
-)
-```
-
-### Operator
-
-```go
-type Operator struct {
-    ID           string   `json:"operator_id"`
-    Name         string   `json:"name"`
-    ZoneID       string   `json:"zone_id"`
-    RateType     RateType `json:"rate_type"`
-    RateAmount   float64  `json:"rate_amount"`
-    RateCurrency string   `json:"rate_currency"`
-}
-```
-
-### AdapterMetadata
-
-```go
-type AdapterMetadata struct {
-    ImageRef       string `json:"image_ref"`
-    ChecksumSHA256 string `json:"checksum_sha256"`
-    Version        string `json:"version"`
-}
-```
-
-### ErrorResponse
-
-```go
-type ErrorResponse struct {
-    Error string `json:"error"`
-}
-```
-
-### Configuration File Format (JSON)
+### Configuration File (config.json)
 
 ```json
 {
-  "settings": {
-    "port": 8080,
-    "proximity_threshold_meters": 500
-  },
+  "port": 8080,
+  "proximity_threshold_meters": 500,
   "zones": [
     {
-      "id": "zone-muc-central",
+      "id": "munich-central",
       "name": "Munich Central Station Area",
       "polygon": [
-        {"lat": 48.1420, "lon": 11.5550},
-        {"lat": 48.1420, "lon": 11.5700},
-        {"lat": 48.1370, "lon": 11.5700},
-        {"lat": 48.1370, "lon": 11.5550}
+        {"lat": 48.1400, "lon": 11.5550},
+        {"lat": 48.1400, "lon": 11.5650},
+        {"lat": 48.1350, "lon": 11.5650},
+        {"lat": 48.1350, "lon": 11.5550}
       ]
     },
     {
-      "id": "zone-muc-airport",
-      "name": "Munich Airport Area",
+      "id": "munich-marienplatz",
+      "name": "Marienplatz Area",
       "polygon": [
-        {"lat": 48.3570, "lon": 11.7750},
-        {"lat": 48.3570, "lon": 11.7950},
-        {"lat": 48.3480, "lon": 11.7950},
-        {"lat": 48.3480, "lon": 11.7750}
+        {"lat": 48.1380, "lon": 11.5730},
+        {"lat": 48.1380, "lon": 11.5790},
+        {"lat": 48.1350, "lon": 11.5790},
+        {"lat": 48.1350, "lon": 11.5730}
       ]
     }
   ],
   "operators": [
     {
-      "operator_id": "muc-central",
-      "name": "Munich Central Parking",
-      "zone_id": "zone-muc-central",
-      "rate_type": "per_hour",
-      "rate_amount": 2.50,
-      "rate_currency": "EUR",
+      "id": "parkhaus-munich",
+      "name": "Parkhaus München GmbH",
+      "zone_id": "munich-central",
+      "rate": {"type": "per-hour", "amount": 2.50, "currency": "EUR"},
       "adapter": {
-        "image_ref": "europe-west1-docker.pkg.dev/rhadp-parking-demo/adapters/muc-central:v1.0.0",
-        "checksum_sha256": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-        "version": "v1.0.0"
+        "image_ref": "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0",
+        "checksum_sha256": "sha256:abc123def456",
+        "version": "1.0.0"
       }
     },
     {
-      "operator_id": "muc-airport",
-      "name": "Munich Airport Parking",
-      "zone_id": "zone-muc-airport",
-      "rate_type": "flat_fee",
-      "rate_amount": 5.00,
-      "rate_currency": "EUR",
+      "id": "city-park-munich",
+      "name": "CityPark München",
+      "zone_id": "munich-marienplatz",
+      "rate": {"type": "flat-fee", "amount": 5.00, "currency": "EUR"},
       "adapter": {
-        "image_ref": "europe-west1-docker.pkg.dev/rhadp-parking-demo/adapters/muc-airport:v1.0.0",
-        "checksum_sha256": "sha256:f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
-        "version": "v1.0.0"
+        "image_ref": "us-docker.pkg.dev/sdv-demo/adapters/citypark-munich:v1.0.0",
+        "checksum_sha256": "sha256:789ghi012jkl",
+        "version": "1.0.0"
       }
     }
   ]
 }
 ```
 
-### Config Structs
-
-```go
-type Config struct {
-    Settings  Settings          `json:"settings"`
-    Zones     []Zone            `json:"zones"`
-    Operators []OperatorConfig  `json:"operators"`
-}
-
-type Settings struct {
-    Port                     int     `json:"port"`
-    ProximityThresholdMeters float64 `json:"proximity_threshold_meters"`
-}
-
-type OperatorConfig struct {
-    Operator
-    Adapter AdapterMetadata `json:"adapter"`
-}
-```
-
-## API Endpoint Specifications
-
-### GET /operators?lat={lat}&lon={lon}
-
-Looks up parking operators whose geofence zone contains or is near the given coordinates.
-
-**Request:**
-
-| Parameter | Type   | Required | Constraints                |
-|-----------|--------|----------|----------------------------|
-| lat       | float  | yes      | [-90, 90]                  |
-| lon       | float  | yes      | [-180, 180]                |
-
-**Response (200 OK):**
+### Operator Lookup Response
 
 ```json
 [
   {
-    "operator_id": "muc-central",
-    "name": "Munich Central Parking",
-    "zone_id": "zone-muc-central",
-    "rate_type": "per_hour",
-    "rate_amount": 2.50,
-    "rate_currency": "EUR"
+    "id": "parkhaus-munich",
+    "name": "Parkhaus München GmbH",
+    "zone_id": "munich-central",
+    "rate": {"type": "per-hour", "amount": 2.50, "currency": "EUR"}
   }
 ]
 ```
 
-Returns an empty array `[]` if no operators match.
+Note: The adapter field is intentionally excluded from the lookup response — the client must call `/operators/{id}/adapter` separately.
 
-**Error Responses:**
-
-| Status | Condition                                    | Requirement |
-|--------|----------------------------------------------|-------------|
-| 400    | Missing, non-numeric, or out-of-range lat/lon | 05-REQ-1.E1, 05-REQ-1.E2 |
-
-### GET /operators/{id}/adapter
-
-Returns adapter metadata for the specified operator.
-
-**Response (200 OK):**
+### Error Response
 
 ```json
-{
-  "image_ref": "europe-west1-docker.pkg.dev/rhadp-parking-demo/adapters/muc-central:v1.0.0",
-  "checksum_sha256": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-  "version": "v1.0.0"
-}
+{"error": "lat and lon query parameters are required"}
 ```
 
-**Error Responses:**
+## Operational Readiness
 
-| Status | Condition             | Requirement |
-|--------|-----------------------|-------------|
-| 404    | Unknown operator ID   | 05-REQ-4.E1 |
-
-### GET /health
-
-Returns service health status.
-
-**Response (200 OK):**
-
-```json
-{
-  "status": "ok"
-}
-```
-
-## Geofence Engine
-
-### Point-in-Polygon Algorithm
-
-The geofence engine uses the **ray-casting algorithm** to determine whether a point lies inside a polygon:
-
-1. Cast a ray from the test point horizontally to the right (positive X direction).
-2. Count the number of times the ray crosses polygon edges.
-3. If the count is odd, the point is inside; if even, the point is outside.
-
-Points on the polygon boundary are treated as inside (checked via distance-to-segment with a small epsilon).
-
-### Near-Zone Buffer (Proximity Matching)
-
-To support the "near a zone counts as a match" requirement:
-
-1. Read the proximity threshold from configuration (default: 500 meters).
-2. For points that fall outside the polygon, compute the minimum distance from the point to the nearest polygon edge.
-3. If the minimum distance is less than or equal to the threshold, treat the point as a match.
-
-Distance calculation uses the **Haversine formula** for geodesic distance between two lat/lon coordinate pairs.
-
-### Implementation Constants
-
-```go
-const (
-    DefaultProximityThresholdMeters = 500.0     // Default near-zone buffer distance
-    EarthRadiusMeters               = 6371000.0 // Mean Earth radius in meters
-    BoundaryEpsilonMeters           = 1.0        // Epsilon for boundary detection
-)
-```
-
-### Key Functions
-
-```go
-// PointInPolygon returns true if point is inside the polygon (ray-casting).
-func PointInPolygon(point LatLon, polygon []LatLon) bool
-
-// HaversineDistance returns the geodesic distance in meters between two points.
-func HaversineDistance(a, b LatLon) float64
-
-// DistanceToSegment returns the minimum distance in meters from a point to a line segment.
-func DistanceToSegment(point, segA, segB LatLon) float64
-
-// MinDistanceToPolygon returns the minimum distance from a point to any edge of the polygon.
-func MinDistanceToPolygon(point LatLon, polygon []LatLon) float64
-
-// PointInOrNearPolygon returns true if the point is inside the polygon or within thresholdMeters of any edge.
-func PointInOrNearPolygon(point LatLon, polygon []LatLon, thresholdMeters float64) bool
-```
+- **Startup logging:** Logs version, port, zone count, operator count.
+- **Shutdown:** Handles SIGTERM/SIGINT, uses `http.Server.Shutdown()` for graceful drain.
+- **Health:** `/health` endpoint returns `{"status":"ok"}`.
+- **Rollback:** Revert via `git checkout`. No persistent state.
 
 ## Correctness Properties
 
-### Property 1: Geofence Point-in-Polygon Accuracy
+### Property 1: Point-in-Polygon Correctness
 
-*For any* coordinate known to be geometrically inside a convex polygon (e.g., the centroid), `PointInPolygon` SHALL return true. *For any* coordinate known to be far outside (distance > proximity threshold), `PointInOrNearPolygon` SHALL return false.
+*For any* coordinate inside a convex polygon, `PointInPolygon` SHALL return `true`, and for any coordinate outside the polygon by more than the proximity threshold, `FindMatchingZones` SHALL return an empty list.
 
-**Validates: 05-REQ-2.1, 05-REQ-2.2**
+**Validates: Requirements 05-REQ-1.2, 05-REQ-1.5**
 
-### Property 2: Proximity Threshold Consistency
+### Property 2: Proximity Matching
 
-*For any* coordinate outside a polygon but within the configured proximity threshold distance of a polygon edge, `PointInOrNearPolygon` SHALL return true. *For any* coordinate outside a polygon and beyond the proximity threshold distance from all edges, `PointInOrNearPolygon` SHALL return false.
+*For any* coordinate outside a zone's polygon but within `threshold` meters of the nearest edge, `FindMatchingZones` SHALL include that zone in the results.
 
-**Validates: 05-REQ-3.1, 05-REQ-3.2, 05-REQ-3.E1**
+**Validates: Requirements 05-REQ-1.3**
 
-### Property 3: Response Format Consistency
+### Property 3: Operator-Zone Association
 
-*For any* API request to any defined endpoint, the response SHALL have `Content-Type: application/json` and a valid JSON body. Success responses return the resource directly; error responses return `{"error": "..."}`.
+*For any* set of matching zone IDs, `GetOperatorsByZoneIDs` SHALL return all and only operators whose `zone_id` is in the set.
 
-**Validates: 05-REQ-8.1, 05-REQ-8.2**
+**Validates: Requirements 05-REQ-1.4**
 
-### Property 4: Operator-Adapter Integrity
+### Property 4: Coordinate Validation
 
-*For any* operator returned by the location lookup endpoint, requesting `GET /operators/{operator_id}/adapter` SHALL return HTTP 200 with a valid adapter metadata object containing non-empty `image_ref`, a `checksum_sha256` matching the pattern `sha256:[0-9a-f]{64}`, and a non-empty `version`.
+*For any* latitude outside [-90, 90] or longitude outside [-180, 180], the operator lookup handler SHALL return HTTP 400.
 
-**Validates: 05-REQ-4.1, 05-REQ-4.2**
+**Validates: Requirements 05-REQ-1.E2, 05-REQ-1.E3**
 
-### Property 5: Parameter Validation Precedence
+### Property 5: Adapter Metadata Completeness
 
-*For any* `GET /operators` request with invalid or missing `lat`/`lon` parameters, the service SHALL return HTTP 400 before performing any geofence computation.
+*For any* valid operator ID, `GetOperator` SHALL return an operator with non-empty `image_ref`, `checksum_sha256`, and `version` fields.
 
-**Validates: 05-REQ-1.E1, 05-REQ-1.E2, 05-REQ-8.3**
+**Validates: Requirements 05-REQ-2.1**
 
-### Property 6: Complete Result Set
+### Property 6: Config Defaults
 
-*For any* coordinate that falls inside or near multiple zones, the operator lookup SHALL return ALL operators associated with matching zones, not just the first match.
+*For any* missing or nonexistent config file path, `LoadConfig` SHALL return a valid default configuration with at least one zone and one operator.
 
-**Validates: 05-REQ-1.1, 05-REQ-2.E1**
-
-### Property 7: Idempotent Reads
-
-*For any* identical GET request issued multiple times, the service SHALL return identical responses (the data store is static, loaded once at startup).
-
-**Validates: 05-REQ-1.1, 05-REQ-4.1, 05-REQ-5.1**
-
-### Property 8: Configuration Validity
-
-*For any* valid configuration file, all operators SHALL reference an existing zone ID, and all zones SHALL have at least 3 polygon points (minimum to form a closed polygon).
-
-**Validates: 05-REQ-7.1, 05-REQ-7.2**
+**Validates: Requirements 05-REQ-4.E1**
 
 ## Error Handling
 
 | Error Condition | Behavior | Requirement |
 |----------------|----------|-------------|
-| Missing `lat` parameter | HTTP 400, JSON error | 05-REQ-1.E1 |
-| Missing `lon` parameter | HTTP 400, JSON error | 05-REQ-1.E2 |
-| Non-numeric `lat` | HTTP 400, JSON error | 05-REQ-1.E1 |
-| Non-numeric `lon` | HTTP 400, JSON error | 05-REQ-1.E2 |
-| `lat` out of range [-90, 90] | HTTP 400, JSON error | 05-REQ-1.E1 |
-| `lon` out of range [-180, 180] | HTTP 400, JSON error | 05-REQ-1.E2 |
-| Unknown operator ID | HTTP 404, JSON error | 05-REQ-4.E1 |
-| Undefined route | HTTP 404, JSON error | 05-REQ-8.E1 |
-| Internal panic | Recover, HTTP 500, JSON error | 05-REQ-8.E2 |
-| Config file missing (when specified) | Exit with non-zero code, stderr message | 05-REQ-7.E1 |
-| Config file invalid JSON | Exit with non-zero code, stderr message | 05-REQ-7.E1 |
+| Missing lat/lon params | 400 with error message | 05-REQ-1.E1 |
+| Invalid coordinates (range) | 400 with error message | 05-REQ-1.E2 |
+| Non-numeric lat/lon | 400 with error message | 05-REQ-1.E3 |
+| Unknown operator ID | 404 with error message | 05-REQ-2.E1 |
+| Config file missing | Start with defaults, log warning | 05-REQ-4.E1 |
+| Config file invalid JSON | Exit non-zero, log error | 05-REQ-4.E2 |
 
 ## Technology Stack
 
-| Component | Choice |
-|-----------|--------|
-| Language | Go 1.22+ |
-| HTTP framework | `net/http` standard library (Go 1.22 `ServeMux` pattern matching) |
-| Router | `net/http.ServeMux` with method and path pattern matching |
-| JSON | `encoding/json` standard library |
-| Configuration | JSON file, embedded default via `embed` package |
-| Testing | `testing` standard library, `net/http/httptest` |
-| Port | 8080 (configurable via config file) |
-| External dependencies | None (standard library only) |
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Go | 1.22+ | Service implementation |
+| net/http | stdlib | HTTP server (Go 1.22 ServeMux patterns) |
+| encoding/json | stdlib | JSON encoding/decoding |
+| math | stdlib | Haversine distance calculations |
+| os/signal | stdlib | Graceful shutdown |
+| log/slog | stdlib | Structured logging |
 
 ## Definition of Done
 
@@ -418,24 +287,12 @@ A task group is complete when ALL of the following are true:
 4. All previously passing tests still pass (no regressions)
 5. No linter warnings or errors introduced
 6. Code is committed on a feature branch and pushed to remote
-7. Feature branch is merged back to `develop`
+7. Feature branch is merged back to `main`
 8. `tasks.md` checkboxes are updated to reflect completion
 
 ## Testing Strategy
 
-### Unit Tests
-
-- **Geofence engine** (`geofence_test.go`): Test point-in-polygon with known inside, outside, boundary, and near-zone coordinates. Table-driven tests for multiple polygons and points.
-- **Store** (`store_test.go`): Verify operator lookup by location and adapter metadata retrieval for known and unknown IDs.
-- **Config** (`config_test.go`): Verify configuration loading from file, embedded default fallback, and error handling for invalid configs.
-
-### Integration Tests (via httptest)
-
-- **Handler tests** (`handler_test.go`): Use `httptest.NewRecorder` to exercise full HTTP request/response cycle for each endpoint.
-- **Validate:** Status codes, response bodies, Content-Type headers, error formats, and rate information fields.
-
-### Property Tests
-
-- **Geofence properties:** Vertex inclusion, centroid inclusion, distant point exclusion, proximity threshold consistency.
-- **Response format:** All endpoints return `application/json` with valid JSON bodies.
-- **Idempotency:** Repeated requests with the same parameters return identical responses.
+- **Unit tests:** Go `_test.go` files alongside source. The `geo`, `config`, `store`, and `handler` packages each have unit tests.
+- **Property tests:** Go `testing/quick` or table-driven tests with boundary coordinates for geofence logic.
+- **Integration tests:** `httptest` server for end-to-end HTTP request/response testing. No external dependencies needed — the service is self-contained.
+- **All tests run via:** `cd backend && go test -v ./parking-fee-service/...`

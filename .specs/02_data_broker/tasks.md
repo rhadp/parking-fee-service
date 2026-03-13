@@ -1,165 +1,140 @@
-# Implementation Plan: DATA_BROKER (Spec 02)
+# Implementation Plan: DATA_BROKER
 
 <!-- AGENT INSTRUCTIONS
 - Implement exactly ONE top-level task group per session
 - Task group 1 writes failing tests from test_spec.md — all subsequent groups
   implement code to make those tests pass
-- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop -> push
+- Follow the git-flow: feature branch from main -> implement -> test -> merge to main -> push
 - Update checkbox states as you go: [-] in progress, [x] complete
 -->
 
 ## Overview
 
-This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom application code is written -- the work consists of downloading the binary, creating a VSS overlay file, configuring dual listeners, and writing integration tests. Task group 1 writes failing tests first; subsequent groups implement configuration to make them pass.
+This plan configures Eclipse Kuksa Databroker for the SDV Parking Demo. No application code is written — deliverables are compose.yml updates and integration tests. Task group 1 writes failing integration tests. Task group 2 updates the compose.yml configuration. Task group 3 runs integration tests against the live databroker to validate all signals and pub/sub behavior.
+
+The ordering ensures tests are written first (TDD), then configuration changes are made to pass them. All integration tests require a running Podman and databroker container; they skip gracefully when Podman is unavailable.
 
 ## Test Commands
 
-- Spec tests: `cd tests/setup && go test -run TestDataBroker -v`
-- All tests: `cd tests/setup && go test -v`
-- Infrastructure up: `make infra-up`
-- Infrastructure down: `make infra-down`
-- Linter: `cd tests/setup && go vet ./...`
+- Spec tests: `cd tests/databroker && go test -v ./...`
+- Config-only tests (no Podman): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+- Integration tests (requires Podman): `cd tests/databroker && go test -v -run 'TestLive|TestSignal|TestPubSub|TestEdge|TestProperty' ./...`
+- All tests: `make test`
+- Linter: `cd tests/databroker && go vet ./...`
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Create DATA_BROKER test file
-    - Create `tests/setup/databroker_test.go` with test functions for each test spec entry
-    - `TestDataBrokerHealth` -- verify gRPC connectivity to `localhost:55556` (TS-02-1)
-    - `TestDataBrokerStandardSignals` -- query metadata for 5 standard VSS signals (TS-02-2)
-    - `TestDataBrokerCustomSignals` -- query metadata for 3 custom overlay signals (TS-02-3)
-    - `TestDataBrokerCrossPartitionAccess` -- write/read over TCP on port 55556 (TS-02-4)
-    - `TestDataBrokerUDSAccess` -- connect and operate via UDS (TS-02-5)
-    - _Test Spec: TS-02-1 through TS-02-5_
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Create tests/databroker Go module
+    - Create `tests/databroker/go.mod` with module path `github.com/rhadp/parking-fee-service/tests/databroker`
+    - Add `go.work` entry for `./tests/databroker`
+    - Create shared test helper `tests/databroker/helpers_test.go` with: Podman skip check, databroker start/stop, gRPC connect (TCP + UDS), compose.yml parser
+    - _Test Spec: TS-02-1 through TS-02-17_
 
-  - [x] 1.2 Write property test functions
-    - `TestDataBrokerWriteReadRoundTrip` -- table-driven subtests for all 8 signals (TS-02-P1)
-    - `TestDataBrokerSubscription` -- subscribe, write from separate goroutine, verify delivery (TS-02-P2)
-    - `TestDataBrokerOverlayMerge` -- verify custom and standard signals coexist (TS-02-P3)
-    - _Test Spec: TS-02-P1 through TS-02-P3_
+  - [ ] 1.2 Write compose configuration tests
+    - Create `tests/databroker/compose_test.go` with tests for compose.yml parsing
+    - `TestComposeTCPListener` — TS-02-1: verify port mapping and --address flag
+    - `TestComposeUDSListener` — TS-02-2: verify --uds-path flag
+    - `TestComposeUDSVolume` — TS-02-3: verify UDS volume mount
+    - `TestComposeImageVersion` — TS-02-5: verify pinned image version
+    - _Test Spec: TS-02-1, TS-02-2, TS-02-3, TS-02-5_
 
-  - [x] 1.3 Write edge case test functions
-    - `TestDataBrokerNonExistentSignal` -- get/set on `Vehicle.NonExistent.Signal` (TS-02-E1)
-    - `TestDataBrokerUnsetSignal` -- read signal never written, verify no value (TS-02-E2)
-    - `TestDataBrokerTypeMismatch` -- write string to bool signal (TS-02-E3)
-    - `TestDataBrokerHealthDuringStartup` -- verify health check behavior (TS-02-E4)
-    - _Test Spec: TS-02-E1 through TS-02-E4_
+  - [ ] 1.3 Write live connectivity and signal metadata tests
+    - Create `tests/databroker/signal_test.go` with tests requiring running databroker
+    - `TestLiveDualListener` — TS-02-4: TCP + UDS connectivity
+    - `TestSignalCustomSessionActive` — TS-02-6: custom signal metadata
+    - `TestSignalCustomDoorLock` — TS-02-7: custom signal metadata
+    - `TestSignalCustomDoorResponse` — TS-02-8: custom signal metadata
+    - `TestSignalStandardIsLocked` — TS-02-10: standard signal metadata
+    - `TestSignalStandardIsOpen` — TS-02-11: standard signal metadata
+    - _Test Spec: TS-02-4, TS-02-6, TS-02-7, TS-02-8, TS-02-10, TS-02-11_
 
-  - [x] 1.4 Add Kuksa gRPC client dependency
-    - Add Go dependencies for gRPC connectivity to Kuksa Databroker
-    - Use official Kuksa client library or raw gRPC with Kuksa proto definitions
-    - Update `tests/setup/go.mod` and run `go mod tidy`
+  - [ ] 1.4 Write signal set/get and pub/sub tests
+    - Create `tests/databroker/pubsub_test.go`
+    - `TestSignalStandardLatitude` — TS-02-12: standard signal metadata
+    - `TestSignalStandardLongitude` — TS-02-13: standard signal metadata
+    - `TestSignalStandardSpeed` — TS-02-14: standard signal metadata
+    - `TestSignalCustomSetGet` — TS-02-9: set/get roundtrip
+    - `TestPubSubNotification` — TS-02-15: subscription notification
+    - `TestBooleanRoundtrip` — TS-02-16: boolean set/get
+    - `TestStringJsonRoundtrip` — TS-02-17: JSON string set/get
+    - _Test Spec: TS-02-9, TS-02-12, TS-02-13, TS-02-14, TS-02-15, TS-02-16, TS-02-17_
 
-  - [x] 1.V Verify task group 1
-    - [x] All spec tests exist and are syntactically valid
-    - [x] All spec tests FAIL (red) -- no infrastructure exists yet
-    - [x] No linter warnings: `cd tests/setup && go vet ./...`
+  - [ ] 1.5 Write edge case and property tests
+    - Create `tests/databroker/edge_test.go`
+    - `TestEdgeUDSSocketRestart` — TS-02-E1: restart with existing socket
+    - `TestEdgeConcurrentTCPUDS` — TS-02-E2: simultaneous TCP + UDS clients
+    - `TestEdgeMalformedOverlay` — TS-02-E3: bad JSON overlay
+    - `TestEdgeGetUnsetSignal` — TS-02-E4: get unset custom signal
+    - `TestEdgeNonExistentSignal` — TS-02-E5: query non-existent path
+    - `TestEdgeSubscriberReconnect` — TS-02-E6: disconnect/reconnect
+    - Create `tests/databroker/property_test.go`
+    - `TestPropertyDualListenerAvailability` — TS-02-P1
+    - `TestPropertyCustomSignalCompleteness` — TS-02-P2
+    - `TestPropertyStandardSignalAvailability` — TS-02-P3
+    - `TestPropertySetGetRoundtrip` — TS-02-P4
+    - `TestPropertyPubSubDelivery` — TS-02-P5
+    - _Test Spec: TS-02-E1 through TS-02-E6, TS-02-P1 through TS-02-P5_
 
-- [x] 2. Download and configure Kuksa Databroker binary
-  - [x] 2.1 Add Kuksa Databroker to compose.yml
-    - Add `databroker` service to the project's `compose.yml`
-    - Image: `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` (pinned to validated tag)
-    - Container name: `databroker`
-    - Port mapping: `55556:55556`
-    - Health check: TCP check on port 55556 or gRPC health probe
-    - Restart policy: `unless-stopped`
-    - _Requirements: 02-REQ-1.1, 02-REQ-1.2, 02-REQ-8.1_
+  - [ ] 1.V Verify task group 1
+    - [ ] All spec tests exist and are syntactically valid: `cd tests/databroker && go vet ./...`
+    - [ ] Compose config tests FAIL (compose.yml not yet updated): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
 
-  - [x] 2.2 Validate container startup and teardown
-    - Run `make infra-up` and verify container starts and reaches healthy state
-    - Run `make infra-down` and verify clean teardown
-    - _Requirements: 02-REQ-1.2, 02-REQ-8.1_
-
-  - [x] 2.V Verify task group 2
-    - [x] Spec tests TS-02-1 pass: `cd tests/setup && go test -run TestDataBrokerHealth -v`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v`
-    - [x] No linter warnings: `cd tests/setup && go vet ./...`
-    - [x] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-8.1 acceptance criteria met
-
-- [x] 3. Create VSS overlay file with custom signals
-  - [x] 3.1 Create overlay directory structure
-    - Create `config/vss/` directory in the project root
+- [ ] 2. Update compose.yml for dual listeners and version pinning
+  - [ ] 2.1 Pin Kuksa Databroker image version
+    - Update `deployments/compose.yml` databroker image from `latest` to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`
     - _Requirements: 02-REQ-2.1_
 
-  - [x] 3.2 Create VSS overlay JSON file
-    - Create `config/vss/vss_overlay.json` with Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response
-    - Use `actuator` type for all custom signals, with correct datatypes (boolean, string, string)
-    - Validate JSON syntax: `python3 -m json.tool config/vss/vss_overlay.json`
-    - _Requirements: 02-REQ-2.1_
+  - [ ] 2.2 Configure dual listeners
+    - Update databroker service `command` to include `--address 0.0.0.0:55555` and `--uds-path /tmp/kuksa-databroker.sock`
+    - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
 
-  - [x] 3.3 Mount overlay in compose.yml
-    - Add volume mount for `./config/vss/vss_overlay.json` to the databroker container
-    - Add `--vss` flag with comma-separated VSS v5.1 + overlay files
-    - Verify container logs show overlay loaded successfully
-    - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
+  - [ ] 2.3 Add UDS volume mount
+    - Add a named volume `kuksa-uds` with bind mount to `/tmp/kuksa` on the host
+    - Mount the volume to `/tmp` in the databroker container
+    - Create `/tmp/kuksa` host directory in Makefile `infra-up` target if needed
+    - _Requirements: 02-REQ-1.3_
 
-  - [x] 3.V Verify task group 3
-    - [x] Spec tests TS-02-2, TS-02-3 pass: `cd tests/setup && go test -run "TestDataBrokerStandardSignals|TestDataBrokerCustomSignals" -v`
-    - [x] Spec test TS-02-P3 passes: `cd tests/setup && go test -run TestDataBrokerOverlayMerge -v`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v`
-    - [x] No linter warnings: `cd tests/setup && go vet ./...`
-    - [x] Requirements 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1 acceptance criteria met
+  - [ ] 2.V Verify task group 2
+    - [ ] Compose config tests pass: `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
+    - [ ] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.3, 02-REQ-2.1 acceptance criteria met
 
-- [x] 4. Configure dual listeners (UDS + TCP)
-  - [x] 4.1 Configure TCP listener
-    - Ensure databroker binds to `0.0.0.0:55556`
-    - Verify cross-partition access from test host
-    - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
+- [ ] 3. Checkpoint - Configuration Complete
+  - Verify compose.yml is valid: `podman compose -f deployments/compose.yml config`
+  - Ensure all compose-parsing tests pass
+  - Ask the user if questions arise
 
-  - [x] 4.2 Configure UDS listener
-    - Add `--unix-socket` flag to enable UDS endpoint at `/tmp/kuksa/databroker.sock`
-    - Create bind mount volume for the UDS socket path `/tmp/kuksa/`
-    - Verify same-partition access via UDS (confirmed via container logs; skipped on macOS due to VM boundary)
-    - _Requirements: 02-REQ-4.1, 02-REQ-4.2_
+- [ ] 4. Integration test validation (live databroker)
+  - [ ] 4.1 Verify dual listener connectivity
+    - Start databroker: `make infra-up`
+    - Run connectivity tests: `cd tests/databroker && go test -v -run 'TestLiveDualListener' ./...`
+    - Fix any connection issues (socket path, port mapping)
+    - _Requirements: 02-REQ-1.4_
 
-  - [x] 4.3 Verify both listeners work simultaneously
-    - Run signal operations via TCP and UDS concurrently
-    - Verify both interfaces produce identical results
-    - Note: UDS test skips on macOS (Podman VM boundary prevents host-side UDS access)
-    - _Requirements: 02-REQ-4.2, 02-REQ-5.2_
+  - [ ] 4.2 Verify signal metadata (custom + standard)
+    - Run signal metadata tests: `cd tests/databroker && go test -v -run 'TestSignal' ./...`
+    - Verify all 8 signals are accessible with correct datatypes
+    - _Requirements: 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3, 02-REQ-4.1, 02-REQ-4.2, 02-REQ-4.3, 02-REQ-4.4, 02-REQ-4.5_
 
-  - [x] 4.V Verify task group 4
-    - [x] Spec tests TS-02-4, TS-02-5 pass: `cd tests/setup && go test -run "TestDataBrokerCrossPartitionAccess|TestDataBrokerUDSAccess" -v`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v`
-    - [x] No linter warnings: `cd tests/setup && go vet ./...`
-    - [x] Requirements 02-REQ-4.1, 02-REQ-4.2, 02-REQ-5.1, 02-REQ-5.2 acceptance criteria met
+  - [ ] 4.3 Verify set/get and pub/sub
+    - Run pub/sub tests: `cd tests/databroker && go test -v -run 'TestPubSub|TestBoolean|TestString' ./...`
+    - _Requirements: 02-REQ-3.4, 02-REQ-5.1, 02-REQ-5.2, 02-REQ-5.3_
 
-- [x] 5. Integration test with signal read/write
-  - [x] 5.1 Validate signal read/write round-trip
-    - Run TS-02-P1 tests for all 8 signals (bool, float, double, string)
-    - Fix any type mapping or API issues
-    - All 8 signals pass write/read round-trip (bool, float, double, string types)
-    - _Requirements: 02-REQ-6.1, 02-REQ-6.2_
+  - [ ] 4.4 Verify edge cases and properties
+    - Run edge case tests: `cd tests/databroker && go test -v -run 'TestEdge' ./...`
+    - Run property tests: `cd tests/databroker && go test -v -run 'TestProperty' ./...`
+    - Fix any failures
+    - _Requirements: 02-REQ-1.E1, 02-REQ-1.E2, 02-REQ-3.E1, 02-REQ-3.E2, 02-REQ-4.E1, 02-REQ-5.E1_
 
-  - [x] 5.2 Validate subscription delivery
-    - Run TS-02-P2 tests for pub/sub behavior
-    - Verify subscribers receive updates within 5-second timeout
-    - Both IsLocked and SessionActive subscription tests pass
-    - _Requirements: 02-REQ-7.1, 02-REQ-7.2_
-
-  - [x] 5.3 Validate edge cases
-    - Run TS-02-E1 (non-existent signal), TS-02-E2 (unset signal), TS-02-E3 (type mismatch), TS-02-E4 (health check)
-    - Document any Kuksa version-specific behavior differences
-    - Kuksa 0.5.0 findings documented in `docs/errata/02_data_broker_kuksa_api.md`: type mismatch strictly rejected, gRPC health check not implemented (fallback to ListMetadata)
-    - _Requirements: 02-REQ-6.E1, 02-REQ-6.E2, 02-REQ-3.2, 02-REQ-8.2_
-
-  - [x] 5.V Verify task group 5
-    - [x] All spec tests pass: `cd tests/setup && go test -run TestDataBroker -v`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v`
-    - [x] No linter warnings: `cd tests/setup && go vet ./...`
-    - [x] All requirements acceptance criteria met
-
-- [x] 6. Checkpoint -- DATA_BROKER Complete
-  - [x] 6.1 Full verification run
-    - Run: `make infra-up && cd tests/setup && go test -run TestDataBroker -v && make infra-down`
-    - Verify all tests pass end-to-end
-    - All 12 tests pass (1 UDS test skipped on macOS due to Podman VM boundary)
-  - [x] 6.2 Requirements verification
-    - Confirm every requirement has at least one passing test (see traceability table)
-    - All 20 requirements verified: 18 with passing tests, 2 documented as not separately testable (02-REQ-2.E1, 02-REQ-4.E1)
-  - [x] 6.3 Document Kuksa version-specific findings
-    - If any Kuksa behavior differs from design assumptions, update design.md
-    - All 7 divergences documented in `docs/errata/02_data_broker_kuksa_api.md`; no additional findings
+  - [ ] 4.V Verify task group 4
+    - [ ] All integration tests pass: `cd tests/databroker && go test -v ./...`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
+    - [ ] All requirements 02-REQ-1 through 02-REQ-5 acceptance criteria met
+    - [ ] `make infra-down` cleans up containers
 
 ### Checkbox States
 
@@ -175,33 +150,40 @@ This plan deploys Eclipse Kuksa Databroker as the DATA_BROKER. No custom applica
 
 | Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
 |-------------|-----------------|---------------------|------------------|
-| 02-REQ-1.1 | TS-02-1 | Task 2.1 | `TestDataBrokerHealth` |
-| 02-REQ-1.2 | TS-02-1 | Task 2.1, 2.2 | `TestDataBrokerHealth` |
-| 02-REQ-1.E1 | TS-02-E4 | Task 2.1 | `TestDataBrokerHealthDuringStartup` |
-| 02-REQ-2.1 | TS-02-3 | Task 3.2, 3.3 | `TestDataBrokerCustomSignals` |
-| 02-REQ-2.2 | TS-02-3, TS-02-P3 | Task 3.3 | `TestDataBrokerCustomSignals`, `TestDataBrokerOverlayMerge` |
-| 02-REQ-2.E1 | -- | Task 3.2 | (startup failure; not separately testable) |
-| 02-REQ-3.1 | TS-02-2 | Task 3.3 | `TestDataBrokerStandardSignals` |
-| 02-REQ-3.2 | TS-02-E2 | Task 5.3 | `TestDataBrokerUnsetSignal` |
-| 02-REQ-4.1 | TS-02-5 | Task 4.2 | `TestDataBrokerUDSAccess` |
-| 02-REQ-4.2 | TS-02-5 | Task 4.2 | `TestDataBrokerUDSAccess` |
-| 02-REQ-4.E1 | -- | Task 4.2 | (connection error to bad UDS path) |
-| 02-REQ-5.1 | TS-02-4 | Task 4.1 | `TestDataBrokerCrossPartitionAccess` |
-| 02-REQ-5.2 | TS-02-4 | Task 4.1 | `TestDataBrokerCrossPartitionAccess` |
-| 02-REQ-5.E1 | TS-02-E4 | Task 2.1 | `TestDataBrokerHealthDuringStartup` |
-| 02-REQ-6.1 | TS-02-P1 | Task 5.1 | `TestDataBrokerWriteReadRoundTrip` |
-| 02-REQ-6.2 | TS-02-P1 | Task 5.1 | `TestDataBrokerWriteReadRoundTrip` |
-| 02-REQ-6.E1 | TS-02-E1 | Task 5.3 | `TestDataBrokerNonExistentSignal` |
-| 02-REQ-6.E2 | TS-02-E3 | Task 5.3 | `TestDataBrokerTypeMismatch` |
-| 02-REQ-7.1 | TS-02-P2 | Task 5.2 | `TestDataBrokerSubscription` |
-| 02-REQ-7.2 | TS-02-P2 | Task 5.2 | `TestDataBrokerSubscription` |
-| 02-REQ-7.E1 | -- | Task 5.2 | (stream termination; implicit in subscription tests) |
-| 02-REQ-8.1 | TS-02-1 | Task 2.1 | `TestDataBrokerHealth` |
-| 02-REQ-8.2 | TS-02-E4 | Task 5.3 | `TestDataBrokerHealthDuringStartup` |
+| 02-REQ-1.1 | TS-02-1 | 2.2 | tests/databroker/compose_test.go::TestComposeTCPListener |
+| 02-REQ-1.2 | TS-02-2 | 2.2 | tests/databroker/compose_test.go::TestComposeUDSListener |
+| 02-REQ-1.3 | TS-02-3 | 2.3 | tests/databroker/compose_test.go::TestComposeUDSVolume |
+| 02-REQ-1.4 | TS-02-4 | 4.1 | tests/databroker/signal_test.go::TestLiveDualListener |
+| 02-REQ-1.E1 | TS-02-E1 | 4.4 | tests/databroker/edge_test.go::TestEdgeUDSSocketRestart |
+| 02-REQ-1.E2 | TS-02-E2 | 4.4 | tests/databroker/edge_test.go::TestEdgeConcurrentTCPUDS |
+| 02-REQ-2.1 | TS-02-5 | 2.1 | tests/databroker/compose_test.go::TestComposeImageVersion |
+| 02-REQ-3.1 | TS-02-6 | 4.2 | tests/databroker/signal_test.go::TestSignalCustomSessionActive |
+| 02-REQ-3.2 | TS-02-7 | 4.2 | tests/databroker/signal_test.go::TestSignalCustomDoorLock |
+| 02-REQ-3.3 | TS-02-8 | 4.2 | tests/databroker/signal_test.go::TestSignalCustomDoorResponse |
+| 02-REQ-3.4 | TS-02-9 | 4.3 | tests/databroker/pubsub_test.go::TestSignalCustomSetGet |
+| 02-REQ-3.E1 | TS-02-E3 | 4.4 | tests/databroker/edge_test.go::TestEdgeMalformedOverlay |
+| 02-REQ-3.E2 | TS-02-E4 | 4.4 | tests/databroker/edge_test.go::TestEdgeGetUnsetSignal |
+| 02-REQ-4.1 | TS-02-10 | 4.2 | tests/databroker/signal_test.go::TestSignalStandardIsLocked |
+| 02-REQ-4.2 | TS-02-11 | 4.2 | tests/databroker/signal_test.go::TestSignalStandardIsOpen |
+| 02-REQ-4.3 | TS-02-12 | 4.2 | tests/databroker/pubsub_test.go::TestSignalStandardLatitude |
+| 02-REQ-4.4 | TS-02-13 | 4.2 | tests/databroker/pubsub_test.go::TestSignalStandardLongitude |
+| 02-REQ-4.5 | TS-02-14 | 4.2 | tests/databroker/pubsub_test.go::TestSignalStandardSpeed |
+| 02-REQ-4.E1 | TS-02-E5 | 4.4 | tests/databroker/edge_test.go::TestEdgeNonExistentSignal |
+| 02-REQ-5.1 | TS-02-15 | 4.3 | tests/databroker/pubsub_test.go::TestPubSubNotification |
+| 02-REQ-5.2 | TS-02-16 | 4.3 | tests/databroker/pubsub_test.go::TestBooleanRoundtrip |
+| 02-REQ-5.3 | TS-02-17 | 4.3 | tests/databroker/pubsub_test.go::TestStringJsonRoundtrip |
+| 02-REQ-5.E1 | TS-02-E6 | 4.4 | tests/databroker/edge_test.go::TestEdgeSubscriberReconnect |
+| Property 1 | TS-02-P1 | 4.4 | tests/databroker/property_test.go::TestPropertyDualListenerAvailability |
+| Property 2 | TS-02-P2 | 4.4 | tests/databroker/property_test.go::TestPropertyCustomSignalCompleteness |
+| Property 3 | TS-02-P3 | 4.4 | tests/databroker/property_test.go::TestPropertyStandardSignalAvailability |
+| Property 4 | TS-02-P4 | 4.4 | tests/databroker/property_test.go::TestPropertySetGetRoundtrip |
+| Property 5 | TS-02-P5 | 4.4 | tests/databroker/property_test.go::TestPropertyPubSubDelivery |
 
 ## Notes
 
-- The DATA_BROKER is third-party software (Eclipse Kuksa Databroker). Tests validate deployment and configuration correctness, not Kuksa internals.
-- UDS support depends on the Kuksa Databroker version. If native UDS is unavailable, document the limitation and use TCP for all consumers.
-- All tests require running infrastructure (`make infra-up`). Tests are integration tests, not unit tests.
-- The overlay file is shared infrastructure used by all vehicle services (AC7 in master PRD).
+- All tests live in `tests/databroker/` as a standalone Go module. Tests that require a running databroker container use a shared `TestMain` that handles `podman compose up/down`.
+- Tests skip gracefully when Podman is not available (runtime detection via `exec.LookPath("podman")`).
+- Compose config tests (TS-02-1, TS-02-2, TS-02-3, TS-02-5) parse the YAML file directly and do NOT require Podman. These are the only tests that can run without infrastructure.
+- gRPC communication uses the `kuksa.val.v1` API. Tests may use `grpcurl` CLI (shelling out) or a generated Go gRPC client. The simpler `grpcurl` approach is preferred for this spec since no application code is being written.
+- The UDS socket is accessible on the host at `/tmp/kuksa/kuksa-databroker.sock` via the bind-mounted volume.
+- Edge case TS-02-E3 (malformed overlay) needs a temporary compose override or a separate compose file to avoid corrupting the real overlay. Use `t.Cleanup()` to restore state.

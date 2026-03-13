@@ -1,146 +1,128 @@
-# Requirements: UPDATE_SERVICE (Spec 07)
-
-> EARS-syntax requirements for the UPDATE_SERVICE adapter lifecycle manager.
-> Derived from the PRD at `.specs/07_update_service/prd.md` and the master PRD at `.specs/prd.md`.
+# Requirements Document
 
 ## Introduction
 
-The UPDATE_SERVICE is a Rust gRPC service running in the RHIVOS QM partition that manages the full lifecycle of containerized PARKING_OPERATOR_ADAPTORs. It pulls OCI images from Google Artifact Registry, verifies integrity via SHA-256 checksums, installs and runs containers using podman, streams state transitions to clients, enforces a single-running-adapter constraint, and automatically offloads unused adapters after a configurable inactivity period.
+This document specifies the requirements for the UPDATE_SERVICE component (Phase 2.3) of the SDV Parking Demo System. The UPDATE_SERVICE is a Rust gRPC service running in the RHIVOS QM partition that manages the lifecycle of containerized PARKING_OPERATOR_ADAPTORs: pulling OCI images, verifying integrity, installing, running, monitoring, and offloading containers via podman.
 
 ## Glossary
 
-| Term | Definition |
-|------|-----------|
-| Adapter | A containerized PARKING_OPERATOR_ADAPTOR managed by UPDATE_SERVICE |
-| OCI image | A container image conforming to the Open Container Initiative specification |
-| image_ref | A fully qualified OCI image reference (registry/repository:tag) |
-| checksum_sha256 | SHA-256 hash of the OCI manifest digest, used for integrity verification |
-| Adapter state | One of: UNKNOWN, DOWNLOADING, INSTALLING, RUNNING, STOPPED, ERROR, OFFLOADING |
-| Offloading | The process of stopping and removing an unused adapter to reclaim resources |
-| Inactivity timer | A configurable duration after which a stopped adapter is automatically offloaded |
-| podman | A daemonless container engine used to manage adapter containers |
-| tonic | A Rust gRPC framework built on tokio |
+- **UPDATE_SERVICE:** A Rust gRPC service managing containerized adapter lifecycle in the RHIVOS QM partition.
+- **PARKING_OPERATOR_ADAPTOR:** A containerized application that interfaces between the vehicle and a specific parking operator.
+- **PARKING_APP:** An Android Automotive OS application that requests adapter installation and manages the parking workflow.
+- **OCI image:** An Open Container Initiative image, a standard container image format.
+- **OCI manifest digest:** A SHA-256 hash uniquely identifying a container image manifest.
+- **Adapter ID:** A human-readable identifier derived from the image reference (last path segment + tag).
+- **Job ID:** A UUID (v4) generated per InstallAdapter call for tracking the installation operation.
+- **Adapter state:** One of: UNKNOWN, DOWNLOADING, INSTALLING, RUNNING, STOPPED, ERROR, OFFLOADING.
+- **State transition:** A change from one adapter state to another, emitted to WatchAdapterStates subscribers.
+- **Offloading:** The process of removing an unused adapter's container and image to free resources.
+- **Inactivity timer:** A configurable period after which a stopped adapter is automatically offloaded.
+- **Single adapter constraint:** Only one PARKING_OPERATOR_ADAPTOR can run at a time per vehicle.
+- **Google Artifact Registry:** The OCI-compliant container registry used to store adapter images.
+- **podman:** A daemonless container runtime used for pulling, running, and managing containers.
 
 ## Requirements
 
-### Requirement 1: Install Adapter
+### Requirement 1: Adapter Installation
 
-**User Story:** As a PARKING_APP, I want to install and start a parking operator adapter by providing an OCI image reference and checksum, so that the adapter is ready to manage parking sessions.
+**User Story:** As a PARKING_APP, I want to install a parking operator adapter by providing an image reference and checksum, so that the adapter runs on the vehicle and can manage parking sessions.
 
 #### Acceptance Criteria
 
-1. **07-REQ-1.1** WHEN a client calls `InstallAdapter(image_ref, checksum_sha256)`, THE UPDATE_SERVICE SHALL pull the OCI image from the registry, verify the checksum, install the container, start it, and return an `InstallAdapterResponse` containing `job_id`, `adapter_id`, and the initial `state` (DOWNLOADING).
-2. **07-REQ-1.2** WHEN the adapter image is successfully pulled and verified, THE UPDATE_SERVICE SHALL transition the adapter state through DOWNLOADING, INSTALLING, and RUNNING in sequence, emitting a state event for each transition.
-3. **07-REQ-1.3** WHEN `InstallAdapter` is called with an `image_ref` that is already installed and in RUNNING state, THE UPDATE_SERVICE SHALL return ALREADY_EXISTS with the existing adapter's ID and state.
+1. [07-REQ-1.1] WHEN an `InstallAdapter` gRPC request is received with `image_ref` and `checksum_sha256`, THE service SHALL pull the OCI image using `podman pull`, verify the digest, install and start the container, and return an `InstallAdapterResponse` with `job_id`, `adapter_id`, and initial state `DOWNLOADING`.
+2. [07-REQ-1.2] THE service SHALL transition the adapter through states DOWNLOADING → INSTALLING → RUNNING during a successful installation.
+3. [07-REQ-1.3] THE service SHALL verify the OCI manifest digest against the provided `checksum_sha256` after pulling the image, before installing.
+4. [07-REQ-1.4] THE service SHALL start the container with `--network=host` so it can reach DATA_BROKER via network TCP.
+5. [07-REQ-1.5] THE service SHALL derive the `adapter_id` from the image reference by extracting the last path segment and tag.
 
 #### Edge Cases
 
-1. **07-REQ-1.E1** IF the OCI registry is unreachable during an `InstallAdapter` call, THEN THE UPDATE_SERVICE SHALL transition the adapter to ERROR state and return a gRPC UNAVAILABLE status with a descriptive error message.
-2. **07-REQ-1.E2** IF the container fails to start after installation, THEN THE UPDATE_SERVICE SHALL transition the adapter to ERROR state and return a gRPC INTERNAL status with details about the failure.
+1. [07-REQ-1.E1] IF the `image_ref` is empty or the `checksum_sha256` is empty, THEN THE service SHALL return gRPC `INVALID_ARGUMENT` with a descriptive error message.
+2. [07-REQ-1.E2] IF the image pull fails (registry unreachable, image not found), THEN THE service SHALL transition the adapter to ERROR state and return gRPC `UNAVAILABLE` with the error details.
+3. [07-REQ-1.E3] IF the checksum verification fails (digest does not match), THEN THE service SHALL transition the adapter to ERROR state, remove the pulled image, and return gRPC `FAILED_PRECONDITION` with a descriptive error message.
+4. [07-REQ-1.E4] IF the container fails to start, THEN THE service SHALL transition the adapter to ERROR state and return gRPC `INTERNAL` with the error details.
 
-### Requirement 2: Checksum Verification
+### Requirement 2: Single Adapter Constraint
 
-**User Story:** As a PARKING_APP, I want the UPDATE_SERVICE to verify the integrity of downloaded adapter images, so that only trusted adapters are installed on the vehicle.
+**User Story:** As the system, I want only one adapter running at a time, so that the vehicle's resources are not overloaded and parking sessions don't conflict.
 
 #### Acceptance Criteria
 
-1. **07-REQ-2.1** AFTER pulling an OCI image, THE UPDATE_SERVICE SHALL compute the SHA-256 hash of the OCI manifest digest and compare it to the `checksum_sha256` value provided in the `InstallAdapter` request.
-2. **07-REQ-2.2** WHEN the computed checksum matches the provided checksum, THE UPDATE_SERVICE SHALL proceed with installation.
+1. [07-REQ-2.1] WHEN `InstallAdapter` is called while another adapter is in RUNNING state, THE service SHALL stop the currently running adapter before starting the new one.
+2. [07-REQ-2.2] THE service SHALL transition the previously running adapter to STOPPED state before proceeding with the new installation.
 
 #### Edge Cases
 
-1. **07-REQ-2.E1** IF the computed checksum does not match the provided checksum, THEN THE UPDATE_SERVICE SHALL transition the adapter to ERROR state, discard the downloaded image, and return a gRPC INVALID_ARGUMENT status with a message indicating checksum mismatch.
+1. [07-REQ-2.E1] IF stopping the currently running adapter fails, THEN THE service SHALL return gRPC `INTERNAL` with the error details and not proceed with the new installation.
 
-### Requirement 3: Watch Adapter States
+### Requirement 3: Adapter State Watching
 
-**User Story:** As a PARKING_APP, I want to subscribe to a stream of adapter state transitions, so that I can display real-time installation progress and adapter status to the driver.
-
-#### Acceptance Criteria
-
-1. **07-REQ-3.1** WHEN a client calls `WatchAdapterStates()`, THE UPDATE_SERVICE SHALL return a server-streaming gRPC response that emits an `AdapterStateEvent` for every adapter state transition that occurs while the stream is open.
-2. **07-REQ-3.2** EACH `AdapterStateEvent` SHALL contain `adapter_id`, `old_state`, `new_state`, and `timestamp`.
-
-### Requirement 4: List and Query Adapters
-
-**User Story:** As a PARKING_APP, I want to list all adapters and query individual adapter status, so that I can determine which adapters are available.
+**User Story:** As a PARKING_APP, I want to watch adapter state transitions in real-time, so that I can update the UI to reflect the adapter's lifecycle.
 
 #### Acceptance Criteria
 
-1. **07-REQ-4.1** WHEN a client calls `ListAdapters()`, THE UPDATE_SERVICE SHALL return a list of all known adapters with their current state, adapter_id, and image_ref.
-2. **07-REQ-4.2** WHEN a client calls `GetAdapterStatus(adapter_id)`, THE UPDATE_SERVICE SHALL return the current state and metadata of the specified adapter.
+1. [07-REQ-3.1] WHEN a `WatchAdapterStates` gRPC request is received, THE service SHALL return a server-streaming response of `AdapterStateEvent` messages for all subsequent state transitions.
+2. [07-REQ-3.2] THE service SHALL support multiple concurrent `WatchAdapterStates` subscribers.
+3. [07-REQ-3.3] EACH `AdapterStateEvent` SHALL include `adapter_id`, `old_state`, `new_state`, and a Unix timestamp.
+
+### Requirement 4: Adapter Listing and Status
+
+**User Story:** As a PARKING_APP, I want to list all known adapters and query individual adapter status, so that I can display adapter information to the user.
+
+#### Acceptance Criteria
+
+1. [07-REQ-4.1] WHEN a `ListAdapters` gRPC request is received, THE service SHALL return a list of all known adapters with their current states and metadata.
+2. [07-REQ-4.2] WHEN a `GetAdapterStatus` gRPC request is received with an `adapter_id`, THE service SHALL return the current status of the specified adapter including state, image reference, and timestamps.
 
 #### Edge Cases
 
-1. **07-REQ-4.E1** IF `GetAdapterStatus` is called with an unknown `adapter_id`, THEN THE UPDATE_SERVICE SHALL return a gRPC NOT_FOUND status.
+1. [07-REQ-4.E1] IF `GetAdapterStatus` is called with an unknown `adapter_id`, THEN THE service SHALL return gRPC `NOT_FOUND` with a descriptive error message.
 
-### Requirement 5: Remove Adapter
+### Requirement 5: Adapter Removal
 
-**User Story:** As a PARKING_APP, I want to explicitly remove an adapter, so that I can free up resources or prepare for a different adapter.
+**User Story:** As a PARKING_APP, I want to explicitly remove an adapter, so that resources are freed immediately.
 
 #### Acceptance Criteria
 
-1. **07-REQ-5.1** WHEN a client calls `RemoveAdapter(adapter_id)` for an adapter in RUNNING or STOPPED state, THE UPDATE_SERVICE SHALL stop the container (if running), remove it, and transition the adapter to OFFLOADING then remove it from the adapter list.
+1. [07-REQ-5.1] WHEN a `RemoveAdapter` gRPC request is received with an `adapter_id`, THE service SHALL stop the container (if running), remove the container, remove the image, and delete the adapter from in-memory state.
+2. [07-REQ-5.2] THE service SHALL transition the adapter through appropriate states: current → STOPPED (if running) → OFFLOADING → (removed).
+3. [07-REQ-5.3] THE service SHALL emit state transition events for each state change during removal.
 
 #### Edge Cases
 
-1. **07-REQ-5.E1** IF `RemoveAdapter` is called with an unknown `adapter_id`, THEN THE UPDATE_SERVICE SHALL return a gRPC NOT_FOUND status.
+1. [07-REQ-5.E1] IF `RemoveAdapter` is called with an unknown `adapter_id`, THEN THE service SHALL return gRPC `NOT_FOUND` with a descriptive error message.
+2. [07-REQ-5.E2] IF container removal fails, THEN THE service SHALL transition the adapter to ERROR state and return gRPC `INTERNAL` with the error details.
 
-### Requirement 6: Adapter Lifecycle State Machine
+### Requirement 6: Automatic Offloading
 
-**User Story:** As a system operator, I want adapter state transitions to follow a well-defined state machine, so that the system behavior is predictable and debuggable.
-
-#### Acceptance Criteria
-
-1. **07-REQ-6.1** THE UPDATE_SERVICE SHALL enforce the following valid state transitions: UNKNOWN->DOWNLOADING, DOWNLOADING->INSTALLING, DOWNLOADING->ERROR, INSTALLING->RUNNING, INSTALLING->ERROR, RUNNING->STOPPED, RUNNING->ERROR, STOPPED->RUNNING, STOPPED->OFFLOADING.
-2. **07-REQ-6.2** THE UPDATE_SERVICE SHALL reject any state transition not listed in 07-REQ-6.1 and log a warning.
-
-### Requirement 7: Single Adapter Constraint
-
-**User Story:** As a system designer, I want only one adapter running at a time per vehicle, so that resource usage is bounded and parking session conflicts are avoided.
+**User Story:** As the system, I want unused adapters to be automatically offloaded after a configurable inactivity period, so that vehicle resources are kept available.
 
 #### Acceptance Criteria
 
-1. **07-REQ-7.1** WHEN `InstallAdapter` is called while another adapter is in RUNNING state, THE UPDATE_SERVICE SHALL stop the currently running adapter (transitioning it to STOPPED) before starting the new adapter.
-2. **07-REQ-7.2** AT NO TIME SHALL more than one adapter be in the RUNNING state simultaneously.
+1. [07-REQ-6.1] WHEN an adapter has been in STOPPED state for longer than the configured inactivity timeout (default: 24 hours), THE service SHALL automatically transition the adapter to OFFLOADING, remove the container and image, and delete it from in-memory state.
+2. [07-REQ-6.2] THE inactivity timeout SHALL be configurable via the configuration file.
+3. [07-REQ-6.3] THE service SHALL emit state transition events during automatic offloading.
 
-### Requirement 8: Automatic Offloading
+### Requirement 7: Configuration
 
-**User Story:** As a system operator, I want unused adapters to be automatically removed after a period of inactivity, so that vehicle storage and resources are not consumed indefinitely.
-
-#### Acceptance Criteria
-
-1. **07-REQ-8.1** WHEN an adapter has been in STOPPED state for longer than the configured inactivity timeout (default: 24 hours), THE UPDATE_SERVICE SHALL automatically transition it to OFFLOADING and remove it.
-2. **07-REQ-8.2** THE UPDATE_SERVICE SHALL load the inactivity timeout from configuration, expressed in seconds.
-
-### Requirement 9: Configuration
-
-**User Story:** As a deployer, I want to configure the UPDATE_SERVICE via a configuration file, so that I can adapt it to different environments without code changes.
+**User Story:** As a developer, I want the service to load configuration from a file, so that I can modify settings without code changes.
 
 #### Acceptance Criteria
 
-1. **07-REQ-9.1** WHEN the service starts, THE UPDATE_SERVICE SHALL load configuration from a file or environment variables, including: gRPC listen port, registry base URL, inactivity timeout, and container storage path.
-2. **07-REQ-9.2** THE UPDATE_SERVICE SHALL use sensible defaults if configuration values are not provided: gRPC port 50060, inactivity timeout 86400 seconds, storage path `/var/lib/containers/adapters/`.
+1. [07-REQ-7.1] WHEN the service starts, THE service SHALL load configuration from the file path specified by the `CONFIG_PATH` environment variable, defaulting to `config.json` in the working directory.
+2. [07-REQ-7.2] THE configuration SHALL include: gRPC listen port, registry URL, inactivity timeout, and container storage path.
+3. [07-REQ-7.3] THE service SHALL use default values (port 50052, inactivity timeout 24h, storage path `/var/lib/containers/adapters/`) when fields are omitted from the config.
 
-### Requirement 10: Error Handling
+#### Edge Cases
 
-**User Story:** As a PARKING_APP developer, I want consistent gRPC error responses from UPDATE_SERVICE, so that I can handle failures programmatically.
+1. [07-REQ-7.E1] IF the configuration file does not exist, THEN THE service SHALL start with built-in default configuration and log a warning.
+2. [07-REQ-7.E2] IF the configuration file contains invalid JSON, THEN THE service SHALL exit with a non-zero code and log a descriptive error.
+
+### Requirement 8: Graceful Lifecycle
+
+**User Story:** As an operator, I want the service to start and stop cleanly.
 
 #### Acceptance Criteria
 
-1. **07-REQ-10.1** THE UPDATE_SERVICE SHALL use standard gRPC status codes for all error responses: UNAVAILABLE for registry connectivity issues, INVALID_ARGUMENT for checksum mismatches, NOT_FOUND for unknown adapters, ALREADY_EXISTS for duplicate installs, and INTERNAL for unexpected failures.
-2. **07-REQ-10.2** THE UPDATE_SERVICE SHALL include descriptive error messages in gRPC status details for all error responses.
-
-## Traceability
-
-| Requirement | PRD Section |
-|-------------|-------------|
-| 07-REQ-1 | gRPC Interface: InstallAdapter; Adapter Download and Installation Flow |
-| 07-REQ-2 | Adapter Download and Installation Flow: checksum verification |
-| 07-REQ-3 | gRPC Interface: WatchAdapterStates |
-| 07-REQ-4 | gRPC Interface: ListAdapters, GetAdapterStatus |
-| 07-REQ-5 | gRPC Interface: RemoveAdapter |
-| 07-REQ-6 | Adapter Lifecycle States |
-| 07-REQ-7 | Single Adapter Constraint |
-| 07-REQ-8 | Automatic Offloading |
-| 07-REQ-9 | Configuration |
-| 07-REQ-10 | Error Handling (master PRD) |
+1. [07-REQ-8.1] WHEN the service starts, THE service SHALL log its version, configured port, registry URL, and a ready message.
+2. [07-REQ-8.2] WHEN the service receives SIGTERM or SIGINT, THE service SHALL stop all running adapters, shut down the gRPC server gracefully, and exit with code 0.

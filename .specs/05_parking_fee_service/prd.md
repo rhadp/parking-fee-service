@@ -69,4 +69,17 @@ While the data is hardcoded for this demo, it is structured as loadable configur
 
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Uses repo structure and Go project skeleton from group 2 |
+| 01_project_setup | 4 | 1 | Uses Go workspace and parking-fee-service skeleton from group 4 |
+
+## Clarifications
+
+- **C1 (Operator lookup response):** `GET /operators?lat=&lon=` returns a JSON array of operator objects. Each object includes `id`, `name`, `zone_id`, `rate` (with `type`, `amount`, `currency`). Returns an empty array `[]` if no operators match.
+- **C2 (Adapter metadata response):** `GET /operators/{id}/adapter` returns `{"image_ref":"...","checksum_sha256":"...","version":"..."}`.
+- **C3 (Health check response):** `GET /health` returns `{"status":"ok"}` with HTTP 200.
+- **C4 (Error responses):** 400 Bad Request for missing/invalid lat/lon. 404 Not Found for unknown operator id. Standard JSON error body: `{"error":"<message>"}`.
+- **C5 (Config file path):** `CONFIG_PATH` env var, default `config.json` in the working directory. If the file doesn't exist, the service starts with built-in default data (Munich demo data).
+- **C6 (Geofence algorithm):** Point-in-polygon uses ray casting algorithm. Proximity uses Haversine distance from the query point to the nearest polygon edge.
+- **C7 (Multiple operators per zone):** Multiple operators can serve the same zone. The lookup returns all matching operators, not just one.
+- **C8 (No authentication):** The REST API is public — no authentication required. This is a discovery service.
+- **C9 (Coordinate validation):** Latitude must be in [-90, 90], longitude in [-180, 180]. Values outside these ranges return 400.
+- **C10 (Content-Type):** All responses use `Content-Type: application/json`.

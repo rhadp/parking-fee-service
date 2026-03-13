@@ -72,7 +72,7 @@ Implement the CLOUD_GATEWAY as a cloud-based Go service with two interfaces: a R
 ## Tech Stack
 
 - Language: Go 1.22+
-- HTTP framework: net/http standard library (Go 1.22 ServeMux) or chi router
+- HTTP framework: net/http standard library (Go 1.22 ServeMux)
 - NATS client: nats.go (github.com/nats-io/nats.go)
 - Local NATS: containerized nats-server
 - Port: 8081
@@ -81,7 +81,21 @@ Implement the CLOUD_GATEWAY as a cloud-based Go service with two interfaces: a R
 
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Uses repo structure and Go project skeleton from group 2 |
+| 01_project_setup | 4 | 1 | Uses Go workspace and cloud-gateway skeleton from group 4; group 4 creates Go modules and skeleton binaries |
+| 01_project_setup | 7 | 5 | Uses NATS infrastructure from group 7 for integration tests; group 7 creates compose.yml with nats-server |
+
+## Clarifications
+
+- **C1 (HTTP framework):** Use Go standard library `net/http` with Go 1.22 `ServeMux` pattern matching. No external HTTP router.
+- **C2 (Command status storage):** Command responses are stored in an in-memory map keyed by command ID. No expiry or persistence — this is a demo service. The map is protected by a mutex for concurrent access.
+- **C3 (Token-VIN mapping):** Bearer tokens are mapped to VINs via a JSON configuration file. The config includes a list of `{token, vin}` pairs. Default demo config includes at least one token-VIN pair. Config path is specified by `CONFIG_PATH` env var, defaulting to `config.json`.
+- **C4 (NATS connection failure):** If NATS is unreachable at startup, the service retries with exponential backoff (1s, 2s, 4s) up to 5 attempts, then exits non-zero. If NATS disconnects at runtime, the nats.go client handles automatic reconnection.
+- **C5 (Command timeout):** Commands have a configurable timeout (default: 30 seconds). If no response is received within the timeout, the command status becomes `"timeout"`. The timeout is set in the config file.
+- **C6 (Telemetry handling):** The gateway subscribes to `vehicles.*.telemetry` and logs received telemetry. No storage or aggregation — fleet telemetry is out of scope for this phase.
+- **C7 (Content-Type):** All REST responses use `Content-Type: application/json`.
+- **C8 (Bearer token in NATS):** When publishing commands to NATS, the gateway includes the bearer token as a NATS message header (`Authorization: Bearer <token>`) so the CLOUD_GATEWAY_CLIENT can validate it.
+- **C9 (Command ID):** The `command_id` field is required in the POST body. The server does not generate IDs — the client (COMPANION_APP) provides the UUID.
+- **C10 (VIN validation):** VIN is extracted from the URL path. The gateway validates that the token is authorized for the specified VIN. A token not authorized for the given VIN receives HTTP 403.
 
 ## Clarifications from Master PRD
 
