@@ -157,14 +157,18 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - [x] All unit tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
 
-- [ ] 6. Integration test validation
-  - [ ] 6.1 Create integration test module
+- [x] 6. Integration test validation
+  - [x] 6.1 Create integration test module
     - Create `tests/cloud-gateway-client/` Go module
     - Shared helpers: start/stop NATS, start/stop databroker, start/stop service, NATS publish/subscribe helpers
     - Add `go.work` entry for `./tests/cloud-gateway-client`
+    - Wire real gRPC proto code generation (build.rs, vendored kuksa protos)
+    - Implement real `set_string` and `subscribe_signals` in broker.rs via kuksa.val.v1 gRPC
+    - Add missing VSS signals to vss-overlay.json (IsLocked, Latitude, Longitude)
+    - Fix compose.yml `--address` flag format for kuksa-databroker v0.5.0
     - _Test Spec: TS-04-2, TS-04-7, TS-04-9, TS-04-14, TS-04-15, TS-04-16, TS-04-17_
 
-  - [ ] 6.2 Write and run integration tests
+  - [x] 6.2 Write and run integration tests
     - `TestNATSCommandSubscription` — TS-04-2
     - `TestResponseRelay` — TS-04-7
     - `TestTelemetrySubscription` — TS-04-9
@@ -174,19 +178,20 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - `TestDataBrokerOperations` — TS-04-17
     - _Test Spec: TS-04-2, TS-04-7, TS-04-9, TS-04-14, TS-04-15, TS-04-16, TS-04-17_
 
-  - [ ] 6.3 Write and run edge case integration tests
+  - [x] 6.3 Write and run edge case integration tests
     - `TestNATSUnreachable` — TS-04-E1
     - `TestNATSConnectionLost` — TS-04-E2
     - `TestDataBrokerUnreachable` — TS-04-E9
     - `TestSigtermDuringCommand` — TS-04-E11
+    - Also: `TestVINNotSet`, `TestBearerTokenRejection`
     - _Test Spec: TS-04-E1, TS-04-E2, TS-04-E9, TS-04-E11_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass: `cd tests/cloud-gateway-client && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] All requirements 04-REQ-1 through 04-REQ-7 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] All integration tests pass: `cd tests/cloud-gateway-client && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] All requirements 04-REQ-1 through 04-REQ-7 acceptance criteria met
 
 ### Checkbox States
 

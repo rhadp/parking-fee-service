@@ -3,6 +3,11 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::warn;
 
+/// Generated kuksa.val.v1 protobuf types.
+mod kuksav1 {
+    tonic::include_proto!("kuksa.val.v1");
+}
+
 /// Trait abstracting the DATA_BROKER gRPC client for testability.
 #[allow(async_fn_in_trait)]
 pub trait BrokerClient {
@@ -32,9 +37,6 @@ pub struct BrokerUpdate {
 }
 
 /// The value of a DATA_BROKER signal.
-///
-/// Variants are matched in the main task loop; they will be *constructed* by the
-/// real gRPC `Subscribe` streaming handler added in task group 6.
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum BrokerValue {
@@ -48,18 +50,11 @@ pub enum BrokerValue {
 
 /// Concrete gRPC DATA_BROKER client.
 ///
-/// Wraps a tonic transport channel to the Kuksa Databroker.  Signal writes use
+/// Wraps a tonic transport channel to the Kuksa Databroker. Signal writes use
 /// the `kuksa.val.v1.VAL/Set` RPC; subscriptions use `VAL/Subscribe`.
-///
-/// Note: The full gRPC implementation of `set_string` and `subscribe_signals`
-/// requires generated proto types from `kuksa.val.v1`.  That code generation is
-/// set up in task group 6 (integration tests).  For now `set_string` succeeds
-/// immediately (logged at debug level) and `subscribe_signals` returns an empty
-/// receiver that will close once the returned sender is dropped.
 pub struct GrpcBrokerClient {
-    addr: String,
-    // The channel is kept alive so that the endpoint remains usable.
     #[allow(dead_code)]
+    addr: String,
     channel: tonic::transport::Channel,
 }
 
@@ -78,10 +73,11 @@ impl GrpcBrokerClient {
 
             match endpoint.connect().await {
                 Ok(channel) => {
+                    tracing::info!(addr, "Connected to DATA_BROKER");
                     return Ok(GrpcBrokerClient {
                         addr: addr.to_string(),
                         channel,
-                    })
+                    });
                 }
                 Err(e) => {
                     if attempt == 5 {
@@ -107,43 +103,128 @@ impl GrpcBrokerClient {
     /// Subscribe to a list of DATA_BROKER signals.
     ///
     /// Returns a `Receiver` that yields `BrokerUpdate` whenever a subscribed
-    /// signal changes.
-    ///
-    /// # Current implementation
-    ///
-    /// This is a structural placeholder: the returned `Receiver` will yield
-    /// `None` immediately (the channel sender is dropped on return).  The real
-    /// `kuksa.val.v1.VAL/Subscribe` gRPC streaming call is wired up in task
-    /// group 6, once proto code generation is available.
+    /// signal changes. Spawns a background task that drives the gRPC
+    /// server-streaming response.
     pub async fn subscribe_signals(&self, signals: &[&str]) -> mpsc::Receiver<BrokerUpdate> {
-        let (_tx, rx) = mpsc::channel(100);
-        tracing::info!(
-            addr = %self.addr,
-            signals = ?signals,
-            "DATA_BROKER signal subscription registered (gRPC proto pending, task group 6)"
-        );
-        // _tx is intentionally dropped here.  When task group 6 adds the real
-        // gRPC streaming call, _tx will be moved into a spawned task that drives
-        // the server-streaming response.
+        use kuksav1::val_client::ValClient;
+        use kuksav1::{Field, SubscribeEntry, SubscribeRequest, View};
+
+        let (tx, rx) = mpsc::channel(100);
+
+        let entries: Vec<SubscribeEntry> = signals
+            .iter()
+            .map(|s| SubscribeEntry {
+                path: s.to_string(),
+                view: View::CurrentValue as i32,
+                fields: vec![Field::Value as i32],
+            })
+            .collect();
+
+        let mut client = ValClient::new(self.channel.clone());
+        let req = tonic::Request::new(SubscribeRequest { entries });
+
+        match client.subscribe(req).await {
+            Ok(response) => {
+                let stream = response.into_inner();
+                let signals_debug: Vec<String> =
+                    signals.iter().map(|s| s.to_string()).collect();
+                tracing::info!(signals = ?signals_debug, "DATA_BROKER signal subscription established");
+
+                tokio::spawn(async move {
+                    use futures::StreamExt;
+                    tokio::pin!(stream);
+                    while let Some(result) = stream.next().await {
+                        match result {
+                            Err(e) => {
+                                tracing::error!(error = %e, "DATA_BROKER subscribe stream error");
+                                break;
+                            }
+                            Ok(resp) => {
+                                for update in resp.updates {
+                                    if let Some(entry) = update.entry {
+                                        let path = entry.path.clone();
+                                        if let Some(dp) = entry.value {
+                                            if let Some(val) = dp.value {
+                                                let broker_val = match val {
+                                                    kuksav1::datapoint::Value::String(s) => {
+                                                        Some(BrokerValue::String(s))
+                                                    }
+                                                    kuksav1::datapoint::Value::Bool(b) => {
+                                                        Some(BrokerValue::Bool(b))
+                                                    }
+                                                    kuksav1::datapoint::Value::Float(f) => {
+                                                        Some(BrokerValue::Float(f as f64))
+                                                    }
+                                                    kuksav1::datapoint::Value::Double(d) => {
+                                                        Some(BrokerValue::Float(d))
+                                                    }
+                                                    _ => {
+                                                        tracing::debug!(
+                                                            path = %path,
+                                                            "Ignoring unsupported value type"
+                                                        );
+                                                        None
+                                                    }
+                                                };
+                                                if let Some(value) = broker_val {
+                                                    let upd = BrokerUpdate {
+                                                        path: path.clone(),
+                                                        value,
+                                                    };
+                                                    if tx.send(upd).await.is_err() {
+                                                        // Receiver dropped — shutting down.
+                                                        return;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    tracing::debug!("DATA_BROKER subscribe stream ended");
+                });
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to establish DATA_BROKER subscription");
+                // tx is dropped here — rx will yield None.
+            }
+        }
+
         rx
+    }
+
+    /// Create a fresh `ValClient` for a single RPC.
+    fn make_client(&self) -> kuksav1::val_client::ValClient<tonic::transport::Channel> {
+        kuksav1::val_client::ValClient::new(self.channel.clone())
     }
 }
 
 impl BrokerClient for GrpcBrokerClient {
-    /// Set a string-valued VSS signal in DATA_BROKER.
-    ///
-    /// # Current implementation
-    ///
-    /// Logs the call and returns `Ok(())`.  The real `kuksa.val.v1.VAL/Set`
-    /// gRPC call is wired up in task group 6, once proto code generation is
-    /// available.
+    /// Set a string-valued VSS signal in DATA_BROKER via gRPC.
     async fn set_string(&self, signal: &str, value: &str) -> Result<(), BrokerError> {
-        tracing::debug!(
-            addr = %self.addr,
-            signal,
-            value,
-            "DATA_BROKER set_string (gRPC proto pending, task group 6)"
-        );
+        use kuksav1::{datapoint, DataEntry, Datapoint, EntryUpdate, Field, SetRequest};
+
+        let mut client = self.make_client();
+        let req = tonic::Request::new(SetRequest {
+            updates: vec![EntryUpdate {
+                entry: Some(DataEntry {
+                    path: signal.to_string(),
+                    value: Some(Datapoint {
+                        value: Some(datapoint::Value::String(value.to_string())),
+                    }),
+                    actuator_target: None,
+                }),
+                fields: vec![Field::Value as i32],
+            }],
+        });
+
+        client
+            .set(req)
+            .await
+            .map_err(|e| BrokerError(format!("Set RPC failed for '{}': {}", signal, e)))?;
+
         Ok(())
     }
 }

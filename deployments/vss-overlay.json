@@ -3,6 +3,51 @@
     "type": "branch",
     "description": "High-level vehicle data.",
     "children": {
+      "Cabin": {
+        "type": "branch",
+        "description": "Cabin-related signals.",
+        "children": {
+          "Door": {
+            "type": "branch",
+            "description": "Door signals.",
+            "children": {
+              "Row1": {
+                "type": "branch",
+                "description": "First row doors.",
+                "children": {
+                  "DriverSide": {
+                    "type": "branch",
+                    "description": "Driver-side door.",
+                    "children": {
+                      "IsLocked": {
+                        "type": "sensor",
+                        "datatype": "boolean",
+                        "description": "Whether the driver-side door is locked"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CurrentLocation": {
+        "type": "branch",
+        "description": "Current vehicle location.",
+        "children": {
+          "Latitude": {
+            "type": "sensor",
+            "datatype": "double",
+            "description": "Current latitude"
+          },
+          "Longitude": {
+            "type": "sensor",
+            "datatype": "double",
+            "description": "Current longitude"
+          }
+        }
+      },
       "Parking": {
         "type": "branch",
         "description": "Parking-related signals.",
