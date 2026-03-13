@@ -24,22 +24,22 @@ The ordering ensures tests are written first (TDD), then configuration changes a
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create tests/databroker Go module
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create tests/databroker Go module
     - Create `tests/databroker/go.mod` with module path `github.com/rhadp/parking-fee-service/tests/databroker`
     - Add `go.work` entry for `./tests/databroker`
     - Create shared test helper `tests/databroker/helpers_test.go` with: Podman skip check, databroker start/stop, gRPC connect (TCP + UDS), compose.yml parser
     - _Test Spec: TS-02-1 through TS-02-17_
 
-  - [ ] 1.2 Write compose configuration tests
+  - [x] 1.2 Write compose configuration tests
     - Create `tests/databroker/compose_test.go` with tests for compose.yml parsing
     - `TestComposeTCPListener` — TS-02-1: verify port mapping and --address flag
-    - `TestComposeUDSListener` — TS-02-2: verify --uds-path flag
+    - `TestComposeUDSListener` — TS-02-2: verify --unix-socket flag (errata: spec says --uds-path)
     - `TestComposeUDSVolume` — TS-02-3: verify UDS volume mount
-    - `TestComposeImageVersion` — TS-02-5: verify pinned image version
+    - `TestComposeImageVersion` — TS-02-5: verify pinned image version (errata: 0.5.0, spec says 0.5.1)
     - _Test Spec: TS-02-1, TS-02-2, TS-02-3, TS-02-5_
 
-  - [ ] 1.3 Write live connectivity and signal metadata tests
+  - [x] 1.3 Write live connectivity and signal metadata tests
     - Create `tests/databroker/signal_test.go` with tests requiring running databroker
     - `TestLiveDualListener` — TS-02-4: TCP + UDS connectivity
     - `TestSignalCustomSessionActive` — TS-02-6: custom signal metadata
@@ -49,7 +49,7 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestSignalStandardIsOpen` — TS-02-11: standard signal metadata
     - _Test Spec: TS-02-4, TS-02-6, TS-02-7, TS-02-8, TS-02-10, TS-02-11_
 
-  - [ ] 1.4 Write signal set/get and pub/sub tests
+  - [x] 1.4 Write signal set/get and pub/sub tests
     - Create `tests/databroker/pubsub_test.go`
     - `TestSignalStandardLatitude` — TS-02-12: standard signal metadata
     - `TestSignalStandardLongitude` — TS-02-13: standard signal metadata
@@ -60,7 +60,7 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestStringJsonRoundtrip` — TS-02-17: JSON string set/get
     - _Test Spec: TS-02-9, TS-02-12, TS-02-13, TS-02-14, TS-02-15, TS-02-16, TS-02-17_
 
-  - [ ] 1.5 Write edge case and property tests
+  - [x] 1.5 Write edge case and property tests
     - Create `tests/databroker/edge_test.go`
     - `TestEdgeUDSSocketRestart` — TS-02-E1: restart with existing socket
     - `TestEdgeConcurrentTCPUDS` — TS-02-E2: simultaneous TCP + UDS clients
@@ -76,10 +76,10 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestPropertyPubSubDelivery` — TS-02-P5
     - _Test Spec: TS-02-E1 through TS-02-E6, TS-02-P1 through TS-02-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid: `cd tests/databroker && go vet ./...`
-    - [ ] Compose config tests FAIL (compose.yml not yet updated): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
-    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid: `cd tests/databroker && go vet ./...`
+    - [x] Compose config tests FAIL (compose.yml not yet updated): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+    - [x] No linter warnings: `cd tests/databroker && go vet ./...`
 
 - [ ] 2. Update compose.yml for dual listeners and version pinning
   - [ ] 2.1 Pin Kuksa Databroker image version
