@@ -1,9 +1,11 @@
 use parking_operator_adaptor::autonomous;
+use parking_operator_adaptor::broker::BrokerSessionPublisher;
 use parking_operator_adaptor::config::Config;
 use parking_operator_adaptor::grpc::service::proto::parking_adaptor_server::ParkingAdaptorServer;
 use parking_operator_adaptor::grpc::ParkingAdaptorService;
-use parking_operator_adaptor::operator::OperatorClient;
+use parking_operator_adaptor::operator::{OperatorClient, RetryOperatorClient};
 use parking_operator_adaptor::session::SessionManager;
+use parking_operator_adaptor::testing::NoopPublisher;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::info;
@@ -29,21 +31,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.zone_id.clone(),
     ))));
 
-    // Create operator REST client
-    let operator = Arc::new(OperatorClient::new(config.parking_operator_url.clone()));
+    // Create operator REST client with retry logic
+    let operator: Arc<RetryOperatorClient<OperatorClient>> = Arc::new(RetryOperatorClient::new(
+        OperatorClient::new(config.parking_operator_url.clone()),
+    ));
 
     // Create broker publisher (optional: only if DATA_BROKER is reachable)
-    let publisher =
-        match parking_operator_adaptor::broker::BrokerPublisher::connect(&config.data_broker_addr)
-            .await
-        {
+    let publisher: Arc<dyn parking_operator_adaptor::broker::SessionPublisher> =
+        match BrokerSessionPublisher::connect(&config.data_broker_addr).await {
             Ok(p) => {
                 info!("DATA_BROKER publisher connected");
-                Some(Arc::new(Mutex::new(p)))
+                Arc::new(p)
             }
             Err(e) => {
                 tracing::warn!(error = %e, "DATA_BROKER publisher not available at startup; session state signals will not be published");
-                None
+                Arc::new(NoopPublisher)
             }
         };
 

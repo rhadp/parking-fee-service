@@ -73,6 +73,40 @@ impl BrokerPublisher {
     }
 }
 
+/// Wrapper around [`BrokerPublisher`] that implements [`super::traits::SessionPublisher`].
+///
+/// Uses internal `tokio::sync::Mutex` so the trait method takes `&self`.
+pub struct BrokerSessionPublisher {
+    inner: tokio::sync::Mutex<BrokerPublisher>,
+}
+
+impl BrokerSessionPublisher {
+    /// Create a new BrokerSessionPublisher wrapping an existing publisher.
+    pub fn new(publisher: BrokerPublisher) -> Self {
+        Self {
+            inner: tokio::sync::Mutex::new(publisher),
+        }
+    }
+
+    /// Connect to DATA_BROKER and create a BrokerSessionPublisher.
+    pub async fn connect(addr: &str) -> Result<Self, tonic::transport::Error> {
+        let publisher = BrokerPublisher::connect(addr).await?;
+        Ok(Self::new(publisher))
+    }
+}
+
+#[tonic::async_trait]
+impl super::traits::SessionPublisher for BrokerSessionPublisher {
+    async fn set_session_active(&self, active: bool) -> Result<(), String> {
+        self.inner
+            .lock()
+            .await
+            .set_session_active(active)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

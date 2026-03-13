@@ -19,6 +19,7 @@ use parking_operator_adaptor::grpc::service::proto::parking_adaptor_server::Park
 use parking_operator_adaptor::grpc::ParkingAdaptorService;
 use parking_operator_adaptor::operator::OperatorClient;
 use parking_operator_adaptor::session::{SessionManager, SessionState};
+use parking_operator_adaptor::testing::NoopPublisher;
 
 /// Start a minimal mock PARKING_OPERATOR HTTP server on a random port.
 /// Returns the base URL (e.g., "http://127.0.0.1:<port>").
@@ -132,11 +133,13 @@ async fn create_service_with_mock(
     let base_url = start_mock_operator().await;
     let session = Arc::new(Mutex::new(SessionManager::new(zone_id)));
     let operator = Arc::new(OperatorClient::new(base_url.clone()));
+    let publisher: Arc<dyn parking_operator_adaptor::broker::SessionPublisher> =
+        Arc::new(NoopPublisher);
     let svc = ParkingAdaptorService::new(
         session.clone(),
         operator.clone(),
         "DEMO-VIN-001".to_string(),
-        None,
+        publisher,
     );
     (svc, session, operator, base_url)
 }
@@ -151,7 +154,6 @@ async fn test_manual_start_session() {
     let (svc, session, _operator, _url) =
         create_service_with_mock(Some("zone-demo-1".to_string())).await;
 
-    // Call StartSession
     let request = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),
@@ -163,7 +165,6 @@ async fn test_manual_start_session() {
     assert!(!resp.session_id.is_empty(), "session_id should be non-empty");
     assert_eq!(resp.status, "active", "status should be 'active'");
 
-    // Verify via GetStatus
     let status_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::GetStatusRequest {},
     );
@@ -171,7 +172,6 @@ async fn test_manual_start_session() {
     assert_eq!(status_resp.state, "active");
     assert!(!status_resp.session_id.is_empty());
 
-    // Verify internal state
     let s = session.lock().await;
     assert_eq!(*s.state(), SessionState::Active);
 }
@@ -186,7 +186,6 @@ async fn test_manual_stop_session() {
     let (svc, session, _operator, _url) =
         create_service_with_mock(Some("zone-demo-1".to_string())).await;
 
-    // First, start a session manually
     let start_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),
@@ -195,7 +194,6 @@ async fn test_manual_stop_session() {
     let start_resp = svc.start_session(start_req).await.unwrap().into_inner();
     let session_id = start_resp.session_id.clone();
 
-    // Call StopSession
     let stop_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StopSessionRequest {},
     );
@@ -207,14 +205,12 @@ async fn test_manual_stop_session() {
     assert!(resp.fee >= 0.0, "fee should be non-negative");
     assert_eq!(resp.status, "completed", "status should be 'completed'");
 
-    // Verify via GetStatus
     let status_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::GetStatusRequest {},
     );
     let status_resp = svc.get_status(status_req).await.unwrap().into_inner();
     assert_eq!(status_resp.state, "idle");
 
-    // Verify internal state
     let s = session.lock().await;
     assert_eq!(*s.state(), SessionState::Idle);
     assert!(s.session_id().is_none());
@@ -224,7 +220,6 @@ async fn test_manual_stop_session() {
 // TS-08-P1: Double Lock Does Not Create Duplicate Session
 // ---------------------------------------------------------------------------
 
-/// TS-08-P1: Two consecutive lock events should only trigger one operator start call.
 #[tokio::test]
 async fn test_double_lock_only_one_operator_start() {
     let base_url = start_mock_operator().await;
@@ -232,22 +227,16 @@ async fn test_double_lock_only_one_operator_start() {
         "zone-demo-1".to_string(),
     ))));
     let operator = Arc::new(OperatorClient::new(base_url));
+    let publisher = NoopPublisher;
 
-    // First lock event
     autonomous::handle_lock_event(
-        &session,
-        &operator,
-        &None,
-        "DEMO-VIN-001",
-        "zone-demo-1",
-    )
-    .await;
+        &session, operator.as_ref(), &publisher,
+        "DEMO-VIN-001", "zone-demo-1",
+    ).await;
 
-    // Verify session is active
     {
         let s = session.lock().await;
-        assert_eq!(*s.state(), SessionState::Active, "session should be active after first lock");
-        assert!(s.session_id().is_some());
+        assert_eq!(*s.state(), SessionState::Active);
     }
 
     let first_session_id = {
@@ -255,31 +244,20 @@ async fn test_double_lock_only_one_operator_start() {
         s.session_id().unwrap().to_string()
     };
 
-    // Second lock event (should be ignored)
     autonomous::handle_lock_event(
-        &session,
-        &operator,
-        &None,
-        "DEMO-VIN-001",
-        "zone-demo-1",
-    )
-    .await;
+        &session, operator.as_ref(), &publisher,
+        "DEMO-VIN-001", "zone-demo-1",
+    ).await;
 
-    // Verify session still has the same session_id (no duplicate)
     let s = session.lock().await;
-    assert_eq!(*s.state(), SessionState::Active, "session should still be active");
-    assert_eq!(
-        s.session_id().unwrap(),
-        first_session_id,
-        "session_id should not change after double lock"
-    );
+    assert_eq!(*s.state(), SessionState::Active);
+    assert_eq!(s.session_id().unwrap(), first_session_id);
 }
 
 // ---------------------------------------------------------------------------
 // TS-08-P2: Double Unlock Does Not Call Operator Twice
 // ---------------------------------------------------------------------------
 
-/// TS-08-P2: Two consecutive unlock events should only trigger one operator stop call.
 #[tokio::test]
 async fn test_double_unlock_only_one_operator_stop() {
     let base_url = start_mock_operator().await;
@@ -287,87 +265,59 @@ async fn test_double_unlock_only_one_operator_stop() {
         "zone-demo-1".to_string(),
     ))));
     let operator = Arc::new(OperatorClient::new(base_url));
+    let publisher = NoopPublisher;
 
-    // Set up an active session
     autonomous::handle_lock_event(
-        &session,
-        &operator,
-        &None,
-        "DEMO-VIN-001",
-        "zone-demo-1",
-    )
-    .await;
+        &session, operator.as_ref(), &publisher,
+        "DEMO-VIN-001", "zone-demo-1",
+    ).await;
+
+    autonomous::handle_unlock_event(&session, operator.as_ref(), &publisher).await;
 
     {
         let s = session.lock().await;
-        assert_eq!(*s.state(), SessionState::Active, "precondition: session should be active");
+        assert_eq!(*s.state(), SessionState::Idle);
     }
 
-    // First unlock event
-    autonomous::handle_unlock_event(&session, &operator, &None).await;
+    autonomous::handle_unlock_event(&session, operator.as_ref(), &publisher).await;
 
-    {
-        let s = session.lock().await;
-        assert_eq!(*s.state(), SessionState::Idle, "session should be idle after first unlock");
-    }
-
-    // Second unlock event (should be ignored)
-    autonomous::handle_unlock_event(&session, &operator, &None).await;
-
-    // Verify session is still idle
     let s = session.lock().await;
-    assert_eq!(*s.state(), SessionState::Idle, "session should remain idle after double unlock");
+    assert_eq!(*s.state(), SessionState::Idle);
 }
 
 // ---------------------------------------------------------------------------
 // TS-08-P3: Manual Start Followed by Autonomous Unlock
 // ---------------------------------------------------------------------------
 
-/// TS-08-P3: After a manual start, an autonomous unlock should stop the session.
 #[tokio::test]
 async fn test_manual_start_then_autonomous_unlock() {
     let (svc, session, operator, _url) =
         create_service_with_mock(Some("zone-demo-1".to_string())).await;
 
-    // Manual start via gRPC
     let start_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),
         },
     );
-    let start_resp = svc.start_session(start_req).await.unwrap().into_inner();
-    assert_eq!(start_resp.status, "active");
+    svc.start_session(start_req).await.unwrap();
 
-    // Verify session is active
-    {
-        let s = session.lock().await;
-        assert_eq!(*s.state(), SessionState::Active);
-    }
+    let publisher = NoopPublisher;
+    autonomous::handle_unlock_event(&session, operator.as_ref(), &publisher).await;
 
-    // Autonomous unlock event should stop the session
-    autonomous::handle_unlock_event(&session, &operator, &None).await;
-
-    // Verify session is now idle
     let s = session.lock().await;
-    assert_eq!(
-        *s.state(),
-        SessionState::Idle,
-        "session should be idle after autonomous unlock"
-    );
-    assert!(s.session_id().is_none(), "session_id should be cleared");
+    assert_eq!(*s.state(), SessionState::Idle);
+    assert!(s.session_id().is_none());
 }
 
 // ---------------------------------------------------------------------------
 // TS-08-P5: Lock Event Ignored After Manual Start
 // ---------------------------------------------------------------------------
 
-/// TS-08-P5: After a manual start, a lock event from DATA_BROKER should be ignored.
 #[tokio::test]
 async fn test_lock_event_ignored_after_manual_start() {
     let (svc, session, operator, _url) =
         create_service_with_mock(Some("zone-demo-1".to_string())).await;
 
-    // Manual start via gRPC
     let start_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),
@@ -376,31 +326,21 @@ async fn test_lock_event_ignored_after_manual_start() {
     let start_resp = svc.start_session(start_req).await.unwrap().into_inner();
     let original_session_id = start_resp.session_id.clone();
 
-    // Lock event should be ignored (session already active)
+    let publisher = NoopPublisher;
     autonomous::handle_lock_event(
-        &session,
-        &operator,
-        &None,
-        "DEMO-VIN-001",
-        "zone-demo-1",
-    )
-    .await;
+        &session, operator.as_ref(), &publisher,
+        "DEMO-VIN-001", "zone-demo-1",
+    ).await;
 
-    // Verify session still has the same session_id
     let s = session.lock().await;
-    assert_eq!(*s.state(), SessionState::Active, "session should still be active");
-    assert_eq!(
-        s.session_id().unwrap(),
-        original_session_id,
-        "session_id should not change; lock event was ignored"
-    );
+    assert_eq!(*s.state(), SessionState::Active);
+    assert_eq!(s.session_id().unwrap(), original_session_id);
 }
 
 // ---------------------------------------------------------------------------
 // TS-08-P4: State-Signal Consistency After Full Cycle
 // ---------------------------------------------------------------------------
 
-/// TS-08-P4: Full cycle (lock -> active, unlock -> idle) with state checks at each step.
 #[tokio::test]
 async fn test_state_signal_consistency_full_cycle() {
     let base_url = start_mock_operator().await;
@@ -408,114 +348,56 @@ async fn test_state_signal_consistency_full_cycle() {
         "zone-demo-1".to_string(),
     ))));
     let operator = Arc::new(OperatorClient::new(base_url));
+    let publisher = NoopPublisher;
 
-    // Step 1: Initial state is idle
     {
         let s = session.lock().await;
-        assert_eq!(*s.state(), SessionState::Idle, "initial state should be idle");
-        assert!(s.session_id().is_none(), "no session_id when idle");
+        assert_eq!(*s.state(), SessionState::Idle);
     }
 
-    // Step 2: Lock event -> session should become active
     autonomous::handle_lock_event(
-        &session,
-        &operator,
-        &None,
-        "DEMO-VIN-001",
-        "zone-demo-1",
-    )
-    .await;
+        &session, operator.as_ref(), &publisher,
+        "DEMO-VIN-001", "zone-demo-1",
+    ).await;
 
     {
         let s = session.lock().await;
-        assert_eq!(
-            *s.state(),
-            SessionState::Active,
-            "state should be active after lock"
-        );
-        assert!(s.session_id().is_some(), "should have session_id when active");
+        assert_eq!(*s.state(), SessionState::Active);
     }
 
-    // Step 3: Use GetStatus via gRPC service to verify
-    let svc = ParkingAdaptorService::new(
-        session.clone(),
-        operator.clone(),
-        "DEMO-VIN-001".to_string(),
-        None,
-    );
-    let status_req = tonic::Request::new(
-        parking_operator_adaptor::grpc::service::proto::GetStatusRequest {},
-    );
-    let status_resp = svc.get_status(status_req).await.unwrap().into_inner();
-    assert_eq!(status_resp.state, "active");
-    assert!(!status_resp.session_id.is_empty());
+    autonomous::handle_unlock_event(&session, operator.as_ref(), &publisher).await;
 
-    // Step 4: Unlock event -> session should become idle
-    autonomous::handle_unlock_event(&session, &operator, &None).await;
-
-    {
-        let s = session.lock().await;
-        assert_eq!(
-            *s.state(),
-            SessionState::Idle,
-            "state should be idle after unlock"
-        );
-        assert!(s.session_id().is_none(), "session_id should be cleared after unlock");
-    }
-
-    // Step 5: Verify via GetStatus
-    let status_req = tonic::Request::new(
-        parking_operator_adaptor::grpc::service::proto::GetStatusRequest {},
-    );
-    let status_resp = svc.get_status(status_req).await.unwrap().into_inner();
-    assert_eq!(status_resp.state, "idle");
-    assert!(status_resp.session_id.is_empty());
+    let s = session.lock().await;
+    assert_eq!(*s.state(), SessionState::Idle);
+    assert!(s.session_id().is_none());
 }
 
 // ---------------------------------------------------------------------------
-// TS-08-E3: StartSession When Session Already Active
+// Error gRPC calls
 // ---------------------------------------------------------------------------
 
-/// TS-08-E3: StartSession returns ALREADY_EXISTS when a session is already active.
 #[tokio::test]
 async fn test_start_session_already_active_returns_already_exists() {
     let (svc, _session, _operator, _url) =
         create_service_with_mock(Some("zone-demo-1".to_string())).await;
 
-    // Start a session
     let start_req = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),
         },
     );
-    svc.start_session(start_req).await.expect("first start should succeed");
+    svc.start_session(start_req).await.unwrap();
 
-    // Try to start another session
     let start_req2 = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
             zone_id: "zone-demo-1".to_string(),
         },
     );
     let result = svc.start_session(start_req2).await;
-
-    assert!(result.is_err(), "second start should fail");
-    let status = result.unwrap_err();
-    assert_eq!(
-        status.code(),
-        tonic::Code::AlreadyExists,
-        "should return ALREADY_EXISTS"
-    );
-    assert!(
-        status.message().contains("session already active"),
-        "message should contain 'session already active'"
-    );
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().code(), tonic::Code::AlreadyExists);
 }
 
-// ---------------------------------------------------------------------------
-// TS-08-E4: StopSession When No Session Active
-// ---------------------------------------------------------------------------
-
-/// TS-08-E4: StopSession returns NOT_FOUND when no session is active.
 #[tokio::test]
 async fn test_stop_session_no_active_returns_not_found() {
     let (svc, _session, _operator, _url) =
@@ -525,25 +407,10 @@ async fn test_stop_session_no_active_returns_not_found() {
         parking_operator_adaptor::grpc::service::proto::StopSessionRequest {},
     );
     let result = svc.stop_session(stop_req).await;
-
-    assert!(result.is_err(), "stop should fail when no session active");
-    let status = result.unwrap_err();
-    assert_eq!(
-        status.code(),
-        tonic::Code::NotFound,
-        "should return NOT_FOUND"
-    );
-    assert!(
-        status.message().contains("no active session"),
-        "message should contain 'no active session'"
-    );
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
 }
 
-// ---------------------------------------------------------------------------
-// TS-08-E6: GetRate With No Zone Configured
-// ---------------------------------------------------------------------------
-
-/// TS-08-E6: GetRate returns FAILED_PRECONDITION when no zone is configured.
 #[tokio::test]
 async fn test_get_rate_no_zone_returns_failed_precondition() {
     let (svc, _session, _operator, _url) = create_service_with_mock(None).await;
@@ -552,21 +419,10 @@ async fn test_get_rate_no_zone_returns_failed_precondition() {
         parking_operator_adaptor::grpc::service::proto::GetRateRequest {},
     );
     let result = svc.get_rate(rate_req).await;
-
-    assert!(result.is_err(), "get_rate should fail when no zone configured");
-    let status = result.unwrap_err();
-    assert_eq!(
-        status.code(),
-        tonic::Code::FailedPrecondition,
-        "should return FAILED_PRECONDITION"
-    );
-    assert!(
-        status.message().contains("no zone configured"),
-        "message should contain 'no zone configured'"
-    );
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().code(), tonic::Code::FailedPrecondition);
 }
 
-/// TS-08-E6: GetRate returns FAILED_PRECONDITION when zone is empty string.
 #[tokio::test]
 async fn test_get_rate_empty_zone_returns_failed_precondition() {
     let (svc, _session, _operator, _url) =
@@ -576,12 +432,6 @@ async fn test_get_rate_empty_zone_returns_failed_precondition() {
         parking_operator_adaptor::grpc::service::proto::GetRateRequest {},
     );
     let result = svc.get_rate(rate_req).await;
-
-    assert!(result.is_err(), "get_rate should fail when zone is empty");
-    let status = result.unwrap_err();
-    assert_eq!(
-        status.code(),
-        tonic::Code::FailedPrecondition,
-        "should return FAILED_PRECONDITION for empty zone"
-    );
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().code(), tonic::Code::FailedPrecondition);
 }

@@ -224,9 +224,10 @@ impl SessionManager {
     }
 
     /// Handle a failed session stop from the operator.
-    /// Transitions from Stopping to Idle to avoid stuck state.
+    /// Transitions from Stopping back to Active (per 08-REQ-2.E2:
+    /// session state is not updated on stop failure).
     pub fn fail_stop(&mut self) {
-        self.state = SessionState::Idle;
+        self.state = SessionState::Active;
     }
 }
 
@@ -449,15 +450,16 @@ mod tests {
         assert_eq!(mgr.session_id(), None);
     }
 
-    /// Operator error during stop transitions stopping -> idle.
+    /// Operator error during stop transitions stopping -> active
+    /// (session state not updated on stop failure per 08-REQ-2.E2).
     #[test]
-    fn test_stopping_to_idle_on_operator_error() {
+    fn test_stopping_to_active_on_operator_error() {
         let mut mgr = SessionManager::new(Some("zone-1".to_string()));
         mgr.try_start().unwrap();
         mgr.confirm_start("session-123".to_string());
         mgr.try_stop().unwrap();
         mgr.fail_stop();
-        assert_eq!(*mgr.state(), SessionState::Idle);
+        assert_eq!(*mgr.state(), SessionState::Active);
     }
 
     /// is_active returns true only when state is Active.

@@ -115,41 +115,43 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [x] _Test Spec: TS-08-2, TS-08-5, TS-08-10, TS-08-11, TS-08-12, TS-08-E5, TS-08-E6, TS-08-E7_
 
-- [ ] 4. Operator client and broker modules
-  - [ ] 4.1 Implement OperatorClient trait and HttpOperatorClient
-    - Define `OperatorClient` async trait with `start_session`, `stop_session`, `get_session_status`
-    - Implement `HttpOperatorClient` using reqwest
-    - Retry logic: 3 attempts with exponential backoff (1s, 2s, 4s)
+- [x] 4. Operator client and broker modules
+  - [x] 4.1 Implement OperatorClient trait and HttpOperatorClient
+    - Define `OperatorApi` async trait with `start_session`, `stop_session`
+    - Implement `OperatorApi` for `OperatorClient` using reqwest
+    - `RetryOperatorClient<T>` wrapper: 3 attempts with exponential backoff (1s, 2s)
     - _Requirements: 08-REQ-1.1, 08-REQ-1.E2, 08-REQ-2.1, 08-REQ-2.E2_
 
-  - [ ] 4.2 Implement MockOperatorClient for testing
+  - [x] 4.2 Implement MockOperatorClient for testing
     - Configurable success/failure responses
     - Call counting for verification
     - Reset capability
     - _Test Spec: TS-08-1, TS-08-4, TS-08-E1, TS-08-E2, TS-08-E3, TS-08-E4_
 
-  - [ ] 4.3 Implement BrokerClient trait and KuksaBrokerClient
-    - Define `BrokerClient` async trait with `subscribe_lock_state`, `set_session_active`
-    - Implement `KuksaBrokerClient` using kuksa.val.v1 gRPC
-    - Connection retry: 5 attempts with exponential backoff (1s, 2s, 4s)
+  - [x] 4.3 Implement BrokerClient trait and KuksaBrokerClient
+    - Define `SessionPublisher` async trait with `set_session_active`
+    - `BrokerSessionPublisher` wrapper implements trait for `BrokerPublisher`
+    - `BrokerSubscriber` retains existing connection retry logic
     - _Requirements: 08-REQ-6.1, 08-REQ-6.2, 08-REQ-6.E1, 08-REQ-6.E2_
 
-  - [ ] 4.4 Implement MockBrokerClient for testing
-    - Configurable lock event stream (tokio channel)
-    - Configurable success/failure for set_session_active
-    - Call recording for verification
+  - [x] 4.4 Implement MockBrokerClient for testing
+    - `MockBrokerPublisher` with configurable failure and call recording
+    - `NoopPublisher` for tests that don't need broker verification
     - _Test Spec: TS-08-3, TS-08-6, TS-08-13, TS-08-E9_
 
-  - [ ] 4.5 Implement handle_lock_event and auto-session loop
-    - `handle_lock_event(locked, session_mgr, operator, broker)`: idempotent start/stop logic
-    - `start_auto_loop(broker, session_mgr, operator)`: subscribe and dispatch events
+  - [x] 4.5 Implement handle_lock_event and auto-session loop
+    - `handle_lock_event(session, operator, publisher, vehicle_id, zone_id)`: idempotent start logic
+    - `handle_unlock_event(session, operator, publisher)`: idempotent stop logic
+    - `run_autonomous_loop(...)`: subscribe and dispatch events
+    - Refactored to use `&dyn OperatorApi` and `&dyn SessionPublisher` traits
+    - Fixed `fail_stop()` to return to Active state (per 08-REQ-2.E2)
     - _Requirements: 08-REQ-1.1, 08-REQ-1.3, 08-REQ-2.1, 08-REQ-2.3, 08-REQ-1.E1, 08-REQ-2.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Operator and broker tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- operator broker handle_lock`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] _Test Spec: TS-08-1, TS-08-3, TS-08-4, TS-08-5, TS-08-6, TS-08-8, TS-08-9, TS-08-13, TS-08-14, TS-08-E1, TS-08-E2, TS-08-E3, TS-08-E4, TS-08-E9, TS-08-P1, TS-08-P2, TS-08-P3, TS-08-P4, TS-08-P5_
+  - [x] 4.V Verify task group 4
+    - [x] Operator and broker tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- operator broker handle_lock`
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] _Test Spec: TS-08-1, TS-08-3, TS-08-4, TS-08-5, TS-08-6, TS-08-8, TS-08-9, TS-08-13, TS-08-14, TS-08-E1, TS-08-E2, TS-08-E3, TS-08-E4, TS-08-E9, TS-08-P1, TS-08-P2, TS-08-P3, TS-08-P4, TS-08-P5_
 
 - [ ] 5. gRPC service and main
   - [ ] 5.1 Vendor proto files

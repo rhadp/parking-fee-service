@@ -1,8 +1,10 @@
 pub mod publisher;
 pub mod subscriber;
+pub mod traits;
 
-pub use publisher::BrokerPublisher;
+pub use publisher::{BrokerPublisher, BrokerSessionPublisher};
 pub use subscriber::BrokerSubscriber;
+pub use traits::SessionPublisher;
 
 /// Re-export generated Kuksa Databroker protobuf types.
 pub mod kuksa {

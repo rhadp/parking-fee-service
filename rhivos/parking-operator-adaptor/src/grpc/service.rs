@@ -1,5 +1,6 @@
-use crate::broker::BrokerPublisher;
-use crate::operator::client::{OperatorClient, OperatorError};
+use crate::broker::SessionPublisher;
+use crate::operator::client::OperatorError;
+use crate::operator::OperatorApi;
 use crate::session::{SessionManager, SessionState};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -13,18 +14,18 @@ pub mod proto {
 /// gRPC service implementation for ParkingAdaptor.
 pub struct ParkingAdaptorService {
     session: Arc<Mutex<SessionManager>>,
-    operator: Arc<OperatorClient>,
+    operator: Arc<dyn OperatorApi>,
     vehicle_id: String,
-    publisher: Option<Arc<Mutex<BrokerPublisher>>>,
+    publisher: Arc<dyn SessionPublisher>,
 }
 
 impl ParkingAdaptorService {
     /// Create a new ParkingAdaptorService.
     pub fn new(
         session: Arc<Mutex<SessionManager>>,
-        operator: Arc<OperatorClient>,
+        operator: Arc<dyn OperatorApi>,
         vehicle_id: String,
-        publisher: Option<Arc<Mutex<BrokerPublisher>>>,
+        publisher: Arc<dyn SessionPublisher>,
     ) -> Self {
         Self {
             session,
@@ -78,11 +79,8 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
                 session.confirm_start(resp.session_id.clone());
 
                 // Publish SessionActive = true to DATA_BROKER
-                if let Some(pub_ref) = &self.publisher {
-                    let mut pub_lock = pub_ref.lock().await;
-                    if let Err(e) = pub_lock.set_session_active(true).await {
-                        error!(error = %e, "failed to publish SessionActive=true");
-                    }
+                if let Err(e) = self.publisher.set_session_active(true).await {
+                    error!(error = %e, "failed to publish SessionActive=true");
                 }
 
                 Ok(tonic::Response::new(proto::StartSessionResponse {
@@ -123,11 +121,8 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
                 session.confirm_stop();
 
                 // Publish SessionActive = false to DATA_BROKER
-                if let Some(pub_ref) = &self.publisher {
-                    let mut pub_lock = pub_ref.lock().await;
-                    if let Err(e) = pub_lock.set_session_active(false).await {
-                        error!(error = %e, "failed to publish SessionActive=false");
-                    }
+                if let Err(e) = self.publisher.set_session_active(false).await {
+                    error!(error = %e, "failed to publish SessionActive=false");
                 }
 
                 Ok(tonic::Response::new(proto::StopSessionResponse {
@@ -190,11 +185,13 @@ impl proto::parking_adaptor_server::ParkingAdaptor for ParkingAdaptorService {
 mod tests {
     use super::proto::parking_adaptor_server::ParkingAdaptor;
     use super::*;
+    use crate::testing::{MockBrokerPublisher, MockOperatorClient, NoopPublisher};
 
     fn make_service(zone_id: Option<String>) -> ParkingAdaptorService {
         let session = Arc::new(Mutex::new(SessionManager::new(zone_id)));
-        let operator = Arc::new(OperatorClient::new("http://localhost:8080".to_string()));
-        ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string(), None)
+        let operator: Arc<dyn OperatorApi> = Arc::new(MockOperatorClient::new());
+        let publisher: Arc<dyn SessionPublisher> = Arc::new(NoopPublisher);
+        ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string(), publisher)
     }
 
     /// TS-08-5: GetStatus returns idle state when no session is active.
@@ -224,18 +221,19 @@ mod tests {
         assert_eq!(resp.zone_id, "zone-demo-1");
     }
 
-    /// TS-08-E3: StartSession returns ALREADY_EXISTS when session is active.
+    /// TS-08-E5: StartSession returns ALREADY_EXISTS when session is active.
     #[tokio::test]
     async fn test_start_session_already_active() {
         let session = Arc::new(Mutex::new(SessionManager::new(Some("zone-1".to_string()))));
-        // Simulate an active session by transitioning through the state machine
+        // Simulate an active session
         {
             let mut s = session.lock().await;
             s.try_start().unwrap();
             s.confirm_start("session-123".to_string());
         }
-        let operator = Arc::new(OperatorClient::new("http://localhost:8080".to_string()));
-        let svc = ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string(), None);
+        let operator: Arc<dyn OperatorApi> = Arc::new(MockOperatorClient::new());
+        let publisher: Arc<dyn SessionPublisher> = Arc::new(NoopPublisher);
+        let svc = ParkingAdaptorService::new(session, operator, "DEMO-VIN-001".to_string(), publisher);
         let request = tonic::Request::new(proto::StartSessionRequest {
             zone_id: "zone-1".to_string(),
         });
@@ -245,7 +243,7 @@ mod tests {
         assert_eq!(status.code(), tonic::Code::AlreadyExists);
     }
 
-    /// TS-08-E4: StopSession returns NOT_FOUND when no session is active.
+    /// TS-08-E6: StopSession returns NOT_FOUND when no session is active.
     #[tokio::test]
     async fn test_stop_session_no_active() {
         let svc = make_service(Some("zone-demo-1".to_string()));
@@ -265,5 +263,58 @@ mod tests {
         assert!(result.is_err());
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+    }
+
+    /// TS-08-7: Manual StartSession via gRPC starts a session.
+    #[tokio::test]
+    async fn test_manual_start_session() {
+        let session = Arc::new(Mutex::new(SessionManager::new(Some("zone-demo-1".to_string()))));
+        let operator: Arc<dyn OperatorApi> = Arc::new(MockOperatorClient::new());
+        let publisher: Arc<dyn SessionPublisher> = Arc::new(MockBrokerPublisher::new());
+        let svc = ParkingAdaptorService::new(
+            session.clone(),
+            operator,
+            "DEMO-VIN-001".to_string(),
+            publisher,
+        );
+
+        let request = tonic::Request::new(proto::StartSessionRequest {
+            zone_id: "zone-demo-1".to_string(),
+        });
+        let resp = svc.start_session(request).await.unwrap().into_inner();
+        assert!(!resp.session_id.is_empty());
+        assert_eq!(resp.status, "active");
+
+        let s = session.lock().await;
+        assert!(s.is_active());
+    }
+
+    /// TS-08-8: Manual StopSession via gRPC stops a session.
+    #[tokio::test]
+    async fn test_manual_stop_session() {
+        let session = Arc::new(Mutex::new(SessionManager::new(Some("zone-demo-1".to_string()))));
+        let operator: Arc<dyn OperatorApi> = Arc::new(MockOperatorClient::new());
+        let publisher: Arc<dyn SessionPublisher> = Arc::new(MockBrokerPublisher::new());
+        let svc = ParkingAdaptorService::new(
+            session.clone(),
+            operator,
+            "DEMO-VIN-001".to_string(),
+            publisher,
+        );
+
+        // Start first
+        let start_req = tonic::Request::new(proto::StartSessionRequest {
+            zone_id: "zone-demo-1".to_string(),
+        });
+        svc.start_session(start_req).await.unwrap();
+
+        // Stop
+        let stop_req = tonic::Request::new(proto::StopSessionRequest {});
+        let resp = svc.stop_session(stop_req).await.unwrap().into_inner();
+        assert!(!resp.session_id.is_empty());
+        assert_eq!(resp.status, "completed");
+
+        let s = session.lock().await;
+        assert!(!s.is_active());
     }
 }

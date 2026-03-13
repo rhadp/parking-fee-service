@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use reqwest::Client;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use super::models::*;
+use super::traits::OperatorApi;
 
 /// Error types for operator REST client operations.
 #[derive(Debug, thiserror::Error)]
@@ -18,7 +19,7 @@ pub enum OperatorError {
     ParseError(String),
 }
 
-/// REST client for communicating with the PARKING_OPERATOR.
+/// REST client for communicating with the PARKING_OPERATOR (no retry).
 pub struct OperatorClient {
     base_url: String,
     client: Client,
@@ -34,8 +35,48 @@ impl OperatorClient {
         Self { base_url, client }
     }
 
-    /// Start a parking session via POST /parking/start.
-    pub async fn start_session(
+    /// Query session status via GET /parking/status/{session_id}.
+    pub async fn get_status(
+        &self,
+        session_id: &str,
+    ) -> Result<StatusResponse, OperatorError> {
+        let url = format!("{}/parking/status/{}", self.base_url, session_id);
+
+        info!(%url, %session_id, "sending get_status request");
+
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    OperatorError::Timeout
+                } else {
+                    OperatorError::Unreachable(e.to_string())
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response.text().await.unwrap_or_default();
+            error!(http_status = %status, body = %body_text, "operator get_status failed");
+            return Err(OperatorError::HttpError {
+                status: status.as_u16(),
+                body: body_text,
+            });
+        }
+
+        response
+            .json::<StatusResponse>()
+            .await
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
+    }
+}
+
+#[tonic::async_trait]
+impl OperatorApi for OperatorClient {
+    async fn start_session(
         &self,
         vehicle_id: &str,
         zone_id: &str,
@@ -80,8 +121,7 @@ impl OperatorClient {
             .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 
-    /// Stop a parking session via POST /parking/stop.
-    pub async fn stop_session(
+    async fn stop_session(
         &self,
         session_id: &str,
     ) -> Result<StopResponse, OperatorError> {
@@ -123,43 +163,74 @@ impl OperatorClient {
             .await
             .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
+}
 
-    /// Query session status via GET /parking/status/{session_id}.
-    pub async fn get_status(
+/// Maximum number of retry attempts for operator API calls.
+const MAX_ATTEMPTS: usize = 3;
+
+/// Exponential backoff delays between retry attempts.
+const RETRY_DELAYS: [Duration; 2] = [
+    Duration::from_secs(1),
+    Duration::from_secs(2),
+];
+
+/// Wraps an `OperatorApi` implementation with retry logic.
+///
+/// Retries failed calls up to 3 total attempts with exponential
+/// backoff (1s, 2s) between attempts.
+pub struct RetryOperatorClient<T: OperatorApi> {
+    /// The inner operator client (public for test inspection).
+    pub inner: T,
+}
+
+impl<T: OperatorApi> RetryOperatorClient<T> {
+    /// Create a new RetryOperatorClient wrapping the given inner client.
+    pub fn new(inner: T) -> Self {
+        Self { inner }
+    }
+}
+
+#[tonic::async_trait]
+impl<T: OperatorApi> OperatorApi for RetryOperatorClient<T> {
+    async fn start_session(
+        &self,
+        vehicle_id: &str,
+        zone_id: &str,
+    ) -> Result<StartResponse, OperatorError> {
+        let mut last_err = None;
+        for attempt in 0..MAX_ATTEMPTS {
+            match self.inner.start_session(vehicle_id, zone_id).await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    warn!(attempt = attempt + 1, max = MAX_ATTEMPTS, error = %e, "start_session attempt failed");
+                    last_err = Some(e);
+                    if let Some(delay) = RETRY_DELAYS.get(attempt) {
+                        tokio::time::sleep(*delay).await;
+                    }
+                }
+            }
+        }
+        Err(last_err.unwrap())
+    }
+
+    async fn stop_session(
         &self,
         session_id: &str,
-    ) -> Result<StatusResponse, OperatorError> {
-        let url = format!("{}/parking/status/{}", self.base_url, session_id);
-
-        info!(%url, %session_id, "sending get_status request");
-
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    OperatorError::Timeout
-                } else {
-                    OperatorError::Unreachable(e.to_string())
+    ) -> Result<StopResponse, OperatorError> {
+        let mut last_err = None;
+        for attempt in 0..MAX_ATTEMPTS {
+            match self.inner.stop_session(session_id).await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    warn!(attempt = attempt + 1, max = MAX_ATTEMPTS, error = %e, "stop_session attempt failed");
+                    last_err = Some(e);
+                    if let Some(delay) = RETRY_DELAYS.get(attempt) {
+                        tokio::time::sleep(*delay).await;
+                    }
                 }
-            })?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body_text = response.text().await.unwrap_or_default();
-            error!(http_status = %status, body = %body_text, "operator get_status failed");
-            return Err(OperatorError::HttpError {
-                status: status.as_u16(),
-                body: body_text,
-            });
+            }
         }
-
-        response
-            .json::<StatusResponse>()
-            .await
-            .map_err(|e| OperatorError::ParseError(e.to_string()))
+        Err(last_err.unwrap())
     }
 }
 

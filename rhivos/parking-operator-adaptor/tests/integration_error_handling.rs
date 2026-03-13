@@ -3,8 +3,8 @@
 //! Tests that the adaptor correctly handles an unreachable PARKING_OPERATOR.
 //!
 //! TS-08-E1: Operator unreachable on session start -- session remains idle.
-//! TS-08-E2: Operator unreachable on session stop -- adaptor transitions to idle
-//!           to avoid stuck state; SessionActive may remain stale.
+//! TS-08-E2: Operator unreachable on session stop -- session remains active
+//!           (session state not updated on stop failure per 08-REQ-2.E2).
 //!
 //! These tests use the operator REST client directly (unit-level integration)
 //! and the gRPC service with a deliberately unreachable operator URL.
@@ -18,31 +18,27 @@ use tokio::sync::Mutex;
 
 /// TS-08-E1: When the operator is unreachable and a lock event triggers a
 /// start attempt via the autonomous loop handler, the session remains idle.
-///
-/// This test simulates the autonomous start flow by invoking the handle_lock_event
-/// function with an operator client pointed at an unreachable address.
 #[tokio::test]
 async fn test_operator_unreachable_on_start_session_remains_idle() {
     use parking_operator_adaptor::operator::OperatorClient;
     use parking_operator_adaptor::session::SessionManager;
+    use parking_operator_adaptor::testing::NoopPublisher;
 
-    // Use an unreachable operator URL
     let operator = Arc::new(OperatorClient::new("http://127.0.0.1:19876".to_string()));
     let session = Arc::new(Mutex::new(SessionManager::new(Some(
         "zone-demo-1".to_string(),
     ))));
 
-    // Simulate the autonomous lock event handler
+    let publisher = NoopPublisher;
     parking_operator_adaptor::autonomous::handle_lock_event(
         &session,
-        &operator,
-        &None, // no publisher
+        operator.as_ref(),
+        &publisher,
         "DEMO-VIN-001",
         "zone-demo-1",
     )
     .await;
 
-    // Session should remain idle because operator was unreachable
     let s = session.lock().await;
     assert_eq!(
         *s.state(),
@@ -62,13 +58,21 @@ async fn test_grpc_start_session_returns_unavailable_when_operator_unreachable()
     use parking_operator_adaptor::grpc::ParkingAdaptorService;
     use parking_operator_adaptor::operator::OperatorClient;
     use parking_operator_adaptor::session::SessionManager;
+    use parking_operator_adaptor::testing::NoopPublisher;
 
     let session = Arc::new(Mutex::new(SessionManager::new(Some(
         "zone-demo-1".to_string(),
     ))));
-    let operator = Arc::new(OperatorClient::new("http://127.0.0.1:19876".to_string()));
-    let svc =
-        ParkingAdaptorService::new(session.clone(), operator, "DEMO-VIN-001".to_string(), None);
+    let operator: Arc<dyn parking_operator_adaptor::operator::OperatorApi> =
+        Arc::new(OperatorClient::new("http://127.0.0.1:19876".to_string()));
+    let publisher: Arc<dyn parking_operator_adaptor::broker::SessionPublisher> =
+        Arc::new(NoopPublisher);
+    let svc = ParkingAdaptorService::new(
+        session.clone(),
+        operator,
+        "DEMO-VIN-001".to_string(),
+        publisher,
+    );
 
     let request = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StartSessionRequest {
@@ -85,7 +89,6 @@ async fn test_grpc_start_session_returns_unavailable_when_operator_unreachable()
         "should return UNAVAILABLE when operator is unreachable"
     );
 
-    // Session should be back to idle (fail_start was called)
     let s = session.lock().await;
     assert_eq!(
         *s.state(),
@@ -94,14 +97,14 @@ async fn test_grpc_start_session_returns_unavailable_when_operator_unreachable()
     );
 }
 
-/// TS-08-E2: When operator is unreachable during stop, the adaptor transitions
-/// to idle to avoid a stuck state. The SessionActive signal may remain stale.
+/// TS-08-E2: When operator is unreachable during stop, the session remains
+/// active (per 08-REQ-2.E2: session state not updated on stop failure).
 #[tokio::test]
-async fn test_operator_unreachable_on_stop_session_transitions_to_idle() {
+async fn test_operator_unreachable_on_stop_session_remains_active() {
     use parking_operator_adaptor::operator::OperatorClient;
     use parking_operator_adaptor::session::SessionManager;
+    use parking_operator_adaptor::testing::NoopPublisher;
 
-    // Set up an active session
     let session = Arc::new(Mutex::new(SessionManager::new(Some(
         "zone-demo-1".to_string(),
     ))));
@@ -115,37 +118,35 @@ async fn test_operator_unreachable_on_stop_session_transitions_to_idle() {
         );
     }
 
-    // Use an unreachable operator URL
     let operator = Arc::new(OperatorClient::new("http://127.0.0.1:19876".to_string()));
+    let publisher = NoopPublisher;
 
-    // Simulate the autonomous unlock event handler
     parking_operator_adaptor::autonomous::handle_unlock_event(
         &session,
-        &operator,
-        &None, // no publisher
+        operator.as_ref(),
+        &publisher,
     )
     .await;
 
-    // Session should transition to idle to avoid stuck state,
-    // even though the operator did not confirm the stop.
+    // Session should remain active because stop failed (08-REQ-2.E2)
     let s = session.lock().await;
     assert_eq!(
         *s.state(),
-        parking_operator_adaptor::session::SessionState::Idle,
-        "session should transition to idle to avoid stuck state"
+        parking_operator_adaptor::session::SessionState::Active,
+        "session should remain active when stop fails"
     );
 }
 
 /// TS-08-E2: When operator is unreachable during stop via gRPC, the service
-/// returns an error and the session transitions to idle.
+/// returns an error and the session remains active.
 #[tokio::test]
 async fn test_grpc_stop_session_returns_unavailable_when_operator_unreachable() {
     use parking_operator_adaptor::grpc::service::proto::parking_adaptor_server::ParkingAdaptor;
     use parking_operator_adaptor::grpc::ParkingAdaptorService;
     use parking_operator_adaptor::operator::OperatorClient;
     use parking_operator_adaptor::session::SessionManager;
+    use parking_operator_adaptor::testing::NoopPublisher;
 
-    // Set up an active session
     let session = Arc::new(Mutex::new(SessionManager::new(Some(
         "zone-demo-1".to_string(),
     ))));
@@ -155,9 +156,16 @@ async fn test_grpc_stop_session_returns_unavailable_when_operator_unreachable() 
         s.confirm_start("session-active-456".to_string());
     }
 
-    let operator = Arc::new(OperatorClient::new("http://127.0.0.1:19876".to_string()));
-    let svc =
-        ParkingAdaptorService::new(session.clone(), operator, "DEMO-VIN-001".to_string(), None);
+    let operator: Arc<dyn parking_operator_adaptor::operator::OperatorApi> =
+        Arc::new(OperatorClient::new("http://127.0.0.1:19876".to_string()));
+    let publisher: Arc<dyn parking_operator_adaptor::broker::SessionPublisher> =
+        Arc::new(NoopPublisher);
+    let svc = ParkingAdaptorService::new(
+        session.clone(),
+        operator,
+        "DEMO-VIN-001".to_string(),
+        publisher,
+    );
 
     let request = tonic::Request::new(
         parking_operator_adaptor::grpc::service::proto::StopSessionRequest {},
@@ -172,11 +180,11 @@ async fn test_grpc_stop_session_returns_unavailable_when_operator_unreachable() 
         "should return UNAVAILABLE when operator is unreachable"
     );
 
-    // Session should be back to idle (fail_stop transitions to idle)
+    // Session should remain active (fail_stop goes back to Active per 08-REQ-2.E2)
     let s = session.lock().await;
     assert_eq!(
         *s.state(),
-        parking_operator_adaptor::session::SessionState::Idle,
-        "session should be idle after failed stop"
+        parking_operator_adaptor::session::SessionState::Active,
+        "session should remain active after failed stop"
     );
 }
