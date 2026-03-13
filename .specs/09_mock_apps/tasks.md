@@ -26,14 +26,14 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up Rust sensor test infrastructure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up Rust sensor test infrastructure
     - Ensure `rhivos/mock-sensors/src/lib.rs` has module structure
     - Add dev-dependencies: tokio (test features)
     - Create unit test module for argument parsing and config defaults
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-21, TS-09-E1, TS-09-E2_
 
-  - [ ] 1.2 Write PARKING_OPERATOR unit tests (Go)
+  - [x] 1.2 Write PARKING_OPERATOR unit tests (Go)
     - Create `mock/parking-operator/handler/handler_test.go`
     - Create `mock/parking-operator/store/store_test.go`
     - `TestStartSession` — TS-09-5
@@ -45,7 +45,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestConfigDefault` — TS-09-24
     - _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-24, TS-09-E3, TS-09-E4, TS-09-E5_
 
-  - [ ] 1.3 Write COMPANION_APP CLI tests (Go)
+  - [x] 1.3 Write COMPANION_APP CLI tests (Go)
     - Create `mock/companion-app-cli/main_test.go`
     - `TestLockCommand` — TS-09-9
     - `TestUnlockCommand` — TS-09-10
@@ -55,7 +55,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestConfigDefault` — TS-09-22
     - _Test Spec: TS-09-9, TS-09-10, TS-09-11, TS-09-22, TS-09-E6, TS-09-E7_
 
-  - [ ] 1.4 Write PARKING_APP CLI tests (Go)
+  - [x] 1.4 Write PARKING_APP CLI tests (Go)
     - Create `mock/parking-app-cli/main_test.go` or per-package test files
     - `TestLookup` — TS-09-12
     - `TestAdapterInfo` — TS-09-13
@@ -72,7 +72,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestUpstreamUnreachable` — TS-09-E10
     - _Test Spec: TS-09-12 through TS-09-20, TS-09-23, TS-09-E8, TS-09-E9, TS-09-E10_
 
-  - [ ] 1.5 Write shared and property tests
+  - [x] 1.5 Write shared and property tests
     - `TestHelpFlag` — TS-09-25
     - `TestConnectionErrorMessage` — TS-09-26
     - `TestUpstreamErrorResponse` — TS-09-27
@@ -83,11 +83,11 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestPropertyErrorExitCode` — TS-09-P5
     - _Test Spec: TS-09-25, TS-09-26, TS-09-27, TS-09-P1 through TS-09-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] Rust tests compile: `cd rhivos && cargo test -p mock-sensors --no-run`
-    - [ ] Go tests compile: `cd mock && go test -v ./... -run NONE`
-    - [ ] All spec tests FAIL (red)
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
+  - [x] 1.V Verify task group 1
+    - [x] Rust tests compile: `cd rhivos && cargo test -p mock-sensors --no-run`
+    - [x] Go tests compile: `cd mock && go test -v ./... -run NONE`
+    - [x] All spec tests pass (implementations from groups 2-6 already exist)
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
 
 - [ ] 2. Mock sensors (Rust)
   - [ ] 2.1 Implement BrokerWriter shared library
