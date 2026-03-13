@@ -80,35 +80,35 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
     - [x] _Test Spec: TS-01-1 through TS-01-6_
 
-- [ ] 3. Rust workspace and skeletons
-  - [ ] 3.1 Create Cargo workspace root
+- [x] 3. Rust workspace and skeletons
+  - [x] 3.1 Create Cargo workspace root
     - Create `rhivos/Cargo.toml` with `[workspace]` defining members: `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`, `mock-sensors`
     - _Requirements: 01-REQ-2.1_
 
-  - [ ] 3.2 Create Rust skeleton crates
+  - [x] 3.2 Create Rust skeleton crates
     - Create `Cargo.toml` and `src/main.rs` for: locking-service, cloud-gateway-client, update-service, parking-operator-adaptor
     - Each `main.rs` prints usage with component name and exits 0
     - Each crate includes a `#[test] fn it_compiles()` test
     - _Requirements: 01-REQ-4.1, 01-REQ-4.3, 01-REQ-4.E1_
 
-  - [ ] 3.3 Create mock-sensors crate with binary targets
+  - [x] 3.3 Create mock-sensors crate with binary targets
     - Create `rhivos/mock-sensors/Cargo.toml` with `[[bin]]` entries for location-sensor, speed-sensor, door-sensor
     - Create `src/bin/location-sensor.rs`, `src/bin/speed-sensor.rs`, `src/bin/door-sensor.rs`
     - Create `src/lib.rs` with shared stub code
     - Each binary prints usage and exits 0
     - _Requirements: 01-REQ-2.4, 01-REQ-4.1, 01-REQ-4.3_
 
-  - [ ] 3.4 Verify Rust workspace builds and tests pass
+  - [x] 3.4 Verify Rust workspace builds and tests pass
     - Run `cd rhivos && cargo build` — must exit 0
     - Run `cd rhivos && cargo test` — must discover and pass tests for all crates
     - Run `cd rhivos && cargo clippy -- -D warnings` — must pass
     - _Requirements: 01-REQ-2.2, 01-REQ-2.3, 01-REQ-8.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Rust workspace tests pass: `cd tests/setup && go test -v -run 'TestCargo|TestRustSkeleton|TestRustBinary' ./...`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
-    - [ ] _Test Spec: TS-01-7 through TS-01-10, TS-01-14, TS-01-16_
+  - [x] 3.V Verify task group 3
+    - [x] Rust workspace tests pass: `cd tests/setup && go test -v -run 'TestCargo|TestRustSkeleton|TestRustBinary' ./...`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
+    - [x] _Test Spec: TS-01-7 through TS-01-10, TS-01-14, TS-01-16_
 
 - [ ] 4. Go workspace and skeletons
   - [ ] 4.1 Create Go modules
