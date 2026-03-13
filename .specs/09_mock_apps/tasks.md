@@ -89,8 +89,8 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - [x] All spec tests pass (implementations from groups 2-6 already exist)
     - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
 
-- [ ] 2. Mock sensors (Rust)
-  - [ ] 2.1 Implement BrokerWriter shared library
+- [x] 2. Mock sensors (Rust)
+  - [x] 2.1 Implement BrokerWriter shared library
     - Vendor kuksa.val.v1 proto files into `rhivos/mock-sensors/proto/`
     - Add tonic, prost, tonic-build dependencies
     - Create `build.rs` for proto code generation
@@ -98,27 +98,27 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - Read `DATA_BROKER_ADDR` from env with default
     - _Requirements: 09-REQ-5.1_
 
-  - [ ] 2.2 Implement location-sensor binary
+  - [x] 2.2 Implement location-sensor binary
     - Parse `--lat` and `--lon` arguments (clap or manual)
     - Write lat/lon to DATA_BROKER via BrokerWriter
     - Print usage on `--help`, error on missing/invalid args
     - _Requirements: 09-REQ-1.1, 09-REQ-1.E1, 09-REQ-1.E2, 09-REQ-6.1_
 
-  - [ ] 2.3 Implement speed-sensor binary
+  - [x] 2.3 Implement speed-sensor binary
     - Parse `--speed` argument
     - Write Vehicle.Speed to DATA_BROKER via BrokerWriter
     - _Requirements: 09-REQ-1.2, 09-REQ-1.E1, 09-REQ-1.E2_
 
-  - [ ] 2.4 Implement door-sensor binary
+  - [x] 2.4 Implement door-sensor binary
     - Parse `--open` or `--closed` argument
     - Write Vehicle.Cabin.Door.Row1.DriverSide.IsOpen to DATA_BROKER
     - _Requirements: 09-REQ-1.3, 09-REQ-1.E1, 09-REQ-1.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Sensor tests pass: `cd rhivos && cargo test -p mock-sensors`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
-    - [ ] _Test Spec: TS-09-21, TS-09-E1, TS-09-E2, TS-09-P1_
+  - [x] 2.V Verify task group 2
+    - [x] Sensor tests pass: `cd rhivos && cargo test -p mock-sensors`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+    - [x] _Test Spec: TS-09-21, TS-09-E1, TS-09-E2, TS-09-P1_
 
 - [x] 3. Mock PARKING_OPERATOR (Go)
   - [x] 3.1 Implement store package
