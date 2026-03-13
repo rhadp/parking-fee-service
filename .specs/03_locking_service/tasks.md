@@ -24,14 +24,14 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add dependencies to locking-service Cargo.toml
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add dependencies to locking-service Cargo.toml
     - Add: serde, serde_json, tokio, tonic, prost, tracing, tracing-subscriber, proptest (dev)
     - Vendor kuksa.val.v1 proto definitions into `rhivos/locking-service/proto/` (or `proto/kuksa/`)
     - Add tonic-build to build.rs for proto code generation
     - _Test Spec: TS-03-1 through TS-03-18_
 
-  - [ ] 1.2 Write command parsing and validation unit tests
+  - [x] 1.2 Write command parsing and validation unit tests
     - Create `rhivos/locking-service/src/command.rs` with test module
     - `test_parse_valid_command` — TS-03-2
     - `test_validate_empty_command_id` — TS-03-4
@@ -42,7 +42,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_validate_non_driver_door` — TS-03-E5
     - _Test Spec: TS-03-2, TS-03-4, TS-03-5, TS-03-6, TS-03-E3, TS-03-E4, TS-03-E5_
 
-  - [ ] 1.3 Write safety check unit tests
+  - [x] 1.3 Write safety check unit tests
     - Create `rhivos/locking-service/src/safety.rs` with test module
     - `test_lock_rejected_vehicle_moving` — TS-03-7
     - `test_lock_rejected_door_open` — TS-03-8
@@ -52,7 +52,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_door_unset_treated_closed` — TS-03-E7
     - _Test Spec: TS-03-7, TS-03-8, TS-03-9, TS-03-10, TS-03-E6, TS-03-E7_
 
-  - [ ] 1.4 Write response builder and state management tests
+  - [x] 1.4 Write response builder and state management tests
     - Create `rhivos/locking-service/src/response.rs` with test module
     - `test_success_response_format` — TS-03-14
     - `test_failure_response_format` — TS-03-15
@@ -64,7 +64,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_response_publish_failure` — TS-03-E10
     - _Test Spec: TS-03-11, TS-03-12, TS-03-14, TS-03-15, TS-03-16, TS-03-E8, TS-03-E9, TS-03-E10_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - Create property tests in relevant modules or `tests/` directory
     - `proptest_command_validation_completeness` — TS-03-P1
     - `proptest_safety_gate_lock` — TS-03-P2
@@ -74,15 +74,15 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `proptest_response_completeness` — TS-03-P6
     - _Test Spec: TS-03-P1 through TS-03-P6_
 
-  - [ ] 1.6 Write config test
+  - [x] 1.6 Write config test
     - `test_databroker_addr_default` — TS-03-3
     - `test_databroker_addr_env` — TS-03-3
     - _Test Spec: TS-03-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p locking-service --no-run`
-    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p locking-service 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos && cargo test -p locking-service --no-run`
+    - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p locking-service 2>&1 | grep FAILED`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
 
 - [ ] 2. Command parsing and response modules
   - [ ] 2.1 Implement command module
