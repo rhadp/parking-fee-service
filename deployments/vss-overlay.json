@@ -1,9 +1,11 @@
 {
   "Vehicle": {
     "type": "branch",
+    "description": "High-level vehicle data.",
     "children": {
       "Parking": {
         "type": "branch",
+        "description": "Parking-related signals.",
         "children": {
           "SessionActive": {
             "type": "sensor",
@@ -14,9 +16,11 @@
       },
       "Command": {
         "type": "branch",
+        "description": "Commands sent to vehicle subsystems.",
         "children": {
           "Door": {
             "type": "branch",
+            "description": "Door command signals.",
             "children": {
               "Lock": {
                 "type": "actuator",

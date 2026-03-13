@@ -188,8 +188,8 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
     - [x] _Test Spec: TS-01-24 through TS-01-28_
 
-- [ ] 8. Root Makefile and final integration
-  - [ ] 8.1 Complete root Makefile
+- [x] 8. Root Makefile and final integration
+  - [x] 8.1 Complete root Makefile
     - Add `build` target (cargo build + go build)
     - Add `test` target (cargo test + go test)
     - Add `lint` target (cargo clippy + go vet)
@@ -198,7 +198,7 @@ The ordering ensures dependencies are built before dependents: directories first
     - Include toolchain availability checks
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3, 01-REQ-7.4, 01-REQ-7.5, 01-REQ-7.6, 01-REQ-7.E1_
 
-  - [ ] 8.2 Verify all Makefile targets
+  - [x] 8.2 Verify all Makefile targets
     - Run `make build` — must exit 0
     - Run `make test` — must exit 0, output both Rust and Go test results
     - Run `make lint` — must exit 0
@@ -206,11 +206,11 @@ The ordering ensures dependencies are built before dependents: directories first
     - Run `make clean` — must remove build artifacts
     - _Requirements: 01-REQ-7.1 through 01-REQ-7.6, 01-REQ-8.4_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] Makefile tests pass: `cd tests/setup && go test -v -run 'TestMakefile|TestMakeTarget' ./...`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [ ] No linter warnings: `make lint`
-    - [ ] _Test Spec: TS-01-29 through TS-01-34, TS-01-38_
+  - [x] 8.V Verify task group 8
+    - [x] Makefile tests pass: `cd tests/setup && go test -v -run 'TestMakefile|TestMakeTarget' ./...`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [x] No linter warnings: `make lint`
+    - [x] _Test Spec: TS-01-29 through TS-01-34, TS-01-38_
 
 - [ ] 9. Edge cases and property verification
   - [ ] 9.1 Verify edge case tests
