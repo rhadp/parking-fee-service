@@ -23,21 +23,21 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up Go module and test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up Go module and test file structure
     - Ensure `backend/parking-fee-service/` has `go.mod` (or is part of Go workspace)
     - Create package directories: `model/`, `config/`, `geo/`, `store/`, `handler/`
     - Create test files: `geo/geo_test.go`, `config/config_test.go`, `store/store_test.go`, `handler/handler_test.go`
     - _Test Spec: TS-05-1 through TS-05-16_
 
-  - [ ] 1.2 Write geo package tests
+  - [x] 1.2 Write geo package tests
     - `TestPointInPolygonInside` — TS-05-2 (inside returns true)
     - `TestPointInPolygonOutside` — TS-05-2 (outside returns false)
     - `TestProximityMatchingWithinThreshold` — TS-05-3
     - `TestProximityThresholdUsed` — TS-05-11
     - _Test Spec: TS-05-2, TS-05-3, TS-05-11_
 
-  - [ ] 1.3 Write config and store package tests
+  - [x] 1.3 Write config and store package tests
     - `TestLoadConfigFromFile` — TS-05-9
     - `TestConfigStructureValidation` — TS-05-10
     - `TestConfigFileMissingDefaults` — TS-05-E5
@@ -45,7 +45,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - `TestMultipleOperatorsReturned` — TS-05-4
     - _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6_
 
-  - [ ] 1.4 Write handler integration tests (httptest)
+  - [x] 1.4 Write handler integration tests (httptest)
     - `TestOperatorLookup` — TS-05-1
     - `TestEmptyArrayNoMatches` — TS-05-5
     - `TestAdapterMetadataRetrieval` — TS-05-6
@@ -60,7 +60,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - `TestUnknownOperatorID` — TS-05-E4
     - _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - `TestPropertyPointInPolygon` — TS-05-P1
     - `TestPropertyProximityMatching` — TS-05-P2
     - `TestPropertyOperatorZoneAssociation` — TS-05-P3
@@ -69,10 +69,10 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - `TestPropertyConfigDefaults` — TS-05-P6
     - _Test Spec: TS-05-P1 through TS-05-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd backend && go test -v ./parking-fee-service/... -run NONE`
-    - [ ] All spec tests FAIL (red): `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep FAIL`
-    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd backend && go test -v ./parking-fee-service/... -run NONE`
+    - [x] All spec tests FAIL (red): `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep FAIL`
+    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
 
 - [ ] 2. Model, config, and store modules
   - [ ] 2.1 Implement model package
