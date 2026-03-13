@@ -24,14 +24,14 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add dependencies to cloud-gateway-client Cargo.toml
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add dependencies to cloud-gateway-client Cargo.toml
     - Add: async-nats, serde, serde_json, tokio, tonic, prost, tracing, tracing-subscriber, proptest (dev)
     - Vendor kuksa.val.v1 proto definitions into `rhivos/cloud-gateway-client/proto/`
     - Add tonic-build to build.rs for proto code generation
     - _Test Spec: TS-04-1 through TS-04-17_
 
-  - [ ] 1.2 Write config and command validation tests
+  - [x] 1.2 Write config and command validation tests
     - Create `rhivos/cloud-gateway-client/src/config.rs` with test module
     - `test_nats_url_default` — TS-04-1 (case 1)
     - `test_nats_url_env` — TS-04-1 (case 2)
@@ -47,7 +47,7 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - `test_command_missing_field` — TS-04-E5
     - _Test Spec: TS-04-1, TS-04-3, TS-04-4, TS-04-5, TS-04-12, TS-04-13, TS-04-E3, TS-04-E4, TS-04-E5, TS-04-E10_
 
-  - [ ] 1.3 Write telemetry and response tests
+  - [x] 1.3 Write telemetry and response tests
     - Create `rhivos/cloud-gateway-client/src/telemetry.rs` with test module
     - `test_telemetry_all_fields` — TS-04-11
     - `test_telemetry_on_change` — TS-04-10
@@ -59,7 +59,7 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - `test_telemetry_publish_failure` — TS-04-E8
     - _Test Spec: TS-04-6, TS-04-8, TS-04-10, TS-04-11, TS-04-E6, TS-04-E7, TS-04-E8_
 
-  - [ ] 1.4 Write property tests
+  - [x] 1.4 Write property tests
     - `proptest_bearer_token_gate` — TS-04-P1
     - `proptest_command_validation` — TS-04-P2
     - `proptest_response_fidelity` — TS-04-P3
@@ -67,10 +67,10 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - `proptest_vin_subjects` — TS-04-P5
     - _Test Spec: TS-04-P1 through TS-04-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p cloud-gateway-client --no-run`
-    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p cloud-gateway-client 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos && cargo test -p cloud-gateway-client --no-run`
+    - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p cloud-gateway-client 2>&1 | grep FAILED`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
 
 - [ ] 2. Config and command validation modules
   - [ ] 2.1 Implement config module
