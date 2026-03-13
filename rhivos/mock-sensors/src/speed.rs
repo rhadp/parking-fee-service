@@ -1,1 +1,0 @@
-// Mock speed sensor module
