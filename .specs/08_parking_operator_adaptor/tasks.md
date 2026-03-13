@@ -153,14 +153,14 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [x] _Test Spec: TS-08-1, TS-08-3, TS-08-4, TS-08-5, TS-08-6, TS-08-8, TS-08-9, TS-08-13, TS-08-14, TS-08-E1, TS-08-E2, TS-08-E3, TS-08-E4, TS-08-E9, TS-08-P1, TS-08-P2, TS-08-P3, TS-08-P4, TS-08-P5_
 
-- [ ] 5. gRPC service and main
-  - [ ] 5.1 Vendor proto files
+- [x] 5. gRPC service and main
+  - [x] 5.1 Vendor proto files
     - Copy/create `parking_adaptor.proto` and `common.proto` into `rhivos/parking-operator-adaptor/proto/`
     - Set up `build.rs` for tonic-build code generation
     - Define RPCs: StartSession, StopSession, GetStatus, GetRate
     - _Requirements: 08-REQ-3.1, 08-REQ-3.2, 08-REQ-4.1, 08-REQ-5.1_
 
-  - [ ] 5.2 Implement gRPC service handlers
+  - [x] 5.2 Implement gRPC service handlers
     - `ParkingAdaptorService` struct holding `SessionManager`, `OperatorClient`, `BrokerClient`
     - `start_session`: check no active session, call operator, store session, write broker → return session_id
     - `stop_session`: check active session, call operator, clear session, write broker → return stop details
@@ -168,21 +168,21 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - `get_rate`: return cached rate or NOT_FOUND
     - _Requirements: 08-REQ-3.1, 08-REQ-3.2, 08-REQ-3.E1, 08-REQ-3.E2, 08-REQ-4.1, 08-REQ-4.2, 08-REQ-5.1, 08-REQ-5.2_
 
-  - [ ] 5.3 Implement main
+  - [x] 5.3 Implement main
     - Load config, init tracing
-    - Connect to DATA_BROKER with retries
+    - Connect to DATA_BROKER with retries (5 attempts with exponential backoff, exit non-zero on failure)
     - Start auto-session loop (tokio::spawn)
-    - Start gRPC server on configured port
+    - Start gRPC server on configured port with graceful shutdown
     - Handle SIGTERM/SIGINT: stop active session, close connections, exit 0
     - Log version, port, operator URL, DATA_BROKER address, vehicle ID at startup
     - _Requirements: 08-REQ-6.E1, 08-REQ-8.1, 08-REQ-8.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Binary builds: `cd rhivos && cargo build -p parking-operator-adaptor`
-    - [ ] All unit tests pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] _Test Spec: TS-08-7, TS-08-8, TS-08-E5, TS-08-E6_
+  - [x] 5.V Verify task group 5
+    - [x] Binary builds: `cd rhivos && cargo build -p parking-operator-adaptor`
+    - [x] All unit tests pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] _Test Spec: TS-08-7, TS-08-8, TS-08-E5, TS-08-E6_
 
 - [ ] 6. Integration test validation
   - [ ] 6.1 Create integration test module
@@ -204,7 +204,7 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [ ] All requirements 08-REQ-1 through 08-REQ-8 acceptance criteria met
 
-- [ ] 7. Checkpoint - All Tests Green
+- [x] 7. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
   - Binary starts, serves gRPC requests, subscribes to DATA_BROKER, calls PARKING_OPERATOR REST API, shuts down cleanly
   - Ask the user if questions arise
