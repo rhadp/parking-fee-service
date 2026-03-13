@@ -140,7 +140,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
     - [x] _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10, TS-03-P1 through TS-03-P6_
 
-- [ ] 4. Checkpoint - Core Logic Complete
+- [x] 4. Checkpoint - Core Logic Complete
   - All unit and property tests pass
   - No integration tests yet (those require live DATA_BROKER)
   - Ask the user if questions arise
