@@ -91,30 +91,30 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
     - [x] _Test Spec: TS-04-1, TS-04-3, TS-04-4, TS-04-5, TS-04-12, TS-04-13, TS-04-E3, TS-04-E4, TS-04-E5, TS-04-E10_
 
-- [ ] 3. Telemetry and response relay modules
-  - [ ] 3.1 Implement telemetry module
+- [x] 3. Telemetry and response relay modules
+  - [x] 3.1 Implement telemetry module
     - Define `TelemetryState` and `TelemetryMessage` structs
     - Implement `build_telemetry(vin, state)`: creates aggregated message with timestamp, skips None fields
     - Use `#[serde(skip_serializing_if = "Option::is_none")]` for optional fields
     - _Requirements: 04-REQ-4.2, 04-REQ-4.3, 04-REQ-4.E1_
 
-  - [ ] 3.2 Implement response relay helpers
+  - [x] 3.2 Implement response relay helpers
     - Implement response relay function: takes response JSON string, publishes verbatim to NATS subject
     - Implement command forwarding function: takes validated command, sets DATA_BROKER signal
     - Both use trait-based abstractions for testability
     - _Requirements: 04-REQ-2.3, 04-REQ-3.2_
 
-  - [ ] 3.3 Create mock clients for tests
+  - [x] 3.3 Create mock clients for tests
     - Mock BrokerClient (shared pattern with spec 03): configurable get/set/subscribe
     - Mock NatsClient: records publishes, configurable failures
     - _Test Spec: TS-04-6, TS-04-8, TS-04-E6, TS-04-E8_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Telemetry and relay tests pass: `cd rhivos && cargo test -p cloud-gateway-client -- telemetry relay`
-    - [ ] Property tests pass: `cd rhivos && cargo test -p cloud-gateway-client -- proptest`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] _Test Spec: TS-04-6, TS-04-8, TS-04-10, TS-04-11, TS-04-E6, TS-04-E7, TS-04-E8, TS-04-P1 through TS-04-P5_
+  - [x] 3.V Verify task group 3
+    - [x] Telemetry and relay tests pass: `cd rhivos && cargo test -p cloud-gateway-client -- telemetry relay`
+    - [x] Property tests pass: `cd rhivos && cargo test -p cloud-gateway-client -- proptest`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] _Test Spec: TS-04-6, TS-04-8, TS-04-10, TS-04-11, TS-04-E6, TS-04-E7, TS-04-E8, TS-04-P1 through TS-04-P5_
 
 - [ ] 4. Checkpoint - Core Logic Complete
   - All unit and property tests pass

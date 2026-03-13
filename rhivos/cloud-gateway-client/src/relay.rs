@@ -1,6 +1,8 @@
+use tracing::error;
+
 use crate::broker::{BrokerClient, BrokerError};
 use crate::nats_client::NatsPublisher;
-use crate::telemetry::TelemetryState;
+use crate::telemetry::{build_telemetry, TelemetryState};
 
 /// VSS signal path for the lock command.
 pub const SIGNAL_LOCK_COMMAND: &str = "Vehicle.Command.Door.Lock";
@@ -9,8 +11,11 @@ pub const SIGNAL_LOCK_COMMAND: &str = "Vehicle.Command.Door.Lock";
 ///
 /// Publishes to `vehicles.{vin}.command_responses`. If the publish fails,
 /// logs the error and returns without propagating (04-REQ-3.E1).
-pub async fn relay_response<N: NatsPublisher>(_nats: &N, _vin: &str, _response_json: &str) {
-    todo!("relay_response: publish response_json to vehicles.{{vin}}.command_responses")
+pub async fn relay_response<N: NatsPublisher>(nats: &N, vin: &str, response_json: &str) {
+    let subject = format!("vehicles.{vin}.command_responses");
+    if let Err(e) = nats.publish(&subject, response_json.as_bytes()).await {
+        error!("Failed to publish command response to NATS: {}", e);
+    }
 }
 
 /// Forward a validated command JSON string to DATA_BROKER.
@@ -28,12 +33,19 @@ pub async fn forward_command<B: BrokerClient>(
 ///
 /// Builds and publishes a telemetry JSON message to `vehicles.{vin}.telemetry`.
 /// If the publish fails, logs the error and returns without propagating (04-REQ-4.E2).
-pub async fn publish_telemetry<N: NatsPublisher>(
-    _nats: &N,
-    _vin: &str,
-    _state: &TelemetryState,
-) {
-    todo!("publish_telemetry: build_telemetry and publish to vehicles.{{vin}}.telemetry")
+pub async fn publish_telemetry<N: NatsPublisher>(nats: &N, vin: &str, state: &TelemetryState) {
+    let msg = build_telemetry(vin, state);
+    let payload = match serde_json::to_vec(&msg) {
+        Ok(p) => p,
+        Err(e) => {
+            error!("Failed to serialize telemetry message: {}", e);
+            return;
+        }
+    };
+    let subject = format!("vehicles.{vin}.telemetry");
+    if let Err(e) = nats.publish(&subject, &payload).await {
+        error!("Failed to publish telemetry to NATS: {}", e);
+    }
 }
 
 #[cfg(test)]

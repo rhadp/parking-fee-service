@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use serde::Serialize;
 
 /// Aggregated state of telemetry signals from DATA_BROKER.
@@ -30,8 +32,20 @@ pub struct TelemetryMessage {
 ///
 /// Includes the VIN, all `Some` signal values, and the current Unix timestamp.
 /// `None` fields are omitted from the serialized JSON (04-REQ-4.E1).
-pub fn build_telemetry(_vin: &str, _state: &TelemetryState) -> TelemetryMessage {
-    todo!("build_telemetry: create TelemetryMessage with vin, state fields, and current timestamp")
+pub fn build_telemetry(vin: &str, state: &TelemetryState) -> TelemetryMessage {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    TelemetryMessage {
+        vin: vin.to_string(),
+        is_locked: state.is_locked,
+        latitude: state.latitude,
+        longitude: state.longitude,
+        parking_active: state.parking_active,
+        timestamp,
+    }
 }
 
 #[cfg(test)]
