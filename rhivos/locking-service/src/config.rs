@@ -9,11 +9,15 @@ pub fn get_databroker_addr() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Mutex to serialise env-var mutations across parallel test threads.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     // TS-03-3: Configurable Databroker Address (default)
     #[test]
     fn test_databroker_addr_default() {
-        // Remove env var to test default
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::remove_var("DATABROKER_ADDR");
         let addr = get_databroker_addr();
         assert_eq!(addr, "http://localhost:55556");
@@ -22,10 +26,10 @@ mod tests {
     // TS-03-3: Configurable Databroker Address (custom)
     #[test]
     fn test_databroker_addr_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("DATABROKER_ADDR", "http://10.0.0.5:55556");
         let addr = get_databroker_addr();
         assert_eq!(addr, "http://10.0.0.5:55556");
-        // Cleanup
         std::env::remove_var("DATABROKER_ADDR");
     }
 }

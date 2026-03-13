@@ -60,7 +60,7 @@ parking-fee-service/
 │   ├── update_service.proto        #   UPDATE_SERVICE gRPC interface
 │   └── parking_adaptor.proto       #   PARKING_OPERATOR_ADAPTOR gRPC interface
 │
-├── gen/go/                         # Generated Go protobuf code
+├── gen/go/                         # Generated Go protobuf code (via `make proto`)
 │   ├── commonpb/                   #   Common types package
 │   ├── updateservicepb/            #   Update service package
 │   └── parkingadaptorpb/           #   Parking adaptor package
@@ -69,31 +69,32 @@ parking-fee-service/
 │   ├── locking-service/            #   ASIL-B door locking service
 │   ├── cloud-gateway-client/       #   Cloud connectivity client
 │   ├── update-service/             #   Adapter lifecycle management (gRPC)
-│   └── parking-operator-adaptor/   #   Dynamic parking operator adapter (gRPC)
+│   ├── parking-operator-adaptor/   #   Dynamic parking operator adapter (gRPC)
+│   └── mock-sensors/               #   Mock vehicle sensors (location, speed, door)
 │
 ├── backend/                        # Go backend services
 │   ├── parking-fee-service/        #   Operator discovery + fee calculation (HTTP :8080)
 │   └── cloud-gateway/              #   Vehicle command relay (HTTP :8081, NATS)
 │
 ├── mock/                           # Mock CLI apps (simulate Android apps)
-│   ├── parking-app-cli/            #   Mock PARKING_APP (9 subcommands)
-│   └── companion-app-cli/          #   Mock COMPANION_APP (3 subcommands)
+│   ├── parking-app-cli/            #   Mock PARKING_APP
+│   ├── companion-app-cli/          #   Mock COMPANION_APP
+│   └── parking-operator/           #   Mock parking operator backend
 │
-├── aaos/                           # AAOS PARKING_APP placeholder (Kotlin, future)
-├── android/                        # COMPANION_APP placeholder (Flutter, future)
+├── android/                        # AAOS PARKING_APP placeholder (Kotlin, future)
+├── mobile/                         # Flutter COMPANION_APP placeholder (future)
 │
-├── infra/                          # Local development infrastructure
+├── deployments/                    # Local development infrastructure
 │   ├── compose.yml                 #   NATS (:4222) + Kuksa Databroker (:55556)
-│   └── nats/nats-server.conf      #   NATS server configuration
+│   ├── nats/nats-server.conf       #   NATS server configuration
+│   └── vss-overlay.json            #   Custom VSS signal definitions
 │
 ├── tests/
-│   ├── setup/                      # Spec verification tests (standalone Go module)
-│   └── integration/                # Cross-component integration tests (future)
+│   └── setup/                      # Spec verification tests (standalone Go module)
 │
 ├── Makefile                        # Top-level build orchestration
 ├── go.work                         # Go workspace linking all Go modules
 └── .specs/                         # Specification documents
-    └── prd.md                      # Product Requirements Document
 ```
 
 ## Local Development Ports

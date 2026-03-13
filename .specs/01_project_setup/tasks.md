@@ -212,28 +212,28 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] No linter warnings: `make lint`
     - [x] _Test Spec: TS-01-29 through TS-01-34, TS-01-38_
 
-- [ ] 9. Edge cases and property verification
-  - [ ] 9.1 Verify edge case tests
+- [x] 9. Edge cases and property verification
+  - [x] 9.1 Verify edge case tests
     - Run edge case tests: `cd tests/setup && go test -v -run 'TestEdge' ./...`
     - Fix any failures in the implementation
     - _Test Spec: TS-01-E1 through TS-01-E9_
 
-  - [ ] 9.2 Verify property tests
+  - [x] 9.2 Verify property tests
     - Run property tests: `cd tests/setup && go test -v -run 'TestProperty' ./...`
     - Fix any failures in the implementation
     - _Test Spec: TS-01-P1 through TS-01-P8_
 
-  - [ ] 9.3 Update README.md
+  - [x] 9.3 Update README.md
     - Update README.md to match the PRD-authoritative directory structure
     - Ensure directory names match: `deployments/`, `android/`, `mobile/`
     - Ensure documented Makefile targets match actual implementation
 
-  - [ ] 9.V Verify task group 9
-    - [ ] All edge case tests pass: `cd tests/setup && go test -v -run 'TestEdge' ./...`
-    - [ ] All property tests pass: `cd tests/setup && go test -v -run 'TestProperty' ./...`
-    - [ ] All tests pass: `make test && cd tests/setup && go test -v ./...`
-    - [ ] No linter warnings: `make lint`
-    - [ ] README accurately reflects implementation
+  - [x] 9.V Verify task group 9
+    - [x] All edge case tests pass: `cd tests/setup && go test -v -run 'TestEdge' ./...`
+    - [x] All property tests pass: `cd tests/setup && go test -v -run 'TestProperty' ./...`
+    - [x] All tests pass: `make test && cd tests/setup && go test -v ./...`
+    - [x] No linter warnings: `make lint`
+    - [x] README accurately reflects implementation
 
 ### Checkbox States
 
