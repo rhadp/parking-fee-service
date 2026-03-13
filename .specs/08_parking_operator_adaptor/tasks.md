@@ -96,8 +96,8 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [ ] _Test Spec: TS-08-15, TS-08-16, TS-08-P6_
 
-- [ ] 3. Session module
-  - [ ] 3.1 Implement SessionManager
+- [x] 3. Session module
+  - [x] 3.1 Implement SessionManager
     - `SessionManager` wrapping `Arc<Mutex<Option<SessionState>>>`
     - `new() -> Self`
     - `start(&self, session_id, zone_id, rate) -> Result<(), SessionError>`
@@ -109,11 +109,11 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - Return `SessionError::NotActive` from `stop` if no session
     - _Requirements: 08-REQ-1.2, 08-REQ-2.2, 08-REQ-3.E1, 08-REQ-3.E2, 08-REQ-4.1, 08-REQ-4.2, 08-REQ-5.1, 08-REQ-5.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Session tests pass: `cd rhivos && cargo test -p parking-operator-adaptor session`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] _Test Spec: TS-08-2, TS-08-5, TS-08-10, TS-08-11, TS-08-12, TS-08-E5, TS-08-E6, TS-08-E7_
+  - [x] 3.V Verify task group 3
+    - [x] Session tests pass: `cd rhivos && cargo test -p parking-operator-adaptor session`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] _Test Spec: TS-08-2, TS-08-5, TS-08-10, TS-08-11, TS-08-12, TS-08-E5, TS-08-E6, TS-08-E7_
 
 - [ ] 4. Operator client and broker modules
   - [ ] 4.1 Implement OperatorClient trait and HttpOperatorClient

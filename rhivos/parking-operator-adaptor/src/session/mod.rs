@@ -1,2 +1,2 @@
 pub mod state;
-pub use state::{SessionManager, SessionState};
+pub use state::{Rate, SessionError, SessionInfo, SessionManager, SessionState};
