@@ -174,7 +174,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
     - [x] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
 
-- [ ] 5. Checkpoint - All Tests Green
+- [x] 5. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
   - Binary starts, serves requests, shuts down cleanly
   - Ask the user if questions arise
