@@ -108,13 +108,13 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
     - [x] _Test Spec: TS-03-2, TS-03-3, TS-03-4, TS-03-5, TS-03-6, TS-03-14, TS-03-15, TS-03-16, TS-03-E3, TS-03-E4, TS-03-E5_
 
-- [ ] 3. Safety checks and state management
-  - [ ] 3.1 Define BrokerClient trait
+- [x] 3. Safety checks and state management
+  - [x] 3.1 Define BrokerClient trait
     - Define `BrokerClient` trait with async methods: `get_float`, `get_bool`, `set_bool`, `set_string`, `subscribe`
     - This trait enables mock testing of safety and state logic
     - _Requirements: 03-REQ-1.1 (interface)_
 
-  - [ ] 3.2 Implement safety module
+  - [x] 3.2 Implement safety module
     - Implement `check_safety(broker)`: reads Vehicle.Speed and IsOpen signals
     - Speed < 1.0 and IsOpen == false → Safe
     - Speed >= 1.0 → VehicleMoving
@@ -122,23 +122,23 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - None values treated as safe defaults (speed=0.0, door=closed)
     - _Requirements: 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3, 03-REQ-3.E1, 03-REQ-3.E2_
 
-  - [ ] 3.3 Implement command processor
+  - [x] 3.3 Implement command processor
     - Implement `process_command(broker, cmd, lock_state)` orchestrating: validate → safety check (lock only) → update state → publish response
     - Handles idempotent operations (lock when locked, unlock when unlocked)
     - Unlock bypasses safety checks
     - _Requirements: 03-REQ-3.4, 03-REQ-4.1, 03-REQ-4.2, 03-REQ-4.E1, 03-REQ-4.E2_
 
-  - [ ] 3.4 Create mock BrokerClient for tests
+  - [x] 3.4 Create mock BrokerClient for tests
     - Implement mock that returns configurable speed/door values
     - Records set_bool and set_string calls for assertion
     - _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Safety and state tests pass: `cd rhivos && cargo test -p locking-service -- safety process`
-    - [ ] Property tests pass: `cd rhivos && cargo test -p locking-service -- proptest`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10, TS-03-P1 through TS-03-P6_
+  - [x] 3.V Verify task group 3
+    - [x] Safety and state tests pass: `cd rhivos && cargo test -p locking-service -- safety process`
+    - [x] Property tests pass: `cd rhivos && cargo test -p locking-service -- proptest`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+    - [x] _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10, TS-03-P1 through TS-03-P6_
 
 - [ ] 4. Checkpoint - Core Logic Complete
   - All unit and property tests pass

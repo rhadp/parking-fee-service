@@ -13,8 +13,31 @@ pub enum SafetyResult {
 }
 
 /// Check safety constraints for a lock operation by reading signals from the broker.
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("check_safety not yet implemented")
+///
+/// Returns `Safe` if the vehicle is stationary and the door is closed.
+/// None values are treated as safe defaults per 03-REQ-3.E1 and 03-REQ-3.E2.
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    let speed = broker
+        .get_float(SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    let door_open = broker
+        .get_bool(SIGNAL_DOOR_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]
