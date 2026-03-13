@@ -1,0 +1,37 @@
+{
+  "Vehicle": {
+    "type": "branch",
+    "children": {
+      "Parking": {
+        "type": "branch",
+        "children": {
+          "SessionActive": {
+            "type": "sensor",
+            "datatype": "boolean",
+            "description": "Whether a parking session is currently active"
+          }
+        }
+      },
+      "Command": {
+        "type": "branch",
+        "children": {
+          "Door": {
+            "type": "branch",
+            "children": {
+              "Lock": {
+                "type": "actuator",
+                "datatype": "string",
+                "description": "JSON-encoded lock/unlock command request"
+              },
+              "Response": {
+                "type": "sensor",
+                "datatype": "string",
+                "description": "JSON-encoded command execution result"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

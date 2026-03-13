@@ -1,0 +1,16 @@
+services:
+  nats:
+    image: docker.io/nats:latest
+    ports:
+      - "4222:4222"
+    volumes:
+      - ./nats/nats-server.conf:/etc/nats/nats-server.conf
+    command: ["--config", "/etc/nats/nats-server.conf"]
+
+  databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:latest
+    ports:
+      - "55556:55555"
+    volumes:
+      - ./vss-overlay.json:/etc/kuksa/vss-overlay.json
+    command: ["--metadata", "/etc/kuksa/vss-overlay.json"]

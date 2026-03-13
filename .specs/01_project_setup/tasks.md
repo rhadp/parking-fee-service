@@ -167,26 +167,26 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] No linter warnings: `go vet ./...`
     - [x] _Test Spec: TS-01-18 through TS-01-23_
 
-- [ ] 7. Local infrastructure
-  - [ ] 7.1 Create Podman Compose configuration
+- [x] 7. Local infrastructure
+  - [x] 7.1 Create Podman Compose configuration
     - Create `deployments/compose.yml` with NATS (:4222) and Kuksa Databroker (:55556)
     - Create `deployments/nats/nats-server.conf` with port 4222 configuration
     - _Requirements: 01-REQ-6.1, 01-REQ-6.4_
 
-  - [ ] 7.2 Create VSS overlay file
+  - [x] 7.2 Create VSS overlay file
     - Create `deployments/vss-overlay.json` with custom signals: Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response
     - _Requirements: 01-REQ-6.5_
 
-  - [ ] 7.3 Add infra-up and infra-down to Makefile
+  - [x] 7.3 Add infra-up and infra-down to Makefile
     - Add `infra-up` target: `podman compose -f deployments/compose.yml up -d`
     - Add `infra-down` target: `podman compose -f deployments/compose.yml down`
     - Include Podman availability check
     - _Requirements: 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.E1_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Infrastructure tests pass: `cd tests/setup && go test -v -run 'TestCompose|TestNATS|TestVSS|TestInfra' ./...`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [ ] _Test Spec: TS-01-24 through TS-01-28_
+  - [x] 7.V Verify task group 7
+    - [x] Infrastructure tests pass: `cd tests/setup && go test -v -run 'TestCompose|TestNATS|TestVSS|TestInfra' ./...`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [x] _Test Spec: TS-01-24 through TS-01-28_
 
 - [ ] 8. Root Makefile and final integration
   - [ ] 8.1 Complete root Makefile
