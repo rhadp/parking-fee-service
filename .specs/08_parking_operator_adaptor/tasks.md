@@ -24,14 +24,14 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test infrastructure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test infrastructure
     - Ensure `rhivos/parking-operator-adaptor/` has `src/lib.rs` with module declarations
     - Create source files with empty/stub implementations: `model.rs`, `config.rs`, `session.rs`, `operator_client.rs`, `broker.rs`, `grpc_service.rs`
     - Add dev-dependencies: `proptest`, `tokio` (test features)
     - _Test Spec: TS-08-1 through TS-08-18_
 
-  - [ ] 1.2 Write config and session unit tests
+  - [x] 1.2 Write config and session unit tests
     - `test_config_from_env_vars` — TS-08-15
     - `test_config_defaults` — TS-08-16
     - `test_session_state_stored_after_start` — TS-08-2
@@ -40,7 +40,7 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - `test_get_rate_active_session` — TS-08-12
     - _Test Spec: TS-08-2, TS-08-10, TS-08-11, TS-08-12, TS-08-15, TS-08-16_
 
-  - [ ] 1.3 Write autonomous session and manual override unit tests
+  - [x] 1.3 Write autonomous session and manual override unit tests
     - `test_autonomous_start_on_lock` — TS-08-1
     - `test_session_active_written_on_start` — TS-08-3
     - `test_autonomous_stop_on_unlock` — TS-08-4
@@ -53,7 +53,7 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - `test_session_active_written` — TS-08-14
     - _Test Spec: TS-08-1, TS-08-3, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-8, TS-08-9, TS-08-13, TS-08-14_
 
-  - [ ] 1.4 Write edge case tests
+  - [x] 1.4 Write edge case tests
     - `test_lock_while_session_active` — TS-08-E1
     - `test_operator_start_failure` — TS-08-E2
     - `test_unlock_while_no_session` — TS-08-E3
@@ -64,7 +64,7 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - `test_session_active_write_failure` — TS-08-E9
     - _Test Spec: TS-08-E1 through TS-08-E7, TS-08-E9_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - `proptest_autonomous_start_on_lock` — TS-08-P1
     - `proptest_autonomous_stop_on_unlock` — TS-08-P2
     - `proptest_session_idempotency` — TS-08-P3
@@ -73,28 +73,28 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - `proptest_config_defaults` — TS-08-P6
     - _Test Spec: TS-08-P1 through TS-08-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p parking-operator-adaptor --no-run`
-    - [ ] All spec tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos && cargo test -p parking-operator-adaptor --no-run`
+    - [x] All spec tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [ ] 2. Model and config modules
-  - [ ] 2.1 Implement model module
+- [x] 2. Model and config modules
+  - [x] 2.1 Implement model module
     - Define types: `SessionState`, `Rate`, `StartRequest`, `StartResponse`, `StopRequest`, `StopResponse`
     - Add `Clone`, `Debug` derives; `Serialize`/`Deserialize` where needed
     - Define error types: `SessionError`, `OperatorError`, `BrokerError`
     - _Requirements: 08-REQ-1.2, 08-REQ-5.1_
 
-  - [ ] 2.2 Implement config module
+  - [x] 2.2 Implement config module
     - `load_config() -> Config`: read from env vars with defaults
     - Defaults: operator URL `http://localhost:8080`, databroker `http://localhost:55556`, port `50053`, vehicle_id `DEMO-VIN-001`, zone_id `zone-demo-1`
     - _Requirements: 08-REQ-7.1, 08-REQ-7.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config tests pass: `cd rhivos && cargo test -p parking-operator-adaptor config`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] _Test Spec: TS-08-15, TS-08-16, TS-08-P6_
+  - [x] 2.V Verify task group 2
+    - [x] Config tests pass: `cd rhivos && cargo test -p parking-operator-adaptor config`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] _Test Spec: TS-08-15, TS-08-16, TS-08-P6_
 
 - [x] 3. Session module
   - [x] 3.1 Implement SessionManager
