@@ -58,27 +58,27 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] All spec tests FAIL (red) — no implementation yet: `cd tests/setup && go test -v ./... 2>&1 | grep FAIL`
     - [x] No linter warnings: `cd tests/setup && go vet ./...`
 
-- [ ] 2. Directory structure and placeholder directories
-  - [ ] 2.1 Create top-level directories
+- [x] 2. Directory structure and placeholder directories
+  - [x] 2.1 Create top-level directories
     - Create directories: `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/`, `tests/`
     - _Requirements: 01-REQ-1.1_
 
-  - [ ] 2.2 Create Rust component subdirectories
+  - [x] 2.2 Create Rust component subdirectories
     - Create: `rhivos/locking-service/src/`, `rhivos/cloud-gateway-client/src/`, `rhivos/update-service/src/`, `rhivos/parking-operator-adaptor/src/`, `rhivos/mock-sensors/src/bin/`
     - _Requirements: 01-REQ-1.2_
 
-  - [ ] 2.3 Create Go and mock subdirectories
+  - [x] 2.3 Create Go and mock subdirectories
     - Create: `backend/parking-fee-service/`, `backend/cloud-gateway/`, `mock/parking-app-cli/`, `mock/companion-app-cli/`, `mock/parking-operator/`
     - _Requirements: 01-REQ-1.3, 01-REQ-1.4_
 
-  - [ ] 2.4 Create placeholder directories with READMEs
+  - [x] 2.4 Create placeholder directories with READMEs
     - Create `android/README.md` with placeholder text for AAOS PARKING_APP
     - Create `mobile/README.md` with placeholder text for Flutter COMPANION_APP
     - _Requirements: 01-REQ-1.5, 01-REQ-1.6_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
-    - [ ] _Test Spec: TS-01-1 through TS-01-6_
+  - [x] 2.V Verify task group 2
+    - [x] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
+    - [x] _Test Spec: TS-01-1 through TS-01-6_
 
 - [ ] 3. Rust workspace and skeletons
   - [ ] 3.1 Create Cargo workspace root
