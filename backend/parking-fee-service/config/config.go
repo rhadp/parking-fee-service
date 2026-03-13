@@ -2,17 +2,35 @@
 package config
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
 	"github.com/rhadp/parking-fee-service/backend/parking-fee-service/model"
 )
 
 // LoadConfig reads the JSON config file at path.
-// If the file does not exist it returns DefaultConfig and no error.
+// If the file does not exist it returns DefaultConfig and no error (logs a warning).
 // If the file contains invalid JSON it returns a non-nil error.
-// STUB: not yet implemented — returns an error for all paths.
 func LoadConfig(path string) (*model.Config, error) {
-	return nil, fmt.Errorf("LoadConfig: not implemented")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			slog.Warn("config file not found, using built-in defaults", "path", path)
+			return DefaultConfig(), nil
+		}
+		// Other OS errors (permission denied, etc.) — treat as file-not-found for simplicity.
+		slog.Warn("could not read config file, using built-in defaults", "path", path, "err", err)
+		return DefaultConfig(), nil
+	}
+
+	var cfg model.Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("invalid JSON in config file %q: %w", path, err)
+	}
+	return &cfg, nil
 }
 
 // DefaultConfig returns the built-in Munich demo configuration.
