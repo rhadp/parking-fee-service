@@ -4,21 +4,9 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 )
-
-const feePerHour = 2.50 // EUR per hour
-
-// Session represents a parking session.
-type Session struct {
-	SessionID string    `json:"session_id"`
-	VehicleID string    `json:"vehicle_id"`
-	ZoneID    string    `json:"zone_id"`
-	StartTime time.Time `json:"start_time"`
-	Status    string    `json:"status"` // "active" or "completed"
-}
 
 // SessionStore manages parking sessions in memory.
 type SessionStore struct {
@@ -33,53 +21,73 @@ func NewSessionStore() *SessionStore {
 	}
 }
 
-// Create starts a new parking session and returns it.
-func (s *SessionStore) Create(vehicleID, zoneID string) *Session {
+// Start creates a new parking session using the provided request data.
+// It generates a UUID session_id, stores the session, and returns a StartResponse.
+func (s *SessionStore) Start(req StartRequest) StartResponse {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	session := &Session{
 		SessionID: uuid.New().String(),
-		VehicleID: vehicleID,
-		ZoneID:    zoneID,
-		StartTime: time.Now(),
+		VehicleID: req.VehicleID,
+		ZoneID:    req.ZoneID,
 		Status:    "active",
+		StartTime: req.Timestamp,
+		Rate:      DefaultRate,
 	}
 	s.sessions[session.SessionID] = session
-	return session
+
+	return StartResponse{
+		SessionID: session.SessionID,
+		Status:    session.Status,
+		Rate:      session.Rate,
+	}
 }
 
-// Stop completes a parking session and returns the duration and fee.
-// Returns an error if the session does not exist or is already completed.
-func (s *SessionStore) Stop(sessionID string) (int64, float64, error) {
+// Stop completes a parking session. It calculates duration_seconds from start
+// to stop timestamp, computes total_amount as rate * duration_hours, and returns
+// a StopResponse. Returns an error if the session does not exist.
+func (s *SessionStore) Stop(req StopRequest) (StopResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	session, ok := s.sessions[sessionID]
+	session, ok := s.sessions[req.SessionID]
 	if !ok {
-		return 0, 0, fmt.Errorf("session %q not found", sessionID)
+		return StopResponse{}, fmt.Errorf("session not found")
 	}
 	if session.Status != "active" {
-		return 0, 0, fmt.Errorf("session %q not found", sessionID)
+		return StopResponse{}, fmt.Errorf("session not found")
 	}
 
-	duration := time.Since(session.StartTime)
-	durationSeconds := int64(duration.Seconds())
-	hours := duration.Hours()
-	fee := math.Round(hours*feePerHour*100) / 100 // round to 2 decimal places
+	durationSeconds := req.Timestamp - session.StartTime
+	if durationSeconds < 0 {
+		durationSeconds = 0
+	}
+	durationHours := float64(durationSeconds) / 3600.0
+	totalAmount := math.Round(session.Rate.Amount*durationHours*100) / 100
 
-	session.Status = "completed"
-	return durationSeconds, fee, nil
+	session.Status = "stopped"
+	session.StopTime = req.Timestamp
+
+	return StopResponse{
+		SessionID:       session.SessionID,
+		Status:          "stopped",
+		DurationSeconds: durationSeconds,
+		TotalAmount:     totalAmount,
+		Currency:        session.Rate.Currency,
+	}, nil
 }
 
-// List returns all sessions (active and completed).
-func (s *SessionStore) List() []Session {
+// GetStatus returns the session with the given ID, or an error if not found.
+func (s *SessionStore) GetStatus(sessionID string) (*Session, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := make([]Session, 0, len(s.sessions))
-	for _, session := range s.sessions {
-		result = append(result, *session)
+	session, ok := s.sessions[sessionID]
+	if !ok {
+		return nil, fmt.Errorf("session not found")
 	}
-	return result
+	// Return a copy
+	copy := *session
+	return &copy, nil
 }

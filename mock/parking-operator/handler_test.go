@@ -3,17 +3,20 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"math"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-// TS-09-7: POST /parking/start with valid body creates a session.
-func TestStartSession_Valid(t *testing.T) {
+// TS-09-5: POST /parking/start creates session and returns correct response.
+func TestStartSession(t *testing.T) {
 	store := NewSessionStore()
 	handler := HandleStartParking(store)
 
-	body := `{"vehicle_id": "VIN001", "zone_id": "muc-central", "timestamp": 1709640000}`
+	body := `{"vehicle_id": "VIN001", "zone_id": "zone-1", "timestamp": 1700000000}`
 	req := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -41,33 +44,31 @@ func TestStartSession_Valid(t *testing.T) {
 	if result.Status != "active" {
 		t.Errorf("expected status 'active', got %q", result.Status)
 	}
+	if result.Rate.RateType != "per_hour" {
+		t.Errorf("expected rate_type 'per_hour', got %q", result.Rate.RateType)
+	}
+	if result.Rate.Amount != 2.50 {
+		t.Errorf("expected rate amount 2.50, got %f", result.Rate.Amount)
+	}
+	if result.Rate.Currency != "EUR" {
+		t.Errorf("expected currency 'EUR', got %q", result.Rate.Currency)
+	}
 }
 
-// TS-09-8: POST /parking/stop with valid session completes it.
-func TestStopSession_Valid(t *testing.T) {
+// TS-09-6: POST /parking/stop calculates duration and total_amount.
+func TestStopSession(t *testing.T) {
 	store := NewSessionStore()
 
-	// Start a session first
-	startHandler := HandleStartParking(store)
-	startBody := `{"vehicle_id": "VIN001", "zone_id": "muc-central", "timestamp": 1709640000}`
-	startReq := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBufferString(startBody))
-	startReq.Header.Set("Content-Type", "application/json")
-	startW := httptest.NewRecorder()
-	startHandler.ServeHTTP(startW, startReq)
+	// Start a session with known timestamp
+	startResp := store.Start(StartRequest{
+		VehicleID: "VIN001",
+		ZoneID:    "zone-1",
+		Timestamp: 1700000000,
+	})
 
-	if startW.Result().StatusCode != http.StatusOK {
-		t.Fatalf("failed to start session: status %d", startW.Result().StatusCode)
-	}
-
-	var startResult StartResponse
-	if err := json.NewDecoder(startW.Body).Decode(&startResult); err != nil {
-		t.Fatalf("failed to decode start response: %v", err)
-	}
-
-	// Stop the session
 	stopHandler := HandleStopParking(store)
-	stopBody, _ := json.Marshal(StopRequest{SessionID: startResult.SessionID})
-	stopReq := httptest.NewRequest(http.MethodPost, "/parking/stop", bytes.NewBuffer(stopBody))
+	stopBody := fmt.Sprintf(`{"session_id": %q, "timestamp": 1700003600}`, startResp.SessionID)
+	stopReq := httptest.NewRequest(http.MethodPost, "/parking/stop", bytes.NewBufferString(stopBody))
 	stopReq.Header.Set("Content-Type", "application/json")
 	stopW := httptest.NewRecorder()
 	stopHandler.ServeHTTP(stopW, stopReq)
@@ -77,49 +78,41 @@ func TestStopSession_Valid(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
 
-	var stopResult StopResponse
-	if err := json.NewDecoder(resp.Body).Decode(&stopResult); err != nil {
+	var result StopResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("failed to decode stop response: %v", err)
 	}
 
-	if stopResult.SessionID != startResult.SessionID {
-		t.Errorf("session_id mismatch: got %q, want %q", stopResult.SessionID, startResult.SessionID)
+	if result.SessionID != startResp.SessionID {
+		t.Errorf("session_id mismatch: got %q, want %q", result.SessionID, startResp.SessionID)
 	}
-	if stopResult.DurationSeconds < 0 {
-		t.Error("duration_seconds should be non-negative")
+	if result.DurationSeconds != 3600 {
+		t.Errorf("expected duration_seconds 3600, got %d", result.DurationSeconds)
 	}
-	if stopResult.Fee < 0 {
-		t.Error("fee should be non-negative")
+	if result.TotalAmount != 2.50 {
+		t.Errorf("expected total_amount 2.50, got %f", result.TotalAmount)
 	}
-	if stopResult.Status != "completed" {
-		t.Errorf("expected status 'completed', got %q", stopResult.Status)
+	if result.Status != "stopped" {
+		t.Errorf("expected status 'stopped', got %q", result.Status)
+	}
+	if result.Currency != "EUR" {
+		t.Errorf("expected currency 'EUR', got %q", result.Currency)
 	}
 }
 
-// TS-09-9: GET /parking/status returns all sessions.
-func TestGetStatus_ReturnsAllSessions(t *testing.T) {
+// TS-09-7: GET /parking/status/{session_id} returns session info.
+func TestGetStatus(t *testing.T) {
 	store := NewSessionStore()
 
 	// Start a session
-	startHandler := HandleStartParking(store)
-	startBody := `{"vehicle_id": "VIN001", "zone_id": "muc-central", "timestamp": 1709640000}`
-	startReq := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBufferString(startBody))
-	startReq.Header.Set("Content-Type", "application/json")
-	startW := httptest.NewRecorder()
-	startHandler.ServeHTTP(startW, startReq)
+	startResp := store.Start(StartRequest{
+		VehicleID: "VIN001",
+		ZoneID:    "zone-1",
+		Timestamp: 1700000000,
+	})
 
-	if startW.Result().StatusCode != http.StatusOK {
-		t.Fatalf("failed to start session: status %d", startW.Result().StatusCode)
-	}
-
-	var startResult StartResponse
-	if err := json.NewDecoder(startW.Body).Decode(&startResult); err != nil {
-		t.Fatalf("failed to decode start response: %v", err)
-	}
-
-	// Get status
 	statusHandler := HandleParkingStatus(store)
-	statusReq := httptest.NewRequest(http.MethodGet, "/parking/status", nil)
+	statusReq := httptest.NewRequest(http.MethodGet, "/parking/status/"+startResp.SessionID, nil)
 	statusW := httptest.NewRecorder()
 	statusHandler.ServeHTTP(statusW, statusReq)
 
@@ -128,84 +121,34 @@ func TestGetStatus_ReturnsAllSessions(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
 
-	var sessions []Session
-	if err := json.NewDecoder(resp.Body).Decode(&sessions); err != nil {
+	var session Session
+	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
 		t.Fatalf("failed to decode status response: %v", err)
 	}
 
-	if len(sessions) < 1 {
-		t.Fatal("expected at least one session in status response")
+	if session.SessionID != startResp.SessionID {
+		t.Errorf("session_id mismatch: got %q, want %q", session.SessionID, startResp.SessionID)
 	}
-
-	found := false
-	for _, s := range sessions {
-		if s.SessionID == startResult.SessionID {
-			found = true
-			break
-		}
+	if session.Status != "active" {
+		t.Errorf("expected status 'active', got %q", session.Status)
 	}
-	if !found {
-		t.Errorf("started session %q not found in status response", startResult.SessionID)
+	if session.VehicleID != "VIN001" {
+		t.Errorf("expected vehicle_id 'VIN001', got %q", session.VehicleID)
 	}
-}
-
-// TS-09-E9: GET /parking/status returns empty array when no sessions exist.
-func TestGetStatus_EmptyWhenNoSessions(t *testing.T) {
-	store := NewSessionStore()
-	handler := HandleParkingStatus(store)
-
-	req := httptest.NewRequest(http.MethodGet, "/parking/status", nil)
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-
-	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	if session.ZoneID != "zone-1" {
+		t.Errorf("expected zone_id 'zone-1', got %q", session.ZoneID)
 	}
-
-	var sessions []Session
-	if err := json.NewDecoder(resp.Body).Decode(&sessions); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	if len(sessions) != 0 {
-		t.Errorf("expected empty array, got %d sessions", len(sessions))
+	if session.StartTime != 1700000000 {
+		t.Errorf("expected start_time 1700000000, got %d", session.StartTime)
 	}
 }
 
-// TS-09-E7: POST /parking/start with malformed JSON returns 400.
-func TestStartSession_MalformedBody(t *testing.T) {
-	store := NewSessionStore()
-	handler := HandleStartParking(store)
-
-	body := `{invalid json`
-	req := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	handler.ServeHTTP(w, req)
-
-	resp := w.Result()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("expected status 400, got %d", resp.StatusCode)
-	}
-
-	var errResp ErrorResponse
-	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-		t.Fatalf("failed to decode error response: %v", err)
-	}
-
-	if errResp.Error == "" {
-		t.Error("expected non-empty error field")
-	}
-}
-
-// TS-09-E8: POST /parking/stop with unknown session_id returns 404.
-func TestStopSession_UnknownSession(t *testing.T) {
+// TS-09-E3: POST /parking/stop with unknown session_id returns 404.
+func TestStopUnknownSession(t *testing.T) {
 	store := NewSessionStore()
 	handler := HandleStopParking(store)
 
-	body := `{"session_id": "nonexistent-session"}`
+	body := `{"session_id": "nonexistent", "timestamp": 1700000000}`
 	req := httptest.NewRequest(http.MethodPost, "/parking/stop", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -222,105 +165,220 @@ func TestStopSession_UnknownSession(t *testing.T) {
 		t.Fatalf("failed to decode error response: %v", err)
 	}
 
-	if errResp.Error == "" {
-		t.Error("expected non-empty error field")
+	if errResp.Error != "session not found" {
+		t.Errorf("expected error 'session not found', got %q", errResp.Error)
 	}
 }
 
-// TS-09-P8: Session store consistency -- start, stop, and status transitions.
-func TestSessionStoreConsistency(t *testing.T) {
+// TS-09-E4: GET /parking/status/{session_id} with unknown session_id returns 404.
+func TestStatusUnknownSession(t *testing.T) {
 	store := NewSessionStore()
-	startHandler := HandleStartParking(store)
-	stopHandler := HandleStopParking(store)
-	statusHandler := HandleParkingStatus(store)
+	handler := HandleParkingStatus(store)
 
-	// 1. Start a session
-	startBody := `{"vehicle_id": "VIN002", "zone_id": "muc-north", "timestamp": 1709640000}`
-	startReq := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBufferString(startBody))
-	startReq.Header.Set("Content-Type", "application/json")
-	startW := httptest.NewRecorder()
-	startHandler.ServeHTTP(startW, startReq)
+	req := httptest.NewRequest(http.MethodGet, "/parking/status/nonexistent", nil)
+	w := httptest.NewRecorder()
 
-	if startW.Result().StatusCode != http.StatusOK {
-		t.Fatalf("start failed: status %d", startW.Result().StatusCode)
+	handler.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", resp.StatusCode)
 	}
 
-	var startResult StartResponse
-	if err := json.NewDecoder(startW.Body).Decode(&startResult); err != nil {
-		t.Fatalf("failed to decode start response: %v", err)
+	var errResp ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
 	}
 
-	// 2. Verify session appears as "active" in status
-	statusReq := httptest.NewRequest(http.MethodGet, "/parking/status", nil)
-	statusW := httptest.NewRecorder()
-	statusHandler.ServeHTTP(statusW, statusReq)
+	if errResp.Error != "session not found" {
+		t.Errorf("expected error 'session not found', got %q", errResp.Error)
+	}
+}
 
-	var sessions []Session
-	if err := json.NewDecoder(statusW.Body).Decode(&sessions); err != nil {
-		t.Fatalf("failed to decode status: %v", err)
+// TS-09-E5: Invalid JSON body returns 400.
+func TestInvalidJSON(t *testing.T) {
+	store := NewSessionStore()
+
+	tests := []struct {
+		name    string
+		handler http.HandlerFunc
+		path    string
+	}{
+		{"start", HandleStartParking(store), "/parking/start"},
+		{"stop", HandleStopParking(store), "/parking/stop"},
 	}
 
-	found := false
-	for _, s := range sessions {
-		if s.SessionID == startResult.SessionID {
-			if s.Status != "active" {
-				t.Errorf("expected session status 'active', got %q", s.Status)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, tc.path, bytes.NewBufferString("not json"))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			tc.handler.ServeHTTP(w, req)
+
+			resp := w.Result()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", resp.StatusCode)
 			}
-			found = true
+
+			var errResp ErrorResponse
+			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+				t.Fatalf("failed to decode error response: %v", err)
+			}
+
+			if errResp.Error != "invalid request body" {
+				t.Errorf("expected error 'invalid request body', got %q", errResp.Error)
+			}
+		})
+	}
+}
+
+// TS-09-24: parking-operator defaults to port 8080.
+func TestConfigDefault(t *testing.T) {
+	t.Setenv("PORT", "")
+	port := GetPort()
+	if port != "8080" {
+		t.Errorf("expected default port '8080', got %q", port)
+	}
+}
+
+// TestConfigOverride verifies PORT env var overrides default.
+func TestConfigOverride(t *testing.T) {
+	t.Setenv("PORT", "9090")
+	port := GetPort()
+	if port != "9090" {
+		t.Errorf("expected port '9090', got %q", port)
+	}
+}
+
+// TS-09-P2: Property test — Session Lifecycle.
+// For any start/stop sequence, duration and total_amount are correctly computed.
+func TestPropertySessionLifecycle(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+
+	for i := 0; i < 100; i++ {
+		store := NewSessionStore()
+
+		startTS := int64(rng.Intn(2000000000))
+		duration := int64(rng.Intn(86400)) + 1 // 1 to 86400 seconds
+		stopTS := startTS + duration
+
+		startResp := store.Start(StartRequest{
+			VehicleID: "VIN-PROP",
+			ZoneID:    "zone-prop",
+			Timestamp: startTS,
+		})
+
+		stopResp, err := store.Stop(StopRequest{
+			SessionID: startResp.SessionID,
+			Timestamp: stopTS,
+		})
+		if err != nil {
+			t.Fatalf("iteration %d: unexpected error: %v", i, err)
+		}
+
+		if stopResp.DurationSeconds != duration {
+			t.Errorf("iteration %d: expected duration %d, got %d", i, duration, stopResp.DurationSeconds)
+		}
+
+		expectedAmount := math.Round(DefaultRate.Amount*float64(duration)/3600.0*100) / 100
+		if math.Abs(stopResp.TotalAmount-expectedAmount) > 0.01 {
+			t.Errorf("iteration %d: expected total_amount %.2f, got %.2f", i, expectedAmount, stopResp.TotalAmount)
+		}
+
+		if stopResp.Status != "stopped" {
+			t.Errorf("iteration %d: expected status 'stopped', got %q", i, stopResp.Status)
+		}
+
+		if stopResp.Currency != "EUR" {
+			t.Errorf("iteration %d: expected currency 'EUR', got %q", i, stopResp.Currency)
 		}
 	}
-	if !found {
-		t.Fatal("started session not found in status")
+}
+
+// TestSessionStoreConsistency validates start → status → stop → status transitions.
+func TestSessionStoreConsistency(t *testing.T) {
+	store := NewSessionStore()
+
+	// 1. Start a session
+	startResp := store.Start(StartRequest{
+		VehicleID: "VIN002",
+		ZoneID:    "muc-north",
+		Timestamp: 1700000000,
+	})
+
+	// 2. Verify session is "active"
+	session, err := store.GetStatus(startResp.SessionID)
+	if err != nil {
+		t.Fatalf("failed to get status: %v", err)
+	}
+	if session.Status != "active" {
+		t.Errorf("expected status 'active', got %q", session.Status)
 	}
 
 	// 3. Stop the session
-	stopBody, _ := json.Marshal(StopRequest{SessionID: startResult.SessionID})
-	stopReq := httptest.NewRequest(http.MethodPost, "/parking/stop", bytes.NewBuffer(stopBody))
-	stopReq.Header.Set("Content-Type", "application/json")
-	stopW := httptest.NewRecorder()
-	stopHandler.ServeHTTP(stopW, stopReq)
-
-	if stopW.Result().StatusCode != http.StatusOK {
-		t.Fatalf("stop failed: status %d", stopW.Result().StatusCode)
+	stopResp, err := store.Stop(StopRequest{
+		SessionID: startResp.SessionID,
+		Timestamp: 1700003600,
+	})
+	if err != nil {
+		t.Fatalf("failed to stop session: %v", err)
+	}
+	if stopResp.DurationSeconds != 3600 {
+		t.Errorf("expected duration 3600, got %d", stopResp.DurationSeconds)
+	}
+	if stopResp.TotalAmount != 2.50 {
+		t.Errorf("expected total_amount 2.50, got %.2f", stopResp.TotalAmount)
 	}
 
-	var stopResult StopResponse
-	if err := json.NewDecoder(stopW.Body).Decode(&stopResult); err != nil {
-		t.Fatalf("failed to decode stop response: %v", err)
+	// 4. Verify session is now "stopped"
+	session2, err := store.GetStatus(startResp.SessionID)
+	if err != nil {
+		t.Fatalf("failed to get status after stop: %v", err)
+	}
+	if session2.Status != "stopped" {
+		t.Errorf("expected status 'stopped', got %q", session2.Status)
 	}
 
-	if stopResult.DurationSeconds < 0 {
-		t.Error("duration_seconds should be non-negative")
+	// 5. Stopping again should fail
+	_, err = store.Stop(StopRequest{
+		SessionID: startResp.SessionID,
+		Timestamp: 1700007200,
+	})
+	if err == nil {
+		t.Error("expected error when stopping already stopped session")
 	}
-	if stopResult.Fee < 0 {
-		t.Error("fee should be non-negative")
+}
+
+// TestStartSessionHandler_ViaHTTPHandler verifies the full HTTP handler path for start.
+func TestStartSessionHandler_ViaHTTPHandler(t *testing.T) {
+	store := NewSessionStore()
+	handler := HandleStartParking(store)
+
+	body := `{"vehicle_id": "VIN001", "zone_id": "muc-central", "timestamp": 1709640000}`
+	req := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
 
-	// 4. Verify session appears as "completed" in status
-	statusReq2 := httptest.NewRequest(http.MethodGet, "/parking/status", nil)
-	statusW2 := httptest.NewRecorder()
-	statusHandler.ServeHTTP(statusW2, statusReq2)
-
-	var sessions2 []Session
-	if err := json.NewDecoder(statusW2.Body).Decode(&sessions2); err != nil {
-		t.Fatalf("failed to decode status: %v", err)
+	var result StartResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	for _, s := range sessions2 {
-		if s.SessionID == startResult.SessionID {
-			if s.Status != "completed" {
-				t.Errorf("expected session status 'completed', got %q", s.Status)
-			}
-		}
+	if result.SessionID == "" {
+		t.Error("expected non-empty session_id")
 	}
-
-	// 5. Stopping the same session again should return 404
-	stopReq2 := httptest.NewRequest(http.MethodPost, "/parking/stop", bytes.NewBuffer(stopBody))
-	stopReq2.Header.Set("Content-Type", "application/json")
-	stopW2 := httptest.NewRecorder()
-	stopHandler.ServeHTTP(stopW2, stopReq2)
-
-	if stopW2.Result().StatusCode != http.StatusNotFound {
-		t.Errorf("expected 404 for stopping completed session, got %d", stopW2.Result().StatusCode)
+	if result.Status != "active" {
+		t.Errorf("expected status 'active', got %q", result.Status)
+	}
+	if result.Rate.Amount != 2.50 {
+		t.Errorf("expected rate amount 2.50, got %f", result.Rate.Amount)
 	}
 }

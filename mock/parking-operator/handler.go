@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 // HandleStartParking handles POST /parking/start.
@@ -10,21 +11,17 @@ func HandleStartParking(store *SessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req StartRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
 		if req.VehicleID == "" || req.ZoneID == "" {
-			writeError(w, http.StatusBadRequest, "missing required fields: vehicle_id and zone_id")
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
-		session := store.Create(req.VehicleID, req.ZoneID)
-
-		writeJSON(w, http.StatusOK, StartResponse{
-			SessionID: session.SessionID,
-			Status:    session.Status,
-		})
+		resp := store.Start(req)
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -33,35 +30,43 @@ func HandleStopParking(store *SessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req StopRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
 		if req.SessionID == "" {
-			writeError(w, http.StatusBadRequest, "missing required field: session_id")
+			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
-		durationSeconds, fee, err := store.Stop(req.SessionID)
+		resp, err := store.Stop(req)
 		if err != nil {
-			writeError(w, http.StatusNotFound, err.Error())
+			writeError(w, http.StatusNotFound, "session not found")
 			return
 		}
 
-		writeJSON(w, http.StatusOK, StopResponse{
-			SessionID:       req.SessionID,
-			DurationSeconds: durationSeconds,
-			Fee:             fee,
-			Status:          "completed",
-		})
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
-// HandleParkingStatus handles GET /parking/status.
+// HandleParkingStatus handles GET /parking/status/{session_id}.
 func HandleParkingStatus(store *SessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sessions := store.List()
-		writeJSON(w, http.StatusOK, sessions)
+		// Extract session_id from URL path: /parking/status/{session_id}
+		path := strings.TrimPrefix(r.URL.Path, "/parking/status/")
+		sessionID := strings.TrimRight(path, "/")
+		if sessionID == "" {
+			writeError(w, http.StatusBadRequest, "missing session_id in path")
+			return
+		}
+
+		session, err := store.GetStatus(sessionID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, session)
 	}
 }
 
