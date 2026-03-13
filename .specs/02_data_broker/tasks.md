@@ -81,26 +81,26 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - [x] Compose config tests FAIL (compose.yml not yet updated): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
     - [x] No linter warnings: `cd tests/databroker && go vet ./...`
 
-- [ ] 2. Update compose.yml for dual listeners and version pinning
-  - [ ] 2.1 Pin Kuksa Databroker image version
+- [x] 2. Update compose.yml for dual listeners and version pinning
+  - [x] 2.1 Pin Kuksa Databroker image version
     - Update `deployments/compose.yml` databroker image from `latest` to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`
     - _Requirements: 02-REQ-2.1_
 
-  - [ ] 2.2 Configure dual listeners
+  - [x] 2.2 Configure dual listeners
     - Update databroker service `command` to include `--address 0.0.0.0:55555` and `--uds-path /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
 
-  - [ ] 2.3 Add UDS volume mount
+  - [x] 2.3 Add UDS volume mount
     - Add a named volume `kuksa-uds` with bind mount to `/tmp/kuksa` on the host
     - Mount the volume to `/tmp` in the databroker container
     - Create `/tmp/kuksa` host directory in Makefile `infra-up` target if needed
     - _Requirements: 02-REQ-1.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Compose config tests pass: `cd tests/databroker && go test -v -run 'TestCompose' ./...`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
-    - [ ] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.3, 02-REQ-2.1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Compose config tests pass: `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [x] No linter warnings: `cd tests/databroker && go vet ./...`
+    - [x] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.3, 02-REQ-2.1 acceptance criteria met
 
 - [ ] 3. Checkpoint - Configuration Complete
   - Verify compose.yml is valid: `podman compose -f deployments/compose.yml config`

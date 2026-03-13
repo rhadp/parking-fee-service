@@ -95,6 +95,7 @@ infra-up:
 		echo "Install Podman from https://podman.io/getting-started/installation"; \
 		exit 1; \
 	}
+	@mkdir -p /tmp/kuksa
 	podman compose -f $(DEPLOYMENTS)/compose.yml up -d
 
 infra-down:
