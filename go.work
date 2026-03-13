@@ -2,8 +2,9 @@ go 1.24.0
 
 use (
 	.
-	./tests/setup
 	./tests/databroker
+	./tests/locking-service
+	./tests/setup
 )
 
 // Go modules accessible via root module (.):

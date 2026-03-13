@@ -16,9 +16,9 @@ services:
       - kuksa-uds:/tmp
     command:
       - "--vss"
-      - "/etc/kuksa/vss-overlay.json"
+      - "/vss_release_4.0.json,/etc/kuksa/vss-overlay.json"
       - "--address"
-      - "0.0.0.0:55555"
+      - "0.0.0.0"
       - "--unix-socket"
       - "/tmp/kuksa-databroker.sock"
 
