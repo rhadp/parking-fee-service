@@ -210,7 +210,7 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
     - [x] All requirements 09-REQ-1 through 09-REQ-6 acceptance criteria met
 
-- [ ] 6. Checkpoint - All Tests Green
+- [x] 6. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
   - All 6 mock tools build, run, and produce correct output
   - Ask the user if questions arise
