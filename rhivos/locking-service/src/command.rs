@@ -41,13 +41,32 @@ impl CommandError {
 }
 
 /// Parse a JSON string into a LockCommand.
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!("parse_command not yet implemented")
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    serde_json::from_str::<LockCommand>(json)
+        .map_err(|e| CommandError::InvalidJson(e.to_string()))
 }
 
 /// Validate a parsed LockCommand.
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!("validate_command not yet implemented")
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id must be non-empty".to_string(),
+        ));
+    }
+    if !cmd.doors.contains(&"driver".to_string()) {
+        return Err(CommandError::UnsupportedDoor(
+            "doors must contain 'driver'".to_string(),
+        ));
+    }
+    for door in &cmd.doors {
+        if door != "driver" {
+            return Err(CommandError::UnsupportedDoor(format!(
+                "unsupported door: {}",
+                door
+            )));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

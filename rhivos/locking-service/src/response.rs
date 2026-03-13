@@ -11,13 +11,33 @@ pub struct CommandResponse {
 }
 
 /// Build a success response JSON string.
-pub fn success_response(_command_id: &str) -> String {
-    todo!("success_response not yet implemented")
+pub fn success_response(command_id: &str) -> String {
+    let response = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp: current_unix_timestamp(),
+    };
+    serde_json::to_string(&response).expect("failed to serialize success response")
 }
 
 /// Build a failure response JSON string.
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("failure_response not yet implemented")
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let response = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp: current_unix_timestamp(),
+    };
+    serde_json::to_string(&response).expect("failed to serialize failure response")
+}
+
+/// Get the current Unix timestamp in seconds.
+fn current_unix_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time before Unix epoch")
+        .as_secs() as i64
 }
 
 #[cfg(test)]

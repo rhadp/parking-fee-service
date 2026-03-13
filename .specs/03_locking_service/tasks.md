@@ -84,29 +84,29 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p locking-service 2>&1 | grep FAILED`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
 
-- [ ] 2. Command parsing and response modules
-  - [ ] 2.1 Implement command module
+- [x] 2. Command parsing and response modules
+  - [x] 2.1 Implement command module
     - Define `LockCommand`, `Action` structs/enums with serde Deserialize
     - Implement `parse_command()`: deserialize JSON, return Result
     - Implement `validate_command()`: check command_id non-empty, doors contains "driver"
     - _Requirements: 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3_
 
-  - [ ] 2.2 Implement response module
+  - [x] 2.2 Implement response module
     - Define `CommandResponse` struct with serde Serialize
     - Implement `success_response(command_id)`: returns JSON string
     - Implement `failure_response(command_id, reason)`: returns JSON string
     - Timestamps use `std::time::SystemTime::now()` as Unix seconds
     - _Requirements: 03-REQ-5.1, 03-REQ-5.2, 03-REQ-5.3_
 
-  - [ ] 2.3 Implement config module
+  - [x] 2.3 Implement config module
     - Read `DATABROKER_ADDR` from env, default to `http://localhost:55556`
     - _Requirements: 03-REQ-1.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Command and response tests pass: `cd rhivos && cargo test -p locking-service -- command response config`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] _Test Spec: TS-03-2, TS-03-3, TS-03-4, TS-03-5, TS-03-6, TS-03-14, TS-03-15, TS-03-16, TS-03-E3, TS-03-E4, TS-03-E5_
+  - [x] 2.V Verify task group 2
+    - [x] Command and response tests pass: `cd rhivos && cargo test -p locking-service -- command response config`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+    - [x] _Test Spec: TS-03-2, TS-03-3, TS-03-4, TS-03-5, TS-03-6, TS-03-14, TS-03-15, TS-03-16, TS-03-E3, TS-03-E4, TS-03-E5_
 
 - [ ] 3. Safety checks and state management
   - [ ] 3.1 Define BrokerClient trait
