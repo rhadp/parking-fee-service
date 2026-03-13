@@ -184,25 +184,25 @@ Ordering: tests first, then data types, then pure-function modules (config, sess
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [x] _Test Spec: TS-08-7, TS-08-8, TS-08-E5, TS-08-E6_
 
-- [ ] 6. Integration test validation
-  - [ ] 6.1 Create integration test module
+- [x] 6. Integration test validation
+  - [x] 6.1 Create integration test module
     - Create `tests/parking-operator-adaptor/` Go module
     - Shared helpers: start/stop service binary, mock PARKING_OPERATOR HTTP server, gRPC client
     - Add `go.work` entry for `./tests/parking-operator-adaptor`
     - _Test Spec: TS-08-17, TS-08-18, TS-08-E8_
 
-  - [ ] 6.2 Write and run integration tests
+  - [x] 6.2 Write and run integration tests
     - `TestStartupLogging` — TS-08-17: capture startup logs, verify port and operator URL present
     - `TestGracefulShutdown` — TS-08-18: send SIGTERM, verify exit code 0
     - `TestDataBrokerUnreachable` — TS-08-E8: start with unreachable DATA_BROKER_ADDR, verify non-zero exit
     - _Test Spec: TS-08-17, TS-08-18, TS-08-E8_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass: `cd tests/parking-operator-adaptor && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] All requirements 08-REQ-1 through 08-REQ-8 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] All integration tests pass: `cd tests/parking-operator-adaptor && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] All requirements 08-REQ-1 through 08-REQ-8 acceptance criteria met
 
 - [x] 7. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
