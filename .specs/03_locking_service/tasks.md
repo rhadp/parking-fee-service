@@ -179,14 +179,14 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
 
-- [ ] 6. Integration test validation
-  - [ ] 6.1 Create integration test module
+- [x] 6. Integration test validation
+  - [x] 6.1 Create integration test module
     - Create `tests/locking-service/` Go module (or add to existing test structure)
     - Shared helpers: start/stop databroker, start/stop locking-service, gRPC signal helpers
     - Add `go.work` entry for `./tests/locking-service`
     - _Test Spec: TS-03-1, TS-03-13, TS-03-17, TS-03-18_
 
-  - [ ] 6.2 Write and run integration tests
+  - [x] 6.2 Write and run integration tests
     - `TestCommandSubscription` — TS-03-1: verify subscription and command processing
     - `TestInitialState` — TS-03-13: verify IsLocked=false on startup
     - `TestGracefulShutdown` — TS-03-17: verify clean exit on SIGTERM
@@ -196,12 +196,11 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `TestSigtermDuringCommand` — TS-03-E11: verify in-flight completion
     - _Test Spec: TS-03-1, TS-03-13, TS-03-17, TS-03-18, TS-03-E1, TS-03-E2, TS-03-E11_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass: `cd tests/locking-service && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] All requirements 03-REQ-1 through 03-REQ-6 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] All integration tests pass: `cd tests/locking-service && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+    - [x] All requirements 03-REQ-1 through 03-REQ-6 acceptance criteria met
 
 ### Checkbox States
 
