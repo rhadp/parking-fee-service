@@ -110,33 +110,33 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
     - [x] _Test Spec: TS-01-7 through TS-01-10, TS-01-14, TS-01-16_
 
-- [ ] 4. Go workspace and skeletons
-  - [ ] 4.1 Create Go modules
+- [x] 4. Go workspace and skeletons
+  - [x] 4.1 Create Go modules
     - Create `backend/go.mod` (module `github.com/rhadp/parking-fee-service/backend`)
     - Create `mock/go.mod` (module `github.com/rhadp/parking-fee-service/mock`)
     - Create `go.work` at repo root with `use` directives for `./backend`, `./mock`, `./tests/setup`
     - _Requirements: 01-REQ-3.1_
 
-  - [ ] 4.2 Create Go skeleton binaries
+  - [x] 4.2 Create Go skeleton binaries
     - Create `main.go` for: `backend/parking-fee-service`, `backend/cloud-gateway`, `mock/parking-app-cli`, `mock/companion-app-cli`, `mock/parking-operator`
     - Each prints usage with component name and exits 0
     - _Requirements: 01-REQ-4.2, 01-REQ-4.4, 01-REQ-4.E1_
 
-  - [ ] 4.3 Create Go placeholder tests
+  - [x] 4.3 Create Go placeholder tests
     - Create `main_test.go` for each Go binary with a trivial `TestMain` test
     - _Requirements: 01-REQ-8.2_
 
-  - [ ] 4.4 Verify Go workspace builds and tests pass
+  - [x] 4.4 Verify Go workspace builds and tests pass
     - Run `go build ./...` — must exit 0
     - Run `go test ./...` — must discover and pass tests
     - Run `go vet ./...` — must pass
     - _Requirements: 01-REQ-3.2, 01-REQ-3.3, 01-REQ-8.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Go workspace tests pass: `cd tests/setup && go test -v -run 'TestGoWork|TestGoSkeleton|TestGoBinary' ./...`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [ ] No linter warnings: `go vet ./...`
-    - [ ] _Test Spec: TS-01-11 through TS-01-13, TS-01-15, TS-01-17_
+  - [x] 4.V Verify task group 4
+    - [x] Go workspace tests pass: `cd tests/setup && go test -v -run 'TestGoWork|TestGoSkeleton|TestGoBinary' ./...`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [x] No linter warnings: `go vet ./...`
+    - [x] _Test Spec: TS-01-11 through TS-01-13, TS-01-15, TS-01-17_
 
 - [ ] 5. Checkpoint - Workspaces Complete
   - Ensure `cargo build`, `cargo test`, `go build ./...`, `go test ./...` all pass

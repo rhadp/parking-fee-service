@@ -1,0 +1,10 @@
+go 1.22
+
+use (
+	.
+	./tests/setup
+)
+
+// Go modules accessible via root module (.):
+// ./backend - Backend services (parking-fee-service, cloud-gateway)
+// ./mock - Mock CLI applications (parking-app-cli, companion-app-cli, parking-operator)
