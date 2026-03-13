@@ -2,884 +2,1238 @@
 
 ## Overview
 
-This test specification translates every acceptance criterion and correctness property from the project setup spec into concrete, verifiable test contracts. Tests are organized into three categories: acceptance criterion tests (TS-01-N), property tests (TS-01-PN), and edge case tests (TS-01-EN).
+All tests for the project setup spec are integration tests implemented as Go tests in `tests/setup/` that invoke shell commands to verify structural and behavioral invariants. Since this spec produces no runtime logic (only scaffolding, configs, and build targets), there are no unit tests in the traditional sense. Property tests verify structural invariants via exhaustive enumeration rather than random generation.
 
-Because this spec covers repository structure, build system, and infrastructure rather than application logic, many tests are shell-script-based or use the build tools themselves as test harnesses. A dedicated `tests/setup/` directory at the repo root contains these verification scripts.
+Test cases map 1:1 to acceptance criteria in requirements.md and correctness properties in design.md.
 
 ## Test Cases
 
-### TS-01-1: Top-Level Directory Structure Exists
+### TS-01-1: Top-Level Directories Exist
 
 **Requirement:** 01-REQ-1.1
 **Type:** integration
-**Description:** Verify all required top-level directories exist in the repository.
+**Description:** Verify that all required top-level directories exist in the repository.
 
 **Preconditions:**
-- Repository is checked out.
+- Repository is checked out at the project root.
 
 **Input:**
-- List of required directories: `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/`
+- List of expected directories: `rhivos`, `backend`, `android`, `mobile`, `mock`, `proto`, `deployments`, `tests`.
 
 **Expected:**
-- All seven directories exist and are accessible.
+- Each directory exists and is a directory (not a file).
 
 **Assertion pseudocode:**
 ```
-FOR EACH dir IN ["rhivos", "backend", "android", "mobile", "mock", "proto", "deployments"]:
-    ASSERT directory_exists(REPO_ROOT / dir)
+FOR EACH dir IN ["rhivos", "backend", "android", "mobile", "mock", "proto", "deployments", "tests"]:
+    ASSERT path_exists(dir) AND is_directory(dir)
 ```
 
-### TS-01-2: Rust Service Subdirectories Exist
+### TS-01-2: Rust Component Subdirectories Exist
 
 **Requirement:** 01-REQ-1.2
 **Type:** integration
-**Description:** Verify all required Rust service subdirectories exist under rhivos/.
+**Description:** Verify that all Rust component subdirectories exist under `rhivos/`.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- List of required subdirectories: `locking-service/`, `cloud-gateway-client/`, `update-service/`, `parking-operator-adaptor/`, `mock-sensors/`
+- Expected subdirectories: `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`, `mock-sensors`.
 
 **Expected:**
-- All five subdirectories exist under `rhivos/`.
+- Each subdirectory exists under `rhivos/`.
 
 **Assertion pseudocode:**
 ```
 FOR EACH dir IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "mock-sensors"]:
-    ASSERT directory_exists(REPO_ROOT / "rhivos" / dir)
+    ASSERT path_exists("rhivos/" + dir) AND is_directory("rhivos/" + dir)
 ```
 
 ### TS-01-3: Go Backend Subdirectories Exist
 
 **Requirement:** 01-REQ-1.3
 **Type:** integration
-**Description:** Verify all required Go backend subdirectories exist under backend/.
+**Description:** Verify that all Go backend subdirectories exist under `backend/`.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- List of required subdirectories: `parking-fee-service/`, `cloud-gateway/`
+- Expected subdirectories: `parking-fee-service`, `cloud-gateway`.
 
 **Expected:**
-- Both subdirectories exist under `backend/`.
+- Each subdirectory exists under `backend/`.
 
 **Assertion pseudocode:**
 ```
 FOR EACH dir IN ["parking-fee-service", "cloud-gateway"]:
-    ASSERT directory_exists(REPO_ROOT / "backend" / dir)
+    ASSERT path_exists("backend/" + dir) AND is_directory("backend/" + dir)
 ```
 
 ### TS-01-4: Mock CLI Subdirectories Exist
 
 **Requirement:** 01-REQ-1.4
 **Type:** integration
-**Description:** Verify all required mock CLI app subdirectories exist under mock/.
+**Description:** Verify that all mock CLI app subdirectories exist under `mock/`.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- List of required subdirectories: `parking-app-cli/`, `companion-app-cli/`, `parking-operator/`
+- Expected subdirectories: `parking-app-cli`, `companion-app-cli`, `parking-operator`.
 
 **Expected:**
-- All three subdirectories exist under `mock/`.
+- Each subdirectory exists under `mock/`.
 
 **Assertion pseudocode:**
 ```
 FOR EACH dir IN ["parking-app-cli", "companion-app-cli", "parking-operator"]:
-    ASSERT directory_exists(REPO_ROOT / "mock" / dir)
+    ASSERT path_exists("mock/" + dir) AND is_directory("mock/" + dir)
 ```
 
-### TS-01-5: Rust Workspace Cargo.toml Exists and Lists All Members
+### TS-01-5: AAOS Placeholder Exists
 
-**Requirement:** 01-REQ-2.1
+**Requirement:** 01-REQ-1.5
 **Type:** integration
-**Description:** Verify the Rust workspace Cargo.toml exists and references all expected crates.
+**Description:** Verify that the `android/` placeholder directory exists.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- Path: `rhivos/Cargo.toml`
-- Expected members: `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`, `mock-sensors`
+- Directory path: `android/`.
 
 **Expected:**
-- File exists and contains a `[workspace]` section listing all five members.
+- Directory exists and contains at least a README.md.
 
 **Assertion pseudocode:**
 ```
-content = read_file(REPO_ROOT / "rhivos" / "Cargo.toml")
-ASSERT "[workspace]" IN content
+ASSERT path_exists("android") AND is_directory("android")
+ASSERT path_exists("android/README.md")
+```
+
+### TS-01-6: Flutter Placeholder Exists
+
+**Requirement:** 01-REQ-1.6
+**Type:** integration
+**Description:** Verify that the `mobile/` placeholder directory exists.
+
+**Preconditions:**
+- Repository is checked out.
+
+**Input:**
+- Directory path: `mobile/`.
+
+**Expected:**
+- Directory exists and contains at least a README.md.
+
+**Assertion pseudocode:**
+```
+ASSERT path_exists("mobile") AND is_directory("mobile")
+ASSERT path_exists("mobile/README.md")
+```
+
+### TS-01-7: Cargo Workspace Configuration
+
+**Requirement:** 01-REQ-2.1
+**Type:** integration
+**Description:** Verify that the Cargo workspace root defines all expected members.
+
+**Preconditions:**
+- `rhivos/Cargo.toml` exists.
+
+**Input:**
+- Parse `rhivos/Cargo.toml` for workspace members.
+
+**Expected:**
+- Members list contains: `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`, `mock-sensors`.
+
+**Assertion pseudocode:**
+```
+content = read_file("rhivos/Cargo.toml")
 FOR EACH member IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "mock-sensors"]:
     ASSERT member IN content
 ```
 
-### TS-01-6: Rust Workspace Builds Successfully
+### TS-01-8: Cargo Build Succeeds
 
 **Requirement:** 01-REQ-2.2
 **Type:** integration
-**Description:** Verify `cargo build` succeeds in the Rust workspace.
+**Description:** Verify that `cargo build` in the Rust workspace completes without errors.
 
 **Preconditions:**
-- Rust toolchain installed.
-- Repository is checked out.
+- Rust toolchain 1.75+ installed.
+- `rhivos/Cargo.toml` workspace is configured.
 
 **Input:**
-- Command: `cargo build` in `rhivos/`
+- Run `cargo build` from `rhivos/` directory.
 
 **Expected:**
-- Exit code 0, no error output.
+- Command exits with code 0.
 
 **Assertion pseudocode:**
 ```
-result = run_command("cargo build", cwd=REPO_ROOT / "rhivos")
-ASSERT result.exit_code == 0
-ASSERT "error" NOT IN result.stderr
+exit_code = run_command("cargo build", cwd="rhivos/")
+ASSERT exit_code == 0
 ```
 
-### TS-01-7: Rust Workspace Tests Pass
+### TS-01-9: Cargo Test Succeeds
 
 **Requirement:** 01-REQ-2.3
 **Type:** integration
-**Description:** Verify `cargo test` succeeds in the Rust workspace.
+**Description:** Verify that `cargo test` in the Rust workspace discovers and runs tests.
 
 **Preconditions:**
-- Rust toolchain installed.
-- Repository is checked out.
+- Rust workspace compiles.
 
 **Input:**
-- Command: `cargo test` in `rhivos/`
+- Run `cargo test` from `rhivos/` directory.
 
 **Expected:**
-- Exit code 0, all tests pass.
+- Command exits with code 0.
+- Output contains "test result: ok".
 
 **Assertion pseudocode:**
 ```
-result = run_command("cargo test", cwd=REPO_ROOT / "rhivos")
-ASSERT result.exit_code == 0
-ASSERT "test result: ok" IN result.stdout
+exit_code, output = run_command("cargo test", cwd="rhivos/")
+ASSERT exit_code == 0
+ASSERT "test result: ok" IN output
 ```
 
-### TS-01-8: Go Backend Workspace File Exists
+### TS-01-10: Mock Sensors Binary Targets
+
+**Requirement:** 01-REQ-2.4
+**Type:** integration
+**Description:** Verify that the mock-sensors crate defines three binary targets.
+
+**Preconditions:**
+- `rhivos/mock-sensors/Cargo.toml` exists.
+
+**Input:**
+- Check for binary source files.
+
+**Expected:**
+- Files exist: `src/bin/location-sensor.rs`, `src/bin/speed-sensor.rs`, `src/bin/door-sensor.rs`.
+
+**Assertion pseudocode:**
+```
+FOR EACH bin IN ["location-sensor", "speed-sensor", "door-sensor"]:
+    ASSERT path_exists("rhivos/mock-sensors/src/bin/" + bin + ".rs")
+```
+
+### TS-01-11: Go Workspace File
 
 **Requirement:** 01-REQ-3.1
 **Type:** integration
-**Description:** Verify the Go workspace file exists in backend/ and references all modules.
+**Description:** Verify that `go.work` exists and references all expected modules.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- Path: `backend/go.work`
-- Expected modules: `parking-fee-service`, `cloud-gateway`
+- Parse `go.work` for `use` directives.
 
 **Expected:**
-- File exists and references both modules.
+- `go.work` contains use directives for `backend/`, `mock/`, `tests/setup/`.
 
 **Assertion pseudocode:**
 ```
-content = read_file(REPO_ROOT / "backend" / "go.work")
-FOR EACH module IN ["parking-fee-service", "cloud-gateway"]:
+content = read_file("go.work")
+FOR EACH module IN ["./backend", "./mock", "./tests/setup"]:
     ASSERT module IN content
 ```
 
-### TS-01-9: Go Mock Workspace File Exists
+### TS-01-12: Go Build Succeeds
 
 **Requirement:** 01-REQ-3.2
 **Type:** integration
-**Description:** Verify the Go workspace file exists in mock/ and references all modules.
+**Description:** Verify that `go build ./...` from the repo root completes without errors.
 
 **Preconditions:**
-- Repository is checked out.
+- Go 1.22+ installed.
+- `go.work` is configured.
 
 **Input:**
-- Path: `mock/go.work`
-- Expected modules: `parking-app-cli`, `companion-app-cli`, `parking-operator`
+- Run `go build ./...` from repo root.
 
 **Expected:**
-- File exists and references all three modules.
+- Command exits with code 0.
 
 **Assertion pseudocode:**
 ```
-content = read_file(REPO_ROOT / "mock" / "go.work")
-FOR EACH module IN ["parking-app-cli", "companion-app-cli", "parking-operator"]:
-    ASSERT module IN content
+exit_code = run_command("go build ./...")
+ASSERT exit_code == 0
 ```
 
-### TS-01-10: Go Modules Build Successfully
+### TS-01-13: Go Test Succeeds
 
 **Requirement:** 01-REQ-3.3
 **Type:** integration
-**Description:** Verify `go build ./...` succeeds for each Go module.
+**Description:** Verify that `go test ./...` discovers and runs tests.
 
 **Preconditions:**
-- Go toolchain installed.
-- Repository is checked out.
+- Go workspace compiles.
 
 **Input:**
-- Commands: `go build ./...` in each Go module directory
+- Run `go test ./...` from repo root.
 
 **Expected:**
-- Exit code 0 for each module.
+- Command exits with code 0.
+- Output contains "ok" for each test package.
 
 **Assertion pseudocode:**
 ```
-FOR EACH module_dir IN ["backend/parking-fee-service", "backend/cloud-gateway", "mock/parking-app-cli", "mock/companion-app-cli", "mock/parking-operator"]:
-    result = run_command("go build ./...", cwd=REPO_ROOT / module_dir)
-    ASSERT result.exit_code == 0
+exit_code, output = run_command("go test ./...")
+ASSERT exit_code == 0
+ASSERT "ok" IN output
 ```
 
-### TS-01-11: Go Module Tests Pass
-
-**Requirement:** 01-REQ-3.4
-**Type:** integration
-**Description:** Verify `go test ./...` succeeds for each Go module.
-
-**Preconditions:**
-- Go toolchain installed.
-- Repository is checked out.
-
-**Input:**
-- Commands: `go test ./...` in each Go module directory
-
-**Expected:**
-- Exit code 0 for each module, tests pass.
-
-**Assertion pseudocode:**
-```
-FOR EACH module_dir IN ["backend/parking-fee-service", "backend/cloud-gateway", "mock/parking-app-cli", "mock/companion-app-cli", "mock/parking-operator"]:
-    result = run_command("go test ./...", cwd=REPO_ROOT / module_dir)
-    ASSERT result.exit_code == 0
-```
-
-### TS-01-12: Rust Skeleton Binaries Exit with Code 0
+### TS-01-14: Rust Skeleton Exit Behavior
 
 **Requirement:** 01-REQ-4.1
 **Type:** integration
-**Description:** Verify each Rust skeleton binary runs and exits with code 0.
+**Description:** Verify that each Rust skeleton binary prints its name and exits 0.
 
 **Preconditions:**
-- Rust workspace has been built (`cargo build` in `rhivos/`).
+- Rust workspace is built.
 
 **Input:**
-- Execute each binary: locking-service, cloud-gateway-client, update-service, parking-operator-adaptor
+- Execute each Rust binary with no arguments.
 
 **Expected:**
-- Each exits with code 0 and produces stdout output.
+- Exit code 0 for each binary.
+- Output contains the component name.
 
 **Assertion pseudocode:**
 ```
-FOR EACH binary IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor"]:
-    result = run_command(REPO_ROOT / "rhivos" / "target" / "debug" / binary)
-    ASSERT result.exit_code == 0
-    ASSERT len(result.stdout) > 0
+FOR EACH binary IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "location-sensor", "speed-sensor", "door-sensor"]:
+    exit_code, output = run_command("rhivos/target/debug/" + binary)
+    ASSERT exit_code == 0
+    ASSERT binary IN output
 ```
 
-### TS-01-13: Go Skeleton Binaries Exit with Code 0
+### TS-01-15: Go Skeleton Exit Behavior
 
 **Requirement:** 01-REQ-4.2
 **Type:** integration
-**Description:** Verify each Go skeleton binary runs and exits with code 0.
+**Description:** Verify that each Go skeleton binary prints its name and exits 0.
 
 **Preconditions:**
-- Go modules have been built.
+- Go workspace is built.
 
 **Input:**
-- Execute `go run .` in each Go service directory
+- Execute each Go binary with no arguments.
 
 **Expected:**
-- Each exits with code 0 and produces stdout output.
+- Exit code 0 for each binary.
+- Output contains the component name.
 
 **Assertion pseudocode:**
 ```
-FOR EACH module_dir IN ["backend/parking-fee-service", "backend/cloud-gateway"]:
-    result = run_command("go run .", cwd=REPO_ROOT / module_dir)
-    ASSERT result.exit_code == 0
-    ASSERT len(result.stdout) > 0
+FOR EACH binary IN ["parking-fee-service", "cloud-gateway", "parking-app-cli", "companion-app-cli", "parking-operator"]:
+    exit_code, output = run_binary(binary)
+    ASSERT exit_code == 0
+    ASSERT binary IN output
 ```
 
-### TS-01-14: Each Skeleton Has At Least One Passing Test
+### TS-01-16: Rust Binary List
 
 **Requirement:** 01-REQ-4.3
 **Type:** integration
-**Description:** Verify every skeleton component has at least one test that passes.
+**Description:** Verify that all expected Rust binaries are produced by `cargo build`.
 
 **Preconditions:**
-- Toolchains installed.
+- `cargo build` has run successfully.
 
 **Input:**
-- Run tests per component and count test results.
+- Check for binary files in `rhivos/target/debug/`.
 
 **Expected:**
-- Each component reports at least one passing test.
+- All 7 binaries exist: locking-service, cloud-gateway-client, update-service, parking-operator-adaptor, location-sensor, speed-sensor, door-sensor.
 
 **Assertion pseudocode:**
 ```
-FOR EACH rust_crate IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "mock-sensors"]:
-    result = run_command("cargo test -p " + rust_crate, cwd=REPO_ROOT / "rhivos")
-    ASSERT "1 passed" IN result.stdout OR "test result: ok" IN result.stdout
-
-FOR EACH go_module IN ["backend/parking-fee-service", "backend/cloud-gateway", "mock/parking-app-cli", "mock/companion-app-cli", "mock/parking-operator"]:
-    result = run_command("go test -v ./...", cwd=REPO_ROOT / go_module)
-    ASSERT "PASS" IN result.stdout
+FOR EACH binary IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "location-sensor", "speed-sensor", "door-sensor"]:
+    ASSERT path_exists("rhivos/target/debug/" + binary)
 ```
 
-### TS-01-15: Proto Directory Contains Valid Proto3 File
+### TS-01-17: Go Binary List
 
-**Requirement:** 01-REQ-5.1, 01-REQ-5.2
+**Requirement:** 01-REQ-4.4
 **Type:** integration
-**Description:** Verify proto/ contains at least one valid proto3 file.
+**Description:** Verify that all expected Go binaries can be built.
 
 **Preconditions:**
-- protoc is installed.
+- Go workspace is configured.
 
 **Input:**
-- Search for .proto files in `proto/`
-- Run protoc validation on each
+- Build each Go binary individually.
 
 **Expected:**
-- At least one .proto file exists with `syntax = "proto3"` and passes protoc validation.
+- `go build` succeeds for each: `backend/parking-fee-service`, `backend/cloud-gateway`, `mock/parking-app-cli`, `mock/companion-app-cli`, `mock/parking-operator`.
 
 **Assertion pseudocode:**
 ```
-proto_files = glob(REPO_ROOT / "proto" / "**" / "*.proto")
-ASSERT len(proto_files) >= 1
-FOR EACH proto_file IN proto_files:
-    content = read_file(proto_file)
-    ASSERT 'syntax = "proto3"' IN content
-    result = run_command("protoc --proto_path=proto --lint_out=. " + proto_file)
-    ASSERT result.exit_code == 0
+FOR EACH pkg IN ["./backend/parking-fee-service", "./backend/cloud-gateway", "./mock/parking-app-cli", "./mock/companion-app-cli", "./mock/parking-operator"]:
+    exit_code = run_command("go build " + pkg)
+    ASSERT exit_code == 0
 ```
 
-### TS-01-16: Root Makefile Has All Required Targets
+### TS-01-18: Proto Files Exist
+
+**Requirement:** 01-REQ-5.1
+**Type:** integration
+**Description:** Verify that all required proto files exist in `proto/`.
+
+**Preconditions:**
+- Repository is checked out.
+
+**Input:**
+- Expected files: `common.proto`, `update_service.proto`, `parking_adaptor.proto`.
+
+**Expected:**
+- All three files exist.
+
+**Assertion pseudocode:**
+```
+FOR EACH file IN ["common.proto", "update_service.proto", "parking_adaptor.proto"]:
+    ASSERT path_exists("proto/" + file)
+```
+
+### TS-01-19: Common Proto Types
+
+**Requirement:** 01-REQ-5.2
+**Type:** integration
+**Description:** Verify that `common.proto` defines AdapterState, AdapterInfo, and ErrorDetails.
+
+**Preconditions:**
+- `proto/common.proto` exists.
+
+**Input:**
+- Parse proto file content.
+
+**Expected:**
+- Contains `enum AdapterState`, `message AdapterInfo`, `message ErrorDetails`.
+
+**Assertion pseudocode:**
+```
+content = read_file("proto/common.proto")
+ASSERT "enum AdapterState" IN content
+ASSERT "message AdapterInfo" IN content
+ASSERT "message ErrorDetails" IN content
+```
+
+### TS-01-20: UpdateService Proto RPCs
+
+**Requirement:** 01-REQ-5.3
+**Type:** integration
+**Description:** Verify that `update_service.proto` defines the UpdateService with all 5 RPCs.
+
+**Preconditions:**
+- `proto/update_service.proto` exists.
+
+**Input:**
+- Parse proto file content.
+
+**Expected:**
+- Contains `service UpdateService` with RPCs: `InstallAdapter`, `WatchAdapterStates`, `ListAdapters`, `RemoveAdapter`, `GetAdapterStatus`.
+
+**Assertion pseudocode:**
+```
+content = read_file("proto/update_service.proto")
+ASSERT "service UpdateService" IN content
+FOR EACH rpc IN ["InstallAdapter", "WatchAdapterStates", "ListAdapters", "RemoveAdapter", "GetAdapterStatus"]:
+    ASSERT "rpc " + rpc IN content
+```
+
+### TS-01-21: ParkingAdaptor Proto RPCs
+
+**Requirement:** 01-REQ-5.4
+**Type:** integration
+**Description:** Verify that `parking_adaptor.proto` defines the ParkingAdaptor service with all 4 RPCs.
+
+**Preconditions:**
+- `proto/parking_adaptor.proto` exists.
+
+**Input:**
+- Parse proto file content.
+
+**Expected:**
+- Contains `service ParkingAdaptor` with RPCs: `StartSession`, `StopSession`, `GetStatus`, `GetRate`.
+
+**Assertion pseudocode:**
+```
+content = read_file("proto/parking_adaptor.proto")
+ASSERT "service ParkingAdaptor" IN content
+FOR EACH rpc IN ["StartSession", "StopSession", "GetStatus", "GetRate"]:
+    ASSERT "rpc " + rpc IN content
+```
+
+### TS-01-22: Proto Generation Produces Go Code
+
+**Requirement:** 01-REQ-5.5
+**Type:** integration
+**Description:** Verify that `make proto` generates Go code into the expected packages.
+
+**Preconditions:**
+- `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc` installed.
+- `gen/go/` directory is empty or does not exist.
+
+**Input:**
+- Run `make proto`.
+
+**Expected:**
+- Directories exist: `gen/go/commonpb/`, `gen/go/updateservicepb/`, `gen/go/parkingadaptorpb/`.
+- Each contains at least one `.go` file.
+
+**Assertion pseudocode:**
+```
+run_command("make proto")
+FOR EACH pkg IN ["commonpb", "updateservicepb", "parkingadaptorpb"]:
+    ASSERT path_exists("gen/go/" + pkg)
+    ASSERT count_files("gen/go/" + pkg + "/*.go") > 0
+```
+
+### TS-01-23: Generated Go Code Compiles
+
+**Requirement:** 01-REQ-5.6
+**Type:** integration
+**Description:** Verify that generated Go code compiles without errors.
+
+**Preconditions:**
+- `make proto` has been run.
+
+**Input:**
+- Run `go build ./gen/go/...`.
+
+**Expected:**
+- Command exits with code 0.
+
+**Assertion pseudocode:**
+```
+exit_code = run_command("go build ./gen/go/...")
+ASSERT exit_code == 0
+```
+
+### TS-01-24: Compose File Defines Services
 
 **Requirement:** 01-REQ-6.1
 **Type:** integration
-**Description:** Verify the root Makefile defines all required targets.
+**Description:** Verify that `deployments/compose.yml` defines NATS and Databroker services.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- Path: `Makefile`
-- Required targets: `build`, `test`, `lint`, `clean`, `infra-up`, `infra-down`
+- Parse `deployments/compose.yml`.
 
 **Expected:**
-- All six targets are defined in the Makefile.
+- File contains service definitions for `nats` (port 4222) and `databroker` (port 55556).
 
 **Assertion pseudocode:**
 ```
-content = read_file(REPO_ROOT / "Makefile")
-FOR EACH target IN ["build", "test", "lint", "clean", "infra-up", "infra-down"]:
-    ASSERT target + ":" IN content
+content = read_file("deployments/compose.yml")
+ASSERT "nats" IN content
+ASSERT "4222" IN content
+ASSERT "databroker" IN content
+ASSERT "55556" IN content
 ```
 
-### TS-01-17: make build Succeeds
+### TS-01-25: Infrastructure Starts
 
 **Requirement:** 01-REQ-6.2
 **Type:** integration
-**Description:** Verify `make build` compiles all components successfully.
+**Description:** Verify that `make infra-up` starts NATS and Databroker containers.
 
 **Preconditions:**
-- Rust and Go toolchains installed.
+- Podman is running.
 
 **Input:**
-- Command: `make build`
+- Run `make infra-up`.
 
 **Expected:**
-- Exit code 0.
+- Command exits with code 0.
+- `podman ps` shows containers for NATS and Databroker.
 
 **Assertion pseudocode:**
 ```
-result = run_command("make build", cwd=REPO_ROOT)
-ASSERT result.exit_code == 0
+exit_code = run_command("make infra-up")
+ASSERT exit_code == 0
+output = run_command("podman ps")
+ASSERT "nats" IN output
+ASSERT "databroker" IN output OR "kuksa" IN output
 ```
 
-### TS-01-18: make test Succeeds
+### TS-01-26: Infrastructure Stops
 
 **Requirement:** 01-REQ-6.3
 **Type:** integration
-**Description:** Verify `make test` runs all tests successfully.
+**Description:** Verify that `make infra-down` stops and removes infrastructure containers.
 
 **Preconditions:**
-- Rust and Go toolchains installed.
+- Infrastructure is running via `make infra-up`.
 
 **Input:**
-- Command: `make test`
+- Run `make infra-down`.
 
 **Expected:**
-- Exit code 0.
+- Command exits with code 0.
+- `podman ps` no longer shows NATS or Databroker containers.
 
 **Assertion pseudocode:**
 ```
-result = run_command("make test", cwd=REPO_ROOT)
-ASSERT result.exit_code == 0
+run_command("make infra-up")
+exit_code = run_command("make infra-down")
+ASSERT exit_code == 0
+output = run_command("podman ps")
+ASSERT "nats" NOT IN output
+ASSERT "databroker" NOT IN output AND "kuksa" NOT IN output
 ```
 
-### TS-01-19: make clean Removes Build Artifacts
+### TS-01-27: NATS Config Exists
 
 **Requirement:** 01-REQ-6.4
 **Type:** integration
-**Description:** Verify `make clean` removes all build artifacts.
-
-**Preconditions:**
-- `make build` has been run first.
-
-**Input:**
-- Command: `make build` then `make clean`
-
-**Expected:**
-- Rust `target/` directory is removed. Go build cache is cleared.
-
-**Assertion pseudocode:**
-```
-run_command("make build", cwd=REPO_ROOT)
-ASSERT directory_exists(REPO_ROOT / "rhivos" / "target")
-run_command("make clean", cwd=REPO_ROOT)
-ASSERT NOT directory_exists(REPO_ROOT / "rhivos" / "target")
-```
-
-### TS-01-20: Compose File Defines NATS and Kuksa Services
-
-**Requirement:** 01-REQ-7.1
-**Type:** integration
-**Description:** Verify the compose file defines both required infrastructure services.
+**Description:** Verify that the NATS server configuration file exists.
 
 **Preconditions:**
 - Repository is checked out.
 
 **Input:**
-- Path: `deployments/compose.yml`
+- Check for `deployments/nats/nats-server.conf`.
 
 **Expected:**
-- File exists and defines services for NATS and Kuksa Databroker.
+- File exists and contains `port: 4222`.
 
 **Assertion pseudocode:**
 ```
-content = read_file(REPO_ROOT / "deployments" / "compose.yml")
-ASSERT "nats" IN content
-ASSERT "kuksa" IN content OR "databroker" IN content
+ASSERT path_exists("deployments/nats/nats-server.conf")
+content = read_file("deployments/nats/nats-server.conf")
 ASSERT "4222" IN content
-ASSERT "55555" IN content
 ```
 
-### TS-01-21: Infrastructure Starts and Services Are Reachable
+### TS-01-28: VSS Overlay Exists
+
+**Requirement:** 01-REQ-6.5
+**Type:** integration
+**Description:** Verify that the VSS overlay defines custom signals.
+
+**Preconditions:**
+- Repository is checked out.
+
+**Input:**
+- Parse `deployments/vss-overlay.json`.
+
+**Expected:**
+- Contains definitions for `SessionActive`, `Lock`, `Response` signals.
+
+**Assertion pseudocode:**
+```
+content = read_file("deployments/vss-overlay.json")
+ASSERT "SessionActive" IN content
+ASSERT "Lock" IN content
+ASSERT "Response" IN content
+```
+
+### TS-01-29: Makefile Build Target
+
+**Requirement:** 01-REQ-7.1
+**Type:** integration
+**Description:** Verify that `make build` compiles all Rust and Go components.
+
+**Preconditions:**
+- Rust and Go toolchains installed.
+
+**Input:**
+- Run `make build`.
+
+**Expected:**
+- Command exits with code 0.
+
+**Assertion pseudocode:**
+```
+exit_code = run_command("make build")
+ASSERT exit_code == 0
+```
+
+### TS-01-30: Makefile Test Target
 
 **Requirement:** 01-REQ-7.2
 **Type:** integration
-**Description:** Verify `make infra-up` starts containers and services are reachable.
+**Description:** Verify that `make test` runs all unit tests.
 
 **Preconditions:**
-- Podman is installed and running.
+- Project builds successfully.
 
 **Input:**
-- Command: `make infra-up`
+- Run `make test`.
 
 **Expected:**
-- Both containers are running. NATS is reachable on port 4222. Kuksa is reachable on port 55555.
+- Command exits with code 0.
 
 **Assertion pseudocode:**
 ```
-run_command("make infra-up", cwd=REPO_ROOT)
-sleep(10)  // Allow containers to start
-ASSERT tcp_connect("localhost", 4222) == SUCCESS
-ASSERT tcp_connect("localhost", 55555) == SUCCESS
-run_command("make infra-down", cwd=REPO_ROOT)  // Cleanup
+exit_code = run_command("make test")
+ASSERT exit_code == 0
 ```
 
-### TS-01-22: Infrastructure Stops Cleanly
+### TS-01-31: Makefile Lint Target
 
 **Requirement:** 01-REQ-7.3
 **Type:** integration
-**Description:** Verify `make infra-down` stops and removes all containers.
+**Description:** Verify that `make lint` runs cargo clippy and go vet.
 
 **Preconditions:**
-- `make infra-up` has been run.
+- Project builds successfully.
 
 **Input:**
-- Command: `make infra-down`
+- Run `make lint`.
 
 **Expected:**
-- No containers from the compose file remain running.
+- Command exits with code 0.
 
 **Assertion pseudocode:**
 ```
-run_command("make infra-up", cwd=REPO_ROOT)
-run_command("make infra-down", cwd=REPO_ROOT)
-result = run_command("podman compose -f deployments/compose.yml ps -q")
-ASSERT result.stdout.strip() == ""
+exit_code = run_command("make lint")
+ASSERT exit_code == 0
 ```
 
-### TS-01-23: Mock CLI Apps Build Successfully
+### TS-01-32: Makefile Check Target
 
-**Requirement:** 01-REQ-8.1, 01-REQ-8.2, 01-REQ-8.3
+**Requirement:** 01-REQ-7.4
 **Type:** integration
-**Description:** Verify all mock CLI apps compile to named binaries.
+**Description:** Verify that `make check` runs build, test, and lint in sequence.
 
 **Preconditions:**
-- Go toolchain installed.
+- Rust and Go toolchains installed.
 
 **Input:**
-- Build each mock app.
+- Run `make check`.
 
 **Expected:**
-- Each produces a binary.
+- Command exits with code 0.
 
 **Assertion pseudocode:**
 ```
-FOR EACH app IN ["parking-app-cli", "companion-app-cli", "parking-operator"]:
-    result = run_command("go build -o " + app + " .", cwd=REPO_ROOT / "mock" / app)
-    ASSERT result.exit_code == 0
-    ASSERT file_exists(REPO_ROOT / "mock" / app / app)
+exit_code = run_command("make check")
+ASSERT exit_code == 0
 ```
 
-### TS-01-24: Mock CLI Apps Print Usage Without Arguments
+### TS-01-33: Makefile Clean Target
+
+**Requirement:** 01-REQ-7.5
+**Type:** integration
+**Description:** Verify that `make clean` removes build artifacts.
+
+**Preconditions:**
+- `make build` has been run.
+
+**Input:**
+- Run `make clean`.
+
+**Expected:**
+- Command exits with code 0.
+- `rhivos/target/` directory does not exist.
+- Go binaries are removed.
+
+**Assertion pseudocode:**
+```
+run_command("make build")
+exit_code = run_command("make clean")
+ASSERT exit_code == 0
+ASSERT NOT path_exists("rhivos/target")
+```
+
+### TS-01-34: Makefile Proto and Infra Targets Exist
+
+**Requirement:** 01-REQ-7.6
+**Type:** integration
+**Description:** Verify that proto, infra-up, and infra-down targets are defined.
+
+**Preconditions:**
+- Root Makefile exists.
+
+**Input:**
+- Parse Makefile for target definitions.
+
+**Expected:**
+- Makefile contains targets: `proto`, `infra-up`, `infra-down`.
+
+**Assertion pseudocode:**
+```
+content = read_file("Makefile")
+ASSERT "proto:" IN content OR "proto :" IN content
+ASSERT "infra-up:" IN content OR "infra-up :" IN content
+ASSERT "infra-down:" IN content OR "infra-down :" IN content
+```
+
+### TS-01-35: Cargo Test Discovers Tests
+
+**Requirement:** 01-REQ-8.1
+**Type:** integration
+**Description:** Verify that each Rust crate has at least one test discovered by cargo test.
+
+**Preconditions:**
+- Rust workspace compiles.
+
+**Input:**
+- Run `cargo test` from `rhivos/` and parse output.
+
+**Expected:**
+- Output shows test execution for each crate (non-zero test count).
+
+**Assertion pseudocode:**
+```
+exit_code, output = run_command("cargo test", cwd="rhivos/")
+ASSERT exit_code == 0
+FOR EACH crate IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "mock-sensors"]:
+    ASSERT crate IN output
+```
+
+### TS-01-36: Go Test Discovers Tests
+
+**Requirement:** 01-REQ-8.2
+**Type:** integration
+**Description:** Verify that each Go module has at least one test discovered by go test.
+
+**Preconditions:**
+- Go workspace compiles.
+
+**Input:**
+- Run `go test ./...` from repo root and parse output.
+
+**Expected:**
+- Output shows "ok" for test packages in backend, mock, and tests/setup.
+
+**Assertion pseudocode:**
+```
+exit_code, output = run_command("go test ./...")
+ASSERT exit_code == 0
+ASSERT "ok" IN output
+```
+
+### TS-01-37: Setup Tests Module
+
+**Requirement:** 01-REQ-8.3
+**Type:** integration
+**Description:** Verify that `tests/setup/` contains a Go module with test files.
+
+**Preconditions:**
+- Repository is checked out.
+
+**Input:**
+- Check for `tests/setup/go.mod` and `tests/setup/*_test.go`.
+
+**Expected:**
+- go.mod exists and at least one test file exists.
+
+**Assertion pseudocode:**
+```
+ASSERT path_exists("tests/setup/go.mod")
+ASSERT count_files("tests/setup/*_test.go") > 0
+```
+
+### TS-01-38: Make Test Runs All Tests
 
 **Requirement:** 01-REQ-8.4
 **Type:** integration
-**Description:** Verify each mock CLI app prints usage and exits 0 when run without arguments.
+**Description:** Verify that `make test` executes both Rust and Go tests.
 
 **Preconditions:**
-- Mock apps have been built.
+- Project builds successfully.
 
 **Input:**
-- Execute each mock app binary without arguments.
+- Run `make test` and capture output.
 
 **Expected:**
-- Each prints usage text and exits with code 0.
+- Output contains evidence of both `cargo test` and `go test` execution.
 
 **Assertion pseudocode:**
 ```
-FOR EACH app IN ["parking-app-cli", "companion-app-cli", "parking-operator"]:
-    result = run_command("go run .", cwd=REPO_ROOT / "mock" / app)
-    ASSERT result.exit_code == 0
-    ASSERT "usage" IN result.stdout.lower() OR "Usage" IN result.stdout
-```
-
-### TS-01-25: make test Runs All Component Tests
-
-**Requirement:** 01-REQ-9.3
-**Type:** integration
-**Description:** Verify `make test` runs tests across all Rust and Go components.
-
-**Preconditions:**
-- All toolchains installed.
-
-**Input:**
-- Command: `make test`
-
-**Expected:**
-- Exit code 0, output includes test results from both Rust and Go.
-
-**Assertion pseudocode:**
-```
-result = run_command("make test", cwd=REPO_ROOT)
-ASSERT result.exit_code == 0
-ASSERT "test result" IN result.stdout OR "ok" IN result.stdout  // Rust output
-ASSERT "PASS" IN result.stdout  // Go output
-```
-
-### TS-01-26: Mock Sensors Crate Builds
-
-**Requirement:** 01-REQ-10.1, 01-REQ-10.2
-**Type:** integration
-**Description:** Verify mock-sensors crate compiles as part of the Rust workspace.
-
-**Preconditions:**
-- Rust toolchain installed.
-
-**Input:**
-- Command: `cargo build -p mock-sensors` in `rhivos/`
-
-**Expected:**
-- Exit code 0.
-
-**Assertion pseudocode:**
-```
-result = run_command("cargo build -p mock-sensors", cwd=REPO_ROOT / "rhivos")
-ASSERT result.exit_code == 0
-```
-
-## Property Test Cases
-
-### TS-01-P1: Directory Completeness
-
-**Property:** Property 1 from design.md
-**Validates:** 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4
-**Type:** property
-**Description:** Every required directory exists and is non-empty.
-
-**For any:** directory in the full list of required directories (top-level and nested)
-**Invariant:** The directory exists and contains at least one file or subdirectory.
-
-**Assertion pseudocode:**
-```
-all_dirs = [
-    "rhivos", "backend", "android", "mobile", "mock", "proto", "deployments",
-    "rhivos/locking-service", "rhivos/cloud-gateway-client", "rhivos/update-service",
-    "rhivos/parking-operator-adaptor", "rhivos/mock-sensors",
-    "backend/parking-fee-service", "backend/cloud-gateway",
-    "mock/parking-app-cli", "mock/companion-app-cli", "mock/parking-operator"
-]
-FOR EACH dir IN all_dirs:
-    ASSERT directory_exists(REPO_ROOT / dir)
-    ASSERT count_entries(REPO_ROOT / dir) > 0
-```
-
-### TS-01-P2: Build Determinism
-
-**Property:** Property 2 from design.md
-**Validates:** 01-REQ-2.2, 01-REQ-3.3, 01-REQ-6.2
-**Type:** property
-**Description:** Two consecutive `make build` runs both succeed.
-
-**For any:** clean repository state
-**Invariant:** `make build` returns exit code 0 on two consecutive runs.
-
-**Assertion pseudocode:**
-```
-run_command("make clean", cwd=REPO_ROOT)
-result1 = run_command("make build", cwd=REPO_ROOT)
-result2 = run_command("make build", cwd=REPO_ROOT)
-ASSERT result1.exit_code == 0
-ASSERT result2.exit_code == 0
-```
-
-### TS-01-P3: Test Discoverability
-
-**Property:** Property 3 from design.md
-**Validates:** 01-REQ-2.3, 01-REQ-3.4, 01-REQ-4.3, 01-REQ-9.1, 01-REQ-9.2
-**Type:** property
-**Description:** Every component has at least one discoverable, passing test.
-
-**For any:** component directory (Rust crate or Go module)
-**Invariant:** The test runner discovers and passes at least one test.
-
-**Assertion pseudocode:**
-```
-FOR EACH rust_crate IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "mock-sensors"]:
-    result = run_command("cargo test -p " + rust_crate, cwd=REPO_ROOT / "rhivos")
-    ASSERT result.exit_code == 0
-    ASSERT "0 passed" NOT IN result.stdout
-
-FOR EACH go_module IN ["backend/parking-fee-service", "backend/cloud-gateway", "mock/parking-app-cli", "mock/companion-app-cli", "mock/parking-operator"]:
-    result = run_command("go test -v ./...", cwd=REPO_ROOT / go_module)
-    ASSERT result.exit_code == 0
-    ASSERT "PASS" IN result.stdout
-```
-
-### TS-01-P4: Skeleton Exit Behavior
-
-**Property:** Property 4 from design.md
-**Validates:** 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.E1
-**Type:** property
-**Description:** Every skeleton binary exits with code 0 and produces stdout output.
-
-**For any:** skeleton binary in the project
-**Invariant:** Exit code is 0 and stdout is non-empty.
-
-**Assertion pseudocode:**
-```
-FOR EACH binary IN all_skeleton_binaries:
-    result = run_binary(binary)
-    ASSERT result.exit_code == 0
-    ASSERT len(result.stdout) > 0
-```
-
-### TS-01-P5: Infrastructure Lifecycle
-
-**Property:** Property 5 from design.md
-**Validates:** 01-REQ-7.2, 01-REQ-7.3
-**Type:** property
-**Description:** Infrastructure up/down cycle leaves no orphaned containers.
-
-**For any:** execution of infra-up followed by infra-down
-**Invariant:** No containers from the compose project remain after infra-down.
-
-**Assertion pseudocode:**
-```
-run_command("make infra-up", cwd=REPO_ROOT)
-run_command("make infra-down", cwd=REPO_ROOT)
-result = run_command("podman compose -f deployments/compose.yml ps -q")
-ASSERT result.stdout.strip() == ""
-```
-
-### TS-01-P6: Proto Validity
-
-**Property:** Property 6 from design.md
-**Validates:** 01-REQ-5.1, 01-REQ-5.2
-**Type:** property
-**Description:** All .proto files are syntactically valid proto3.
-
-**For any:** .proto file in the proto/ directory
-**Invariant:** The file declares proto3 syntax and passes protoc validation.
-
-**Assertion pseudocode:**
-```
-proto_files = glob(REPO_ROOT / "proto" / "**" / "*.proto")
-ASSERT len(proto_files) >= 1
-FOR EACH f IN proto_files:
-    content = read_file(f)
-    ASSERT 'syntax = "proto3"' IN content
-```
-
-### TS-01-P7: Mock CLI Usage Output
-
-**Property:** Property 7 from design.md
-**Validates:** 01-REQ-8.1, 01-REQ-8.2, 01-REQ-8.3, 01-REQ-8.4
-**Type:** property
-**Description:** Every mock CLI app prints usage when run without arguments.
-
-**For any:** mock CLI app binary
-**Invariant:** Exit code is 0 and stdout contains usage information.
-
-**Assertion pseudocode:**
-```
-FOR EACH app IN ["parking-app-cli", "companion-app-cli", "parking-operator"]:
-    result = run_command("go run .", cwd=REPO_ROOT / "mock" / app)
-    ASSERT result.exit_code == 0
-    ASSERT len(result.stdout) > 0
+exit_code, output = run_command("make test")
+ASSERT exit_code == 0
+ASSERT "test result" IN output  # cargo test output
+ASSERT "ok" IN output           # go test output
 ```
 
 ## Edge Case Tests
 
-### TS-01-E1: Android Placeholder Directory
+### TS-01-E1: Missing Directory Detection
 
 **Requirement:** 01-REQ-1.E1
-**Type:** unit
-**Description:** Verify android/ is a placeholder with only a README.
+**Type:** integration
+**Description:** Verify that the build system detects a missing required directory.
 
 **Preconditions:**
 - Repository is checked out.
+- One required directory is temporarily renamed.
 
 **Input:**
-- Directory: `android/`
+- Rename `proto/` to `proto_backup/`.
+- Run setup verification tests.
 
 **Expected:**
-- Directory exists and contains only README.md.
+- Test reports the missing `proto/` directory.
 
 **Assertion pseudocode:**
 ```
-entries = list_directory(REPO_ROOT / "android")
-ASSERT "README.md" IN entries
-ASSERT len(entries) == 1
+rename("proto", "proto_backup")
+exit_code, output = run_command("go test ./tests/setup/ -run TestDirectories")
+ASSERT exit_code != 0
+ASSERT "proto" IN output
+rename("proto_backup", "proto")
 ```
 
-### TS-01-E2: Mobile Placeholder Directory
+### TS-01-E2: Missing Cargo Member
 
-**Requirement:** 01-REQ-1.E2
-**Type:** unit
-**Description:** Verify mobile/ is a placeholder with only a README.
+**Requirement:** 01-REQ-2.E1
+**Type:** integration
+**Description:** Verify that a missing Cargo workspace member causes a build failure.
 
 **Preconditions:**
-- Repository is checked out.
+- Cargo workspace is configured.
+- One member crate's Cargo.toml is temporarily removed.
 
 **Input:**
-- Directory: `mobile/`
+- Remove `rhivos/locking-service/Cargo.toml`.
+- Run `cargo build` from `rhivos/`.
 
 **Expected:**
-- Directory exists and contains only README.md.
+- Command exits with non-zero code.
+- Error message references the missing member.
 
 **Assertion pseudocode:**
 ```
-entries = list_directory(REPO_ROOT / "mobile")
-ASSERT "README.md" IN entries
-ASSERT len(entries) == 1
+rename("rhivos/locking-service/Cargo.toml", "rhivos/locking-service/Cargo.toml.bak")
+exit_code, output = run_command("cargo build", cwd="rhivos/")
+ASSERT exit_code != 0
+rename("rhivos/locking-service/Cargo.toml.bak", "rhivos/locking-service/Cargo.toml")
 ```
 
-### TS-01-E3: Skeleton Binary Without Config
+### TS-01-E3: Missing Go Module
+
+**Requirement:** 01-REQ-3.E1
+**Type:** integration
+**Description:** Verify that a missing Go module causes a workspace build failure.
+
+**Preconditions:**
+- Go workspace is configured.
+- One module's go.mod is temporarily removed.
+
+**Input:**
+- Remove `backend/go.mod`.
+- Run `go build ./...`.
+
+**Expected:**
+- Command exits with non-zero code.
+
+**Assertion pseudocode:**
+```
+rename("backend/go.mod", "backend/go.mod.bak")
+exit_code = run_command("go build ./...")
+ASSERT exit_code != 0
+rename("backend/go.mod.bak", "backend/go.mod")
+```
+
+### TS-01-E4: Skeleton Unrecognized Flag
 
 **Requirement:** 01-REQ-4.E1
 **Type:** integration
-**Description:** Verify skeleton binaries exit cleanly without configuration.
+**Description:** Verify that skeleton binaries exit 0 even with unrecognized flags.
 
 **Preconditions:**
-- Binaries built. No config files present.
+- Binaries are built.
 
 **Input:**
-- Run each binary in an empty environment.
+- Run each binary with `--unknown-flag`.
 
 **Expected:**
-- Exit code 0, no panic or crash.
+- Exit code 0 for all binaries.
 
 **Assertion pseudocode:**
 ```
-FOR EACH binary IN all_skeleton_binaries:
-    result = run_binary(binary, env={})
-    ASSERT result.exit_code == 0
-    ASSERT "panic" NOT IN result.stderr
+FOR EACH binary IN all_binaries:
+    exit_code = run_command(binary + " --unknown-flag")
+    ASSERT exit_code == 0
 ```
 
-### TS-01-E4: make build Reports Failure Clearly
+### TS-01-E5: Missing Protoc
+
+**Requirement:** 01-REQ-5.E1
+**Type:** integration
+**Description:** Verify that `make proto` fails gracefully when protoc is not in PATH.
+
+**Preconditions:**
+- `protoc` is temporarily removed from PATH.
+
+**Input:**
+- Run `make proto` with modified PATH.
+
+**Expected:**
+- Command exits with non-zero code.
+- Output contains error about missing `protoc`.
+
+**Assertion pseudocode:**
+```
+exit_code, output = run_command("PATH=/usr/bin make proto")
+ASSERT exit_code != 0
+ASSERT "protoc" IN output
+```
+
+### TS-01-E6: Missing Podman
 
 **Requirement:** 01-REQ-6.E1
 **Type:** integration
-**Description:** Verify `make build` exits non-zero when a component fails to build.
+**Description:** Verify that `make infra-up` fails gracefully when Podman is unavailable.
 
 **Preconditions:**
-- Introduce a syntax error in one component source file.
+- Podman is temporarily removed from PATH.
 
 **Input:**
-- Command: `make build` with a broken component.
+- Run `make infra-up` with modified PATH.
 
 **Expected:**
-- Non-zero exit code and error message in output.
+- Command exits with non-zero code.
+- Output indicates Podman is required.
 
 **Assertion pseudocode:**
 ```
-inject_syntax_error(REPO_ROOT / "rhivos" / "locking-service" / "src" / "main.rs")
-result = run_command("make build", cwd=REPO_ROOT)
-ASSERT result.exit_code != 0
-ASSERT "error" IN result.stderr OR "error" IN result.stdout
-restore_file(REPO_ROOT / "rhivos" / "locking-service" / "src" / "main.rs")
+exit_code, output = run_command("PATH=/usr/bin make infra-up")
+ASSERT exit_code != 0
+ASSERT "podman" IN output OR "Podman" IN output
 ```
 
-### TS-01-E5: Mock CLI Unknown Subcommand
+### TS-01-E7: Idempotent Infrastructure Start
+
+**Requirement:** 01-REQ-6.E2
+**Type:** integration
+**Description:** Verify that running `make infra-up` twice does not create duplicate containers.
+
+**Preconditions:**
+- Podman is running.
+
+**Input:**
+- Run `make infra-up` twice.
+- Count running containers.
+
+**Expected:**
+- Exactly one NATS container and one Databroker container.
+
+**Assertion pseudocode:**
+```
+run_command("make infra-up")
+run_command("make infra-up")
+output = run_command("podman ps")
+ASSERT count_occurrences(output, "nats") == 1
+ASSERT count_occurrences(output, "databroker") <= 1 OR count_occurrences(output, "kuksa") <= 1
+run_command("make infra-down")
+```
+
+### TS-01-E8: Missing Toolchain
+
+**Requirement:** 01-REQ-7.E1
+**Type:** integration
+**Description:** Verify that Makefile targets fail with a clear error when a toolchain is missing.
+
+**Preconditions:**
+- One toolchain is temporarily removed from PATH.
+
+**Input:**
+- Run `make build` with `cargo` removed from PATH.
+
+**Expected:**
+- Command exits with non-zero code.
+- Output references the missing toolchain.
+
+**Assertion pseudocode:**
+```
+exit_code, output = run_command("PATH=$(echo $PATH | sed 's|.*cargo.*||') make build")
+ASSERT exit_code != 0
+```
+
+### TS-01-E9: No Tests Warning
 
 **Requirement:** 01-REQ-8.E1
 **Type:** integration
-**Description:** Verify mock CLI apps report error for unknown subcommands.
+**Description:** Verify that the test runner warns when no tests exist in a component.
 
 **Preconditions:**
-- Mock apps are built.
+- A component's test file is temporarily removed.
 
 **Input:**
-- Run each mock app with an unknown subcommand: `./app nonexistent`
+- Remove test file from one Go module.
+- Run `go test` for that module.
 
 **Expected:**
-- Non-zero exit code and error message listing valid subcommands.
+- Output contains "no test files" or similar warning.
 
 **Assertion pseudocode:**
 ```
-FOR EACH app IN ["parking-app-cli", "companion-app-cli", "parking-operator"]:
-    result = run_command("go run . nonexistent", cwd=REPO_ROOT / "mock" / app)
-    ASSERT result.exit_code != 0
-    ASSERT "unknown" IN result.stderr.lower() OR "invalid" IN result.stderr.lower()
+rename("backend/parking-fee-service/main_test.go", "backend/parking-fee-service/main_test.go.bak")
+exit_code, output = run_command("go test ./backend/parking-fee-service/")
+ASSERT "no test files" IN output
+rename("backend/parking-fee-service/main_test.go.bak", "backend/parking-fee-service/main_test.go")
 ```
 
-### TS-01-E6: No Tests Reported Gracefully
+## Property Test Cases
 
-**Requirement:** 01-REQ-9.E1
-**Type:** unit
-**Description:** Verify test runners handle packages with no tests gracefully.
+### TS-01-P1: Rust Workspace Completeness
 
-**Preconditions:**
-- A Go package or Rust module with no test functions.
+**Property:** Property 1 from design.md
+**Validates:** 01-REQ-2.1, 01-REQ-2.2, 01-REQ-4.3
+**Type:** property
+**Description:** For every Rust component in the PRD, verify it is a workspace member and produces a binary.
 
-**Input:**
-- Run `go test` on a package with no test files.
-
-**Expected:**
-- Exit code 0, output indicates no test files (not a failure).
+**For any:** Rust component name in the set {locking-service, cloud-gateway-client, update-service, parking-operator-adaptor, mock-sensors}
+**Invariant:** The component is listed as a workspace member AND `cargo build -p {component}` succeeds.
 
 **Assertion pseudocode:**
 ```
-// Go reports "no test files" for packages without tests - this is expected behavior
-// Verified by the fact that `go test ./...` succeeds even when some subpackages lack tests
-result = run_command("go test ./...", cwd=REPO_ROOT / "backend/parking-fee-service")
-ASSERT result.exit_code == 0
+FOR ANY component IN ["locking-service", "cloud-gateway-client", "update-service", "parking-operator-adaptor", "mock-sensors"]:
+    workspace = read_file("rhivos/Cargo.toml")
+    ASSERT component IN workspace
+    exit_code = run_command("cargo build -p " + component, cwd="rhivos/")
+    ASSERT exit_code == 0
+```
+
+### TS-01-P2: Go Workspace Completeness
+
+**Property:** Property 2 from design.md
+**Validates:** 01-REQ-3.1, 01-REQ-3.2, 01-REQ-4.4
+**Type:** property
+**Description:** For every Go component in the PRD, verify it is in the workspace and builds.
+
+**For any:** Go binary path in the set {backend/parking-fee-service, backend/cloud-gateway, mock/parking-app-cli, mock/companion-app-cli, mock/parking-operator}
+**Invariant:** The component's module is in `go.work` AND `go build ./{path}` succeeds.
+
+**Assertion pseudocode:**
+```
+FOR ANY path IN ["backend/parking-fee-service", "backend/cloud-gateway", "mock/parking-app-cli", "mock/companion-app-cli", "mock/parking-operator"]:
+    exit_code = run_command("go build ./" + path)
+    ASSERT exit_code == 0
+```
+
+### TS-01-P3: Skeleton Exit Behavior
+
+**Property:** Property 3 from design.md
+**Validates:** 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.E1
+**Type:** property
+**Description:** For any skeleton binary, invoking it with any arguments exits 0.
+
+**For any:** Binary in the full set of skeleton binaries, argument list in {[], ["--help"], ["--unknown"], ["foo", "bar"]}
+**Invariant:** Exit code is always 0.
+
+**Assertion pseudocode:**
+```
+FOR ANY binary IN all_skeleton_binaries:
+    FOR ANY args IN [[], ["--help"], ["--unknown"], ["foo", "bar"]]:
+        exit_code = run_command(binary, args)
+        ASSERT exit_code == 0
+```
+
+### TS-01-P4: Proto Generation Idempotency
+
+**Property:** Property 4 from design.md
+**Validates:** 01-REQ-5.5, 01-REQ-5.6
+**Type:** property
+**Description:** Running `make proto` twice produces byte-identical output.
+
+**For any:** Sequence of 2 consecutive `make proto` invocations
+**Invariant:** SHA-256 checksums of all generated files are identical after each invocation.
+
+**Assertion pseudocode:**
+```
+run_command("make proto")
+checksums_1 = sha256_all_files("gen/go/")
+run_command("make proto")
+checksums_2 = sha256_all_files("gen/go/")
+ASSERT checksums_1 == checksums_2
+```
+
+### TS-01-P5: Infrastructure Idempotency
+
+**Property:** Property 5 from design.md
+**Validates:** 01-REQ-6.2, 01-REQ-6.E2
+**Type:** property
+**Description:** Multiple infra-up invocations result in exactly one container per service.
+
+**For any:** Number of consecutive `make infra-up` calls in {1, 2, 3}
+**Invariant:** Exactly 1 NATS container and 1 Databroker container are running.
+
+**Assertion pseudocode:**
+```
+FOR ANY n IN [1, 2, 3]:
+    FOR i IN range(n):
+        run_command("make infra-up")
+    output = run_command("podman ps")
+    ASSERT count_containers(output, "nats") == 1
+    ASSERT count_containers(output, "databroker") == 1
+    run_command("make infra-down")
+```
+
+### TS-01-P6: Directory Structure Completeness
+
+**Property:** Property 6 from design.md
+**Validates:** 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4, 01-REQ-1.5, 01-REQ-1.6
+**Type:** property
+**Description:** Every directory in the PRD structure exists and contains at least one file.
+
+**For any:** Directory path in the full set of expected directories
+**Invariant:** The path exists, is a directory, and contains at least one non-.gitkeep file.
+
+**Assertion pseudocode:**
+```
+FOR ANY dir IN all_expected_directories:
+    ASSERT path_exists(dir) AND is_directory(dir)
+    files = list_files(dir)
+    non_gitkeep = [f for f in files if f != ".gitkeep"]
+    ASSERT len(non_gitkeep) > 0
+```
+
+### TS-01-P7: Test Runner Discovery
+
+**Property:** Property 7 from design.md
+**Validates:** 01-REQ-8.1, 01-REQ-8.2, 01-REQ-8.4
+**Type:** property
+**Description:** Every component has at least one test discoverable by its test runner.
+
+**For any:** Component (Rust crate or Go module) in the project
+**Invariant:** The test runner discovers and reports at least one test.
+
+**Assertion pseudocode:**
+```
+# Rust crates
+exit_code, output = run_command("cargo test", cwd="rhivos/")
+ASSERT exit_code == 0
+ASSERT "test result: ok" IN output
+
+# Go modules
+exit_code, output = run_command("go test ./...")
+ASSERT exit_code == 0
+```
+
+### TS-01-P8: Proto Service Completeness
+
+**Property:** Property 8 from design.md
+**Validates:** 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4
+**Type:** property
+**Description:** Every gRPC service and its RPCs are defined in the proto files.
+
+**For any:** (service_name, rpc_list) pair in the expected set
+**Invariant:** The corresponding proto file defines the service with all listed RPCs.
+
+**Assertion pseudocode:**
+```
+expected = {
+    "UpdateService": ["InstallAdapter", "WatchAdapterStates", "ListAdapters", "RemoveAdapter", "GetAdapterStatus"],
+    "ParkingAdaptor": ["StartSession", "StopSession", "GetStatus", "GetRate"]
+}
+FOR ANY (service, rpcs) IN expected:
+    content = read_proto_for_service(service)
+    ASSERT "service " + service IN content
+    FOR ANY rpc IN rpcs:
+        ASSERT "rpc " + rpc IN content
 ```
 
 ## Coverage Matrix
@@ -890,41 +1244,49 @@ ASSERT result.exit_code == 0
 | 01-REQ-1.2 | TS-01-2 | integration |
 | 01-REQ-1.3 | TS-01-3 | integration |
 | 01-REQ-1.4 | TS-01-4 | integration |
-| 01-REQ-1.E1 | TS-01-E1 | unit |
-| 01-REQ-1.E2 | TS-01-E2 | unit |
-| 01-REQ-2.1 | TS-01-5 | integration |
-| 01-REQ-2.2 | TS-01-6 | integration |
-| 01-REQ-2.3 | TS-01-7 | integration |
-| 01-REQ-3.1 | TS-01-8 | integration |
-| 01-REQ-3.2 | TS-01-9 | integration |
-| 01-REQ-3.3 | TS-01-10 | integration |
-| 01-REQ-3.4 | TS-01-11 | integration |
-| 01-REQ-4.1 | TS-01-12 | integration |
-| 01-REQ-4.2 | TS-01-13 | integration |
-| 01-REQ-4.3 | TS-01-14 | integration |
-| 01-REQ-4.E1 | TS-01-E3 | integration |
-| 01-REQ-5.1 | TS-01-15 | integration |
-| 01-REQ-5.2 | TS-01-15 | integration |
-| 01-REQ-5.E1 | TS-01-E4 | integration |
-| 01-REQ-6.1 | TS-01-16 | integration |
-| 01-REQ-6.2 | TS-01-17 | integration |
-| 01-REQ-6.3 | TS-01-18 | integration |
-| 01-REQ-6.4 | TS-01-19 | integration |
-| 01-REQ-6.E1 | TS-01-E4 | integration |
-| 01-REQ-7.1 | TS-01-20 | integration |
-| 01-REQ-7.2 | TS-01-21 | integration |
-| 01-REQ-7.3 | TS-01-22 | integration |
-| 01-REQ-8.1 | TS-01-23 | integration |
-| 01-REQ-8.2 | TS-01-23 | integration |
-| 01-REQ-8.3 | TS-01-23 | integration |
-| 01-REQ-8.4 | TS-01-24 | integration |
-| 01-REQ-8.E1 | TS-01-E5 | integration |
-| 01-REQ-9.1 | TS-01-7 | integration |
-| 01-REQ-9.2 | TS-01-11 | integration |
-| 01-REQ-9.3 | TS-01-25 | integration |
-| 01-REQ-9.E1 | TS-01-E6 | unit |
-| 01-REQ-10.1 | TS-01-26 | integration |
-| 01-REQ-10.2 | TS-01-26 | integration |
+| 01-REQ-1.5 | TS-01-5 | integration |
+| 01-REQ-1.6 | TS-01-6 | integration |
+| 01-REQ-1.E1 | TS-01-E1 | integration |
+| 01-REQ-2.1 | TS-01-7 | integration |
+| 01-REQ-2.2 | TS-01-8 | integration |
+| 01-REQ-2.3 | TS-01-9 | integration |
+| 01-REQ-2.4 | TS-01-10 | integration |
+| 01-REQ-2.E1 | TS-01-E2 | integration |
+| 01-REQ-3.1 | TS-01-11 | integration |
+| 01-REQ-3.2 | TS-01-12 | integration |
+| 01-REQ-3.3 | TS-01-13 | integration |
+| 01-REQ-3.E1 | TS-01-E3 | integration |
+| 01-REQ-4.1 | TS-01-14 | integration |
+| 01-REQ-4.2 | TS-01-15 | integration |
+| 01-REQ-4.3 | TS-01-16 | integration |
+| 01-REQ-4.4 | TS-01-17 | integration |
+| 01-REQ-4.E1 | TS-01-E4 | integration |
+| 01-REQ-5.1 | TS-01-18 | integration |
+| 01-REQ-5.2 | TS-01-19 | integration |
+| 01-REQ-5.3 | TS-01-20 | integration |
+| 01-REQ-5.4 | TS-01-21 | integration |
+| 01-REQ-5.5 | TS-01-22 | integration |
+| 01-REQ-5.6 | TS-01-23 | integration |
+| 01-REQ-5.E1 | TS-01-E5 | integration |
+| 01-REQ-6.1 | TS-01-24 | integration |
+| 01-REQ-6.2 | TS-01-25 | integration |
+| 01-REQ-6.3 | TS-01-26 | integration |
+| 01-REQ-6.4 | TS-01-27 | integration |
+| 01-REQ-6.5 | TS-01-28 | integration |
+| 01-REQ-6.E1 | TS-01-E6 | integration |
+| 01-REQ-6.E2 | TS-01-E7 | integration |
+| 01-REQ-7.1 | TS-01-29 | integration |
+| 01-REQ-7.2 | TS-01-30 | integration |
+| 01-REQ-7.3 | TS-01-31 | integration |
+| 01-REQ-7.4 | TS-01-32 | integration |
+| 01-REQ-7.5 | TS-01-33 | integration |
+| 01-REQ-7.6 | TS-01-34 | integration |
+| 01-REQ-7.E1 | TS-01-E8 | integration |
+| 01-REQ-8.1 | TS-01-35 | integration |
+| 01-REQ-8.2 | TS-01-36 | integration |
+| 01-REQ-8.3 | TS-01-37 | integration |
+| 01-REQ-8.4 | TS-01-38 | integration |
+| 01-REQ-8.E1 | TS-01-E9 | integration |
 | Property 1 | TS-01-P1 | property |
 | Property 2 | TS-01-P2 | property |
 | Property 3 | TS-01-P3 | property |
@@ -932,3 +1294,4 @@ ASSERT result.exit_code == 0
 | Property 5 | TS-01-P5 | property |
 | Property 6 | TS-01-P6 | property |
 | Property 7 | TS-01-P7 | property |
+| Property 8 | TS-01-P8 | property |

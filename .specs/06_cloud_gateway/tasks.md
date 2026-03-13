@@ -1,256 +1,223 @@
-# Implementation Tasks: CLOUD_GATEWAY (Spec 06)
-
-> Task breakdown for implementing the CLOUD_GATEWAY cloud service.
-> Implements design from `.specs/06_cloud_gateway/design.md`.
-> Validates against `.specs/06_cloud_gateway/test_spec.md`.
+# Implementation Plan: CLOUD_GATEWAY
 
 <!-- AGENT INSTRUCTIONS
 - Implement exactly ONE top-level task group per session
 - Task group 1 writes failing tests from test_spec.md — all subsequent groups
   implement code to make those tests pass
-- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop -> push
+- Follow the git-flow: feature branch from main -> implement -> test -> merge to main -> push
 - Update checkbox states as you go: [-] in progress, [x] complete
 -->
 
-## Dependencies
+## Overview
 
-| Spec | From Group | To Group | Relationship |
-|------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Uses repo structure and Go project skeleton from group 2 |
+This plan implements the CLOUD_GATEWAY as a Go HTTP server in `backend/cloud-gateway/`. The service provides dual REST/NATS interfaces for routing lock/unlock commands between COMPANION_APPs and vehicles. Task group 1 writes failing tests. Groups 2-3 implement pure-function modules (model, config, auth, store). Group 4 implements HTTP handlers and NATS client. Group 5 wires up main. Group 6 runs integration tests with NATS.
+
+Ordering: tests first, then data types, then pure-function modules (config, auth, store), then HTTP handlers, then NATS integration, then main loop.
 
 ## Test Commands
 
-| Action | Command |
-|--------|---------|
-| Unit tests | `cd backend/cloud-gateway && go test ./... -v` |
-| Lint | `cd backend/cloud-gateway && go vet ./...` |
-| Run specific test | `cd backend/cloud-gateway && go test -v -run TestName` |
+- Spec tests (unit): `cd backend && go test -v ./cloud-gateway/...`
+- Spec tests (integration): `cd tests/cloud-gateway && go test -v ./...`
+- Property tests: `cd backend && go test -v ./cloud-gateway/... -run Property`
+- All tests: `cd backend && go test -v ./...`
+- Linter: `cd backend && go vet ./cloud-gateway/...`
 
 ## Tasks
 
 - [ ] 1. Write failing spec tests
-  - [ ] 1.1 Initialize Go module
-    - Create `backend/cloud-gateway/go.mod` with module path `github.com/rhadp/parking-fee-service/backend/cloud-gateway` and Go 1.22+ directive
-    - Add dependencies: `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` (for embedded test server)
-    - Add module to root `go.work` file if it exists
-    - **Files:** `backend/cloud-gateway/go.mod`
+  - [ ] 1.1 Set up Go module and test file structure
+    - Ensure `backend/cloud-gateway/` has proper package structure
+    - Create package directories: `model/`, `config/`, `auth/`, `store/`, `handler/`, `natsclient/`
+    - Create test files: `config/config_test.go`, `auth/auth_test.go`, `store/store_test.go`, `handler/handler_test.go`
+    - _Test Spec: TS-06-1 through TS-06-27_
 
-  - [ ] 1.2 Create model and stub files
-    - Create `backend/cloud-gateway/model.go` with minimal struct definitions for `CommandRequest`, `CommandStatus`, `NATSCommand`, `NATSCommandResponse`, `TelemetryData`, `ErrorResponse` so test files compile
-    - Create `backend/cloud-gateway/auth.go` with stub `TokenStore` type and `NewTokenStore()` constructor
-    - Create `backend/cloud-gateway/store.go` with stub `CommandStore` and `TelemetryStore` types
-    - Create `backend/cloud-gateway/nats_client.go` with stub `NATSClient` type
-    - Create `backend/cloud-gateway/handler.go` with stub handler function signatures
-    - **Files:** `backend/cloud-gateway/model.go`, `backend/cloud-gateway/auth.go`, `backend/cloud-gateway/store.go`, `backend/cloud-gateway/nats_client.go`, `backend/cloud-gateway/handler.go`
+  - [ ] 1.2 Write config and auth unit tests
+    - `TestLoadConfigFromFile` — TS-06-18
+    - `TestConfigFields` — TS-06-19
+    - `TestConfigDefaults` — TS-06-20
+    - `TestConfigFileMissing` — TS-06-E10
+    - `TestConfigInvalidJSON` — TS-06-E11
+    - `TestTokenVINLoading` — TS-06-16
+    - `TestTokenVINAuthorization` — TS-06-17
+    - _Test Spec: TS-06-16, TS-06-17, TS-06-18, TS-06-19, TS-06-20, TS-06-E10, TS-06-E11_
 
-  - [ ] 1.3 Write handler tests
-    - Create `backend/cloud-gateway/handler_test.go` with test functions covering:
-      - `TestCommandSubmission` (TS-06-1)
-      - `TestBearerTokenValid` (TS-06-2)
-      - `TestCommandResponseForwarding` (TS-06-4)
-      - `TestHealthCheck` (TS-06-5)
-      - `TestMissingAuthHeader` (TS-06-E1)
-      - `TestInvalidBearerToken` (TS-06-E2)
-      - `TestTokenWrongVIN` (TS-06-E3)
-      - `TestMissingRequiredFields` (TS-06-E4) -- table-driven sub-tests
-      - `TestInvalidCommandType` (TS-06-E5)
-      - `TestUnknownVIN` (TS-06-E6)
-      - `TestUnknownCommandID` (TS-06-E7)
-      - `TestUndefinedRoute` (TS-06-E9)
-    - Tests use `httptest.NewRecorder` and should compile but fail
-    - _Test Spec: TS-06-1, TS-06-2, TS-06-4, TS-06-5, TS-06-E1 through TS-06-E7, TS-06-E9_
+  - [ ] 1.3 Write store and model unit tests
+    - `TestCommandStoredAsPending` — TS-06-4
+    - `TestPendingStatusBeforeResponse` — TS-06-6
+    - `TestSuccessAndFailedStatus` — TS-06-7
+    - `TestResponsePayloadParsing` — TS-06-10
+    - `TestCommandTimeout` — TS-06-11
+    - `TestConfigurableTimeout` — TS-06-12
+    - `TestCommandPayloadStructure` — TS-06-2
+    - _Test Spec: TS-06-2, TS-06-4, TS-06-6, TS-06-7, TS-06-10, TS-06-11, TS-06-12_
 
-  - [ ] 1.4 Write NATS integration tests
-    - Create `backend/cloud-gateway/nats_client_test.go` with test functions covering:
-      - `TestNATSCommandRelay` (TS-06-3)
-      - `TestNATSResponseSubscription` (TS-06-4)
-      - `TestTelemetryReception` (TS-06-6)
-      - `TestNATSUnavailable` (TS-06-E8)
-      - `TestInvalidTelemetryJSON` (TS-06-E10)
-    - Tests use embedded NATS server; should compile but fail
-    - _Test Spec: TS-06-3, TS-06-6, TS-06-E8, TS-06-E10_
+  - [ ] 1.4 Write handler integration tests (httptest)
+    - `TestCommandSubmission` — TS-06-1
+    - `TestCommandStatusQuery` — TS-06-5
+    - `TestTokenValidationOnEndpoints` — TS-06-15
+    - `TestHealthCheck` — TS-06-23
+    - `TestContentTypeHeader` — TS-06-26
+    - `TestErrorResponseFormat` — TS-06-27
+    - `TestMissingAuthHeader` — TS-06-E1
+    - `TestTokenNotAuthorizedForVIN` — TS-06-E2
+    - `TestInvalidCommandPayload` — TS-06-E3
+    - `TestInvalidCommandType` — TS-06-E4
+    - `TestUnknownCommandID` — TS-06-E5
+    - `TestAuthOnStatusQuery` — TS-06-E6
+    - _Test Spec: TS-06-1, TS-06-5, TS-06-15, TS-06-23, TS-06-26, TS-06-27, TS-06-E1 through TS-06-E6_
 
   - [ ] 1.5 Write property tests
-    - Create `backend/cloud-gateway/property_test.go` with test functions covering:
-      - `TestPropertyTokenVINBinding` (TS-06-P1)
-      - `TestPropertyCommandToNATSSubject` (TS-06-P2)
-      - `TestPropertyResponseCorrelation` (TS-06-P3)
-      - `TestPropertyStatusLifecycle` (TS-06-P4)
-      - `TestPropertyRESTToNATSFieldMapping` (TS-06-P5)
-      - `TestPropertyResponseFormatConsistency` (TS-06-P6)
-      - `TestPropertyHealthEndpointIndependence` (TS-06-P7)
+    - `TestPropertyCommandRouting` — TS-06-P1
+    - `TestPropertyAuthEnforcement` — TS-06-P2
+    - `TestPropertyResponseStatusUpdate` — TS-06-P3
+    - `TestPropertyCommandTimeout` — TS-06-P4
+    - `TestPropertyPayloadValidation` — TS-06-P5
+    - `TestPropertyConfigDefaults` — TS-06-P6
+    - `TestPropertyNATSSubjects` — TS-06-P7
     - _Test Spec: TS-06-P1 through TS-06-P7_
 
   - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `cd backend/cloud-gateway && go vet ./...`
+    - [ ] All test files compile: `cd backend && go test -v ./cloud-gateway/... -run NONE`
+    - [ ] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [ ] 2. Implement REST API and token validation
-  - [ ] 2.1 Implement data model types
-    - Complete `backend/cloud-gateway/model.go` with full struct definitions including JSON tags
-    - Include `CommandRequest`, `CommandStatus`, `NATSCommand`, `NATSCommandResponse`, `TelemetryData`, `ErrorResponse`
-    - _Requirements: 06-REQ-1, 06-REQ-4, 06-REQ-8_
+- [ ] 2. Model, config, and auth modules
+  - [ ] 2.1 Implement model package
+    - Define types: `Command`, `CommandStatus`, `CommandResponse`, `TokenMapping`, `Config`
+    - Add JSON struct tags for all fields
+    - Add `parseCommand([]byte) (*Command, error)` with validation
+    - Add `parseResponse([]byte) (*CommandResponse, error)`
+    - _Requirements: 06-REQ-1.2, 06-REQ-3.3_
 
-  - [ ] 2.2 Implement token store and auth middleware
-    - Complete `backend/cloud-gateway/auth.go` with:
-      - `TokenStore` with `tokens map[string]string` (token -> VIN)
-      - `NewTokenStore(tokens map[string]string)` constructor
-      - `ValidateToken(token, vin string) (bool, error)` method returning validation result
-      - `AuthMiddleware(tokenStore *TokenStore) func(http.Handler) http.Handler` middleware function
-      - Demo tokens: `"companion-token-vehicle-1" -> "VIN12345"`, `"companion-token-vehicle-2" -> "VIN67890"`
-    - _Requirements: 06-REQ-2.1, 06-REQ-2.2_
+  - [ ] 2.2 Implement config package
+    - `LoadConfig(path string) (*Config, error)`: read JSON file, unmarshal, apply defaults
+    - `DefaultConfig() *Config`: port 8081, NATS nats://localhost:4222, timeout 30s, empty tokens
+    - If file not found: return DefaultConfig, log warning
+    - If invalid JSON: return error
+    - _Requirements: 06-REQ-7.1, 06-REQ-7.2, 06-REQ-7.3, 06-REQ-7.E1, 06-REQ-7.E2_
 
-  - [ ] 2.3 Implement command store
-    - Complete `backend/cloud-gateway/store.go` with:
-      - `CommandStore` with thread-safe in-memory map for command statuses
-      - `StoreCommand(cmdID, status string)` method
-      - `UpdateCommandStatus(cmdID, status, reason string)` method (respects terminal state -- no update if already success/failed)
-      - `GetCommandStatus(cmdID string) (*CommandStatus, bool)` method
-      - `TelemetryStore` with thread-safe in-memory map for latest telemetry per VIN
-      - `StoreTelemetry(vin string, data TelemetryData)` and `GetTelemetry(vin string) (*TelemetryData, bool)` methods
-    - _Requirements: 06-REQ-4.1, 06-REQ-5.1_
-
-  - [ ] 2.4 Implement REST handlers
-    - Complete `backend/cloud-gateway/handler.go` with:
-      - `HandleHealth(w, r)` -- returns `{"status":"ok"}`
-      - `HandleCommandSubmit(commandStore, natsClient) http.HandlerFunc` -- validates body, stores command as pending, publishes to NATS, returns 202
-      - `HandleCommandStatus(commandStore) http.HandlerFunc` -- returns command status by ID
-      - `writeJSON(w, status, data)` and `writeError(w, status, message)` helper functions
-      - Default 404 handler for undefined routes returning JSON error
-    - _Requirements: 06-REQ-1, 06-REQ-4.2, 06-REQ-6, 06-REQ-8_
+  - [ ] 2.3 Implement auth package
+    - `ValidateToken(header string) (string, error)`: extract token from `Bearer <token>` format
+    - `NewAuthenticator(tokens []TokenMapping) *Authenticator`
+    - `(a *Authenticator) AuthorizeVIN(token, vin string) bool`: check token-VIN mapping
+    - _Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3_
 
   - [ ] 2.V Verify task group 2
-    - [ ] Auth tests pass: `cd backend/cloud-gateway && go test -v -run TestBearer`
-    - [ ] Handler tests pass (except NATS-dependent ones): `cd backend/cloud-gateway && go test -v -run "TestHealthCheck|TestMissing|TestInvalid|TestUnknown|TestUndefined"`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Requirements 06-REQ-2, 06-REQ-6, 06-REQ-8 acceptance criteria met
+    - [ ] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/... ./cloud-gateway/model/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] _Test Spec: TS-06-2, TS-06-10, TS-06-16, TS-06-17, TS-06-18, TS-06-19, TS-06-20, TS-06-E10, TS-06-E11, TS-06-P2, TS-06-P5, TS-06-P6_
 
-- [ ] 3. Implement NATS client and command relay
-  - [ ] 3.1 Implement NATS client connection
-    - Complete `backend/cloud-gateway/nats_client.go` with:
-      - `NATSClient` struct wrapping `*nats.Conn`
-      - `NewNATSClient(url string) (*NATSClient, error)` constructor
-      - `Close()` method
-      - `IsConnected() bool` method
-    - _Requirements: 06-REQ-3.1_
-
-  - [ ] 3.2 Implement command publishing
-    - Add to `backend/cloud-gateway/nats_client.go`:
-      - `PublishCommand(vin string, cmd NATSCommand) error` -- publishes JSON to `vehicles.{vin}.commands`
-      - Returns error if NATS connection is down
-    - _Requirements: 06-REQ-1.1, 06-REQ-3.1, 06-REQ-7.1_
-
-  - [ ] 3.3 Implement response subscription
-    - Add to `backend/cloud-gateway/nats_client.go`:
-      - `SubscribeCommandResponses(vin string, handler func(NATSCommandResponse))` -- subscribes to `vehicles.{vin}.command_responses`
-      - Parses JSON response and invokes handler callback
-    - _Requirements: 06-REQ-3.2, 06-REQ-4.1_
-
-  - [ ] 3.4 Wire NATS into REST handlers
-    - Update `HandleCommandSubmit` to use `NATSClient.PublishCommand`
-    - Return 503 when NATS publish fails due to connection issue
-    - Wire response subscription to update `CommandStore` on received responses
-    - _Requirements: 06-REQ-1.1, 06-REQ-3.E1_
+- [ ] 3. Store module
+  - [ ] 3.1 Implement store package
+    - `NewStore() *Store`: create mutex-protected map
+    - `Add(cmd CommandStatus)`: store command with pending status and creation timestamp
+    - `Get(commandID string) (*CommandStatus, bool)`: retrieve by command ID
+    - `UpdateFromResponse(resp CommandResponse)`: update status and reason for existing command
+    - `ExpireTimedOut(timeout time.Duration)`: iterate map, set status to "timeout" for expired commands
+    - Thread-safe via `sync.Mutex`
+    - _Requirements: 06-REQ-1.4, 06-REQ-2.1, 06-REQ-2.2, 06-REQ-2.3, 06-REQ-3.2, 06-REQ-4.1_
 
   - [ ] 3.V Verify task group 3
-    - [ ] NATS tests pass: `cd backend/cloud-gateway && go test -v -run "TestNATS|TestCommandSubmission|TestCommandResponse"`
-    - [ ] All existing tests still pass: `cd backend/cloud-gateway && go test ./... -v`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Requirements 06-REQ-1, 06-REQ-3, 06-REQ-7 acceptance criteria met
+    - [ ] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] _Test Spec: TS-06-4, TS-06-6, TS-06-7, TS-06-11, TS-06-12, TS-06-P3, TS-06-P4_
 
-- [ ] 4. Implement response forwarding and telemetry
-  - [ ] 4.1 Implement telemetry subscription
-    - Add to `backend/cloud-gateway/nats_client.go`:
-      - `SubscribeTelemetry(vin string, handler func(TelemetryData))` -- subscribes to `vehicles.{vin}.telemetry`
-      - Parses JSON; logs and discards invalid JSON messages
-    - _Requirements: 06-REQ-5.1, 06-REQ-5.E1_
+- [ ] 4. HTTP handlers and NATS client
+  - [ ] 4.1 Implement handler package
+    - `NewCommandHandler(store, natsPublisher, auth) http.HandlerFunc`:
+      - Validate auth, parse command, store as pending, publish to NATS, return 202
+      - Handle errors: 400, 401, 403
+    - `NewStatusHandler(store, auth) http.HandlerFunc`:
+      - Validate auth, lookup command, return status
+      - Handle errors: 401, 403, 404
+    - `HealthHandler() http.HandlerFunc`: return `{"status":"ok"}`
+    - Set `Content-Type: application/json` on all responses
+    - Use `{"error":"<message>"}` format for errors
+    - Use interface for NATS publishing (testable without real NATS)
+    - _Requirements: 06-REQ-1.1, 06-REQ-1.E1 through 06-REQ-1.E4, 06-REQ-2.1, 06-REQ-2.E1, 06-REQ-2.E2, 06-REQ-9.1, 06-REQ-10.1, 06-REQ-10.2_
 
-  - [ ] 4.2 Implement configuration
-    - Create `backend/cloud-gateway/config.go` with:
-      - `Config` struct: `HTTPPort`, `NATSURL`, `KnownVINs []string`
-      - `LoadConfig()` -- reads from environment variables with sensible defaults
-      - Default NATS URL: `nats://localhost:4222`
-      - Default HTTP port: `8081`
-      - Default known VINs: `["VIN12345", "VIN67890"]`
-    - _Requirements: 06-REQ-7.2_
-
-  - [ ] 4.3 Implement main.go server wiring
-    - Create `backend/cloud-gateway/main.go` with:
-      - Load configuration
-      - Create token store with demo tokens
-      - Create command store and telemetry store
-      - Connect NATS client
-      - Subscribe to command responses and telemetry for all known VINs
-      - Set up HTTP routes with auth middleware:
-        - `GET /health` -> `HandleHealth` (no auth)
-        - `POST /vehicles/{vin}/commands` -> `HandleCommandSubmit` (auth required)
-        - `GET /vehicles/{vin}/commands/{command_id}` -> `HandleCommandStatus` (auth required)
-      - Register default 404 handler
-      - Start HTTP server
-    - _Requirements: all_
-
-  - [ ] 4.4 Wire property tests
-    - Ensure all property tests (TS-06-P1 through TS-06-P7) pass with the full implementation
-    - _Test Spec: TS-06-P1 through TS-06-P7_
+  - [ ] 4.2 Implement natsclient package
+    - `Connect(url string, maxRetries int) (*nats.Conn, error)`: exponential backoff retry
+    - `PublishCommand(nc, vin, cmd, bearerToken) error`: publish to `vehicles.{vin}.commands` with Authorization header
+    - `SubscribeResponses(nc, store) (*nats.Subscription, error)`: subscribe to `vehicles.*.command_responses`, update store
+    - `SubscribeTelemetry(nc) (*nats.Subscription, error)`: subscribe to `vehicles.*.telemetry`, log
+    - Handle invalid JSON in NATS messages: log and discard
+    - Handle unknown command_ids: log warning and discard
+    - _Requirements: 06-REQ-1.3, 06-REQ-3.1, 06-REQ-3.2, 06-REQ-3.E1, 06-REQ-3.E2, 06-REQ-5.1, 06-REQ-5.2, 06-REQ-5.E1, 06-REQ-8.1, 06-REQ-8.E1_
 
   - [ ] 4.V Verify task group 4
-    - [ ] Telemetry tests pass: `cd backend/cloud-gateway && go test -v -run "TestTelemetry"`
-    - [ ] Property tests pass: `cd backend/cloud-gateway && go test -v -run "TestProperty"`
-    - [ ] All tests pass: `cd backend/cloud-gateway && go test ./... -v`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
-    - [ ] Build succeeds: `cd backend/cloud-gateway && go build .`
-    - [ ] Requirements 06-REQ-5 acceptance criteria met
+    - [ ] Handler tests pass: `cd backend && go test -v ./cloud-gateway/handler/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] _Test Spec: TS-06-1, TS-06-5, TS-06-15, TS-06-23, TS-06-26, TS-06-27, TS-06-E1 through TS-06-E6, TS-06-P1, TS-06-P7_
 
-- [ ] 5. Integration tests
-  - [ ] 5.1 End-to-end command flow test
-    - Create `backend/cloud-gateway/integration_test.go` with:
-      - `TestEndToEndCommandFlow` -- full cycle: submit command via REST, verify NATS publish, simulate NATS response, query status via REST
-      - Uses embedded NATS server and httptest server
-    - _Test Spec: TS-06-1, TS-06-4_
+- [ ] 5. Main package and integration
+  - [ ] 5.1 Implement main package
+    - Read `CONFIG_PATH` env var (default "config.json")
+    - Call LoadConfig, create Authenticator, create Store
+    - Connect to NATS with retries
+    - Subscribe to command responses and telemetry
+    - Start timeout expiry goroutine (periodic, e.g., every 5 seconds)
+    - Register routes using Go 1.22 ServeMux patterns:
+      - `POST /vehicles/{vin}/commands` → CommandHandler
+      - `GET /vehicles/{vin}/commands/{command_id}` → StatusHandler
+      - `GET /health` → HealthHandler
+    - Start HTTP server on configured port
+    - Log version, port, NATS URL, token count at startup
+    - Handle SIGTERM/SIGINT: drain NATS, `http.Server.Shutdown()`
+    - Use `log/slog` for structured logging
+    - _Requirements: 06-REQ-7.1, 06-REQ-8.1, 06-REQ-8.2, 06-REQ-9.1, 06-REQ-9.2, 06-REQ-9.3_
 
-  - [ ] 5.2 Multi-vehicle routing test
-    - Add to integration test file:
-      - `TestMultiVehicleRouting` -- submit commands for two different VINs, verify each reaches the correct NATS subject and responses route back correctly
-    - _Test Spec: TS-06-3_
-    - _Requirements: 06-REQ-7.1, 06-REQ-7.2_
-
-  - [ ] 5.3 Error scenario integration tests
-    - Add to integration test file:
-      - `TestNATSDisconnectRecovery` -- verify 503 on NATS failure, recovery on reconnect
-      - `TestConcurrentCommandSubmission` -- submit multiple commands concurrently, verify no race conditions
-    - _Test Spec: TS-06-E8_
+  - [ ] 5.2 Add nats.go dependency
+    - Run `go get github.com/nats-io/nats.go`
+    - Update go.mod and go.sum
+    - _Requirements: 06-REQ-8.1_
 
   - [ ] 5.V Verify task group 5
-    - [ ] Integration tests pass: `cd backend/cloud-gateway && go test -v -run "TestEndToEnd|TestMultiVehicle|TestNATSDisconnect|TestConcurrent"`
-    - [ ] All tests pass: `cd backend/cloud-gateway && go test ./... -v`
-    - [ ] All tests pass with race detector: `cd backend/cloud-gateway && go test -race ./... -v`
-    - [ ] No linter warnings: `cd backend/cloud-gateway && go vet ./...`
+    - [ ] Binary builds: `cd backend && go build ./cloud-gateway/...`
+    - [ ] All unit tests pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [ ] 6. Checkpoint -- CLOUD_GATEWAY Complete
-  - [ ] 6.1 Run full test suite
-    - `cd backend/cloud-gateway && go test ./... -v`
-    - `cd backend/cloud-gateway && go test -race ./... -v`
-    - Confirm all tests pass
+- [ ] 6. Integration test validation
+  - [ ] 6.1 Create integration test module
+    - Create `tests/cloud-gateway/` Go module
+    - Shared helpers: start/stop NATS, start/stop service, NATS publish/subscribe helpers
+    - Add `go.work` entry for `./tests/cloud-gateway`
+    - _Test Spec: TS-06-3, TS-06-8, TS-06-9, TS-06-13, TS-06-14, TS-06-21, TS-06-22, TS-06-24, TS-06-25_
 
-  - [ ] 6.2 Run linter
-    - `cd backend/cloud-gateway && go vet ./...`
-    - Confirm no issues
+  - [ ] 6.2 Write and run integration tests
+    - `TestBearerTokenInNATSHeader` — TS-06-3
+    - `TestNATSResponseSubscription` — TS-06-8
+    - `TestResponseUpdatesStore` — TS-06-9
+    - `TestTelemetrySubscription` — TS-06-13
+    - `TestTelemetryLogging` — TS-06-14
+    - `TestNATSConnection` — TS-06-21
+    - `TestNATSSubscriptionsActive` — TS-06-22
+    - _Test Spec: TS-06-3, TS-06-8, TS-06-9, TS-06-13, TS-06-14, TS-06-21, TS-06-22_
 
-  - [ ] 6.3 Verify build
-    - `cd backend/cloud-gateway && go build .`
-    - Confirm binary builds successfully
+  - [ ] 6.3 Write and run lifecycle and edge case integration tests
+    - `TestStartupLogging` — TS-06-24
+    - `TestGracefulShutdown` — TS-06-25
+    - `TestInvalidNATSResponseJSON` — TS-06-E7
+    - `TestUnknownCommandIDInNATS` — TS-06-E8
+    - `TestInvalidTelemetryJSON` — TS-06-E9
+    - `TestNATSUnreachable` — TS-06-E12
+    - _Test Spec: TS-06-24, TS-06-25, TS-06-E7, TS-06-E8, TS-06-E9, TS-06-E12_
 
-  - [ ] 6.4 Smoke test
-    - Start NATS server (containerized): `podman run -d --name nats-test -p 4222:4222 nats:latest`
-    - Start CLOUD_GATEWAY: `cd backend/cloud-gateway && go run .`
-    - Verify: `curl http://localhost:8081/health` returns `{"status":"ok"}`
-    - Verify: `curl -X POST http://localhost:8081/vehicles/VIN12345/commands -H "Authorization: Bearer companion-token-vehicle-1" -H "Content-Type: application/json" -d '{"command_id":"test-1","type":"lock","doors":["driver"]}'` returns 202
-    - Stop services
+  - [ ] 6.V Verify task group 6
+    - [ ] All integration tests pass: `cd tests/cloud-gateway && go test -v ./...`
+    - [ ] All unit tests still pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] All requirements 06-REQ-1 through 06-REQ-10 acceptance criteria met
 
-  - [ ] 6.5 Review Definition of Done
-    - Confirm all items in design.md Definition of Done are satisfied
-    - Ensure all requirements are covered by passing tests
+- [ ] 7. Checkpoint - All Tests Green
+  - All unit, integration, and property tests pass
+  - Binary starts, serves REST requests, routes to NATS, shuts down cleanly
+  - Ask the user if questions arise
 
 ### Checkbox States
 
@@ -258,7 +225,7 @@
 |----------|------------------------|
 | `- [ ]`  | Not started (required) |
 | `- [ ]*` | Not started (optional) |
-| `- [X]`  | Completed              |
+| `- [x]`  | Completed              |
 | `- [-]`  | In progress            |
 | `- [~]`  | Queued                 |
 
@@ -266,36 +233,59 @@
 
 | Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
 |-------------|-----------------|---------------------|------------------|
-| 06-REQ-1.1 | TS-06-1 | 2.4, 3.2, 3.4 | `TestCommandSubmission` |
-| 06-REQ-1.2 | TS-06-1, TS-06-P5 | 2.4, 3.2 | `TestCommandSubmission`, `TestPropertyRESTToNATSFieldMapping` |
-| 06-REQ-1.E1 | TS-06-E4 | 2.4 | `TestMissingRequiredFields` |
-| 06-REQ-1.E2 | TS-06-E5 | 2.4 | `TestInvalidCommandType` |
-| 06-REQ-2.1 | TS-06-2, TS-06-P1 | 2.2 | `TestBearerTokenValid`, `TestPropertyTokenVINBinding` |
-| 06-REQ-2.2 | TS-06-2, TS-06-P1 | 2.2 | `TestBearerTokenValid`, `TestPropertyTokenVINBinding` |
-| 06-REQ-2.E1 | TS-06-E1 | 2.2 | `TestMissingAuthHeader` |
-| 06-REQ-2.E2 | TS-06-E2 | 2.2 | `TestInvalidBearerToken` |
-| 06-REQ-2.E3 | TS-06-E3 | 2.2 | `TestTokenWrongVIN` |
-| 06-REQ-3.1 | TS-06-3, TS-06-P2 | 3.1, 3.2 | `TestNATSCommandRelay`, `TestPropertyCommandToNATSSubject` |
-| 06-REQ-3.2 | TS-06-4 | 3.3 | `TestNATSResponseSubscription` |
-| 06-REQ-3.E1 | TS-06-E8 | 3.4 | `TestNATSUnavailable` |
-| 06-REQ-4.1 | TS-06-4, TS-06-P3 | 2.3, 3.3 | `TestCommandResponseForwarding`, `TestPropertyResponseCorrelation` |
-| 06-REQ-4.2 | TS-06-4, TS-06-P4 | 2.3, 2.4 | `TestCommandResponseForwarding`, `TestPropertyStatusLifecycle` |
-| 06-REQ-4.E1 | TS-06-E7 | 2.4 | `TestUnknownCommandID` |
-| 06-REQ-5.1 | TS-06-6 | 4.1 | `TestTelemetryReception` |
-| 06-REQ-5.E1 | TS-06-E10 | 4.1 | `TestInvalidTelemetryJSON` |
-| 06-REQ-6.1 | TS-06-5, TS-06-P7 | 2.4 | `TestHealthCheck`, `TestPropertyHealthEndpointIndependence` |
-| 06-REQ-6.E1 | TS-06-5, TS-06-P7 | 2.4 | `TestHealthCheck`, `TestPropertyHealthEndpointIndependence` |
-| 06-REQ-7.1 | TS-06-3, TS-06-P2 | 3.2 | `TestNATSCommandRelay`, `TestPropertyCommandToNATSSubject` |
-| 06-REQ-7.2 | TS-06-3 | 4.2, 4.3 | `TestMultiVehicleRouting` |
-| 06-REQ-7.E1 | TS-06-E6 | 2.4 | `TestUnknownVIN` |
-| 06-REQ-8.1 | TS-06-P6 | 2.4 | `TestPropertyResponseFormatConsistency` |
-| 06-REQ-8.2 | TS-06-P6 | 2.4 | `TestPropertyResponseFormatConsistency` |
-| 06-REQ-8.E1 | TS-06-E9 | 2.4 | `TestUndefinedRoute` |
-| 06-REQ-8.E2 | (covered by recovery middleware) | 2.4 | `TestEndToEndCommandFlow` |
+| 06-REQ-1.1 | TS-06-1 | 4.1 | handler::TestCommandSubmission |
+| 06-REQ-1.2 | TS-06-2 | 2.1 | model::TestCommandPayloadStructure |
+| 06-REQ-1.3 | TS-06-3 | 4.2 | tests/cloud-gateway::TestBearerTokenInNATSHeader |
+| 06-REQ-1.4 | TS-06-4 | 3.1 | store::TestCommandStoredAsPending |
+| 06-REQ-1.E1 | TS-06-E1 | 4.1 | handler::TestMissingAuthHeader |
+| 06-REQ-1.E2 | TS-06-E2 | 4.1 | handler::TestTokenNotAuthorizedForVIN |
+| 06-REQ-1.E3 | TS-06-E3 | 4.1 | handler::TestInvalidCommandPayload |
+| 06-REQ-1.E4 | TS-06-E4 | 4.1 | handler::TestInvalidCommandType |
+| 06-REQ-2.1 | TS-06-5 | 4.1 | handler::TestCommandStatusQuery |
+| 06-REQ-2.2 | TS-06-6 | 3.1 | store::TestPendingStatusBeforeResponse |
+| 06-REQ-2.3 | TS-06-7 | 3.1 | store::TestSuccessAndFailedStatus |
+| 06-REQ-2.E1 | TS-06-E5 | 4.1 | handler::TestUnknownCommandID |
+| 06-REQ-2.E2 | TS-06-E6 | 4.1 | handler::TestAuthOnStatusQuery |
+| 06-REQ-3.1 | TS-06-8 | 4.2 | tests/cloud-gateway::TestNATSResponseSubscription |
+| 06-REQ-3.2 | TS-06-9 | 4.2 | tests/cloud-gateway::TestResponseUpdatesStore |
+| 06-REQ-3.3 | TS-06-10 | 2.1 | model::TestResponsePayloadParsing |
+| 06-REQ-3.E1 | TS-06-E7 | 4.2 | tests/cloud-gateway::TestInvalidNATSResponseJSON |
+| 06-REQ-3.E2 | TS-06-E8 | 4.2 | tests/cloud-gateway::TestUnknownCommandIDInNATS |
+| 06-REQ-4.1 | TS-06-11 | 3.1 | store::TestCommandTimeout |
+| 06-REQ-4.2 | TS-06-12 | 2.2 | config::TestConfigurableTimeout |
+| 06-REQ-5.1 | TS-06-13 | 4.2 | tests/cloud-gateway::TestTelemetrySubscription |
+| 06-REQ-5.2 | TS-06-14 | 4.2 | tests/cloud-gateway::TestTelemetryLogging |
+| 06-REQ-5.E1 | TS-06-E9 | 4.2 | tests/cloud-gateway::TestInvalidTelemetryJSON |
+| 06-REQ-6.1 | TS-06-15 | 4.1 | handler::TestTokenValidationOnEndpoints |
+| 06-REQ-6.2 | TS-06-16 | 2.2 | config::TestTokenVINLoading |
+| 06-REQ-6.3 | TS-06-17 | 2.3 | auth::TestTokenVINAuthorization |
+| 06-REQ-7.1 | TS-06-18 | 2.2 | config::TestLoadConfigFromFile |
+| 06-REQ-7.2 | TS-06-19 | 2.2 | config::TestConfigFields |
+| 06-REQ-7.3 | TS-06-20 | 2.2 | config::TestConfigDefaults |
+| 06-REQ-7.E1 | TS-06-E10 | 2.2 | config::TestConfigFileMissing |
+| 06-REQ-7.E2 | TS-06-E11 | 2.2 | config::TestConfigInvalidJSON |
+| 06-REQ-8.1 | TS-06-21 | 4.2 | tests/cloud-gateway::TestNATSConnection |
+| 06-REQ-8.2 | TS-06-22 | 4.2 | tests/cloud-gateway::TestNATSSubscriptionsActive |
+| 06-REQ-8.E1 | TS-06-E12 | 4.2 | tests/cloud-gateway::TestNATSUnreachable |
+| 06-REQ-9.1 | TS-06-23 | 4.1 | handler::TestHealthCheck |
+| 06-REQ-9.2 | TS-06-24 | 5.1 | tests/cloud-gateway::TestStartupLogging |
+| 06-REQ-9.3 | TS-06-25 | 5.1 | tests/cloud-gateway::TestGracefulShutdown |
+| 06-REQ-10.1 | TS-06-26 | 4.1 | handler::TestContentTypeHeader |
+| 06-REQ-10.2 | TS-06-27 | 4.1 | handler::TestErrorResponseFormat |
+| Property 1 | TS-06-P1 | 4.1, 4.2 | handler::TestPropertyCommandRouting |
+| Property 2 | TS-06-P2 | 2.3 | auth::TestPropertyAuthEnforcement |
+| Property 3 | TS-06-P3 | 3.1 | store::TestPropertyResponseStatusUpdate |
+| Property 4 | TS-06-P4 | 3.1 | store::TestPropertyCommandTimeout |
+| Property 5 | TS-06-P5 | 2.1 | model::TestPropertyPayloadValidation |
+| Property 6 | TS-06-P6 | 2.2 | config::TestPropertyConfigDefaults |
+| Property 7 | TS-06-P7 | 4.2 | natsclient::TestPropertyNATSSubjects |
 
 ## Notes
 
-- All NATS integration tests use an embedded NATS server (`github.com/nats-io/nats-server/v2/server`) to avoid external infrastructure dependencies.
-- The `go test -race` flag should be used to detect race conditions in the concurrent command/telemetry stores.
-- The command store uses `sync.RWMutex` for thread-safe access.
-- Demo tokens are hardcoded for simplicity; in production, tokens would come from an external auth provider.
+- The CLOUD_GATEWAY uses `github.com/nats-io/nats.go` as its only external dependency. All HTTP handling uses Go standard library.
+- Property tests in Go use table-driven tests with randomized inputs via `math/rand`. Go does not have a direct equivalent to Rust's `proptest`.
+- HTTP handler tests use `net/http/httptest` for in-process testing. The NATS publisher is abstracted behind an interface so handlers can be tested without a real NATS connection.
+- Integration tests requiring NATS live in `tests/cloud-gateway/` and use the containerized nats-server from `deployments/compose.yml`. Tests skip when NATS is unavailable.
+- The command store is a simple `sync.Mutex`-protected `map[string]*CommandStatus`. This is adequate for the demo — no persistence or expiry beyond timeout is needed.
+- The timeout expiry goroutine runs periodically (e.g., every 5 seconds) and calls `store.ExpireTimedOut()`. This is simpler than per-command timers and sufficient for demo accuracy.
+- Go 1.22 `ServeMux` supports `POST /path/{param}` and `GET /path/{param}` pattern matching natively.

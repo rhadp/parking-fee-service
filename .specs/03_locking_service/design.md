@@ -1,254 +1,284 @@
-# Design: LOCKING_SERVICE (Spec 03)
+# Design Document: LOCKING_SERVICE
 
-> Design document for the LOCKING_SERVICE component.
-> Implements requirements from `.specs/03_locking_service/requirements.md`.
+## Overview
 
-## References
+The LOCKING_SERVICE is a Rust binary (`rhivos/locking-service`) that runs as a long-lived process, subscribing to lock/unlock command signals from Eclipse Kuksa Databroker (DATA_BROKER) via gRPC. It validates command payloads, checks safety constraints (speed, door ajar), manages lock state, and publishes responses. The service uses tonic-generated gRPC clients from the `kuksa.val.v1` proto definitions.
 
-- Master PRD: `.specs/prd.md`
-- Component PRD: `.specs/03_locking_service/prd.md`
-- Requirements: `.specs/03_locking_service/requirements.md`
+## Architecture
 
-## Architecture Overview
+```mermaid
+flowchart TD
+    subgraph SafetyPartition["RHIVOS Safety Partition"]
+        LS["LOCKING_SERVICE"]
+        DB["DATA_BROKER\n(Kuksa Databroker)"]
+    end
 
-The LOCKING_SERVICE is a Rust service running in the RHIVOS safety partition. It communicates exclusively with DATA_BROKER via gRPC over Unix Domain Sockets. The service operates a single processing pipeline: subscribe to command signals, validate, check safety constraints, execute, and respond.
+    CGC["CLOUD_GATEWAY_CLIENT"] -->|writes| CmdSignal["Vehicle.Command.Door.Lock"]
+    CmdSignal -->|subscribe| LS
 
-```
-                  +-------------------------------------+
-                  |          LOCKING_SERVICE             |
-                  |                                     |
-                  |  +-------------+                    |
-                  |  | Command     |                    |
-                  |  | Handler     |                    |
-                  |  +------+------+                    |
-                  |         |                           |
-                  |         v                           |
-                  |  +------+------+                    |
-                  |  | Safety      |                    |
-                  |  | Validator   |                    |
-                  |  +------+------+                    |
-                  |         |                           |
-                  |         v                           |
-                  |  +------+------+                    |
-                  |  | State       |                    |
-                  |  | Writer      |                    |
-                  |  +------+------+                    |
-                  |         |                           |
-                  +---------|---------------------------+
-                            |
-                            v
-                  +---------------------+
-                  | DATA_BROKER         |
-                  | (gRPC over UDS)     |
-                  +---------------------+
+    LS -->|read| SpeedSignal["Vehicle.Speed"]
+    LS -->|read| DoorSignal["Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"]
+
+    LS -->|write| LockState["Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"]
+    LS -->|write| CmdResponse["Vehicle.Command.Door.Response"]
+
+    SpeedSignal --- DB
+    DoorSignal --- DB
+    CmdSignal --- DB
+    LockState --- DB
+    CmdResponse --- DB
+
+    POA["PARKING_OPERATOR_ADAPTOR"] -->|subscribe| LockState
 ```
 
-## Technology Stack
+```mermaid
+sequenceDiagram
+    participant CGC as CLOUD_GATEWAY_CLIENT
+    participant DB as DATA_BROKER
+    participant LS as LOCKING_SERVICE
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Language | Rust (edition 2021) | Safety-critical service implementation |
-| Async runtime | tokio | Async I/O, task spawning, signal handling |
-| gRPC client | tonic | Connection to DATA_BROKER via UDS |
-| JSON handling | serde, serde_json | Command parsing and response serialization |
-| Logging | tracing | Structured logging |
-| UUID | uuid | Command ID validation |
+    Note over LS: Startup
+    LS->>DB: Connect (gRPC)
+    LS->>DB: Set IsLocked = false (initial state)
+    LS->>DB: Subscribe(Vehicle.Command.Door.Lock)
 
-## Module Structure
+    Note over CGC,LS: Lock Command (Happy Path)
+    CGC->>DB: Set(Vehicle.Command.Door.Lock, {"action":"lock",...})
+    DB->>LS: Notification(command payload)
+    LS->>LS: Validate JSON payload
+    LS->>DB: Get(Vehicle.Speed)
+    DB-->>LS: 0.0
+    LS->>DB: Get(Vehicle.Cabin.Door.Row1.DriverSide.IsOpen)
+    DB-->>LS: false
+    LS->>LS: Safety checks pass
+    LS->>DB: Set(Vehicle.Cabin.Door.Row1.DriverSide.IsLocked, true)
+    LS->>DB: Set(Vehicle.Command.Door.Response, {"status":"success",...})
 
-The crate lives at `rhivos/locking-service/` within the Rust workspace.
-
-```
-rhivos/locking-service/
-  Cargo.toml
-  src/
-    main.rs              # Entry point: config loading, task spawning, signal handling
-    config.rs            # Environment variable parsing (DATABROKER_UDS_PATH)
-    databroker_client.rs # DATA_BROKER gRPC client (tonic over UDS)
-    command.rs           # Command data types, JSON parsing, validation logic
-    safety.rs            # Safety constraint checks (speed, door ajar)
-    executor.rs          # Lock/unlock execution and response writing
-```
-
-## Configuration
-
-All configuration is via environment variables:
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABROKER_UDS_PATH` | No | `/tmp/kuksa/databroker.sock` | Unix Domain Socket path for DATA_BROKER gRPC |
-
-## VSS Signals Used
-
-### Subscriptions (read)
-
-| Signal Path | Data Type | Purpose |
-|-------------|-----------|---------|
-| `Vehicle.Command.Door.Lock` | string (JSON) | Incoming lock/unlock command requests |
-
-### Reads on demand
-
-| Signal Path | Data Type | Purpose |
-|-------------|-----------|---------|
-| `Vehicle.Speed` | float | Safety check: vehicle must be stationary |
-| `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` | bool | Safety check: door must not be ajar |
-
-### Writes
-
-| Signal Path | Data Type | Purpose |
-|-------------|-----------|---------|
-| `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` | bool | Updated lock state after command execution |
-| `Vehicle.Command.Door.Response` | string (JSON) | Command execution result |
-
-## Command Processing Flow
-
-```
-  Vehicle.Command.Door.Lock (subscription stream)
-              |
-              v
-  +---[ Parse JSON ]---+
-  |                     |
-  | (malformed)         | (valid JSON)
-  v                     v
-  Write failure     +---[ Validate fields ]---+
-  response          |                         |
-  (invalid_command) | (missing fields)        | (all fields present)
-                    v                         v
-                    Write failure         +---[ Check action ]---+
-                    response              |                      |
-                    (invalid_command)      | (unknown action)     | (lock or unlock)
-                                          v                      v
-                                          Write failure      +---[ Safety checks ]---+
-                                          response           |                       |
-                                          (invalid_action)   | (constraint violated) | (all pass)
-                                                             v                       v
-                                                             Write failure       Execute lock/unlock
-                                                             response            Write state
-                                                             (vehicle_moving     Write success
-                                                              or door_ajar)      response
+    Note over CGC,LS: Lock Rejected (Vehicle Moving)
+    CGC->>DB: Set(Vehicle.Command.Door.Lock, {"action":"lock",...})
+    DB->>LS: Notification(command payload)
+    LS->>DB: Get(Vehicle.Speed)
+    DB-->>LS: 50.0
+    LS->>DB: Set(Vehicle.Command.Door.Response, {"status":"failed","reason":"vehicle_moving",...})
 ```
 
-## Module Responsibilities
+### Module Responsibilities
 
-### `command.rs` -- Command Handler
+1. **main** — Entry point: parses config, connects to DATA_BROKER, sets initial state, starts command loop, handles shutdown signals.
+2. **command** — Command payload parsing and validation: deserializes JSON, validates required fields, normalizes the command structure.
+3. **safety** — Safety constraint checker: reads speed and door signals from DATA_BROKER, evaluates preconditions for lock operations.
+4. **broker** — DATA_BROKER client abstraction: wraps tonic-generated kuksa.val.v1 gRPC client, provides typed get/set/subscribe operations on VSS signals.
+5. **response** — Response builder: constructs JSON response payloads with command_id, status, reason, and timestamp.
 
-- Defines `Command` struct with serde deserialization:
-  - `command_id: String` (UUID)
-  - `action: String` ("lock" or "unlock")
-  - `doors: Vec<String>`
-  - `source: String`
-  - `vin: String`
-  - `timestamp: u64`
-- Defines `CommandResponse` struct for serialization:
-  - `command_id: String`
-  - `status: String` ("success" or "failed")
-  - `reason: Option<String>`
-  - `timestamp: u64`
-- Validates required fields are present and non-empty.
-- Validates `action` is `"lock"` or `"unlock"`.
-- Returns structured validation errors on failure.
+## Components and Interfaces
 
-### `safety.rs` -- Safety Validator
+### CLI Interface
 
-- Reads `Vehicle.Speed` from DATA_BROKER via `databroker_client`.
-- Reads `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` from DATA_BROKER via `databroker_client`.
-- Returns `Ok(())` if all safety constraints pass.
-- Returns `Err(reason)` with the specific constraint violated:
-  - `"vehicle_moving"` if speed >= 1.0 km/h.
-  - `"door_ajar"` if `IsOpen == true`.
-- If a safety signal has not been set (no current value), the check passes (safe default for demo: assume stationary, door closed).
+```
+$ locking-service
+locking-service v0.1.0 - ASIL-B door lock service
 
-### `executor.rs` -- State Writer
+Usage: locking-service [options]
 
-- On `"lock"` action: writes `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked = true` to DATA_BROKER.
-- On `"unlock"` action: writes `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked = false` to DATA_BROKER.
-- Writes the `CommandResponse` JSON to `Vehicle.Command.Door.Response` on DATA_BROKER.
-- Handles DATA_BROKER write failures by logging the error.
+Environment:
+  DATABROKER_ADDR   DATA_BROKER gRPC address (default: http://localhost:55556)
 
-### `databroker_client.rs` -- gRPC Client
+The service subscribes to Vehicle.Command.Door.Lock and processes
+lock/unlock commands with safety validation.
+```
 
-- Creates a tonic gRPC client connecting to DATA_BROKER via Unix Domain Socket.
-- Provides methods:
-  - `subscribe_signal(path) -> Stream<SignalUpdate>` for subscribing to signal changes.
-  - `get_signal(path) -> Option<Value>` for reading a signal's current value.
-  - `set_signal(path, value)` for writing a signal value (bool or string).
-- Handles connection errors with retry and exponential backoff (1s, 2s, 4s, ..., max 30s).
+### Core Data Types
 
-## gRPC Client Configuration
+```rust
+/// Deserialized lock/unlock command from Vehicle.Command.Door.Lock
+struct LockCommand {
+    command_id: String,
+    action: Action,       // Lock | Unlock
+    doors: Vec<String>,
+    source: Option<String>,
+    vin: Option<String>,
+    timestamp: Option<i64>,
+}
 
-- **Transport:** Unix Domain Socket (UDS)
-- **Default UDS path:** `/tmp/kuksa/databroker.sock`
-- **Protocol:** Kuksa Databroker gRPC API (kuksa.val.v1)
-- **Serialization:** Protocol Buffers
+enum Action {
+    Lock,
+    Unlock,
+}
+
+/// Safety check result
+enum SafetyResult {
+    Safe,
+    VehicleMoving,
+    DoorOpen,
+}
+
+/// Command response published to Vehicle.Command.Door.Response
+struct CommandResponse {
+    command_id: String,
+    status: String,       // "success" | "failed"
+    reason: Option<String>,
+    timestamp: i64,
+}
+```
+
+### Module Interfaces
+
+```rust
+// command module
+fn parse_command(json: &str) -> Result<LockCommand, CommandError>;
+fn validate_command(cmd: &LockCommand) -> Result<(), CommandError>;
+
+// safety module
+async fn check_safety(broker: &BrokerClient) -> SafetyResult;
+
+// broker module
+struct BrokerClient { /* wraps kuksa.val.v1 gRPC client */ }
+impl BrokerClient {
+    async fn connect(addr: &str) -> Result<Self, BrokerError>;
+    async fn subscribe(&self, signal: &str) -> Result<SubscriptionStream, BrokerError>;
+    async fn get_float(&self, signal: &str) -> Result<Option<f32>, BrokerError>;
+    async fn get_bool(&self, signal: &str) -> Result<Option<bool>, BrokerError>;
+    async fn set_bool(&self, signal: &str, value: bool) -> Result<(), BrokerError>;
+    async fn set_string(&self, signal: &str, value: &str) -> Result<(), BrokerError>;
+}
+
+// response module
+fn success_response(command_id: &str) -> String;
+fn failure_response(command_id: &str, reason: &str) -> String;
+```
+
+## Data Models
+
+### Command Payload Schema
+
+```json
+{
+  "command_id": "string (required, non-empty UUID)",
+  "action": "string (required, 'lock' | 'unlock')",
+  "doors": ["string (required, must contain 'driver')"],
+  "source": "string (optional, e.g. 'companion_app')",
+  "vin": "string (optional)",
+  "timestamp": "integer (optional, unix timestamp)"
+}
+```
+
+### Response Payload Schema
+
+```json
+{
+  "command_id": "string (echoed from command)",
+  "status": "string ('success' | 'failed')",
+  "reason": "string (present only when status is 'failed')",
+  "timestamp": "integer (unix timestamp of response)"
+}
+```
+
+### Failure Reasons
+
+| Reason | Trigger |
+|--------|---------|
+| `"invalid_command"` | Missing or malformed required fields |
+| `"unsupported_door"` | `doors` contains a value other than `"driver"` |
+| `"vehicle_moving"` | `Vehicle.Speed` >= 1.0 km/h |
+| `"door_open"` | `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` is true |
+
+### Configuration
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `DATABROKER_ADDR` | `http://localhost:55556` | DATA_BROKER gRPC endpoint (TCP or UDS) |
+
+## Operational Readiness
+
+- **Startup logging:** Service logs version, DATA_BROKER address, and ready status.
+- **Shutdown:** Handles SIGTERM/SIGINT, completes in-flight command, logs shutdown.
+- **Health:** The service is healthy if the DATA_BROKER subscription is active. No separate health endpoint (it's an embedded service, not a web server).
+- **Rollback:** Revert to skeleton binary via `git checkout`. No persistent state — all state is in DATA_BROKER.
 
 ## Correctness Properties
 
-| ID | Property | Description |
-|----|----------|-------------|
-| CP-1 | Safety constraints always checked | Every command that reaches the execution step has passed both the speed check and the door ajar check. No command bypasses safety validation. |
-| CP-2 | Response always sent | Every command received on `Vehicle.Command.Door.Lock` results in exactly one response on `Vehicle.Command.Door.Response`, whether success or failure. |
-| CP-3 | State always updated on success | A successful lock command always sets `IsLocked = true`; a successful unlock command always sets `IsLocked = false`. The state write and response write are both performed. |
-| CP-4 | Invalid commands never execute | A command that fails JSON parsing, field validation, action validation, or safety checks never modifies `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`. |
-| CP-5 | Command ID preserved | The `command_id` in the response always matches the `command_id` from the incoming command. |
+### Property 1: Command Validation Completeness
+
+*For any* string input received on the `Vehicle.Command.Door.Lock` signal, the LOCKING_SERVICE SHALL either (a) parse it into a valid `LockCommand` with all required fields and proceed to safety checks, or (b) publish a failure response or discard the input.
+
+**Validates: Requirements 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3, 03-REQ-2.E1, 03-REQ-2.E2**
+
+### Property 2: Safety Gate for Lock Commands
+
+*For any* valid lock command, the LOCKING_SERVICE SHALL execute the lock if and only if `Vehicle.Speed < 1.0` AND `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen == false`. In all other cases, the service SHALL publish a failure response with the appropriate reason.
+
+**Validates: Requirements 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3**
+
+### Property 3: Unlock Bypass
+
+*For any* valid unlock command, the LOCKING_SERVICE SHALL execute the unlock regardless of vehicle speed or door ajar state.
+
+**Validates: Requirements 03-REQ-3.4**
+
+### Property 4: State-Response Consistency
+
+*For any* successfully executed command (lock or unlock), the LOCKING_SERVICE SHALL publish the lock state signal before publishing the success response. The lock state value SHALL match the commanded action (true for lock, false for unlock).
+
+**Validates: Requirements 03-REQ-4.1, 03-REQ-4.2, 03-REQ-5.1**
+
+### Property 5: Idempotent Operations
+
+*For any* lock command when the door is already locked, or unlock command when the door is already unlocked, the LOCKING_SERVICE SHALL publish a success response without modifying the lock state signal.
+
+**Validates: Requirements 03-REQ-4.E1, 03-REQ-4.E2**
+
+### Property 6: Response Completeness
+
+*For any* command processed by the LOCKING_SERVICE (whether successful or failed), exactly one response SHALL be published to `Vehicle.Command.Door.Response` containing the original `command_id`, a `status` field, and a `timestamp` field.
+
+**Validates: Requirements 03-REQ-5.1, 03-REQ-5.2, 03-REQ-5.3**
 
 ## Error Handling
 
-| Error Condition | Behavior | Requirement | Log Level |
-|----------------|----------|-------------|-----------|
-| DATA_BROKER unreachable at startup | Retry with exponential backoff (max 30s) | 03-REQ-1.2 | WARN |
-| DATA_BROKER connection lost during operation | Detect broken stream; reconnect and re-subscribe | 03-REQ-8.1 | ERROR |
-| Malformed command JSON | Discard; write failure response with reason `"invalid_command"` | 03-REQ-2.2 | WARN |
-| Missing required fields in command | Discard; write failure response with reason `"invalid_command"` | 03-REQ-2.2 | WARN |
-| Unknown action value | Discard; write failure response with reason `"invalid_action"` | 03-REQ-6.1 | WARN |
-| Vehicle speed >= 1.0 km/h | Reject command; write failure response with reason `"vehicle_moving"` | 03-REQ-3.3 | INFO |
-| Door is ajar (IsOpen == true) | Reject command; write failure response with reason `"door_ajar"` | 03-REQ-3.3 | INFO |
-| DATA_BROKER write fails for state update | Log error; response may still be attempted | 03-REQ-4.1 | ERROR |
-| DATA_BROKER write fails for response | Log error; response is lost | 03-REQ-5.1 | ERROR |
-| SIGTERM/SIGINT received | Cancel subscriptions; close gRPC connection; exit 0 | 03-REQ-7.1 | INFO |
+| Error Condition | Behavior | Requirement |
+|----------------|----------|-------------|
+| DATA_BROKER unreachable on startup | Retry with exponential backoff (1s, 2s, 4s), exit after 5 attempts | 03-REQ-1.E1 |
+| Subscription stream interrupted | Resubscribe up to 3 times, then exit | 03-REQ-1.E2 |
+| Invalid JSON payload | Log error, discard command (no response) | 03-REQ-2.E1 |
+| Missing required field | Publish failure response with reason "invalid_command" | 03-REQ-2.E2 |
+| Unsupported door value | Publish failure response with reason "unsupported_door" | 03-REQ-2.E3 |
+| Vehicle speed >= 1.0 km/h | Publish failure response with reason "vehicle_moving" | 03-REQ-3.1 |
+| Door ajar (IsOpen == true) | Publish failure response with reason "door_open" | 03-REQ-3.2 |
+| Speed signal unset | Treat as 0.0 (stationary), allow lock | 03-REQ-3.E1 |
+| Door signal unset | Treat as false (closed), allow lock | 03-REQ-3.E2 |
+| Lock when already locked | Publish success, no state change | 03-REQ-4.E1 |
+| Unlock when already unlocked | Publish success, no state change | 03-REQ-4.E2 |
+| Response publish fails | Log error, continue processing | 03-REQ-5.E1 |
+| SIGTERM during command processing | Complete in-flight command, then exit 0 | 03-REQ-6.E1 |
 
-## Startup Sequence
+## Technology Stack
 
-1. Parse environment variables (`DATABROKER_UDS_PATH`). Apply defaults.
-2. Connect to DATA_BROKER via gRPC/UDS. Retry with backoff if unreachable.
-3. Subscribe to `Vehicle.Command.Door.Lock` on DATA_BROKER.
-4. Log "LOCKING_SERVICE started".
-5. Enter command processing loop: for each signal update, run the full processing pipeline (parse -> validate -> safety check -> execute -> respond).
-6. On SIGTERM/SIGINT: cancel subscriptions, close connection, exit 0.
-
-## Testing Strategy
-
-### Unit Tests
-
-Unit tests cover individual modules in isolation:
-
-- `config.rs`: Env var parsing, defaults.
-- `command.rs`: Command struct parsing (valid, missing fields, invalid action, malformed JSON). Response serialization.
-- `safety.rs`: Safety constraint evaluation with mock signal values (speed check, door ajar check, combined checks).
-
-Run with: `cd rhivos && cargo test -p locking-service`
-
-### Integration Tests
-
-Integration tests require a running DATA_BROKER:
-
-- Full command pipeline: write command to `Vehicle.Command.Door.Lock` -> verify state updated and response written.
-- Safety constraint rejection: set speed > 0 -> send command -> verify rejection response.
-- Door ajar rejection: set door open -> send command -> verify rejection response.
-- Invalid command handling: write malformed JSON -> verify failure response.
-
-Requires: `make infra-up` (starts Kuksa Databroker)
-
-### Lint
-
-Run with: `cd rhivos && cargo clippy -p locking-service`
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Rust | edition 2021 | Service implementation |
+| tonic | 0.11+ | gRPC client framework |
+| prost | 0.12+ | Protocol Buffer code generation |
+| tokio | 1.x | Async runtime |
+| serde / serde_json | 1.x | JSON serialization/deserialization |
+| tracing | 0.1+ | Structured logging |
+| kuksa.val.v1 proto | — | Kuksa Databroker gRPC API definitions (vendored) |
 
 ## Definition of Done
 
-1. All requirements in `requirements.md` are implemented and covered by tests.
-2. `cargo build -p locking-service` compiles without errors or warnings.
-3. `cargo clippy -p locking-service` passes with no warnings.
-4. `cargo test -p locking-service` passes all unit tests.
-5. Integration tests pass against running DATA_BROKER infrastructure.
-6. The service starts successfully, connects to DATA_BROKER, and processes lock/unlock commands end-to-end.
-7. Safety constraints are enforced: commands are rejected when the vehicle is moving or the door is ajar.
-8. Structured logging is present for all command processing, safety checks, and error conditions.
+A task group is complete when ALL of the following are true:
+
+1. All subtasks within the group are checked off (`[x]`)
+2. All spec tests (`test_spec.md` entries) for the task group pass
+3. All property tests for the task group pass
+4. All previously passing tests still pass (no regressions)
+5. No linter warnings or errors introduced
+6. Code is committed on a feature branch and pushed to remote
+7. Feature branch is merged back to `main`
+8. `tasks.md` checkboxes are updated to reflect completion
+
+## Testing Strategy
+
+- **Unit tests:** The `command`, `safety`, and `response` modules are pure functions testable without DATA_BROKER. Tests use `#[test]` with serde_json for payload testing and mock inputs for safety checks.
+- **Integration tests:** A `tests/locking-service/` Go module (or Rust integration tests) starts the databroker container, runs the locking-service binary, sends commands via gRPC, and verifies responses. Requires Podman.
+- **Property tests:** Use `proptest` crate for Rust property-based testing of command parsing (arbitrary JSON strings) and safety logic (arbitrary speed/door combinations).
+- **Mock broker:** Unit tests for the command processing loop use a mock `BrokerClient` trait implementation that returns configurable signal values, avoiding dependency on a live databroker.

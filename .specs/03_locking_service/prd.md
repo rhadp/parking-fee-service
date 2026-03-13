@@ -86,5 +86,20 @@ Failure:
 
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Uses repo structure and Rust project skeleton from group 2 |
-| 02_data_broker | 3 | 1 | Requires DATA_BROKER with VSS overlay for command/state signals |
+| 01_project_setup | 3 | 1 | Uses Rust workspace and locking-service skeleton from group 3 |
+| 02_data_broker | 2 | 4 | Requires configured DATA_BROKER (compose.yml with dual listeners) for integration tests; group 2 produces the compose config |
+
+## Clarifications
+
+The following clarifications were resolved during requirements analysis.
+
+- **C1 (Speed threshold):** "Stationary" means `Vehicle.Speed < 1.0` km/h. A small tolerance accounts for sensor noise. Any speed >= 1.0 km/h results in a "vehicle_moving" rejection.
+- **C2 (Door ajar constraint):** Locking is rejected if `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen == true` (reason: "door_open"). Unlocking is always allowed regardless of door state — the door being open is not a safety concern for unlock operations.
+- **C3 (DATA_BROKER connection):** The service connects to DATA_BROKER via a configurable endpoint. Default for local development: `http://localhost:55556` (TCP). Production: UDS path. Configured via environment variable `DATABROKER_ADDR`.
+- **C4 (Supported doors):** For demo scope, only `"driver"` is supported in the `doors` array. Commands targeting any other door value are rejected with reason `"unsupported_door"`.
+- **C5 (Payload validation):** Required fields: `command_id` (non-empty string), `action` ("lock" or "unlock"), `doors` (array containing "driver"). Missing or invalid fields result in a failure response with reason `"invalid_command"`. Fields `source`, `vin`, and `timestamp` are optional for the locking service (they are metadata for tracing, not used in decision logic).
+- **C6 (Initial state):** The service starts with the door in unlocked state (`IsLocked = false`). On startup, it publishes this initial state to DATA_BROKER.
+- **C7 (Command ordering):** Commands are processed sequentially. If multiple commands arrive while one is being processed, they are queued and handled in order.
+- **C8 (Service lifecycle):** The service runs as a long-lived process. On startup, it subscribes to `Vehicle.Command.Door.Lock` and processes commands as they arrive. The service exits cleanly on SIGTERM/SIGINT.
+- **C9 (Kuksa gRPC client):** Uses tonic-generated Rust client from the `kuksa.val.v1` proto definitions (Kuksa Databroker API). Proto files are vendored from the Eclipse Kuksa project.
+- **C10 (Idempotent commands):** Locking an already-locked door or unlocking an already-unlocked door succeeds (returns "success") without changing state. This simplifies the companion app's retry logic.

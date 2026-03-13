@@ -78,8 +78,9 @@ Implement the CLOUD_GATEWAY_CLIENT as a Rust service running in the RHIVOS safet
 
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Uses repo structure and Rust project skeleton from group 2 |
-| 02_data_broker | 3 | 1 | Requires DATA_BROKER with VSS overlay for command/state signals |
+| 01_project_setup | 3 | 1 | Uses Rust workspace and cloud-gateway-client skeleton from group 3 |
+| 01_project_setup | 7 | 6 | Uses NATS container from infrastructure (group 7) for integration tests |
+| 02_data_broker | 2 | 6 | Uses configured DATA_BROKER (compose.yml) for integration tests |
 
 ## Clarifications from Master PRD
 
@@ -98,3 +99,17 @@ Implement the CLOUD_GATEWAY_CLIENT as a Rust service running in the RHIVOS safet
 - Direct calls to LOCKING_SERVICE (all communication goes through DATA_BROKER)
 - Production-grade TLS certificate management
 - Multi-VIN handling in a single process instance
+
+## Clarifications
+
+The following clarifications were resolved during requirements analysis.
+
+- **C1 (Bearer token mechanism):** Commands arrive on NATS with an `Authorization` header containing `Bearer <token>`. The service validates the header is present and the token matches the configured `BEARER_TOKEN` env var (default: `demo-token`). Invalid or missing tokens result in the command being rejected (no response published to DATA_BROKER).
+- **C2 (Telemetry publishing):** Telemetry is published on-change. The service subscribes to DATA_BROKER signals (IsLocked, Latitude, Longitude, SessionActive) and publishes an aggregated JSON telemetry message to NATS whenever any subscribed signal changes.
+- **C3 (Telemetry payload format):** `{"vin":"<vin>","is_locked":bool,"latitude":double,"longitude":double,"parking_active":bool,"timestamp":<unix_ts>}`. Fields with unknown values (never set in DATA_BROKER) are omitted from the payload.
+- **C4 (NATS connection):** Configured via `NATS_URL` env var, default `nats://localhost:4222`. The service retries connection with exponential backoff (1s, 2s, 4s) up to 5 attempts.
+- **C5 (DATA_BROKER connection):** Configured via `DATABROKER_ADDR` env var, default `http://localhost:55556` (consistent with spec 03).
+- **C6 (VIN configuration):** `VIN` env var is required. If not set, the service exits with code 1 and a descriptive error message.
+- **C7 (Command validation):** The service validates: (a) NATS message has valid bearer token header, (b) payload is valid JSON, (c) payload contains `command_id` (non-empty), `action` ("lock" or "unlock"), `doors` (array). The service does NOT validate door values — that's LOCKING_SERVICE's responsibility. It forwards the command as-is to DATA_BROKER after structural validation.
+- **C8 (Command response relay):** When `Vehicle.Command.Door.Response` changes in DATA_BROKER, the service reads the JSON value and publishes it verbatim to `vehicles.{VIN}.command_responses` on NATS.
+- **C9 (Self-registration):** On startup, the service publishes a registration message to `vehicles.{VIN}.status` with `{"vin":"<vin>","status":"online","timestamp":<unix_ts>}`. This is informational — no acknowledgment is expected.

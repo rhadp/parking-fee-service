@@ -71,3 +71,18 @@ parking-fee-service/
 ## Dependencies
 
 This spec has no cross-spec dependencies. It is the foundation upon which all other specs build.
+
+## Clarifications
+
+The following clarifications were obtained during requirements analysis.
+
+- **C1 (Skeleton scope):** Skeleton implementations print usage/version info and exit 0. No gRPC handler stubs — those are introduced by component specs 02-09.
+- **C2 (Testing capabilities):** Test runners are configured so `cargo test` and `go test ./...` succeed. Each component includes at least one trivial placeholder test (e.g., `#[test] fn it_compiles()` or `TestMain`).
+- **C3 (Infrastructure directory):** The `deployments/` directory contains `compose.yml` (NATS on :4222, Kuksa Databroker on :55556) and `nats/nats-server.conf`.
+- **C4 (Android directories):** `android/` is the placeholder for the AAOS PARKING_APP (Kotlin). `mobile/` is the placeholder for the Flutter COMPANION_APP. These match the PRD (the README diverges here and is outdated).
+- **C5 (Mock sensors):** `rhivos/mock-sensors/` is a single Cargo crate with three binary targets (`location-sensor`, `speed-sensor`, `door-sensor`) that share common DATA_BROKER gRPC client code.
+- **C6 (Mock parking-operator):** `mock/parking-operator/` is a Go binary under `mock/`, simulating the PARKING_OPERATOR REST API.
+- **C7 (Proto contents):** Proto files contain full message and service definitions (types, enums, RPC signatures), not just placeholders. They define the contract for all downstream component specs.
+- **C8 (Infrastructure configuration):** Default NATS config (port 4222). Kuksa Databroker on port 55556 with a custom VSS overlay file for `Vehicle.Parking.*` and `Vehicle.Command.*` signals. Configuration files live in `deployments/`.
+- **C9 (Tests directory):** `tests/setup/` is a standalone Go module with shell-script-driven tests that verify: all binaries compile, infrastructure starts and stops cleanly, and proto code generation works.
+- **C10 (PRD authority):** The PRD is authoritative. Where the README diverges from the PRD, the README is outdated and should be updated to match.

@@ -1,317 +1,967 @@
-# Test Specification: UPDATE_SERVICE (Spec 07)
+# Test Specification: UPDATE_SERVICE
 
-> Test specifications for the UPDATE_SERVICE adapter lifecycle manager.
-> Validates requirements from `.specs/07_update_service/requirements.md`.
+## Overview
 
-## Test ID Convention
+This test specification defines concrete test contracts for the UPDATE_SERVICE, a Rust gRPC service managing containerized adapter lifecycle. Tests are organized into unit tests (config, state, model, container modules using mock ContainerRuntime) and integration tests (gRPC client tests in `tests/update-service/`). Unit tests run via `cd rhivos && cargo test -p update-service`. The container module uses a trait-based abstraction (ContainerRuntime) with mock implementations for unit testing without podman.
 
-| Prefix  | Category           |
-|---------|--------------------|
-| TS-07-  | Functional tests   |
-| TS-07-P | Property tests     |
-| TS-07-E | Error/edge tests   |
-
-## Test Environment
-
-- **Test framework:** Rust `#[tokio::test]` with mockall for trait mocking
-- **gRPC testing:** tonic test client against in-process server
-- **Test location:** `rhivos/update-service/src/*_test.rs`
-- **Run command:** `cd rhivos && cargo test -p update-service`
-- **Lint command:** `cd rhivos && cargo clippy -p update-service`
-- **Mocking strategy:** Podman CLI interactions are mocked via a `ContainerRuntime` trait. OCI registry interactions are mocked via an `OciPuller` trait.
-
-## Functional Tests
+## Test Cases
 
 ### TS-07-1: Install Adapter Happy Path
 
-**Requirement:** 07-REQ-1, 07-REQ-2, 07-REQ-6
+**Requirement:** 07-REQ-1.1
+**Type:** unit
+**Description:** InstallAdapter pulls image, verifies checksum, starts container, and returns job_id, adapter_id, and DOWNLOADING state.
 
-**Description:** Calling `InstallAdapter` with a valid image reference and correct checksum pulls the image, verifies the checksum, installs the container, and transitions through DOWNLOADING -> INSTALLING -> RUNNING.
+**Preconditions:**
+- Mock ContainerRuntime configured to succeed for pull, inspect (returns matching digest), and run.
 
-**Preconditions:** No adapters are currently installed. Podman and registry mocks return success.
+**Input:**
+- `image_ref: "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0"`
+- `checksum_sha256: "sha256:abc123def456"`
 
-**Steps:**
+**Expected:**
+- Response contains non-empty `job_id`, `adapter_id == "parkhaus-munich-v1.0.0"`, `state == DOWNLOADING`.
+- After completion: adapter state is RUNNING.
 
-1. Configure mock OCI puller to return a known manifest digest for `test-image:v1.0`.
-2. Configure mock container runtime to succeed on `run`.
-3. Call `InstallAdapter(image_ref="test-image:v1.0", checksum_sha256="sha256:<valid>")`.
-4. Assert response contains a non-empty `job_id`, non-empty `adapter_id`, and `state` = DOWNLOADING.
-5. Wait for the adapter to reach RUNNING state (poll via `GetAdapterStatus`).
-6. Assert `GetAdapterStatus` returns `state` = RUNNING.
+**Assertion pseudocode:**
+```
+resp = service.install_adapter(image_ref, checksum)
+ASSERT resp.job_id != ""
+ASSERT resp.adapter_id == "parkhaus-munich-v1.0.0"
+ASSERT resp.state == DOWNLOADING
+wait_for_state(adapter_id, RUNNING)
+```
 
-**Expected result:** Adapter transitions DOWNLOADING -> INSTALLING -> RUNNING. Response contains valid job_id and adapter_id.
+### TS-07-2: State Transitions During Install
 
-### TS-07-2: State Transition Streaming
+**Requirement:** 07-REQ-1.2
+**Type:** unit
+**Description:** During successful installation, the adapter transitions through DOWNLOADING → INSTALLING → RUNNING.
 
-**Requirement:** 07-REQ-3
+**Preconditions:**
+- Mock ContainerRuntime succeeds on all operations.
+- WatchAdapterStates subscriber active.
 
-**Description:** A `WatchAdapterStates` subscriber receives all state transition events during an adapter installation.
+**Input:**
+- InstallAdapter call.
 
-**Preconditions:** No adapters installed. Mocks configured for successful install.
+**Expected:**
+- Three state events: (UNKNOWN→DOWNLOADING), (DOWNLOADING→INSTALLING), (INSTALLING→RUNNING).
 
-**Steps:**
+**Assertion pseudocode:**
+```
+events = collect_events_during(install_adapter(image_ref, checksum))
+ASSERT events[0] == (UNKNOWN, DOWNLOADING)
+ASSERT events[1] == (DOWNLOADING, INSTALLING)
+ASSERT events[2] == (INSTALLING, RUNNING)
+```
 
-1. Open a `WatchAdapterStates` stream.
-2. Call `InstallAdapter` with valid parameters.
-3. Collect events from the stream until RUNNING state is reached.
-4. Assert the following events were received in order:
-   - `{old_state: UNKNOWN, new_state: DOWNLOADING}`
-   - `{old_state: DOWNLOADING, new_state: INSTALLING}`
-   - `{old_state: INSTALLING, new_state: RUNNING}`
-5. Assert each event has a valid `adapter_id` and `timestamp > 0`.
+### TS-07-3: Checksum Verification
 
-**Expected result:** Three state transition events received in correct order.
+**Requirement:** 07-REQ-1.3
+**Type:** unit
+**Description:** After pulling, the service compares the image digest against the provided checksum.
 
-### TS-07-3: Checksum Verification -- Valid Checksum
+**Preconditions:**
+- Mock ContainerRuntime: pull succeeds, inspect_digest returns "sha256:abc123def456".
 
-**Requirement:** 07-REQ-2
+**Input:**
+- `checksum_sha256: "sha256:abc123def456"` (matching)
 
-**Description:** When the computed checksum matches the provided checksum, installation proceeds to INSTALLING and then RUNNING.
+**Expected:**
+- Verification passes, installation continues to INSTALLING.
 
-**Preconditions:** Mock OCI puller returns a manifest digest whose SHA-256 matches the provided checksum.
+**Assertion pseudocode:**
+```
+service.install_adapter(image_ref, "sha256:abc123def456")
+adapter = state_manager.get("parkhaus-munich-v1.0.0")
+ASSERT adapter.state != ERROR
+```
 
-**Steps:**
+### TS-07-4: Container Started with Host Networking
 
-1. Configure mock with a known digest and matching checksum.
-2. Call `InstallAdapter` with matching `checksum_sha256`.
-3. Wait for RUNNING state.
-4. Assert adapter reached RUNNING state.
+**Requirement:** 07-REQ-1.4
+**Type:** unit
+**Description:** The container is started with `--network=host`.
 
-**Expected result:** Adapter reaches RUNNING state successfully.
+**Preconditions:**
+- Mock ContainerRuntime recording run arguments.
 
-### TS-07-4: Single Adapter Enforcement
+**Input:**
+- InstallAdapter call.
 
-**Requirement:** 07-REQ-7
+**Expected:**
+- Container run was called (mock recorded the call with image_ref and adapter_id).
 
-**Description:** When installing a new adapter while another is RUNNING, the currently running adapter is stopped before the new one starts.
+**Assertion pseudocode:**
+```
+service.install_adapter(image_ref, checksum)
+ASSERT mock_runtime.run_called_with(image_ref, adapter_id)
+// PodmanRuntime implementation verifies --network=host via integration test
+```
 
-**Preconditions:** One adapter (`adapter-A`) is already in RUNNING state. Mocks configured for successful operations.
+### TS-07-5: Adapter ID Derivation
 
-**Steps:**
+**Requirement:** 07-REQ-1.5
+**Type:** unit
+**Description:** adapter_id is derived from image_ref's last path segment and tag.
 
-1. Install `adapter-A` and wait for RUNNING state.
-2. Call `InstallAdapter` for a different image (`adapter-B`).
-3. Wait for `adapter-B` to reach RUNNING state.
-4. Call `ListAdapters`.
-5. Assert `adapter-A` is in STOPPED state.
-6. Assert `adapter-B` is in RUNNING state.
-7. Assert exactly one adapter is in RUNNING state.
+**Preconditions:**
+- None.
 
-**Expected result:** Old adapter stopped, new adapter running. Only one RUNNING adapter at any time.
+**Input:**
+- `"us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0"` → `"parkhaus-munich-v1.0.0"`
+- `"registry.io/repo/my-adapter:latest"` → `"my-adapter-latest"`
 
-### TS-07-5: List Adapters
+**Expected:**
+- Deterministic, human-readable adapter_id.
 
-**Requirement:** 07-REQ-4
+**Assertion pseudocode:**
+```
+ASSERT derive_adapter_id("us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0") == "parkhaus-munich-v1.0.0"
+ASSERT derive_adapter_id("registry.io/repo/my-adapter:latest") == "my-adapter-latest"
+```
 
-**Description:** `ListAdapters` returns all known adapters with their current states.
+### TS-07-6: Single Adapter Stops Running Before New Install
 
-**Preconditions:** Two adapters have been installed (one RUNNING, one STOPPED).
+**Requirement:** 07-REQ-2.1
+**Type:** unit
+**Description:** When InstallAdapter is called while another adapter is RUNNING, the running adapter is stopped first.
 
-**Steps:**
+**Preconditions:**
+- Adapter "old-adapter" in RUNNING state.
 
-1. Install `adapter-A`, wait for RUNNING.
-2. Install `adapter-B`, wait for RUNNING (this stops `adapter-A`).
-3. Call `ListAdapters`.
-4. Assert response contains two adapters.
-5. Assert one is RUNNING and one is STOPPED.
-6. Assert each adapter has a valid `adapter_id` and `image_ref`.
+**Input:**
+- InstallAdapter with a new image_ref.
 
-**Expected result:** Both adapters listed with correct states.
+**Expected:**
+- "old-adapter" transitions to STOPPED.
+- New adapter installation proceeds.
 
-### TS-07-6: Get Adapter Status
+**Assertion pseudocode:**
+```
+install_adapter("old-image:v1", checksum1)  // now RUNNING
+install_adapter("new-image:v1", checksum2)
+ASSERT state_manager.get("old-adapter").state == STOPPED
+ASSERT state_manager.get("new-adapter").state == RUNNING
+```
+
+### TS-07-7: Previous Adapter Stopped State
 
-**Requirement:** 07-REQ-4
+**Requirement:** 07-REQ-2.2
+**Type:** unit
+**Description:** The previously running adapter transitions to STOPPED before the new one starts.
 
-**Description:** `GetAdapterStatus` returns the current state and metadata of a specific adapter.
+**Preconditions:**
+- Adapter "adapter-a" in RUNNING state.
 
-**Preconditions:** One adapter is installed and RUNNING.
+**Input:**
+- InstallAdapter with new image.
 
-**Steps:**
+**Expected:**
+- State events show adapter-a transitioning to STOPPED before new adapter starts.
 
-1. Install an adapter and wait for RUNNING.
-2. Call `GetAdapterStatus(adapter_id)` with the adapter's ID.
-3. Assert response contains correct `adapter_id`, `image_ref`, and `state` = RUNNING.
+**Assertion pseudocode:**
+```
+events = collect_events_during(install_adapter("new-image:v1", checksum))
+stop_event = find_event(events, adapter_id="adapter-a", new_state=STOPPED)
+ASSERT stop_event EXISTS
+ASSERT stop_event.timestamp <= first_event_for_new_adapter.timestamp
+```
 
-**Expected result:** Correct adapter status returned.
+### TS-07-8: Watch Adapter States Stream
 
-### TS-07-7: Remove Adapter
+**Requirement:** 07-REQ-3.1
+**Type:** unit
+**Description:** WatchAdapterStates returns a stream of state events for subsequent transitions.
 
-**Requirement:** 07-REQ-5
+**Preconditions:**
+- Active subscriber.
 
-**Description:** `RemoveAdapter` stops and removes an adapter.
+**Input:**
+- Subscribe, then trigger an InstallAdapter.
 
-**Preconditions:** One adapter is installed and RUNNING. Mock container runtime succeeds on stop and remove.
+**Expected:**
+- Subscriber receives state transition events.
 
-**Steps:**
+**Assertion pseudocode:**
+```
+rx = state_manager.subscribe()
+install_adapter(image_ref, checksum)
+event = rx.recv()
+ASSERT event.adapter_id != ""
+ASSERT event.new_state != UNKNOWN
+```
 
-1. Install an adapter and wait for RUNNING.
-2. Call `RemoveAdapter(adapter_id)`.
-3. Assert response `success` = true.
-4. Call `ListAdapters`.
-5. Assert the removed adapter is no longer in the list (or is in OFFLOADING state transitioning to removal).
+### TS-07-9: Multiple Watch Subscribers
 
-**Expected result:** Adapter is stopped, removed, and no longer listed.
+**Requirement:** 07-REQ-3.2
+**Type:** unit
+**Description:** Multiple WatchAdapterStates subscribers each receive all events.
 
-### TS-07-8: Offloading After Inactivity
+**Preconditions:**
+- Two active subscribers.
 
-**Requirement:** 07-REQ-8
+**Input:**
+- Trigger a state transition.
 
-**Description:** A stopped adapter is automatically offloaded after the configured inactivity timeout expires.
+**Expected:**
+- Both subscribers receive the same event.
 
-**Preconditions:** Inactivity timeout configured to a short duration (e.g., 1 second for testing). One adapter is installed.
+**Assertion pseudocode:**
+```
+rx1 = state_manager.subscribe()
+rx2 = state_manager.subscribe()
+state_manager.transition("adapter-1", RUNNING)
+event1 = rx1.recv()
+event2 = rx2.recv()
+ASSERT event1.adapter_id == event2.adapter_id
+ASSERT event1.new_state == event2.new_state
+```
 
-**Steps:**
+### TS-07-10: State Event Fields
 
-1. Configure inactivity timeout to 1 second.
-2. Install an adapter and wait for RUNNING.
-3. Stop the adapter (via installing a different one, or RemoveAdapter followed by reinstall to STOPPED).
-4. Use `tokio::time::advance` (or equivalent) to advance time past the inactivity timeout.
-5. Call `ListAdapters`.
-6. Assert the stopped adapter has been offloaded (no longer in the list).
+**Requirement:** 07-REQ-3.3
+**Type:** unit
+**Description:** Each AdapterStateEvent includes adapter_id, old_state, new_state, and timestamp.
 
-**Expected result:** Adapter automatically removed after inactivity timeout.
+**Preconditions:**
+- Subscriber active.
 
-## Error and Edge Case Tests
+**Input:**
+- Trigger a state transition.
 
-### TS-07-E1: Checksum Verification -- Invalid Checksum
+**Expected:**
+- Event has all four fields populated.
 
-**Requirement:** 07-REQ-2
+**Assertion pseudocode:**
+```
+rx = state_manager.subscribe()
+state_manager.transition("adapter-1", INSTALLING)
+event = rx.recv()
+ASSERT event.adapter_id == "adapter-1"
+ASSERT event.old_state == DOWNLOADING
+ASSERT event.new_state == INSTALLING
+ASSERT event.timestamp > 0
+```
 
-**Description:** When the computed checksum does not match the provided checksum, the adapter transitions to ERROR and the image is cleaned up.
+### TS-07-11: List Adapters
 
-**Steps:**
+**Requirement:** 07-REQ-4.1
+**Type:** unit
+**Description:** ListAdapters returns all known adapters with current states.
 
-1. Configure mock OCI puller to return a digest that does NOT match the provided checksum.
-2. Call `InstallAdapter` with a mismatched `checksum_sha256`.
-3. Assert gRPC status is INVALID_ARGUMENT.
-4. Assert error message contains "checksum mismatch".
-5. Call `GetAdapterStatus` for the adapter.
-6. Assert state is ERROR.
+**Preconditions:**
+- Two adapters in state manager.
 
-**Expected result:** INVALID_ARGUMENT error with adapter in ERROR state.
+**Input:**
+- ListAdapters call.
 
-### TS-07-E2: Registry Unreachable
+**Expected:**
+- Returns 2 adapters with correct states.
 
-**Requirement:** 07-REQ-1, 07-REQ-10
+**Assertion pseudocode:**
+```
+state_manager.create_adapter("a1", "img1", "chk1")
+state_manager.create_adapter("a2", "img2", "chk2")
+list = state_manager.list()
+ASSERT len(list) == 2
+```
 
-**Description:** When the OCI registry is unreachable, InstallAdapter returns UNAVAILABLE and the adapter transitions to ERROR.
+### TS-07-12: Get Adapter Status
 
-**Steps:**
+**Requirement:** 07-REQ-4.2
+**Type:** unit
+**Description:** GetAdapterStatus returns the current status of a specific adapter.
 
-1. Configure mock OCI puller to fail with a connection error.
-2. Call `InstallAdapter` with valid parameters.
-3. Assert gRPC status is UNAVAILABLE.
-4. Assert error message describes the connectivity failure.
+**Preconditions:**
+- Adapter "a1" exists in RUNNING state.
 
-**Expected result:** UNAVAILABLE error returned.
+**Input:**
+- GetAdapterStatus("a1").
 
-### TS-07-E3: Container Start Failure
+**Expected:**
+- Returns adapter info with state=RUNNING, image_ref, timestamps.
 
-**Requirement:** 07-REQ-1, 07-REQ-10
+**Assertion pseudocode:**
+```
+info = state_manager.get("a1")
+ASSERT info.state == RUNNING
+ASSERT info.image_ref != ""
+ASSERT info.created_at > 0
+```
 
-**Description:** When the container fails to start after installation, the adapter transitions to ERROR.
+### TS-07-13: Remove Adapter
 
-**Steps:**
+**Requirement:** 07-REQ-5.1
+**Type:** unit
+**Description:** RemoveAdapter stops container, removes container and image, deletes from state.
 
-1. Configure mock OCI puller to succeed.
-2. Configure mock container runtime to fail on `run` (non-zero exit code).
-3. Call `InstallAdapter` with valid parameters.
-4. Wait for state transition.
-5. Assert adapter state is ERROR.
-6. Assert gRPC error status is INTERNAL.
+**Preconditions:**
+- Adapter "a1" in RUNNING state. Mock ContainerRuntime succeeds.
 
-**Expected result:** ERROR state with INTERNAL gRPC status.
+**Input:**
+- RemoveAdapter("a1").
 
-### TS-07-E4: Get Status for Unknown Adapter
+**Expected:**
+- Mock runtime stop, remove, remove_image called.
+- Adapter no longer in state manager.
 
-**Requirement:** 07-REQ-4
+**Assertion pseudocode:**
+```
+service.remove_adapter("a1")
+ASSERT state_manager.get("a1") == None
+ASSERT mock_runtime.stop_called
+ASSERT mock_runtime.remove_called
+ASSERT mock_runtime.remove_image_called
+```
 
-**Description:** Querying status for a non-existent adapter returns NOT_FOUND.
+### TS-07-14: Remove Adapter State Transitions
 
-**Steps:**
+**Requirement:** 07-REQ-5.2
+**Type:** unit
+**Description:** During removal, adapter transitions through STOPPED → OFFLOADING → (removed).
 
-1. Call `GetAdapterStatus("nonexistent-adapter")`.
-2. Assert gRPC status is NOT_FOUND.
+**Preconditions:**
+- Adapter "a1" in RUNNING state.
 
-**Expected result:** NOT_FOUND error.
+**Input:**
+- RemoveAdapter("a1").
 
-### TS-07-E5: Remove Unknown Adapter
+**Expected:**
+- Events: RUNNING→STOPPED, STOPPED→OFFLOADING.
 
-**Requirement:** 07-REQ-5
+**Assertion pseudocode:**
+```
+events = collect_events_during(remove_adapter("a1"))
+ASSERT (RUNNING, STOPPED) IN events
+ASSERT (STOPPED, OFFLOADING) IN events
+```
 
-**Description:** Removing a non-existent adapter returns NOT_FOUND.
+### TS-07-15: Remove Adapter Events Emitted
 
-**Steps:**
+**Requirement:** 07-REQ-5.3
+**Type:** unit
+**Description:** State transition events are emitted during adapter removal.
 
-1. Call `RemoveAdapter("nonexistent-adapter")`.
-2. Assert gRPC status is NOT_FOUND.
+**Preconditions:**
+- Subscriber active.
 
-**Expected result:** NOT_FOUND error.
+**Input:**
+- RemoveAdapter on a running adapter.
 
-### TS-07-E6: Install Already Running Adapter (Same Image)
+**Expected:**
+- Subscriber receives state transition events.
 
-**Requirement:** 07-REQ-1
+**Assertion pseudocode:**
+```
+rx = state_manager.subscribe()
+remove_adapter("a1")
+events = collect_all(rx)
+ASSERT len(events) >= 2
+```
 
-**Description:** Installing an adapter that is already running with the same image_ref returns ALREADY_EXISTS.
+### TS-07-16: Automatic Offloading
 
-**Steps:**
+**Requirement:** 07-REQ-6.1
+**Type:** unit
+**Description:** Stopped adapters past the inactivity timeout are automatically offloaded.
 
-1. Install an adapter and wait for RUNNING.
-2. Call `InstallAdapter` again with the same `image_ref`.
-3. Assert gRPC status is ALREADY_EXISTS.
-4. Assert the adapter is still RUNNING (not restarted).
+**Preconditions:**
+- Adapter "a1" in STOPPED state, stopped_at set to 25 hours ago. Inactivity timeout is 24 hours.
 
-**Expected result:** ALREADY_EXISTS error, adapter unchanged.
+**Input:**
+- Offload timer triggers check.
 
-## Property Tests
+**Expected:**
+- Adapter "a1" transitions to OFFLOADING, then removed.
 
-### TS-07-P1: State Machine Transition Validity
+**Assertion pseudocode:**
+```
+state_manager.create_adapter("a1", ...)
+state_manager.transition("a1", STOPPED)
+// Set stopped_at to 25 hours ago
+expired = state_manager.get_stopped_expired(86400)
+ASSERT "a1" IN expired
+```
 
-**Requirement:** 07-REQ-6
+### TS-07-17: Configurable Inactivity Timeout
 
-**Description:** Every attempted state transition is either a valid transition (accepted) or an invalid transition (rejected). No undefined behavior.
+**Requirement:** 07-REQ-6.2
+**Type:** unit
+**Description:** The inactivity timeout is loaded from config.
 
-**Properties tested:**
+**Preconditions:**
+- Config file with `inactivity_timeout_secs: 3600`.
 
-1. For each valid transition pair in the state machine, `transition(from, to)` succeeds.
-2. For each invalid transition pair, `transition(from, to)` returns an error.
-3. The set of valid transitions exactly matches the specification in 07-REQ-6.1.
+**Input:**
+- LoadConfig.
 
-**Implementation:** Enumerate all (state, state) pairs and verify each produces the expected accept/reject outcome.
+**Expected:**
+- Config.inactivity_timeout_secs == 3600.
 
-**Expected result:** All valid transitions accepted, all invalid transitions rejected.
+**Assertion pseudocode:**
+```
+cfg = load_config(path_with_timeout_3600)
+ASSERT cfg.inactivity_timeout_secs == 3600
+```
 
-### TS-07-P2: Single Adapter Invariant
+### TS-07-18: Offloading Events Emitted
 
-**Requirement:** 07-REQ-7
+**Requirement:** 07-REQ-6.3
+**Type:** unit
+**Description:** State transition events are emitted during automatic offloading.
 
-**Description:** After any sequence of InstallAdapter and RemoveAdapter operations, at most one adapter is in RUNNING state.
+**Preconditions:**
+- Subscriber active. Adapter past inactivity threshold.
 
-**Properties tested:**
+**Input:**
+- Offload timer triggers.
 
-1. After each operation in a sequence of random install/remove calls, `ListAdapters` shows at most one RUNNING adapter.
+**Expected:**
+- Events emitted for STOPPED→OFFLOADING.
 
-**Implementation:** Randomized sequence of 10-20 install/remove operations with assertions after each step.
+**Assertion pseudocode:**
+```
+rx = state_manager.subscribe()
+trigger_offload_check()
+event = rx.recv()
+ASSERT event.new_state == OFFLOADING
+```
 
-**Expected result:** Invariant holds after every operation.
+### TS-07-19: Config Loading
 
-## Traceability
+**Requirement:** 07-REQ-7.1
+**Type:** unit
+**Description:** Configuration is loaded from CONFIG_PATH env var.
 
-| Test ID   | Requirement(s)             | Category    |
-|-----------|----------------------------|-------------|
-| TS-07-1   | 07-REQ-1, 07-REQ-2, 07-REQ-6 | Functional  |
-| TS-07-2   | 07-REQ-3                   | Functional  |
-| TS-07-3   | 07-REQ-2                   | Functional  |
-| TS-07-4   | 07-REQ-7                   | Functional  |
-| TS-07-5   | 07-REQ-4                   | Functional  |
-| TS-07-6   | 07-REQ-4                   | Functional  |
-| TS-07-7   | 07-REQ-5                   | Functional  |
-| TS-07-8   | 07-REQ-8                   | Functional  |
-| TS-07-E1  | 07-REQ-2                   | Error/Edge  |
-| TS-07-E2  | 07-REQ-1, 07-REQ-10        | Error/Edge  |
-| TS-07-E3  | 07-REQ-1, 07-REQ-10        | Error/Edge  |
-| TS-07-E4  | 07-REQ-4                   | Error/Edge  |
-| TS-07-E5  | 07-REQ-5                   | Error/Edge  |
-| TS-07-E6  | 07-REQ-1                   | Error/Edge  |
-| TS-07-P1  | 07-REQ-6                   | Property    |
-| TS-07-P2  | 07-REQ-7                   | Property    |
+**Preconditions:**
+- Temp config file.
+
+**Input:**
+- load_config(path).
+
+**Expected:**
+- Config values match file.
+
+**Assertion pseudocode:**
+```
+cfg = load_config("/tmp/test-config.json")
+ASSERT cfg.grpc_port == 50053
+```
+
+### TS-07-20: Config Fields
+
+**Requirement:** 07-REQ-7.2
+**Type:** unit
+**Description:** Config includes port, registry URL, inactivity timeout, and storage path.
+
+**Preconditions:**
+- Full config file.
+
+**Input:**
+- load_config.
+
+**Expected:**
+- All fields populated.
+
+**Assertion pseudocode:**
+```
+cfg = load_config(full_config_path)
+ASSERT cfg.grpc_port > 0
+ASSERT cfg.registry_url != ""
+ASSERT cfg.inactivity_timeout_secs > 0
+ASSERT cfg.container_storage_path != ""
+```
+
+### TS-07-21: Config Defaults
+
+**Requirement:** 07-REQ-7.3
+**Type:** unit
+**Description:** Missing fields use defaults.
+
+**Preconditions:**
+- Config file with empty JSON `{}`.
+
+**Input:**
+- load_config.
+
+**Expected:**
+- Defaults: port=50052, timeout=86400, storage=/var/lib/containers/adapters/.
+
+**Assertion pseudocode:**
+```
+cfg = load_config(empty_config)
+ASSERT cfg.grpc_port == 50052
+ASSERT cfg.inactivity_timeout_secs == 86400
+ASSERT cfg.container_storage_path == "/var/lib/containers/adapters/"
+```
+
+### TS-07-22: Startup Logging
+
+**Requirement:** 07-REQ-8.1
+**Type:** integration
+**Description:** On startup, the service logs version, port, registry URL.
+
+**Preconditions:**
+- Service starts.
+
+**Input:**
+- Capture startup logs.
+
+**Expected:**
+- Logs contain port, registry URL.
+
+**Assertion pseudocode:**
+```
+output = captureStartupLogs()
+ASSERT "50052" IN output
+ASSERT "registry" IN output
+```
+
+### TS-07-23: Graceful Shutdown
+
+**Requirement:** 07-REQ-8.2
+**Type:** integration
+**Description:** SIGTERM stops running adapters and exits with code 0.
+
+**Preconditions:**
+- Service running.
+
+**Input:**
+- Send SIGTERM.
+
+**Expected:**
+- Service exits with code 0.
+
+**Assertion pseudocode:**
+```
+proc = startService()
+proc.Signal(SIGTERM)
+exitCode = proc.Wait()
+ASSERT exitCode == 0
+```
+
+## Edge Case Tests
+
+### TS-07-E1: Empty Image Ref or Checksum
+
+**Requirement:** 07-REQ-1.E1
+**Type:** unit
+**Description:** Empty image_ref or checksum returns INVALID_ARGUMENT.
+
+**Preconditions:**
+- None.
+
+**Input:**
+- InstallAdapter with empty image_ref.
+- InstallAdapter with empty checksum.
+
+**Expected:**
+- gRPC INVALID_ARGUMENT error.
+
+**Assertion pseudocode:**
+```
+err = service.install_adapter("", "sha256:abc")
+ASSERT err.code == INVALID_ARGUMENT
+
+err = service.install_adapter("image:v1", "")
+ASSERT err.code == INVALID_ARGUMENT
+```
+
+### TS-07-E2: Image Pull Failure
+
+**Requirement:** 07-REQ-1.E2
+**Type:** unit
+**Description:** Pull failure transitions adapter to ERROR and returns UNAVAILABLE.
+
+**Preconditions:**
+- Mock ContainerRuntime: pull returns error.
+
+**Input:**
+- InstallAdapter call.
+
+**Expected:**
+- Adapter state is ERROR.
+- gRPC UNAVAILABLE error.
+
+**Assertion pseudocode:**
+```
+mock_runtime.set_pull_error(true)
+err = service.install_adapter(image_ref, checksum)
+ASSERT err.code == UNAVAILABLE
+adapter = state_manager.get(adapter_id)
+ASSERT adapter.state == ERROR
+```
+
+### TS-07-E3: Checksum Mismatch
+
+**Requirement:** 07-REQ-1.E3
+**Type:** unit
+**Description:** Checksum mismatch transitions to ERROR, removes image, returns FAILED_PRECONDITION.
+
+**Preconditions:**
+- Mock ContainerRuntime: pull succeeds, inspect_digest returns "sha256:wrong".
+
+**Input:**
+- InstallAdapter with checksum "sha256:expected".
+
+**Expected:**
+- Adapter state is ERROR.
+- remove_image called on mock.
+- gRPC FAILED_PRECONDITION error.
+
+**Assertion pseudocode:**
+```
+mock_runtime.set_digest("sha256:wrong")
+err = service.install_adapter(image_ref, "sha256:expected")
+ASSERT err.code == FAILED_PRECONDITION
+ASSERT mock_runtime.remove_image_called
+adapter = state_manager.get(adapter_id)
+ASSERT adapter.state == ERROR
+```
+
+### TS-07-E4: Container Start Failure
+
+**Requirement:** 07-REQ-1.E4
+**Type:** unit
+**Description:** Container start failure transitions to ERROR and returns INTERNAL.
+
+**Preconditions:**
+- Mock ContainerRuntime: pull and inspect succeed, run returns error.
+
+**Input:**
+- InstallAdapter call.
+
+**Expected:**
+- Adapter state is ERROR.
+- gRPC INTERNAL error.
+
+**Assertion pseudocode:**
+```
+mock_runtime.set_run_error(true)
+err = service.install_adapter(image_ref, checksum)
+ASSERT err.code == INTERNAL
+adapter = state_manager.get(adapter_id)
+ASSERT adapter.state == ERROR
+```
+
+### TS-07-E5: Stop Running Adapter Fails
+
+**Requirement:** 07-REQ-2.E1
+**Type:** unit
+**Description:** If stopping the running adapter fails, new install is aborted with INTERNAL.
+
+**Preconditions:**
+- Adapter "old" is RUNNING. Mock ContainerRuntime: stop returns error.
+
+**Input:**
+- InstallAdapter with new image.
+
+**Expected:**
+- gRPC INTERNAL error. New adapter not created.
+
+**Assertion pseudocode:**
+```
+mock_runtime.set_stop_error(true)
+err = service.install_adapter("new-image:v1", checksum)
+ASSERT err.code == INTERNAL
+ASSERT state_manager.get("new-adapter") == None
+```
+
+### TS-07-E6: Get Unknown Adapter
+
+**Requirement:** 07-REQ-4.E1
+**Type:** unit
+**Description:** GetAdapterStatus with unknown adapter_id returns NOT_FOUND.
+
+**Preconditions:**
+- No adapters in state manager.
+
+**Input:**
+- GetAdapterStatus("nonexistent").
+
+**Expected:**
+- gRPC NOT_FOUND error.
+
+**Assertion pseudocode:**
+```
+result = state_manager.get("nonexistent")
+ASSERT result == None
+```
+
+### TS-07-E7: Remove Unknown Adapter
+
+**Requirement:** 07-REQ-5.E1
+**Type:** unit
+**Description:** RemoveAdapter with unknown adapter_id returns NOT_FOUND.
+
+**Preconditions:**
+- No adapters in state manager.
+
+**Input:**
+- RemoveAdapter("nonexistent").
+
+**Expected:**
+- gRPC NOT_FOUND error.
+
+**Assertion pseudocode:**
+```
+err = service.remove_adapter("nonexistent")
+ASSERT err.code == NOT_FOUND
+```
+
+### TS-07-E8: Container Removal Failure
+
+**Requirement:** 07-REQ-5.E2
+**Type:** unit
+**Description:** Container removal failure transitions to ERROR and returns INTERNAL.
+
+**Preconditions:**
+- Adapter "a1" in STOPPED state. Mock ContainerRuntime: remove returns error.
+
+**Input:**
+- RemoveAdapter("a1").
+
+**Expected:**
+- Adapter transitions to ERROR.
+- gRPC INTERNAL error.
+
+**Assertion pseudocode:**
+```
+mock_runtime.set_remove_error(true)
+err = service.remove_adapter("a1")
+ASSERT err.code == INTERNAL
+adapter = state_manager.get("a1")
+ASSERT adapter.state == ERROR
+```
+
+### TS-07-E9: Config File Missing
+
+**Requirement:** 07-REQ-7.E1
+**Type:** unit
+**Description:** Missing config file uses defaults with warning.
+
+**Preconditions:**
+- No file at path.
+
+**Input:**
+- load_config("/nonexistent/config.json").
+
+**Expected:**
+- Returns default config. No error.
+
+**Assertion pseudocode:**
+```
+cfg = load_config("/nonexistent/config.json")
+ASSERT cfg.grpc_port == 50052
+```
+
+### TS-07-E10: Config Invalid JSON
+
+**Requirement:** 07-REQ-7.E2
+**Type:** unit
+**Description:** Invalid JSON config returns error.
+
+**Preconditions:**
+- File containing `{invalid`.
+
+**Input:**
+- load_config(invalid_path).
+
+**Expected:**
+- Returns error.
+
+**Assertion pseudocode:**
+```
+result = load_config(invalid_json_path)
+ASSERT result.is_err()
+```
+
+## Property Test Cases
+
+### TS-07-P1: State Machine Validity
+
+**Property:** Property 1 from design.md
+**Validates:** 07-REQ-1.2, 07-REQ-5.2
+**Type:** property
+**Description:** Only valid state transitions from the transition table are accepted.
+
+**For any:** Random adapter state and random target state.
+**Invariant:** The transition succeeds if and only if (from, to) is in the valid transition table.
+
+**Assertion pseudocode:**
+```
+FOR ANY from_state IN all_states, to_state IN all_states:
+    result = state_manager.transition(adapter, to_state)
+    IF (from_state, to_state) IN valid_transitions:
+        ASSERT result.is_ok()
+    ELSE:
+        ASSERT result.is_err()
+```
+
+### TS-07-P2: Single Adapter Constraint
+
+**Property:** Property 2 from design.md
+**Validates:** 07-REQ-2.1, 07-REQ-2.2
+**Type:** property
+**Description:** At most one adapter is in RUNNING state at any time.
+
+**For any:** Random sequence of InstallAdapter calls.
+**Invariant:** After each operation, at most one adapter is RUNNING.
+
+**Assertion pseudocode:**
+```
+FOR ANY operations IN random_install_sequences:
+    FOR op IN operations:
+        service.install_adapter(op.image_ref, op.checksum)
+    running = state_manager.list().filter(|a| a.state == RUNNING)
+    ASSERT len(running) <= 1
+```
+
+### TS-07-P3: Checksum Gate
+
+**Property:** Property 3 from design.md
+**Validates:** 07-REQ-1.3, 07-REQ-1.E3
+**Type:** property
+**Description:** Mismatched checksums always result in ERROR, never RUNNING.
+
+**For any:** Random image digest and random provided checksum where they differ.
+**Invariant:** Adapter state is ERROR and container was not started.
+
+**Assertion pseudocode:**
+```
+FOR ANY digest IN random_digests, checksum IN random_checksums:
+    IF digest != checksum:
+        mock_runtime.set_digest(digest)
+        service.install_adapter(image_ref, checksum)
+        ASSERT state_manager.get(adapter_id).state == ERROR
+        ASSERT mock_runtime.run_not_called
+```
+
+### TS-07-P4: State Event Broadcasting
+
+**Property:** Property 4 from design.md
+**Validates:** 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3
+**Type:** property
+**Description:** Every state transition emits an event with correct fields to all subscribers.
+
+**For any:** Random number of subscribers (1-10) and random state transition.
+**Invariant:** All subscribers receive the event with matching adapter_id, old_state, new_state, and non-zero timestamp.
+
+**Assertion pseudocode:**
+```
+FOR ANY n_subs IN 1..10, transition IN valid_transitions:
+    subscribers = (0..n_subs).map(|_| state_manager.subscribe())
+    state_manager.transition(adapter, transition.to)
+    FOR sub IN subscribers:
+        event = sub.recv()
+        ASSERT event.adapter_id == adapter
+        ASSERT event.old_state == transition.from
+        ASSERT event.new_state == transition.to
+        ASSERT event.timestamp > 0
+```
+
+### TS-07-P5: Adapter ID Derivation
+
+**Property:** Property 5 from design.md
+**Validates:** 07-REQ-1.5
+**Type:** property
+**Description:** derive_adapter_id is deterministic and non-empty for valid image refs.
+
+**For any:** Random valid OCI image references (registry/path:tag format).
+**Invariant:** Result is non-empty, deterministic (same input → same output), and contains the image name.
+
+**Assertion pseudocode:**
+```
+FOR ANY image_ref IN random_oci_refs:
+    id1 = derive_adapter_id(image_ref)
+    id2 = derive_adapter_id(image_ref)
+    ASSERT id1 == id2
+    ASSERT id1 != ""
+```
+
+### TS-07-P6: Inactivity Offloading
+
+**Property:** Property 6 from design.md
+**Validates:** 07-REQ-6.1, 07-REQ-6.2
+**Type:** property
+**Description:** Stopped adapters past the timeout appear in the expired list.
+
+**For any:** Random timeout values and random stopped_at times.
+**Invariant:** If now - stopped_at > timeout, the adapter is in the expired list.
+
+**Assertion pseudocode:**
+```
+FOR ANY timeout IN random_durations, age IN random_ages:
+    // Set adapter stopped_at to now - age
+    expired = state_manager.get_stopped_expired(timeout)
+    IF age > timeout:
+        ASSERT adapter_id IN expired
+    ELSE:
+        ASSERT adapter_id NOT IN expired
+```
+
+### TS-07-P7: Config Defaults
+
+**Property:** Property 7 from design.md
+**Validates:** 07-REQ-7.1, 07-REQ-7.3, 07-REQ-7.E1
+**Type:** property
+**Description:** Missing config files always return valid defaults.
+
+**For any:** Random nonexistent file paths.
+**Invariant:** Config has port=50052, timeout=86400, valid storage path.
+
+**Assertion pseudocode:**
+```
+FOR ANY path IN random_nonexistent_paths:
+    cfg = load_config(path)
+    ASSERT cfg.grpc_port == 50052
+    ASSERT cfg.inactivity_timeout_secs == 86400
+    ASSERT cfg.container_storage_path == "/var/lib/containers/adapters/"
+```
+
+## Coverage Matrix
+
+| Requirement | Test Spec Entry | Type |
+|-------------|-----------------|------|
+| 07-REQ-1.1 | TS-07-1 | unit |
+| 07-REQ-1.2 | TS-07-2 | unit |
+| 07-REQ-1.3 | TS-07-3 | unit |
+| 07-REQ-1.4 | TS-07-4 | unit |
+| 07-REQ-1.5 | TS-07-5 | unit |
+| 07-REQ-1.E1 | TS-07-E1 | unit |
+| 07-REQ-1.E2 | TS-07-E2 | unit |
+| 07-REQ-1.E3 | TS-07-E3 | unit |
+| 07-REQ-1.E4 | TS-07-E4 | unit |
+| 07-REQ-2.1 | TS-07-6 | unit |
+| 07-REQ-2.2 | TS-07-7 | unit |
+| 07-REQ-2.E1 | TS-07-E5 | unit |
+| 07-REQ-3.1 | TS-07-8 | unit |
+| 07-REQ-3.2 | TS-07-9 | unit |
+| 07-REQ-3.3 | TS-07-10 | unit |
+| 07-REQ-4.1 | TS-07-11 | unit |
+| 07-REQ-4.2 | TS-07-12 | unit |
+| 07-REQ-4.E1 | TS-07-E6 | unit |
+| 07-REQ-5.1 | TS-07-13 | unit |
+| 07-REQ-5.2 | TS-07-14 | unit |
+| 07-REQ-5.3 | TS-07-15 | unit |
+| 07-REQ-5.E1 | TS-07-E7 | unit |
+| 07-REQ-5.E2 | TS-07-E8 | unit |
+| 07-REQ-6.1 | TS-07-16 | unit |
+| 07-REQ-6.2 | TS-07-17 | unit |
+| 07-REQ-6.3 | TS-07-18 | unit |
+| 07-REQ-7.1 | TS-07-19 | unit |
+| 07-REQ-7.2 | TS-07-20 | unit |
+| 07-REQ-7.3 | TS-07-21 | unit |
+| 07-REQ-7.E1 | TS-07-E9 | unit |
+| 07-REQ-7.E2 | TS-07-E10 | unit |
+| 07-REQ-8.1 | TS-07-22 | integration |
+| 07-REQ-8.2 | TS-07-23 | integration |
+| Property 1 | TS-07-P1 | property |
+| Property 2 | TS-07-P2 | property |
+| Property 3 | TS-07-P3 | property |
+| Property 4 | TS-07-P4 | property |
+| Property 5 | TS-07-P5 | property |
+| Property 6 | TS-07-P6 | property |
+| Property 7 | TS-07-P7 | property |

@@ -1,237 +1,284 @@
-# Implementation Plan: UPDATE_SERVICE (Spec 07)
+# Implementation Plan: UPDATE_SERVICE
 
 <!-- AGENT INSTRUCTIONS
 - Implement exactly ONE top-level task group per session
 - Task group 1 writes failing tests from test_spec.md — all subsequent groups
   implement code to make those tests pass
-- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop -> push
+- Follow the git-flow: feature branch from main -> implement -> test -> merge to main -> push
 - Update checkbox states as you go: [-] in progress, [x] complete
 -->
 
 ## Overview
 
-This plan implements the UPDATE_SERVICE adapter lifecycle manager. It provides a gRPC API for installing, monitoring, and removing OCI-based adapter containers via podman, with a state machine governing adapter lifecycle transitions. Task group 1 writes all failing spec tests. Groups 2-6 implement functionality. Group 7 is the final checkpoint.
+This plan implements the UPDATE_SERVICE as a Rust gRPC service in `rhivos/update-service/`. The service manages containerized adapter lifecycle via podman CLI. Task group 1 writes failing tests. Groups 2-3 implement pure-function modules (model, config, state). Group 4 implements the container runtime trait and mock. Group 5 implements gRPC service and main. Group 6 runs integration tests.
 
-## Dependencies
-
-| Spec | From Group | To Group | Relationship |
-|------|-----------|----------|--------------|
-| 01_project_setup | 2 | 1 | Requires Rust workspace structure, `rhivos/Cargo.toml` workspace includes `update-service` |
+Ordering: tests first, then data types and config, then state manager, then container runtime trait, then gRPC handlers and main, then integration validation.
 
 ## Test Commands
 
-- Unit tests: `cd rhivos && cargo test -p update-service`
-- Lint: `cd rhivos && cargo clippy -p update-service`
-- Build: `cd rhivos && cargo build -p update-service`
+- Spec tests (unit): `cd rhivos && cargo test -p update-service`
+- Spec tests (integration): `cd tests/update-service && go test -v ./...`
+- Property tests: `cd rhivos && cargo test -p update-service -- --include-ignored proptest`
+- All Rust tests: `cd rhivos && cargo test`
+- Linter: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
 ## Tasks
 
 - [ ] 1. Write failing spec tests
-  - [ ] 1.1 Initialize Cargo crate
-    - Create `rhivos/update-service/Cargo.toml` with dependencies: tonic, prost, tokio (full), uuid, toml, tracing, tracing-subscriber
-    - Dev dependencies: mockall, tonic (features: transport), tokio-test
-    - Add crate to `rhivos/Cargo.toml` workspace members
+  - [ ] 1.1 Add dependencies to update-service Cargo.toml
+    - Add: tonic, prost, tokio, serde, serde_json, uuid, tracing, tracing-subscriber, async-trait, proptest (dev)
+    - Vendor update_service.proto and common.proto into `rhivos/update-service/proto/`
+    - Add tonic-build to build.rs for proto code generation
+    - _Test Spec: TS-07-1 through TS-07-23_
 
-  - [ ] 1.2 Create proto file
-    - Create `proto/update_service/v1/update_service.proto` with the full service definition as specified in design.md
-    - Create `rhivos/update-service/build.rs` for tonic-build compilation
+  - [ ] 1.2 Write config and model tests
+    - Create `rhivos/update-service/src/config.rs` with test module
+    - `test_load_config_from_file` — TS-07-19
+    - `test_config_fields` — TS-07-20
+    - `test_config_defaults` — TS-07-21
+    - `test_config_file_missing` — TS-07-E9
+    - `test_config_invalid_json` — TS-07-E10
+    - Create `rhivos/update-service/src/model.rs` with test module
+    - `test_adapter_id_derivation` — TS-07-5
+    - _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10_
 
-  - [ ] 1.3 Create type stubs and trait definitions
-    - Create minimal stub files so that tests compile:
-    - `src/main.rs` -- minimal main with module declarations
-    - `src/state.rs` -- `AdapterState` enum stub with `UNKNOWN` variant, `StateMachine` trait stub
-    - `src/config.rs` -- `Config` struct stub
-    - `src/oci.rs` -- `OciPuller` trait stub
-    - `src/container.rs` -- `ContainerRuntime` trait stub
-    - `src/manager.rs` -- `AdapterManager` struct stub
-    - `src/grpc.rs` -- gRPC service struct stub
-    - `src/offload.rs` -- offload timer stub
+  - [ ] 1.3 Write state manager tests
+    - Create `rhivos/update-service/src/state.rs` with test module
+    - `test_install_happy_path` — TS-07-1
+    - `test_state_transitions_during_install` — TS-07-2
+    - `test_checksum_verification` — TS-07-3
+    - `test_container_host_networking` — TS-07-4
+    - `test_single_adapter_stops_running` — TS-07-6
+    - `test_previous_adapter_stopped_state` — TS-07-7
+    - _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7_
 
-  - [ ] 1.4 Write state machine tests
-    - Create `rhivos/update-service/src/state_test.rs` with test functions
-    - `test_valid_transitions` -- all valid transitions from 07-REQ-6.1
-    - `test_invalid_transitions` -- invalid transitions are rejected
-    - `test_all_states_represented` -- all 7 states exist in the enum
-    - Tests should compile but fail because the state machine is not yet implemented
-    - _Test Spec: TS-07-P1_
+  - [ ] 1.4 Write watch, list, remove, and offload tests
+    - `test_watch_state_stream` — TS-07-8
+    - `test_multiple_watch_subscribers` — TS-07-9
+    - `test_state_event_fields` — TS-07-10
+    - `test_list_adapters` — TS-07-11
+    - `test_get_adapter_status` — TS-07-12
+    - `test_remove_adapter` — TS-07-13
+    - `test_remove_adapter_transitions` — TS-07-14
+    - `test_remove_adapter_events` — TS-07-15
+    - `test_automatic_offloading` — TS-07-16
+    - `test_configurable_inactivity` — TS-07-17
+    - `test_offloading_events` — TS-07-18
+    - _Test Spec: TS-07-8 through TS-07-18_
 
-  - [ ] 1.5 Write manager tests
-    - Create `rhivos/update-service/src/manager_test.rs` with test functions
-    - `test_install_adapter_happy_path` (TS-07-1)
-    - `test_single_adapter_enforcement` (TS-07-4)
-    - `test_list_adapters` (TS-07-5)
-    - `test_get_adapter_status` (TS-07-6)
-    - `test_remove_adapter` (TS-07-7)
-    - `test_checksum_mismatch` (TS-07-E1)
-    - `test_registry_unreachable` (TS-07-E2)
-    - `test_container_start_failure` (TS-07-E3)
-    - `test_get_status_unknown` (TS-07-E4)
-    - `test_remove_unknown` (TS-07-E5)
-    - `test_install_already_running` (TS-07-E6)
-    - Tests use mockall-generated mocks for `OciPuller` and `ContainerRuntime` traits; tests should compile but fail
-    - _Test Spec: TS-07-1, TS-07-4, TS-07-5, TS-07-6, TS-07-7, TS-07-E1 through TS-07-E6_
-
-  - [ ] 1.6 Write gRPC integration tests
-    - Create `rhivos/update-service/src/grpc_test.rs` with test functions
-    - `test_grpc_install_and_watch` (TS-07-1, TS-07-2)
-    - `test_grpc_list_adapters` (TS-07-5)
-    - `test_grpc_get_status` (TS-07-6)
-    - `test_grpc_remove_adapter` (TS-07-7)
-    - Tests start an in-process tonic server with mocked dependencies and use a tonic client; tests should compile but fail
-    - _Test Spec: TS-07-1, TS-07-2, TS-07-5, TS-07-6, TS-07-7_
+  - [ ] 1.5 Write edge case and property tests
+    - `test_empty_image_ref` — TS-07-E1
+    - `test_pull_failure` — TS-07-E2
+    - `test_checksum_mismatch` — TS-07-E3
+    - `test_container_start_failure` — TS-07-E4
+    - `test_stop_running_fails` — TS-07-E5
+    - `test_get_unknown_adapter` — TS-07-E6
+    - `test_remove_unknown_adapter` — TS-07-E7
+    - `test_container_removal_failure` — TS-07-E8
+    - `proptest_state_machine_validity` — TS-07-P1
+    - `proptest_single_adapter_constraint` — TS-07-P2
+    - `proptest_checksum_gate` — TS-07-P3
+    - `proptest_state_event_broadcasting` — TS-07-P4
+    - `proptest_adapter_id_derivation` — TS-07-P5
+    - `proptest_inactivity_offloading` — TS-07-P6
+    - `proptest_config_defaults` — TS-07-P7
+    - _Test Spec: TS-07-E1 through TS-07-E8, TS-07-P1 through TS-07-P7_
 
   - [ ] 1.V Verify task group 1
-    - [ ] `cd rhivos && cargo test -p update-service` compiles but all tests fail (or are marked `#[ignore]`)
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+    - [ ] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
+    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 2. Implement gRPC server and proto definitions
-  - [ ] 2.1 Finalize proto compilation
-    - Ensure `build.rs` compiles the proto file and generated code is importable via `tonic::include_proto!("update_service.v1")`
+- [ ] 2. Model and config modules
+  - [ ] 2.1 Implement model module
+    - Define `AdapterState` enum with all 7 states
+    - Implement `derive_adapter_id(image_ref: &str) -> String`: extract last path segment + tag
+    - Implement `generate_job_id() -> String`: UUID v4
+    - Define `AdapterInfo` struct with all fields
+    - Define `AdapterStateEvent` struct
+    - _Requirements: 07-REQ-1.5_
 
-  - [ ] 2.2 Implement gRPC service skeleton
-    - Implement `src/grpc.rs` with a struct `UpdateServiceImpl` that implements the tonic-generated `UpdateService` trait
-    - Each method returns `Err(Status::unimplemented("..."))` initially
-    - Wire the service into `main.rs` with tonic `Server::builder`
-
-  - [ ] 2.3 Implement configuration loading
-    - Implement `src/config.rs` with `Config` struct: `grpc_port`, `registry_base_url`, `inactivity_timeout_secs`, `storage_path`
-    - `Config::load(path: Option<&str>)` function that loads from TOML file or defaults
-    - Environment variable overrides with `UPDATE_SERVICE_` prefix
-    - _Requirements: 07-REQ-9_
+  - [ ] 2.2 Implement config module
+    - Define `Config` struct with serde Deserialize
+    - `load_config(path: &str) -> Result<Config, ConfigError>`: read JSON, apply defaults
+    - `default_config() -> Config`: port 50052, timeout 86400, storage path `/var/lib/containers/adapters/`
+    - If file not found: return default_config, log warning
+    - If invalid JSON: return error
+    - _Requirements: 07-REQ-7.1, 07-REQ-7.2, 07-REQ-7.3, 07-REQ-7.E1, 07-REQ-7.E2_
 
   - [ ] 2.V Verify task group 2
-    - [ ] `cd rhivos && cargo build -p update-service` succeeds
-    - [ ] Server starts and responds with UNIMPLEMENTED to all RPCs
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+    - [ ] Config and model tests pass: `cd rhivos && cargo test -p update-service -- config model`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10, TS-07-P5, TS-07-P7_
 
-- [ ] 3. Implement OCI pull and checksum verification
-  - [ ] 3.1 Define OciPuller trait
-    - Define the `OciPuller` trait in `src/oci.rs` with `pull_image` and `remove_image` methods
-    - Add `#[automock]` attribute for mockall
+- [ ] 3. State manager module
+  - [ ] 3.1 Implement state manager
+    - `StateManager` struct with `Arc<Mutex<HashMap<String, AdapterInfo>>>` and `broadcast::Sender<AdapterStateEvent>`
+    - `new() -> Self`: create broadcast channel
+    - `create_adapter(adapter_id, image_ref, checksum)`: add to map with DOWNLOADING state
+    - `transition(adapter_id, new_state)`: validate transition, update state, emit event
+    - `get(adapter_id)`, `list()`, `remove(adapter_id)`
+    - `get_running_adapter()`: find adapter in RUNNING state (for single constraint)
+    - `get_stopped_expired(timeout_secs)`: find STOPPED adapters past threshold
+    - `subscribe()`: return broadcast receiver
+    - _Requirements: 07-REQ-1.2, 07-REQ-1.4, 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3, 07-REQ-4.1, 07-REQ-4.2_
 
-  - [ ] 3.2 Implement PodmanOciPuller
-    - `pull_image`: Runs `podman pull <image_ref>`, then `podman inspect` to extract the digest
-    - `remove_image`: Runs `podman rmi <image_ref>`
-    - Maps podman errors to `OciError` variants
-    - _Requirements: 07-REQ-2_
-
-  - [ ] 3.3 Implement checksum verification
-    - Add `verify_checksum(digest, expected) -> Result<(), ChecksumError>` function
-    - Computes SHA-256, formats as `sha256:<hex>`, compares with expected
-    - Returns `Ok(())` on match, `Err(ChecksumError::Mismatch{...})` otherwise
-    - _Requirements: 07-REQ-2_
+  - [ ] 3.2 Implement state transition validation
+    - Define valid transitions as a lookup table
+    - Reject invalid transitions with descriptive error
+    - Set `stopped_at` timestamp when transitioning to STOPPED
+    - _Requirements: 07-REQ-1.2, 07-REQ-5.2_
 
   - [ ] 3.V Verify task group 3
-    - [ ] OCI-related tests (TS-07-3, TS-07-E1) pass with mocked podman
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+    - [ ] State manager tests pass: `cd rhivos && cargo test -p update-service -- state`
+    - [ ] Property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] _Test Spec: TS-07-8 through TS-07-12, TS-07-14, TS-07-15, TS-07-16, TS-07-18, TS-07-E6, TS-07-P1, TS-07-P2, TS-07-P4, TS-07-P6_
 
-- [ ] 4. Implement container lifecycle management (podman)
+- [ ] 4. Container runtime trait and service logic
   - [ ] 4.1 Define ContainerRuntime trait
-    - Define the `ContainerRuntime` trait in `src/container.rs` with `run`, `stop`, `remove`, `status` methods
-    - Add `#[automock]` attribute
+    - `async fn pull(image_ref)`, `async fn inspect_digest(image_ref)`, `async fn run(image_ref, adapter_id)`, `async fn stop(container_id)`, `async fn remove(container_id)`, `async fn remove_image(image_ref)`
+    - Implement `PodmanRuntime` struct: each method calls podman CLI via `tokio::process::Command`
+    - `run` uses `--network=host` and `--name={adapter_id}`
+    - _Requirements: 07-REQ-1.1, 07-REQ-1.3, 07-REQ-1.4_
 
-  - [ ] 4.2 Implement PodmanRuntime
-    - `run`: Executes `podman run -d --name <name> <image_ref>`
-    - `stop`: Executes `podman stop <name>`
-    - `remove`: Executes `podman rm -f <name>`
-    - `status`: Executes `podman inspect <name> --format '{{.State.Status}}'`, parses output
-    - All commands via `tokio::process::Command`
-    - _Requirements: 07-REQ-1_
+  - [ ] 4.2 Create MockContainerRuntime
+    - Configurable success/failure for each operation
+    - Records calls for assertion
+    - Configurable digest return value
+    - _Test Spec: TS-07-1, TS-07-3, TS-07-4, TS-07-6, TS-07-13, TS-07-E2, TS-07-E3, TS-07-E4, TS-07-E5, TS-07-E8_
+
+  - [ ] 4.3 Implement install logic
+    - Orchestrate: validate inputs → check single adapter constraint → stop running if needed → create adapter → pull → verify checksum → run
+    - Transition through DOWNLOADING → INSTALLING → RUNNING (or ERROR)
+    - On checksum mismatch: remove image, transition to ERROR
+    - _Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3, 07-REQ-2.1, 07-REQ-2.2_
+
+  - [ ] 4.4 Implement remove and offload logic
+    - Remove: stop (if running) → transition OFFLOADING → remove container → remove image → remove from state
+    - Offload timer: periodic task checking `get_stopped_expired()`, triggers removal
+    - _Requirements: 07-REQ-5.1, 07-REQ-5.2, 07-REQ-5.3, 07-REQ-6.1, 07-REQ-6.3_
 
   - [ ] 4.V Verify task group 4
-    - [ ] Container runtime tests pass with mocked commands; TS-07-E3 passes
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+    - [ ] All unit tests pass: `cd rhivos && cargo test -p update-service`
+    - [ ] All property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7, TS-07-13, TS-07-14, TS-07-15, TS-07-16, TS-07-17, TS-07-18, TS-07-E1 through TS-07-E5, TS-07-E7, TS-07-E8, TS-07-P2, TS-07-P3_
 
-- [ ] 5. Implement state machine and streaming
-  - [ ] 5.1 Implement state machine
-    - `AdapterState` enum with all 7 states
-    - `AdapterState::can_transition_to(&self, target: AdapterState) -> bool` method encoding valid transitions from 07-REQ-6.1
-    - `AdapterRecord` struct holding `adapter_id`, `image_ref`, `state`, `last_activity` timestamp
-    - _Requirements: 07-REQ-6_
+- [ ] 5. gRPC server and main
+  - [ ] 5.1 Implement gRPC service
+    - Implement `UpdateService` tonic trait for all 5 RPCs
+    - `install_adapter`: delegate to install logic
+    - `watch_adapter_states`: create subscriber, stream events
+    - `list_adapters`: delegate to state manager
+    - `remove_adapter`: delegate to remove logic
+    - `get_adapter_status`: delegate to state manager
+    - Map errors to appropriate gRPC status codes
+    - _Requirements: 07-REQ-1.1, 07-REQ-3.1, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1_
 
-  - [ ] 5.2 Implement AdapterManager
-    - `AdapterManager` struct holding a `HashMap<String, AdapterRecord>`, a `broadcast::Sender<AdapterStateEvent>`, and references to `OciPuller` and `ContainerRuntime`
-    - `install_adapter(image_ref, checksum)` -- full flow: check single-adapter constraint, pull, verify, install, start
-    - `remove_adapter(adapter_id)`, `list_adapters()`, `get_adapter_status(adapter_id)`
-    - `subscribe_state_events()` returning a `broadcast::Receiver`
-    - Private `transition_state(adapter_id, new_state)` that validates transitions and emits events
-    - _Requirements: 07-REQ-1, 07-REQ-4, 07-REQ-5, 07-REQ-7_
-
-  - [ ] 5.3 Wire gRPC methods to AdapterManager
-    - Update `src/grpc.rs` to delegate all RPC calls to `AdapterManager`
-    - `InstallAdapter` -> `manager.install_adapter()`
-    - `WatchAdapterStates` -> `manager.subscribe_state_events()` wrapped in a tonic streaming response
-    - `ListAdapters` -> `manager.list_adapters()`
-    - `RemoveAdapter` -> `manager.remove_adapter()`
-    - `GetAdapterStatus` -> `manager.get_adapter_status()`
-    - _Requirements: 07-REQ-1, 07-REQ-3, 07-REQ-4, 07-REQ-5, 07-REQ-10_
+  - [ ] 5.2 Implement main
+    - Read `CONFIG_PATH` env var, load config
+    - Create StateManager, PodmanRuntime, gRPC service
+    - Start offload timer as tokio task
+    - Start tonic gRPC server on configured port
+    - Log version, port, registry URL at startup
+    - Handle SIGTERM/SIGINT: stop running adapters, shutdown gRPC server
+    - _Requirements: 07-REQ-7.1, 07-REQ-8.1, 07-REQ-8.2_
 
   - [ ] 5.V Verify task group 5
-    - [ ] State machine tests (TS-07-P1) pass
-    - [ ] Manager tests (TS-07-1, TS-07-4, TS-07-5, TS-07-6, TS-07-7, TS-07-E1 through TS-07-E6) pass
-    - [ ] Streaming tests (TS-07-2) pass
-    - [ ] gRPC integration tests pass
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+    - [ ] Binary compiles: `cd rhivos && cargo build -p update-service`
+    - [ ] All unit tests still pass: `cd rhivos && cargo test -p update-service`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 6. Implement offloading and single-adapter constraint
-  - [ ] 6.1 Implement offload timer
-    - `OffloadTimer` struct that runs as a tokio background task
-    - Periodically checks all adapters in STOPPED state
-    - If `now - last_activity > inactivity_timeout`, transitions the adapter to OFFLOADING and removes it via `AdapterManager`
-    - Check interval: `inactivity_timeout / 10` (minimum 60 seconds)
-    - _Requirements: 07-REQ-8_
+- [ ] 6. Integration test validation
+  - [ ] 6.1 Create integration test module
+    - Create `tests/update-service/` Go module
+    - Shared helpers: start/stop service, gRPC client helpers
+    - Add `go.work` entry for `./tests/update-service`
+    - _Test Spec: TS-07-22, TS-07-23_
 
-  - [ ] 6.2 Wire offload timer into main
-    - Start the `OffloadTimer` as a tokio spawn in `main.rs`, passing a shared `Arc<AdapterManager>`
-
-  - [ ] 6.3 Verify single-adapter constraint end-to-end
-    - Ensure the single-adapter constraint works through the full gRPC path
-    - Installing adapter B while adapter A is RUNNING stops A first
-    - After the sequence, only B is RUNNING
-    - _Requirements: 07-REQ-7_
+  - [ ] 6.2 Write and run integration tests
+    - `TestStartupLogging` — TS-07-22
+    - `TestGracefulShutdown` — TS-07-23
+    - `TestInstallAdapterGRPC` — end-to-end with mock registry (optional)
+    - `TestListAdaptersGRPC` — end-to-end query
+    - _Test Spec: TS-07-22, TS-07-23_
 
   - [ ] 6.V Verify task group 6
-    - [ ] Offload tests (TS-07-8) pass
-    - [ ] Property test TS-07-P2 passes
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings introduced: `cd rhivos && cargo clippy -p update-service`
+    - [ ] All integration tests pass: `cd tests/update-service && go test -v ./...`
+    - [ ] All unit tests still pass: `cd rhivos && cargo test -p update-service`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] All requirements 07-REQ-1 through 07-REQ-8 acceptance criteria met
 
-- [ ] 7. Checkpoint
-  - [ ] 7.1 Run full test suite
-    - `cd rhivos && cargo test -p update-service` -- confirm all tests pass
+- [ ] 7. Checkpoint - All Tests Green
+  - All unit, property, and integration tests pass
+  - Binary starts, serves gRPC requests, manages containers, shuts down cleanly
+  - Ask the user if questions arise
 
-  - [ ] 7.2 Run linter
-    - `cd rhivos && cargo clippy -p update-service -- -D warnings` -- confirm no warnings
+### Checkbox States
 
-  - [ ] 7.3 Verify proto compilation
-    - `cd rhivos && cargo build -p update-service` -- confirm proto compilation succeeds
-
-  - [ ] 7.4 Review Definition of Done
-    - gRPC server starts on configured port
-    - InstallAdapter flow works end-to-end (with mocked podman)
-    - WatchAdapterStates streams events
-    - ListAdapters and GetAdapterStatus return correct data
-    - RemoveAdapter stops and removes containers
-    - Checksum verification rejects mismatches
-    - Single adapter constraint enforced
-    - Automatic offloading works
-    - All state transitions follow the defined state machine
-    - All tests pass, clippy clean, proto compiles
+| Syntax   | Meaning                |
+|----------|------------------------|
+| `- [ ]`  | Not started (required) |
+| `- [ ]*` | Not started (optional) |
+| `- [x]`  | Completed              |
+| `- [-]`  | In progress            |
+| `- [~]`  | Queued                 |
 
 ## Traceability
 
 | Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
 |-------------|-----------------|---------------------|------------------|
-| 07-REQ-1 | TS-07-1, TS-07-E3 | 4.2, 5.2, 5.3 | Manager + gRPC tests |
-| 07-REQ-2 | TS-07-3, TS-07-E1 | 3.2, 3.3 | OCI + checksum tests |
-| 07-REQ-3 | TS-07-2 | 5.3 | gRPC streaming tests |
-| 07-REQ-4 | TS-07-5 | 5.2, 5.3 | Manager + gRPC tests |
-| 07-REQ-5 | TS-07-6, TS-07-E4 | 5.2, 5.3 | Manager + gRPC tests |
-| 07-REQ-6 | TS-07-P1 | 5.1 | State machine tests |
-| 07-REQ-7 | TS-07-4, TS-07-P2 | 5.2, 6.3 | Manager + property tests |
-| 07-REQ-8 | TS-07-8 | 6.1 | Offload tests |
-| 07-REQ-9 | -- | 2.3 | Config loading verified at startup |
-| 07-REQ-10 | TS-07-7, TS-07-E5 | 5.2, 5.3 | Manager + gRPC tests |
+| 07-REQ-1.1 | TS-07-1 | 4.3 | update-service::state::test_install_happy_path |
+| 07-REQ-1.2 | TS-07-2 | 4.3 | update-service::state::test_state_transitions_during_install |
+| 07-REQ-1.3 | TS-07-3 | 4.3 | update-service::state::test_checksum_verification |
+| 07-REQ-1.4 | TS-07-4 | 4.1 | update-service::state::test_container_host_networking |
+| 07-REQ-1.5 | TS-07-5 | 2.1 | update-service::model::test_adapter_id_derivation |
+| 07-REQ-1.E1 | TS-07-E1 | 4.3 | update-service::test_empty_image_ref |
+| 07-REQ-1.E2 | TS-07-E2 | 4.3 | update-service::test_pull_failure |
+| 07-REQ-1.E3 | TS-07-E3 | 4.3 | update-service::test_checksum_mismatch |
+| 07-REQ-1.E4 | TS-07-E4 | 4.3 | update-service::test_container_start_failure |
+| 07-REQ-2.1 | TS-07-6 | 4.3 | update-service::state::test_single_adapter_stops_running |
+| 07-REQ-2.2 | TS-07-7 | 4.3 | update-service::state::test_previous_adapter_stopped_state |
+| 07-REQ-2.E1 | TS-07-E5 | 4.3 | update-service::test_stop_running_fails |
+| 07-REQ-3.1 | TS-07-8 | 3.1 | update-service::state::test_watch_state_stream |
+| 07-REQ-3.2 | TS-07-9 | 3.1 | update-service::state::test_multiple_watch_subscribers |
+| 07-REQ-3.3 | TS-07-10 | 3.1 | update-service::state::test_state_event_fields |
+| 07-REQ-4.1 | TS-07-11 | 3.1 | update-service::state::test_list_adapters |
+| 07-REQ-4.2 | TS-07-12 | 3.1 | update-service::state::test_get_adapter_status |
+| 07-REQ-4.E1 | TS-07-E6 | 3.1 | update-service::test_get_unknown_adapter |
+| 07-REQ-5.1 | TS-07-13 | 4.4 | update-service::test_remove_adapter |
+| 07-REQ-5.2 | TS-07-14 | 4.4 | update-service::test_remove_adapter_transitions |
+| 07-REQ-5.3 | TS-07-15 | 4.4 | update-service::test_remove_adapter_events |
+| 07-REQ-5.E1 | TS-07-E7 | 4.4 | update-service::test_remove_unknown_adapter |
+| 07-REQ-5.E2 | TS-07-E8 | 4.4 | update-service::test_container_removal_failure |
+| 07-REQ-6.1 | TS-07-16 | 4.4 | update-service::test_automatic_offloading |
+| 07-REQ-6.2 | TS-07-17 | 2.2 | update-service::config::test_configurable_inactivity |
+| 07-REQ-6.3 | TS-07-18 | 4.4 | update-service::test_offloading_events |
+| 07-REQ-7.1 | TS-07-19 | 2.2 | update-service::config::test_load_config_from_file |
+| 07-REQ-7.2 | TS-07-20 | 2.2 | update-service::config::test_config_fields |
+| 07-REQ-7.3 | TS-07-21 | 2.2 | update-service::config::test_config_defaults |
+| 07-REQ-7.E1 | TS-07-E9 | 2.2 | update-service::config::test_config_file_missing |
+| 07-REQ-7.E2 | TS-07-E10 | 2.2 | update-service::config::test_config_invalid_json |
+| 07-REQ-8.1 | TS-07-22 | 5.2 | tests/update-service::TestStartupLogging |
+| 07-REQ-8.2 | TS-07-23 | 5.2 | tests/update-service::TestGracefulShutdown |
+| Property 1 | TS-07-P1 | 3.2 | update-service::proptest_state_machine_validity |
+| Property 2 | TS-07-P2 | 4.3 | update-service::proptest_single_adapter_constraint |
+| Property 3 | TS-07-P3 | 4.3 | update-service::proptest_checksum_gate |
+| Property 4 | TS-07-P4 | 3.1 | update-service::proptest_state_event_broadcasting |
+| Property 5 | TS-07-P5 | 2.1 | update-service::proptest_adapter_id_derivation |
+| Property 6 | TS-07-P6 | 4.4 | update-service::proptest_inactivity_offloading |
+| Property 7 | TS-07-P7 | 2.2 | update-service::proptest_config_defaults |
+
+## Notes
+
+- The UPDATE_SERVICE shares patterns with other Rust services (spec 03, 04): tonic gRPC, tokio async, proptest for property tests. However, this service manages container lifecycle via podman CLI, which is unique.
+- The ContainerRuntime trait enables unit testing without a real podman installation. Integration tests requiring podman skip when it is unavailable.
+- Proto files are vendored per-crate into `rhivos/update-service/proto/`. `tonic-build` in `build.rs` generates the Rust code.
+- The state manager uses `tokio::sync::broadcast` for the WatchAdapterStates streaming pattern. This allows multiple subscribers and handles slow consumers by dropping old events.
+- The offload timer runs as a tokio background task checking `get_stopped_expired()` periodically (e.g., every 60 seconds).
+- Integration tests in `tests/update-service/` require the compiled binary. They test gRPC connectivity, startup logging, and graceful shutdown. Full adapter lifecycle tests with podman are optional and skip when podman is not available.

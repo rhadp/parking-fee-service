@@ -1,468 +1,673 @@
-# Test Specification: PARKING_FEE_SERVICE (Spec 05)
+# Test Specification: PARKING_FEE_SERVICE
 
 ## Overview
 
-This test specification defines concrete, language-agnostic test contracts for the PARKING_FEE_SERVICE. Each test case maps to a specific requirement acceptance criterion or correctness property from the design document. The coding agent will translate these contracts into Go test functions using the `testing` standard library and `net/http/httptest`.
-
-## Test Environment
-
-- **Test framework:** Go `testing` standard library
-- **HTTP testing:** `net/http/httptest` for handler-level integration tests
-- **Test location:** `backend/parking-fee-service/*_test.go`
-- **Run command:** `cd backend/parking-fee-service && go test ./... -v`
-- **Lint command:** `cd backend/parking-fee-service && go vet ./...`
-
-## Test ID Convention
-
-| Prefix  | Category           |
-|---------|--------------------|
-| TS-05-  | Functional tests   |
-| TS-05-P | Property tests     |
-| TS-05-E | Error/edge tests   |
+This test specification defines concrete test contracts for the PARKING_FEE_SERVICE, a Go HTTP server providing operator discovery, adapter metadata retrieval, and health check endpoints. Tests are organized into unit tests (geo, config, store, handler packages) and integration tests (httptest-based end-to-end). All tests run via `cd backend && go test -v ./parking-fee-service/...`.
 
 ## Test Cases
 
-### TS-05-1: Operator Lookup Returns Operators for Location Inside a Zone
+### TS-05-1: Operator Lookup Returns Matching Operators
 
-**Requirement:** 05-REQ-1.1, 05-REQ-1.3
+**Requirement:** 05-REQ-1.1
 **Type:** integration
-**Description:** Sending a GET request with coordinates inside the Munich Central zone returns the muc-central operator with all required fields.
+**Description:** A GET request to `/operators?lat=&lon=` returns a JSON array of operators whose zones match the given coordinates.
 
 **Preconditions:**
-- Server is initialized with default demo configuration (two Munich operators).
+- Service is running with default Munich config (2 zones, 2 operators).
 
 **Input:**
-- `GET /operators?lat=48.1395&lon=11.5625` (inside zone-muc-central polygon)
+- `GET /operators?lat=48.1375&lon=11.5600` (inside munich-central zone)
 
 **Expected:**
-- HTTP status 200
-- `Content-Type: application/json`
-- JSON array containing at least one entry with `operator_id` = `"muc-central"`
-- Entry includes `name`, `zone_id`, `rate_type` (`"per_hour"`), `rate_amount` (2.50), `rate_currency` (`"EUR"`)
+- HTTP 200
+- JSON array containing one operator with `id: "parkhaus-munich"`, `zone_id: "munich-central"`
+- Response includes `name`, `rate` fields
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/operators?lat=48.1395&lon=11.5625")
-ASSERT response.status == 200
-ASSERT response.header("Content-Type") contains "application/json"
-operators = parseJSON(response.body)
-ASSERT len(operators) >= 1
-op = findByID(operators, "muc-central")
-ASSERT op != nil
-ASSERT op.name != ""
-ASSERT op.zone_id == "zone-muc-central"
-ASSERT op.rate_type == "per_hour"
-ASSERT op.rate_amount == 2.50
-ASSERT op.rate_currency == "EUR"
+resp = httptest.GET("/operators?lat=48.1375&lon=11.5600")
+ASSERT resp.StatusCode == 200
+body = json.Decode(resp.Body)
+ASSERT len(body) >= 1
+ASSERT body[0].id == "parkhaus-munich"
+ASSERT body[0].zone_id == "munich-central"
 ```
 
-### TS-05-2: Operator Lookup Returns Operators for Location Near a Zone
+### TS-05-2: Point-in-Polygon Ray Casting
 
-**Requirement:** 05-REQ-3.1, 05-REQ-3.2
-**Type:** integration
-**Description:** Sending a GET request with coordinates slightly outside but within the proximity threshold of a zone returns the nearby operator.
+**Requirement:** 05-REQ-1.2
+**Type:** unit
+**Description:** PointInPolygon correctly identifies coordinates inside a convex polygon using ray casting.
 
 **Preconditions:**
-- Server is initialized with default demo configuration. Proximity threshold is 500 meters.
+- A square polygon defined by coordinates: (48.14, 11.555), (48.14, 11.565), (48.135, 11.565), (48.135, 11.555).
 
 **Input:**
-- `GET /operators?lat=48.1425&lon=11.5625` (approximately 55 meters north of the muc-central polygon northern edge at lat=48.1420)
+- Point inside: (48.1375, 11.5600)
+- Point outside: (48.1500, 11.5800)
 
 **Expected:**
-- HTTP status 200
-- JSON array containing at least one entry with `operator_id` = `"muc-central"`
+- Inside point returns `true`
+- Outside point returns `false`
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/operators?lat=48.1425&lon=11.5625")
-ASSERT response.status == 200
-operators = parseJSON(response.body)
-ASSERT containsOperator(operators, "muc-central")
+polygon = [(48.14, 11.555), (48.14, 11.565), (48.135, 11.565), (48.135, 11.555)]
+ASSERT geo.PointInPolygon({48.1375, 11.5600}, polygon) == true
+ASSERT geo.PointInPolygon({48.1500, 11.5800}, polygon) == false
 ```
 
-### TS-05-3: Operator Lookup Returns Empty List for Remote Location
+### TS-05-3: Proximity Matching Within Threshold
 
-**Requirement:** 05-REQ-1.2, 05-REQ-3.E1
-**Type:** integration
-**Description:** Sending a GET request with coordinates far from any zone returns an empty array.
+**Requirement:** 05-REQ-1.3
+**Type:** unit
+**Description:** FindMatchingZones includes zones where the point is outside the polygon but within the proximity threshold distance from the nearest edge.
 
 **Preconditions:**
-- Server is initialized with default demo configuration.
+- Munich-central zone polygon loaded.
+- Proximity threshold: 500 meters.
 
 **Input:**
-- `GET /operators?lat=52.5200&lon=13.4050` (Berlin, far from any Munich zone)
+- A coordinate slightly outside the munich-central polygon but within 500m of its nearest edge.
 
 **Expected:**
-- HTTP status 200
-- `Content-Type: application/json`
-- JSON body is an empty array `[]`
+- The zone ID "munich-central" is included in the matching zones list.
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/operators?lat=52.5200&lon=13.4050")
-ASSERT response.status == 200
-ASSERT response.header("Content-Type") contains "application/json"
-operators = parseJSON(response.body)
-ASSERT len(operators) == 0
+zones = [munich_central_zone]
+// Point ~100m outside the polygon edge
+nearPoint = {48.1405, 11.5600}
+result = geo.FindMatchingZones(nearPoint, zones, 500.0)
+ASSERT "munich-central" IN result
 ```
 
-### TS-05-4: Adapter Metadata Returns Correct Data for Valid Operator
+### TS-05-4: Multiple Operators Returned
 
-**Requirement:** 05-REQ-4.1, 05-REQ-4.2
-**Type:** integration
-**Description:** Requesting adapter metadata for a known operator returns the correct image reference, checksum, and version.
+**Requirement:** 05-REQ-1.4
+**Type:** unit
+**Description:** When multiple operators serve matching zones, all are returned.
 
 **Preconditions:**
-- Server is initialized with default demo configuration.
+- Two operators both assigned to the same zone ID.
 
 **Input:**
-- `GET /operators/muc-central/adapter`
+- A coordinate inside the shared zone.
 
 **Expected:**
-- HTTP status 200
-- `Content-Type: application/json`
-- `image_ref` = `"europe-west1-docker.pkg.dev/rhadp-parking-demo/adapters/muc-central:v1.0.0"`
-- `checksum_sha256` starts with `"sha256:"` followed by 64 hex characters
-- `version` = `"v1.0.0"`
+- Both operators are returned in the result array.
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/operators/muc-central/adapter")
-ASSERT response.status == 200
-ASSERT response.header("Content-Type") contains "application/json"
-metadata = parseJSON(response.body)
-ASSERT metadata.image_ref == "europe-west1-docker.pkg.dev/rhadp-parking-demo/adapters/muc-central:v1.0.0"
-ASSERT metadata.checksum_sha256 matches regex "^sha256:[0-9a-f]{64}$"
-ASSERT metadata.version == "v1.0.0"
+store = NewStore(zones, [op1{zone_id: "z1"}, op2{zone_id: "z1"}])
+result = store.GetOperatorsByZoneIDs(["z1"])
+ASSERT len(result) == 2
 ```
 
-### TS-05-5: Health Check Returns 200 OK
+### TS-05-5: Empty Array for No Matches
 
-**Requirement:** 05-REQ-5.1
+**Requirement:** 05-REQ-1.5
 **Type:** integration
-**Description:** The health endpoint returns a 200 status with `"status": "ok"`.
+**Description:** When no operators match the given coordinates, the service returns an empty JSON array with HTTP 200.
 
 **Preconditions:**
-- Server is running.
+- Service is running with default Munich config.
+
+**Input:**
+- `GET /operators?lat=0.0&lon=0.0` (coordinates far from any zone)
+
+**Expected:**
+- HTTP 200
+- Response body: `[]`
+
+**Assertion pseudocode:**
+```
+resp = httptest.GET("/operators?lat=0.0&lon=0.0")
+ASSERT resp.StatusCode == 200
+body = json.Decode(resp.Body)
+ASSERT len(body) == 0
+```
+
+### TS-05-6: Adapter Metadata Retrieval
+
+**Requirement:** 05-REQ-2.1
+**Type:** integration
+**Description:** GET `/operators/{id}/adapter` returns adapter metadata with image_ref, checksum_sha256, and version.
+
+**Preconditions:**
+- Service is running with default config containing operator "parkhaus-munich".
+
+**Input:**
+- `GET /operators/parkhaus-munich/adapter`
+
+**Expected:**
+- HTTP 200
+- JSON object with fields: `image_ref`, `checksum_sha256`, `version` (all non-empty strings)
+
+**Assertion pseudocode:**
+```
+resp = httptest.GET("/operators/parkhaus-munich/adapter")
+ASSERT resp.StatusCode == 200
+body = json.Decode(resp.Body)
+ASSERT body.image_ref != ""
+ASSERT body.checksum_sha256 != ""
+ASSERT body.version != ""
+```
+
+### TS-05-7: Adapter Metadata HTTP 200
+
+**Requirement:** 05-REQ-2.2
+**Type:** integration
+**Description:** Successful adapter metadata retrieval returns HTTP 200.
+
+**Preconditions:**
+- Service is running with default config.
+
+**Input:**
+- `GET /operators/parkhaus-munich/adapter`
+
+**Expected:**
+- HTTP 200
+
+**Assertion pseudocode:**
+```
+resp = httptest.GET("/operators/parkhaus-munich/adapter")
+ASSERT resp.StatusCode == 200
+```
+
+### TS-05-8: Health Check
+
+**Requirement:** 05-REQ-3.1
+**Type:** integration
+**Description:** GET `/health` returns HTTP 200 with `{"status":"ok"}`.
+
+**Preconditions:**
+- Service is running.
 
 **Input:**
 - `GET /health`
 
 **Expected:**
-- HTTP status 200
-- `Content-Type: application/json`
-- JSON body contains `"status": "ok"`
+- HTTP 200
+- Body: `{"status":"ok"}`
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/health")
-ASSERT response.status == 200
-ASSERT response.header("Content-Type") contains "application/json"
-body = parseJSON(response.body)
+resp = httptest.GET("/health")
+ASSERT resp.StatusCode == 200
+body = json.Decode(resp.Body)
 ASSERT body.status == "ok"
 ```
 
-### TS-05-6: Operator Lookup Includes Rate Information
+### TS-05-9: Config Loading from File
 
-**Requirement:** 05-REQ-6.1, 05-REQ-6.2
-**Type:** integration
-**Description:** The operator lookup returns rate_type, rate_amount, and rate_currency for each operator.
-
-**Preconditions:**
-- Server is initialized with default demo configuration containing per_hour and flat_fee operators.
-
-**Input:**
-- `GET /operators?lat=48.3525&lon=11.7850` (inside zone-muc-airport polygon)
-
-**Expected:**
-- HTTP status 200
-- JSON array containing at least one entry with `operator_id` = `"muc-airport"`
-- Entry has `rate_type` = `"flat_fee"`, `rate_amount` = 5.00, `rate_currency` = `"EUR"`
-
-**Assertion pseudocode:**
-```
-response = httptest.GET("/operators?lat=48.3525&lon=11.7850")
-ASSERT response.status == 200
-operators = parseJSON(response.body)
-op = findByID(operators, "muc-airport")
-ASSERT op != nil
-ASSERT op.rate_type == "flat_fee"
-ASSERT op.rate_amount == 5.00
-ASSERT op.rate_currency == "EUR"
-```
-
-### TS-05-7: Configuration Loading from File
-
-**Requirement:** 05-REQ-7.1, 05-REQ-7.2
+**Requirement:** 05-REQ-4.1
 **Type:** unit
-**Description:** The configuration loader correctly reads and parses a JSON config file, and falls back to embedded defaults when no file is specified.
+**Description:** LoadConfig reads configuration from the specified file path.
 
 **Preconditions:**
-- A valid JSON config file exists at a temporary path.
+- A temporary JSON config file with custom port, zones, and operators.
 
 **Input:**
-- Call `LoadConfig(tempFilePath)` with a valid JSON config file.
-- Call `LoadConfig("")` with no file path to test default fallback.
+- Path to the temporary config file.
 
 **Expected:**
-- Config from file: parsed config matches file contents (correct number of zones, operators, settings).
-- Default config: returns a valid config with at least 2 zones, 2 operators, and a proximity threshold of 500.
+- Config struct populated with values from the file.
 
 **Assertion pseudocode:**
 ```
-// From file
-cfg = LoadConfig(tempFilePath)
-ASSERT cfg.Settings.ProximityThresholdMeters == 500
-ASSERT len(cfg.Zones) >= 1
-ASSERT len(cfg.Operators) >= 1
+cfg = config.LoadConfig("/tmp/test-config.json")
+ASSERT cfg.Port == 9090
+ASSERT len(cfg.Zones) == 1
+ASSERT len(cfg.Operators) == 1
+```
 
-// Default
-cfg = LoadConfig("")
-ASSERT cfg.Settings.ProximityThresholdMeters == 500
-ASSERT len(cfg.Zones) >= 2
-ASSERT len(cfg.Operators) >= 2
+### TS-05-10: Config Structure Validation
+
+**Requirement:** 05-REQ-4.2
+**Type:** unit
+**Description:** The loaded configuration includes proximity threshold, port, zones with polygons, and operators with adapter metadata.
+
+**Preconditions:**
+- A valid config file with all required fields.
+
+**Input:**
+- Path to the config file.
+
+**Expected:**
+- Config has non-zero port, non-zero proximity threshold, zones with polygon coordinates, operators with zone associations and adapter metadata.
+
+**Assertion pseudocode:**
+```
+cfg = config.LoadConfig(path)
+ASSERT cfg.Port > 0
+ASSERT cfg.ProximityThreshold > 0
+ASSERT len(cfg.Zones) > 0
+ASSERT len(cfg.Zones[0].Polygon) >= 3
+ASSERT cfg.Operators[0].Adapter.ImageRef != ""
+```
+
+### TS-05-11: Proximity Threshold Used
+
+**Requirement:** 05-REQ-4.3
+**Type:** unit
+**Description:** The configured proximity threshold is used for near-zone matching.
+
+**Preconditions:**
+- Config with proximity_threshold_meters = 100.
+
+**Input:**
+- A point 50m outside a zone polygon (within 100m threshold).
+- A point 200m outside the same zone polygon (beyond 100m threshold).
+
+**Expected:**
+- 50m point matches the zone.
+- 200m point does not match.
+
+**Assertion pseudocode:**
+```
+zones = [zone_with_known_polygon]
+near = geo.FindMatchingZones(point_50m_outside, zones, 100.0)
+ASSERT len(near) == 1
+far = geo.FindMatchingZones(point_200m_outside, zones, 100.0)
+ASSERT len(far) == 0
+```
+
+### TS-05-12: Content-Type Header
+
+**Requirement:** 05-REQ-5.1
+**Type:** integration
+**Description:** All responses set Content-Type: application/json.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- `GET /health`
+- `GET /operators?lat=48.137&lon=11.575`
+- `GET /operators/parkhaus-munich/adapter`
+
+**Expected:**
+- All responses have `Content-Type: application/json` header.
+
+**Assertion pseudocode:**
+```
+FOR endpoint IN ["/health", "/operators?lat=48.137&lon=11.575", "/operators/parkhaus-munich/adapter"]:
+    resp = httptest.GET(endpoint)
+    ASSERT resp.Header("Content-Type") == "application/json"
+```
+
+### TS-05-13: Operator Lookup Response Fields
+
+**Requirement:** 05-REQ-5.2
+**Type:** integration
+**Description:** Operator lookup response includes id, name, zone_id, and rate (with type, amount, currency) for each operator.
+
+**Preconditions:**
+- Service is running with default config.
+
+**Input:**
+- `GET /operators?lat=48.1375&lon=11.5600` (inside munich-central)
+
+**Expected:**
+- Each operator object has: `id`, `name`, `zone_id`, `rate.type`, `rate.amount`, `rate.currency`.
+- The `adapter` field is NOT present.
+
+**Assertion pseudocode:**
+```
+resp = httptest.GET("/operators?lat=48.1375&lon=11.5600")
+body = json.Decode(resp.Body)
+op = body[0]
+ASSERT op.id != ""
+ASSERT op.name != ""
+ASSERT op.zone_id != ""
+ASSERT op.rate.type IN ["per-hour", "flat-fee"]
+ASSERT op.rate.amount > 0
+ASSERT op.rate.currency == "EUR"
+ASSERT op.adapter == undefined
+```
+
+### TS-05-14: Error Response Format
+
+**Requirement:** 05-REQ-5.3
+**Type:** integration
+**Description:** Error responses use the format `{"error":"<message>"}`.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- `GET /operators` (missing lat/lon)
+
+**Expected:**
+- HTTP 400
+- Body contains `"error"` key with a string message.
+
+**Assertion pseudocode:**
+```
+resp = httptest.GET("/operators")
+ASSERT resp.StatusCode == 400
+body = json.Decode(resp.Body)
+ASSERT body.error != ""
+```
+
+### TS-05-15: Startup Logging
+
+**Requirement:** 05-REQ-6.1
+**Type:** integration
+**Description:** On startup, the service logs version, port, zone count, operator count, and ready message.
+
+**Preconditions:**
+- Service starts with default config.
+
+**Input:**
+- Capture stdout/stderr during startup.
+
+**Expected:**
+- Log output contains port number, zone count, operator count.
+
+**Assertion pseudocode:**
+```
+output = captureStartupLogs()
+ASSERT "8080" IN output
+ASSERT "zones" IN output
+ASSERT "operators" IN output
+```
+
+### TS-05-16: Graceful Shutdown
+
+**Requirement:** 05-REQ-6.2
+**Type:** integration
+**Description:** On SIGTERM or SIGINT, the service gracefully shuts down and exits with code 0.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- Send SIGTERM to the service process.
+
+**Expected:**
+- Service exits with code 0.
+
+**Assertion pseudocode:**
+```
+proc = startService()
+proc.Signal(SIGTERM)
+exitCode = proc.Wait()
+ASSERT exitCode == 0
 ```
 
 ## Edge Case Tests
 
-### TS-05-E1: Adapter Metadata Returns 404 for Unknown Operator
+### TS-05-E1: Missing lat/lon Parameters
 
-**Requirement:** 05-REQ-4.E1, 05-REQ-8.3
+**Requirement:** 05-REQ-1.E1
 **Type:** integration
-**Description:** Requesting adapter metadata for a non-existent operator ID returns 404.
+**Description:** Missing lat or lon query parameters return HTTP 400.
 
 **Preconditions:**
-- Server is initialized with default demo configuration.
+- Service is running.
+
+**Input:**
+- `GET /operators` (no params)
+- `GET /operators?lat=48.137` (missing lon)
+- `GET /operators?lon=11.575` (missing lat)
+
+**Expected:**
+- HTTP 400
+- Body: `{"error":"lat and lon query parameters are required"}`
+
+**Assertion pseudocode:**
+```
+FOR url IN ["/operators", "/operators?lat=48.137", "/operators?lon=11.575"]:
+    resp = httptest.GET(url)
+    ASSERT resp.StatusCode == 400
+    body = json.Decode(resp.Body)
+    ASSERT body.error == "lat and lon query parameters are required"
+```
+
+### TS-05-E2: Invalid Coordinate Range
+
+**Requirement:** 05-REQ-1.E2
+**Type:** integration
+**Description:** Coordinates outside valid ranges return HTTP 400.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- `GET /operators?lat=91.0&lon=11.575` (lat > 90)
+- `GET /operators?lat=-91.0&lon=11.575` (lat < -90)
+- `GET /operators?lat=48.137&lon=181.0` (lon > 180)
+- `GET /operators?lat=48.137&lon=-181.0` (lon < -180)
+
+**Expected:**
+- HTTP 400
+- Body: `{"error":"invalid coordinates"}`
+
+**Assertion pseudocode:**
+```
+FOR params IN [("91.0","11.575"), ("-91.0","11.575"), ("48.137","181.0"), ("48.137","-181.0")]:
+    resp = httptest.GET("/operators?lat=" + params[0] + "&lon=" + params[1])
+    ASSERT resp.StatusCode == 400
+    body = json.Decode(resp.Body)
+    ASSERT body.error == "invalid coordinates"
+```
+
+### TS-05-E3: Non-Numeric Coordinates
+
+**Requirement:** 05-REQ-1.E3
+**Type:** integration
+**Description:** Non-numeric lat or lon values return HTTP 400.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- `GET /operators?lat=abc&lon=11.575`
+- `GET /operators?lat=48.137&lon=xyz`
+
+**Expected:**
+- HTTP 400
+- Body: `{"error":"invalid coordinates"}`
+
+**Assertion pseudocode:**
+```
+FOR params IN [("abc","11.575"), ("48.137","xyz")]:
+    resp = httptest.GET("/operators?lat=" + params[0] + "&lon=" + params[1])
+    ASSERT resp.StatusCode == 400
+    body = json.Decode(resp.Body)
+    ASSERT body.error == "invalid coordinates"
+```
+
+### TS-05-E4: Unknown Operator ID
+
+**Requirement:** 05-REQ-2.E1
+**Type:** integration
+**Description:** Unknown operator ID returns HTTP 404.
+
+**Preconditions:**
+- Service is running with default config.
 
 **Input:**
 - `GET /operators/nonexistent-operator/adapter`
 
 **Expected:**
-- HTTP status 404
-- `Content-Type: application/json`
-- JSON body contains `error` field with a descriptive message
+- HTTP 404
+- Body: `{"error":"operator not found"}`
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/operators/nonexistent-operator/adapter")
-ASSERT response.status == 404
-ASSERT response.header("Content-Type") contains "application/json"
-body = parseJSON(response.body)
-ASSERT body.error != ""
+resp = httptest.GET("/operators/nonexistent-operator/adapter")
+ASSERT resp.StatusCode == 404
+body = json.Decode(resp.Body)
+ASSERT body.error == "operator not found"
 ```
 
-### TS-05-E2: Invalid Latitude Returns 400
+### TS-05-E5: Config File Missing Defaults
 
-**Requirement:** 05-REQ-1.E1, 05-REQ-8.3
-**Type:** integration
-**Description:** Sending a request with invalid latitude values returns 400.
-
-**Preconditions:**
-- Server is initialized.
-
-**Input (table-driven):**
-
-| Sub-case | lat | lon | Reason |
-|----------|-----|-----|--------|
-| E2a | *(missing)* | 11.58 | Missing lat parameter |
-| E2b | `"abc"` | 11.58 | Non-numeric lat |
-| E2c | 91.0 | 11.58 | lat > 90 |
-| E2d | -91.0 | 11.58 | lat < -90 |
-
-**Expected:**
-- HTTP status 400 for each sub-case
-- `Content-Type: application/json`
-- JSON body contains `error` field
-
-**Assertion pseudocode:**
-```
-FOR EACH (lat, lon, reason) IN test_cases:
-    response = httptest.GET("/operators?lat={lat}&lon={lon}")
-    ASSERT response.status == 400
-    ASSERT response.header("Content-Type") contains "application/json"
-    body = parseJSON(response.body)
-    ASSERT body.error != ""
-```
-
-### TS-05-E3: Invalid Longitude Returns 400
-
-**Requirement:** 05-REQ-1.E2, 05-REQ-8.3
-**Type:** integration
-**Description:** Sending a request with invalid longitude values returns 400.
-
-**Preconditions:**
-- Server is initialized.
-
-**Input (table-driven):**
-
-| Sub-case | lat | lon | Reason |
-|----------|-----|-----|--------|
-| E3a | 48.14 | *(missing)* | Missing lon parameter |
-| E3b | 48.14 | `"xyz"` | Non-numeric lon |
-| E3c | 48.14 | 181.0 | lon > 180 |
-| E3d | 48.14 | -181.0 | lon < -180 |
-
-**Expected:**
-- HTTP status 400 for each sub-case
-- `Content-Type: application/json`
-- JSON body contains `error` field
-
-**Assertion pseudocode:**
-```
-FOR EACH (lat, lon, reason) IN test_cases:
-    response = httptest.GET("/operators?lat={lat}&lon={lon}")
-    ASSERT response.status == 400
-    ASSERT response.header("Content-Type") contains "application/json"
-    body = parseJSON(response.body)
-    ASSERT body.error != ""
-```
-
-### TS-05-E4: Undefined Route Returns 404
-
-**Requirement:** 05-REQ-8.E1
-**Type:** integration
-**Description:** Requesting an undefined path returns 404 with a JSON error body.
-
-**Preconditions:**
-- Server is initialized.
-
-**Input:**
-- `GET /nonexistent-path`
-
-**Expected:**
-- HTTP status 404
-- `Content-Type: application/json`
-- JSON body contains `error` field
-
-**Assertion pseudocode:**
-```
-response = httptest.GET("/nonexistent-path")
-ASSERT response.status == 404
-ASSERT response.header("Content-Type") contains "application/json"
-body = parseJSON(response.body)
-ASSERT body.error != ""
-```
-
-### TS-05-E5: Invalid Config File Causes Exit Error
-
-**Requirement:** 05-REQ-7.E1
+**Requirement:** 05-REQ-4.E1
 **Type:** unit
-**Description:** Attempting to load a non-existent or malformed config file returns an error.
+**Description:** When config file does not exist, LoadConfig returns default configuration with Munich demo data.
 
 **Preconditions:**
-- No file exists at the specified path, or the file contains invalid JSON.
+- No config file at the specified path.
 
 **Input:**
-- Call `LoadConfig("/nonexistent/path.json")` -- file does not exist.
-- Call `LoadConfig(tempFileWithInvalidJSON)` -- file contains `{invalid`.
+- `config.LoadConfig("/nonexistent/path/config.json")`
 
 **Expected:**
-- Both calls return a non-nil error.
+- Returns a valid Config with at least one zone and one operator.
+- No error (uses defaults).
 
 **Assertion pseudocode:**
 ```
-_, err = LoadConfig("/nonexistent/path.json")
-ASSERT err != nil
+cfg, err = config.LoadConfig("/nonexistent/path/config.json")
+ASSERT err == nil
+ASSERT len(cfg.Zones) >= 1
+ASSERT len(cfg.Operators) >= 1
+ASSERT cfg.Port == 8080
+ASSERT cfg.ProximityThreshold == 500.0
+```
 
-_, err = LoadConfig(tempFileWithInvalidJSON)
+### TS-05-E6: Invalid JSON Config
+
+**Requirement:** 05-REQ-4.E2
+**Type:** unit
+**Description:** When config file contains invalid JSON, LoadConfig returns an error.
+
+**Preconditions:**
+- A temporary file containing `{invalid json`.
+
+**Input:**
+- Path to the invalid JSON file.
+
+**Expected:**
+- LoadConfig returns a non-nil error.
+
+**Assertion pseudocode:**
+```
+cfg, err = config.LoadConfig("/tmp/invalid-config.json")
 ASSERT err != nil
 ```
 
 ## Property Test Cases
 
-### TS-05-P1: Geofence Point-in-Polygon Correctness
+### TS-05-P1: Point-in-Polygon Correctness
 
 **Property:** Property 1 from design.md
-**Validates:** 05-REQ-2.1, 05-REQ-2.2
+**Validates:** 05-REQ-1.2, 05-REQ-1.5
 **Type:** property
-**Description:** Verifies the correctness of the point-in-polygon algorithm using known geometric properties.
+**Description:** For any coordinate inside a convex polygon, PointInPolygon returns true; for any coordinate outside the polygon by more than the threshold, FindMatchingZones returns empty.
 
-**For any:** Convex polygon defined by known vertices in the Munich area.
-**Invariant:**
-1. Every vertex of the polygon is classified as inside or on-boundary (match = true).
-2. The centroid of any convex polygon is classified as inside (match = true).
-3. A point at (0, 0) is classified as outside for all Munich-area polygons.
-4. For a rectangular polygon, the geometric center is inside.
+**For any:** Random convex quadrilateral (4 vertices sorted by angle) and random test point.
+**Invariant:** If the point's barycentric coordinates are all positive (inside), PointInPolygon returns true. If the point is >threshold from all edges, FindMatchingZones returns empty.
 
 **Assertion pseudocode:**
 ```
-FOR EACH polygon IN demo_polygons:
-    FOR EACH vertex IN polygon:
-        ASSERT PointInOrNearPolygon(vertex, polygon, 1.0) == true
-    centroid = computeCentroid(polygon)
-    ASSERT PointInPolygon(centroid, polygon) == true
-    ASSERT PointInPolygon({0, 0}, polygon) == false
+FOR ANY polygon IN random_convex_quads, point IN random_coordinates:
+    inside = point_is_geometrically_inside(polygon, point)
+    IF inside:
+        ASSERT geo.PointInPolygon(point, polygon) == true
+    IF distance_to_nearest_edge(point, polygon) > threshold:
+        ASSERT len(geo.FindMatchingZones(point, [zone], threshold)) == 0
 ```
 
-### TS-05-P2: Proximity Threshold Matching
+### TS-05-P2: Proximity Matching
 
 **Property:** Property 2 from design.md
-**Validates:** 05-REQ-3.1, 05-REQ-3.E1
+**Validates:** 05-REQ-1.3
 **Type:** property
-**Description:** Points within the proximity threshold match; points beyond it do not.
+**Description:** For any coordinate outside a zone but within threshold meters of the nearest edge, FindMatchingZones includes that zone.
 
-**For any:** Point outside a known polygon at a computed distance.
-**Invariant:** If point distance to polygon < threshold, match is true. If distance > threshold, match is false.
+**For any:** Random zone polygon and random point within threshold distance of an edge.
+**Invariant:** The zone ID appears in the FindMatchingZones result.
 
 **Assertion pseudocode:**
 ```
-polygon = demo_polygon_muc_central
-// Point ~55m north of northern edge
-nearPoint = {lat: 48.1425, lon: 11.5625}
-ASSERT PointInOrNearPolygon(nearPoint, polygon, 500.0) == true
-
-// Point ~50km away
-farPoint = {lat: 48.5, lon: 11.5}
-ASSERT PointInOrNearPolygon(farPoint, polygon, 500.0) == false
+FOR ANY zone IN random_zones, point IN points_near_edge(zone, threshold):
+    result = geo.FindMatchingZones(point, [zone], threshold)
+    ASSERT zone.ID IN result
 ```
 
-### TS-05-P3: Response Format Consistency
+### TS-05-P3: Operator-Zone Association
 
 **Property:** Property 3 from design.md
-**Validates:** 05-REQ-8.1, 05-REQ-8.2
+**Validates:** 05-REQ-1.4
 **Type:** property
-**Description:** Every endpoint response has `Content-Type: application/json` and valid JSON body.
+**Description:** For any set of zone IDs, GetOperatorsByZoneIDs returns all and only operators whose zone_id is in the set.
 
-**For any:** Request to any endpoint (success and error paths).
-**Invariant:** Response has `Content-Type` containing `application/json` and body is valid JSON.
+**For any:** Random subset of zone IDs from a set of operators.
+**Invariant:** Every returned operator has zone_id in the input set, and every operator with zone_id in the set is returned.
 
 **Assertion pseudocode:**
 ```
-endpoints = [
-    "/health",
-    "/operators?lat=48.14&lon=11.58",
-    "/operators/muc-central/adapter",
-    "/operators/unknown/adapter",
-    "/operators",
-    "/nonexistent-path"
-]
-FOR EACH endpoint IN endpoints:
-    response = httptest.GET(endpoint)
-    ASSERT response.header("Content-Type") contains "application/json"
-    ASSERT isValidJSON(response.body)
+FOR ANY zoneIDs IN random_subsets(all_zone_ids):
+    result = store.GetOperatorsByZoneIDs(zoneIDs)
+    FOR op IN result:
+        ASSERT op.ZoneID IN zoneIDs
+    FOR op IN all_operators:
+        IF op.ZoneID IN zoneIDs:
+            ASSERT op IN result
 ```
 
-### TS-05-P4: Operator-Adapter Integrity
+### TS-05-P4: Coordinate Validation
 
 **Property:** Property 4 from design.md
-**Validates:** 05-REQ-4.1, 05-REQ-4.2
+**Validates:** 05-REQ-1.E2, 05-REQ-1.E3
 **Type:** property
-**Description:** Every operator returned by location lookup has a corresponding valid adapter metadata entry.
+**Description:** For any latitude outside [-90, 90] or longitude outside [-180, 180], the handler returns HTTP 400.
 
-**For any:** Operator returned by the location lookup endpoint.
-**Invariant:** `GET /operators/{operator_id}/adapter` returns HTTP 200 with valid adapter metadata.
+**For any:** Random float64 values for lat and lon, including out-of-range values.
+**Invariant:** If lat is outside [-90,90] or lon is outside [-180,180], the response is 400.
 
 **Assertion pseudocode:**
 ```
-response = httptest.GET("/operators?lat=48.1395&lon=11.5625")
-operators = parseJSON(response.body)
-FOR EACH op IN operators:
-    adapterResp = httptest.GET("/operators/" + op.operator_id + "/adapter")
-    ASSERT adapterResp.status == 200
-    metadata = parseJSON(adapterResp.body)
-    ASSERT metadata.image_ref != ""
-    ASSERT metadata.checksum_sha256 matches "^sha256:[0-9a-f]{64}$"
-    ASSERT metadata.version != ""
+FOR ANY lat IN random_float64, lon IN random_float64:
+    resp = handler("/operators?lat=" + lat + "&lon=" + lon)
+    IF lat < -90 OR lat > 90 OR lon < -180 OR lon > 180:
+        ASSERT resp.StatusCode == 400
+```
+
+### TS-05-P5: Adapter Metadata Completeness
+
+**Property:** Property 5 from design.md
+**Validates:** 05-REQ-2.1
+**Type:** property
+**Description:** For any valid operator ID, GetOperator returns an operator with non-empty image_ref, checksum_sha256, and version.
+
+**For any:** All operator IDs in the config.
+**Invariant:** The operator's adapter fields are all non-empty strings.
+
+**Assertion pseudocode:**
+```
+FOR ANY opID IN all_operator_ids:
+    op, found = store.GetOperator(opID)
+    ASSERT found == true
+    ASSERT op.Adapter.ImageRef != ""
+    ASSERT op.Adapter.ChecksumSHA256 != ""
+    ASSERT op.Adapter.Version != ""
+```
+
+### TS-05-P6: Config Defaults
+
+**Property:** Property 6 from design.md
+**Validates:** 05-REQ-4.E1
+**Type:** property
+**Description:** For any missing or nonexistent config file path, LoadConfig returns a valid default configuration.
+
+**For any:** Random nonexistent file paths.
+**Invariant:** The returned config has at least one zone and one operator, valid port, and valid proximity threshold.
+
+**Assertion pseudocode:**
+```
+FOR ANY path IN random_nonexistent_paths:
+    cfg, err = config.LoadConfig(path)
+    ASSERT err == nil
+    ASSERT len(cfg.Zones) >= 1
+    ASSERT len(cfg.Operators) >= 1
+    ASSERT cfg.Port > 0
+    ASSERT cfg.ProximityThreshold > 0
 ```
 
 ## Coverage Matrix
@@ -470,32 +675,30 @@ FOR EACH op IN operators:
 | Requirement | Test Spec Entry | Type |
 |-------------|-----------------|------|
 | 05-REQ-1.1 | TS-05-1 | integration |
-| 05-REQ-1.2 | TS-05-3 | integration |
-| 05-REQ-1.3 | TS-05-1 | integration |
-| 05-REQ-1.E1 | TS-05-E2 | integration |
-| 05-REQ-1.E2 | TS-05-E3 | integration |
-| 05-REQ-2.1 | TS-05-P1 | property |
-| 05-REQ-2.2 | TS-05-P1 | property |
-| 05-REQ-2.E1 | TS-05-P1 | property |
-| 05-REQ-3.1 | TS-05-2, TS-05-P2 | integration, property |
-| 05-REQ-3.2 | TS-05-2, TS-05-7 | integration, unit |
-| 05-REQ-3.E1 | TS-05-3, TS-05-P2 | integration, property |
-| 05-REQ-4.1 | TS-05-4 | integration |
-| 05-REQ-4.2 | TS-05-4, TS-05-P4 | integration, property |
-| 05-REQ-4.E1 | TS-05-E1 | integration |
-| 05-REQ-5.1 | TS-05-5 | integration |
-| 05-REQ-5.E1 | TS-05-5 | integration |
-| 05-REQ-6.1 | TS-05-6 | integration |
-| 05-REQ-6.2 | TS-05-1, TS-05-6 | integration |
-| 05-REQ-7.1 | TS-05-7 | unit |
-| 05-REQ-7.2 | TS-05-7 | unit |
-| 05-REQ-7.E1 | TS-05-E5 | unit |
-| 05-REQ-8.1 | TS-05-P3 | property |
-| 05-REQ-8.2 | TS-05-P3 | property |
-| 05-REQ-8.3 | TS-05-E1, TS-05-E2, TS-05-E3 | integration |
-| 05-REQ-8.E1 | TS-05-E4 | integration |
-| 05-REQ-8.E2 | TS-05-P3 | property |
+| 05-REQ-1.2 | TS-05-2 | unit |
+| 05-REQ-1.3 | TS-05-3 | unit |
+| 05-REQ-1.4 | TS-05-4 | unit |
+| 05-REQ-1.5 | TS-05-5 | integration |
+| 05-REQ-1.E1 | TS-05-E1 | integration |
+| 05-REQ-1.E2 | TS-05-E2 | integration |
+| 05-REQ-1.E3 | TS-05-E3 | integration |
+| 05-REQ-2.1 | TS-05-6 | integration |
+| 05-REQ-2.2 | TS-05-7 | integration |
+| 05-REQ-2.E1 | TS-05-E4 | integration |
+| 05-REQ-3.1 | TS-05-8 | integration |
+| 05-REQ-4.1 | TS-05-9 | unit |
+| 05-REQ-4.2 | TS-05-10 | unit |
+| 05-REQ-4.3 | TS-05-11 | unit |
+| 05-REQ-4.E1 | TS-05-E5 | unit |
+| 05-REQ-4.E2 | TS-05-E6 | unit |
+| 05-REQ-5.1 | TS-05-12 | integration |
+| 05-REQ-5.2 | TS-05-13 | integration |
+| 05-REQ-5.3 | TS-05-14 | integration |
+| 05-REQ-6.1 | TS-05-15 | integration |
+| 05-REQ-6.2 | TS-05-16 | integration |
 | Property 1 | TS-05-P1 | property |
 | Property 2 | TS-05-P2 | property |
 | Property 3 | TS-05-P3 | property |
 | Property 4 | TS-05-P4 | property |
+| Property 5 | TS-05-P5 | property |
+| Property 6 | TS-05-P6 | property |

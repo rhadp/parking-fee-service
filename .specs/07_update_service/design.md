@@ -1,317 +1,292 @@
-# Design: UPDATE_SERVICE (Spec 07)
+# Design Document: UPDATE_SERVICE
 
-> Design document for the UPDATE_SERVICE adapter lifecycle manager.
-> Implements requirements from `.specs/07_update_service/requirements.md`.
+## Overview
 
-## Architecture Overview
+The UPDATE_SERVICE is a Rust gRPC service (`rhivos/update-service`) managing the lifecycle of containerized PARKING_OPERATOR_ADAPTORs. It exposes five RPCs (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus) via tonic/gRPC over network TCP. Container operations use podman CLI via `tokio::process::Command`. State transitions are broadcast to WatchAdapterStates subscribers via tokio broadcast channels. An inactivity timer automatically offloads stopped adapters after a configurable period.
 
-The UPDATE_SERVICE is a Rust async service built on tonic (gRPC) and tokio. It manages the full lifecycle of containerized PARKING_OPERATOR_ADAPTORs in the RHIVOS QM partition. The service interacts with an OCI registry (Google Artifact Registry) for image pulling, uses podman CLI for container management, and exposes a gRPC interface for clients (primarily PARKING_APP).
-
-```
-                     +---------------------------------------+
-                     |         UPDATE_SERVICE                 |
-                     |      (Rust gRPC server :50060)         |
-                     +---------------------------------------+
-                     |                                       |
-  InstallAdapter --->|  +-----------------------------+      |
-  WatchAdapterStates |  | gRPC Service Layer (tonic)  |      |
-  ListAdapters       |  +-----------------------------+      |
-  RemoveAdapter      |          |                            |
-  GetAdapterStatus   |  +-----------------------------+      |
-                     |  | Adapter Manager             |      |
-                     |  | (state machine, constraints)|      |
-                     |  +-----------------------------+      |
-                     |       |              |                 |
-                     |  +---------+   +------------+         |
-                     |  | OCI     |   | Container  |         |
-                     |  | Puller  |   | Runtime    |         |
-                     |  | (pull & |   | (podman    |         |
-                     |  | verify) |   |  CLI)      |         |
-                     |  +---------+   +------------+         |
-                     |       |              |                 |
-                     +-------|--------------|--+              |
-                             |              |                 |
-                     +-------v--+   +-------v------+         |
-                     | REGISTRY |   | /var/lib/     |         |
-                     | (GAR)    |   | containers/   |         |
-                     +----------+   | adapters/     |         |
-                                    +--------------+          |
-                     |                                       |
-                     |  +-----------------------------+      |
-                     |  | Offload Timer               |      |
-                     |  | (tokio background task)     |      |
-                     |  +-----------------------------+      |
-                     |                                       |
-                     |  +-----------------------------+      |
-                     |  | State Event Broadcaster     |      |
-                     |  | (tokio::sync::broadcast)    |      |
-                     |  +-----------------------------+      |
-                     +---------------------------------------+
-```
-
-## Module Structure
-
-```
-rhivos/update-service/
-  Cargo.toml
-  build.rs                    # tonic-build for proto compilation
-  src/
-    main.rs                   # Server entry point, config loading
-    config.rs                 # Configuration struct and loading
-    grpc.rs                   # gRPC service implementation (tonic)
-    grpc_test.rs              # gRPC handler tests
-    manager.rs                # Adapter manager (state machine, constraints)
-    manager_test.rs           # Manager unit tests
-    state.rs                  # AdapterState enum, state machine transitions
-    state_test.rs             # State machine tests
-    oci.rs                    # OCI image pulling and checksum verification
-    oci_test.rs               # OCI puller tests (mocked)
-    container.rs              # Container runtime (podman CLI wrapper)
-    container_test.rs         # Container runtime tests (mocked)
-    offload.rs                # Inactivity timer and offloading logic
-    offload_test.rs           # Offload timer tests
-```
-
-## gRPC Service Definition
-
-```protobuf
-syntax = "proto3";
-
-package update_service.v1;
-
-service UpdateService {
-  // Pull, verify, install, and start an adapter container.
-  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
-
-  // Server-streaming RPC for adapter state transitions.
-  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
-
-  // List all known adapters with current states.
-  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
-
-  // Stop and remove an adapter.
-  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
-
-  // Query status of a specific adapter.
-  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
-}
-
-enum AdapterState {
-  ADAPTER_STATE_UNKNOWN = 0;
-  ADAPTER_STATE_DOWNLOADING = 1;
-  ADAPTER_STATE_INSTALLING = 2;
-  ADAPTER_STATE_RUNNING = 3;
-  ADAPTER_STATE_STOPPED = 4;
-  ADAPTER_STATE_ERROR = 5;
-  ADAPTER_STATE_OFFLOADING = 6;
-}
-
-message InstallAdapterRequest {
-  string image_ref = 1;
-  string checksum_sha256 = 2;
-}
-
-message InstallAdapterResponse {
-  string job_id = 1;
-  string adapter_id = 2;
-  AdapterState state = 3;
-}
-
-message WatchAdapterStatesRequest {}
-
-message AdapterStateEvent {
-  string adapter_id = 1;
-  AdapterState old_state = 2;
-  AdapterState new_state = 3;
-  int64 timestamp = 4;
-}
-
-message ListAdaptersRequest {}
-
-message ListAdaptersResponse {
-  repeated AdapterInfo adapters = 1;
-}
-
-message AdapterInfo {
-  string adapter_id = 1;
-  string image_ref = 2;
-  AdapterState state = 3;
-}
-
-message RemoveAdapterRequest {
-  string adapter_id = 1;
-}
-
-message RemoveAdapterResponse {
-  bool success = 1;
-}
-
-message GetAdapterStatusRequest {
-  string adapter_id = 1;
-}
-
-message GetAdapterStatusResponse {
-  string adapter_id = 1;
-  string image_ref = 2;
-  AdapterState state = 3;
-  string error_message = 4;
-}
-```
-
-**Proto file location:** `proto/update_service/v1/update_service.proto`
-
-## Adapter Lifecycle State Machine
+## Architecture
 
 ```mermaid
-stateDiagram-v2
-    [*] --> UNKNOWN
+flowchart TD
+    PA["PARKING_APP\n(AAOS)"] -->|"gRPC: InstallAdapter\nListAdapters\nGetAdapterStatus\nRemoveAdapter\nWatchAdapterStates"| US["UPDATE_SERVICE\n:50052"]
 
-    UNKNOWN --> DOWNLOADING : InstallAdapter called
+    US -->|"podman pull"| REG["REGISTRY\n(Google Artifact Registry)"]
+    US -->|"podman run/stop/rm"| POA["PARKING_OPERATOR_ADAPTOR\n(container)"]
 
-    DOWNLOADING --> INSTALLING : Image pulled & checksum verified
-    DOWNLOADING --> ERROR : Registry unreachable / checksum mismatch
+    subgraph UPDATE_SERVICE
+        GRPC["gRPC Server\n(tonic)"]
+        SM["State Manager"]
+        CM["Container Manager\n(podman CLI)"]
+        OT["Offload Timer"]
+        BC["Broadcast Channel"]
+    end
 
-    INSTALLING --> RUNNING : Container started successfully
-    INSTALLING --> ERROR : Container start failure
-
-    RUNNING --> STOPPED : RemoveAdapter / new InstallAdapter / manual stop
-    RUNNING --> ERROR : Container crash
-
-    STOPPED --> RUNNING : Restart (re-InstallAdapter same image)
-    STOPPED --> OFFLOADING : Inactivity timer expired
-
-    OFFLOADING --> [*] : Container removed
-
-    ERROR --> [*] : Cleanup
-    ERROR --> DOWNLOADING : Retry InstallAdapter
+    GRPC --> SM
+    SM --> CM
+    SM --> BC
+    OT --> SM
+    BC -->|"AdapterStateEvent"| PA
 ```
 
-## OCI Pull and Verification Flow
+```mermaid
+sequenceDiagram
+    participant PA as PARKING_APP
+    participant US as UPDATE_SERVICE
+    participant SM as State Manager
+    participant CM as Container Manager
+    participant REG as Registry
 
-```
-1. Receive InstallAdapter(image_ref, checksum_sha256)
-2. Generate job_id (UUID) and adapter_id (derived from image_ref)
-3. Set state = DOWNLOADING, emit AdapterStateEvent
-4. Execute: podman pull <image_ref>
-5. Execute: podman inspect <image_ref> --format '{{.Digest}}'
-6. Compute SHA-256 of the manifest digest string
-7. Compare computed hash with checksum_sha256
-   - Match: Set state = INSTALLING, emit event
-   - Mismatch: Set state = ERROR, emit event, podman rmi <image_ref>, return INVALID_ARGUMENT
-8. Execute: podman run -d --name <adapter_id> <image_ref>
-9. Verify container started: podman inspect <adapter_id> --format '{{.State.Status}}'
-   - Running: Set state = RUNNING, emit event
-   - Not running: Set state = ERROR, emit event, return INTERNAL
-```
+    PA->>US: InstallAdapter(image_ref, checksum)
+    US->>SM: Check single adapter constraint
+    SM-->>US: Stop running adapter (if any)
+    US->>SM: Create adapter (DOWNLOADING)
+    US-->>PA: InstallAdapterResponse(job_id, adapter_id, DOWNLOADING)
 
-## Container Management via Podman CLI
+    US->>CM: podman pull image_ref
+    CM->>REG: Pull OCI image
+    REG-->>CM: Image layers
+    US->>CM: podman image inspect (verify digest)
+    CM-->>US: Digest matches
 
-The UPDATE_SERVICE manages containers by shelling out to the `podman` CLI. This approach is chosen for simplicity and compatibility with the RHIVOS environment.
+    US->>SM: Transition (INSTALLING)
+    US->>CM: podman run --network=host
+    CM-->>US: Container started
+    US->>SM: Transition (RUNNING)
 
-| Operation | Command |
-|-----------|---------|
-| Pull image | `podman pull <image_ref>` |
-| Inspect digest | `podman inspect <image_ref> --format '{{.Digest}}'` |
-| Run container | `podman run -d --name <adapter_id> <image_ref>` |
-| Stop container | `podman stop <adapter_id>` |
-| Remove container | `podman rm -f <adapter_id>` |
-| Remove image | `podman rmi <image_ref>` |
-| Check status | `podman inspect <adapter_id> --format '{{.State.Status}}'` |
-| List containers | `podman ps -a --format json` |
-
-All podman commands are executed via `tokio::process::Command` for async compatibility. Errors from podman (non-zero exit codes, stderr output) are captured and mapped to appropriate gRPC error responses.
-
-## Configuration
-
-```toml
-# update-service.toml
-
-[grpc]
-port = 50060
-
-[registry]
-base_url = "europe-west1-docker.pkg.dev/rhadp-parking-demo/adapters"
-
-[offload]
-inactivity_timeout_secs = 86400   # 24 hours
-
-[storage]
-path = "/var/lib/containers/adapters/"
+    Note over SM: Broadcast events to WatchAdapterStates subscribers
 ```
 
-Configuration is loaded from a TOML file at startup. Environment variables can override file values using the `UPDATE_SERVICE_` prefix (e.g., `UPDATE_SERVICE_GRPC_PORT=50060`).
+### Module Responsibilities
+
+1. **main** — Entry point: loads config, sets up gRPC server, starts offload timer, handles shutdown signals.
+2. **config** — Configuration loading and parsing: reads JSON file, provides defaults, validates structure.
+3. **grpc_service** — gRPC request handlers: implements the UpdateService trait generated by tonic.
+4. **state** — State manager: in-memory adapter state, state transitions, broadcast channel, single adapter constraint enforcement.
+5. **container** — Container manager: wraps podman CLI commands (pull, inspect, run, stop, rm, rmi) via `tokio::process::Command`.
+6. **offload** — Offload timer: periodic check for stopped adapters past inactivity threshold, triggers automatic offloading.
+7. **model** — Helper types and adapter ID derivation.
+
+## Components and Interfaces
+
+### gRPC API (from proto/update_service.proto)
+
+| RPC | Request | Response | Streaming |
+|-----|---------|----------|-----------|
+| InstallAdapter | `{image_ref, checksum_sha256}` | `{job_id, adapter_id, state}` | Unary |
+| WatchAdapterStates | `{}` | `{adapter_id, old_state, new_state, timestamp}` | Server-streaming |
+| ListAdapters | `{}` | `{adapters: [{adapter_id, state, image_ref}]}` | Unary |
+| RemoveAdapter | `{adapter_id}` | `{}` | Unary |
+| GetAdapterStatus | `{adapter_id}` | `{adapter_id, state, image_ref, created_at, stopped_at}` | Unary |
+
+### Core Data Types
+
+```rust
+#[derive(Clone, Debug, PartialEq)]
+pub enum AdapterState {
+    Unknown,
+    Downloading,
+    Installing,
+    Running,
+    Stopped,
+    Error,
+    Offloading,
+}
+
+#[derive(Clone, Debug)]
+pub struct AdapterInfo {
+    pub adapter_id: String,
+    pub image_ref: String,
+    pub checksum: String,
+    pub state: AdapterState,
+    pub container_id: Option<String>,
+    pub created_at: i64,       // Unix timestamp
+    pub stopped_at: Option<i64>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AdapterStateEvent {
+    pub adapter_id: String,
+    pub old_state: AdapterState,
+    pub new_state: AdapterState,
+    pub timestamp: i64,
+}
+
+pub struct Config {
+    pub grpc_port: u16,
+    pub registry_url: String,
+    pub inactivity_timeout_secs: u64,
+    pub container_storage_path: String,
+}
+```
+
+### Module Interfaces
+
+```rust
+// config module
+pub fn load_config(path: &str) -> Result<Config, ConfigError>;
+pub fn default_config() -> Config;
+
+// state module
+pub struct StateManager { /* broadcast + map */ }
+impl StateManager {
+    pub fn new() -> Self;
+    pub fn create_adapter(&self, adapter_id: &str, image_ref: &str, checksum: &str) -> Result<(), StateError>;
+    pub fn transition(&self, adapter_id: &str, new_state: AdapterState) -> Result<(), StateError>;
+    pub fn get(&self, adapter_id: &str) -> Option<AdapterInfo>;
+    pub fn list(&self) -> Vec<AdapterInfo>;
+    pub fn remove(&self, adapter_id: &str) -> Result<(), StateError>;
+    pub fn get_running_adapter(&self) -> Option<String>;
+    pub fn get_stopped_expired(&self, timeout_secs: u64) -> Vec<String>;
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<AdapterStateEvent>;
+}
+
+// container module (trait for testability)
+#[async_trait]
+pub trait ContainerRuntime: Send + Sync {
+    async fn pull(&self, image_ref: &str) -> Result<(), ContainerError>;
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, ContainerError>;
+    async fn run(&self, image_ref: &str, adapter_id: &str) -> Result<String, ContainerError>;
+    async fn stop(&self, container_id: &str) -> Result<(), ContainerError>;
+    async fn remove(&self, container_id: &str) -> Result<(), ContainerError>;
+    async fn remove_image(&self, image_ref: &str) -> Result<(), ContainerError>;
+}
+
+pub struct PodmanRuntime { /* storage_path config */ }
+impl ContainerRuntime for PodmanRuntime { ... }
+
+// model module
+pub fn derive_adapter_id(image_ref: &str) -> String;
+pub fn generate_job_id() -> String;
+```
+
+## Data Models
+
+### Configuration File (config.json)
+
+```json
+{
+  "grpc_port": 50052,
+  "registry_url": "us-docker.pkg.dev/sdv-demo/adapters",
+  "inactivity_timeout_secs": 86400,
+  "container_storage_path": "/var/lib/containers/adapters/"
+}
+```
+
+### Valid State Transitions
+
+| From | To | Trigger |
+|------|----|---------|
+| (new) | DOWNLOADING | InstallAdapter called |
+| DOWNLOADING | INSTALLING | Image pulled and checksum verified |
+| DOWNLOADING | ERROR | Pull failed or checksum mismatch |
+| INSTALLING | RUNNING | Container started successfully |
+| INSTALLING | ERROR | Container failed to start |
+| RUNNING | STOPPED | RemoveAdapter called, or new InstallAdapter preempts |
+| RUNNING | ERROR | Container exited with non-zero code |
+| STOPPED | RUNNING | (reserved for future restart) |
+| STOPPED | OFFLOADING | Inactivity timer expired or RemoveAdapter called |
+| OFFLOADING | (removed) | Container and image cleaned up |
+| ERROR | (removed) | RemoveAdapter called |
+
+## Operational Readiness
+
+- **Startup logging:** Logs version, port, registry URL.
+- **Shutdown:** Handles SIGTERM/SIGINT, stops running adapters, shuts down gRPC server.
+- **Observability:** State transition events via WatchAdapterStates stream.
+- **Rollback:** Revert via `git checkout`. On ERROR, adapter image is cleaned up (for checksum failures).
 
 ## Correctness Properties
 
-| ID | Property | Description |
-|----|----------|-------------|
-| CP-1 | State machine validity | Every state transition MUST be one of the valid transitions defined in 07-REQ-6.1. No invalid transitions are permitted. |
-| CP-2 | Checksum verification | An adapter MUST NOT reach INSTALLING state unless the SHA-256 checksum of the OCI manifest digest matches the provided checksum. |
-| CP-3 | Single adapter constraint | At most one adapter MUST be in RUNNING state at any time. Before starting a new adapter, any currently running adapter MUST be stopped first. |
-| CP-4 | Event completeness | Every state transition MUST emit an AdapterStateEvent to all active WatchAdapterStates subscribers. |
-| CP-5 | Offload correctness | An adapter MUST NOT be offloaded while in RUNNING state. Only STOPPED adapters are eligible for automatic offloading. |
-| CP-6 | Idempotent install | Installing an already-running adapter with the same image_ref MUST return ALREADY_EXISTS without side effects. |
-| CP-7 | Cleanup on error | When a checksum mismatch or container start failure occurs, any partially downloaded or created resources MUST be cleaned up. |
+### Property 1: State Machine Validity
+
+*For any* sequence of operations on an adapter, the UPDATE_SERVICE SHALL only perform state transitions that are in the valid state transition table.
+
+**Validates: Requirements 07-REQ-1.2, 07-REQ-5.2**
+
+### Property 2: Single Adapter Constraint
+
+*For any* point in time, the UPDATE_SERVICE SHALL have at most one adapter in RUNNING state.
+
+**Validates: Requirements 07-REQ-2.1, 07-REQ-2.2**
+
+### Property 3: Checksum Verification
+
+*For any* InstallAdapter call with a checksum that does not match the pulled image's digest, the UPDATE_SERVICE SHALL transition the adapter to ERROR and not start the container.
+
+**Validates: Requirements 07-REQ-1.3, 07-REQ-1.E3**
+
+### Property 4: State Event Broadcasting
+
+*For any* state transition, the UPDATE_SERVICE SHALL emit an AdapterStateEvent to all active WatchAdapterStates subscribers with correct adapter_id, old_state, new_state, and timestamp.
+
+**Validates: Requirements 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3**
+
+### Property 5: Adapter ID Derivation
+
+*For any* valid OCI image reference, `derive_adapter_id` SHALL produce a deterministic, non-empty string containing the image name and tag.
+
+**Validates: Requirements 07-REQ-1.5**
+
+### Property 6: Inactivity Offloading
+
+*For any* adapter that has been in STOPPED state for longer than the configured inactivity timeout, the UPDATE_SERVICE SHALL eventually transition it to OFFLOADING and remove it.
+
+**Validates: Requirements 07-REQ-6.1, 07-REQ-6.2**
+
+### Property 7: Config Defaults
+
+*For any* missing or nonexistent config file path, the UPDATE_SERVICE SHALL start with default configuration (port 50052, inactivity timeout 86400s, storage path `/var/lib/containers/adapters/`).
+
+**Validates: Requirements 07-REQ-7.1, 07-REQ-7.3, 07-REQ-7.E1**
 
 ## Error Handling
 
-| Scenario | gRPC Status | Error Message Example |
-|----------|-------------|----------------------|
-| Registry unreachable | UNAVAILABLE | `"failed to pull image: connection refused"` |
-| Checksum mismatch | INVALID_ARGUMENT | `"checksum mismatch: expected sha256:abc..., got sha256:def..."` |
-| Container start failure | INTERNAL | `"container failed to start: exit code 125"` |
-| Unknown adapter_id | NOT_FOUND | `"adapter not found: adapter-xyz"` |
-| Adapter already running (same image) | ALREADY_EXISTS | `"adapter already installed and running: adapter-xyz"` |
-| Invalid image_ref format | INVALID_ARGUMENT | `"invalid image reference: missing tag"` |
-| Storage path not writable | INTERNAL | `"storage path not writable: /var/lib/containers/adapters/"` |
-| Podman not found | INTERNAL | `"podman binary not found in PATH"` |
-| Invalid state transition | INTERNAL | `"invalid state transition: ERROR -> INSTALLING"` |
+| Error Condition | Behavior | Requirement |
+|----------------|----------|-------------|
+| Empty image_ref or checksum | gRPC INVALID_ARGUMENT | 07-REQ-1.E1 |
+| Image pull failure | ERROR state + gRPC UNAVAILABLE | 07-REQ-1.E2 |
+| Checksum mismatch | ERROR state + image cleanup + gRPC FAILED_PRECONDITION | 07-REQ-1.E3 |
+| Container start failure | ERROR state + gRPC INTERNAL | 07-REQ-1.E4 |
+| Stop running adapter fails | gRPC INTERNAL, new install aborted | 07-REQ-2.E1 |
+| Unknown adapter_id (GetAdapterStatus) | gRPC NOT_FOUND | 07-REQ-4.E1 |
+| Unknown adapter_id (RemoveAdapter) | gRPC NOT_FOUND | 07-REQ-5.E1 |
+| Container removal failure | ERROR state + gRPC INTERNAL | 07-REQ-5.E2 |
+| Config file missing | Start with defaults | 07-REQ-7.E1 |
+| Config file invalid JSON | Exit non-zero | 07-REQ-7.E2 |
 
 ## Technology Stack
 
-| Component | Choice |
-|-----------|--------|
-| Language | Rust (edition 2021) |
-| gRPC framework | tonic 0.11+ |
-| Async runtime | tokio (full features) |
-| Protobuf codegen | tonic-build, prost |
-| Container runtime | podman CLI (via `tokio::process::Command`) |
-| Configuration | toml crate |
-| UUID generation | uuid crate (v4) |
-| Logging | tracing crate |
-| Testing | tokio::test, mockall (for trait mocking) |
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Rust | 2021 edition | Service implementation |
+| tonic | latest | gRPC server framework |
+| prost | latest | Protobuf code generation |
+| tokio | latest | Async runtime |
+| tonic-build | latest | Proto code generation (build.rs) |
+| serde + serde_json | latest | Config file parsing |
+| uuid | latest | Job ID generation |
+| tracing + tracing-subscriber | latest | Structured logging |
+| proptest | latest (dev) | Property-based testing |
+| podman | system | Container runtime (CLI) |
 
 ## Definition of Done
 
-1. gRPC server starts on configured port and accepts connections.
-2. `InstallAdapter` pulls an OCI image, verifies its checksum, and starts the container.
-3. `WatchAdapterStates` streams state transitions to connected clients.
-4. `ListAdapters` and `GetAdapterStatus` return correct adapter information.
-5. `RemoveAdapter` stops and removes the specified container.
-6. Checksum verification rejects images with mismatched checksums.
-7. Single adapter constraint is enforced -- only one adapter can be RUNNING at a time.
-8. Automatic offloading removes stopped adapters after the configured inactivity timeout.
-9. All state transitions follow the defined state machine.
-10. All unit tests pass: `cd rhivos && cargo test -p update-service`.
-11. All linting passes: `cd rhivos && cargo clippy -p update-service`.
-12. Proto definitions compile successfully via tonic-build.
+A task group is complete when ALL of the following are true:
+
+1. All subtasks within the group are checked off (`[x]`)
+2. All spec tests (`test_spec.md` entries) for the task group pass
+3. All property tests for the task group pass
+4. All previously passing tests still pass (no regressions)
+5. No linter warnings or errors introduced
+6. Code is committed on a feature branch and pushed to remote
+7. Feature branch is merged back to `main`
+8. `tasks.md` checkboxes are updated to reflect completion
 
 ## Testing Strategy
 
-### Unit Tests
-
-- **State machine:** Test all valid transitions succeed and all invalid transitions are rejected. Table-driven tests for completeness.
-- **OCI puller (mocked):** Mock the podman CLI calls. Verify checksum verification logic with known valid and invalid checksums.
-- **Container runtime (mocked):** Mock podman CLI. Verify start, stop, remove sequences produce correct state transitions.
-- **Offload timer:** Use tokio time mocking to verify timer fires after configured duration and triggers offloading.
-- **Adapter manager:** Verify single-adapter constraint enforcement, concurrent install handling, and error propagation.
-
-### Integration Tests
-
-- **gRPC round-trip:** Use tonic test client against a running server instance (with mocked podman). Exercise full InstallAdapter -> WatchAdapterStates -> RemoveAdapter flow.
-- **State streaming:** Verify multiple concurrent WatchAdapterStates clients receive the same events.
-
-### Property Tests
-
-- **State machine completeness:** For every (state, event) pair, exactly one of {valid transition, rejection} occurs.
-- **Single adapter invariant:** After any sequence of InstallAdapter/RemoveAdapter calls, at most one adapter is in RUNNING state.
+- **Unit tests:** Rust `#[cfg(test)]` modules alongside source. The `config`, `state`, `model`, and `container` modules have unit tests. The `container` module uses a mock `ContainerRuntime` trait implementation for testing without podman.
+- **Property tests:** Rust `proptest` crate for state machine validity, adapter ID derivation, single adapter constraint, and config defaults.
+- **Integration tests:** `tests/update-service/` Go module for end-to-end gRPC testing against a running service with a mock or real podman. Integration tests require the service binary and optionally podman.
+- **All unit/property tests run via:** `cd rhivos && cargo test -p update-service`
+- **Integration tests run via:** `cd tests/update-service && go test -v ./...`
