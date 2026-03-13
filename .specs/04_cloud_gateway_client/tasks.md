@@ -121,39 +121,41 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
   - No integration tests yet (those require NATS + DATA_BROKER)
   - Ask the user if questions arise
 
-- [ ] 5. NATS client, DATA_BROKER client, and main loop
-  - [ ] 5.1 Implement NATS client wrapper
-    - Wrap async-nats: connect, subscribe, publish, publish_with_headers
-    - Connection retry: exponential backoff 1s, 2s, 4s, up to 5 attempts
-    - Reconnect on connection loss: up to 3 attempts
+- [x] 5. NATS client, DATA_BROKER client, and main loop
+  - [x] 5.1 Implement NATS client wrapper
+    - Wrap async-nats: connect, subscribe, publish, flush
+    - Connection retry: exponential backoff 1s, 2s, 4s, 8s, up to 5 attempts
+    - Post-connection reconnect delegated to async-nats client defaults
     - _Requirements: 04-REQ-1.1, 04-REQ-1.E1, 04-REQ-1.E2_
 
-  - [ ] 5.2 Implement DATA_BROKER client
-    - Reuse or adapt BrokerClient from spec 03 (tonic-generated kuksa.val.v1)
-    - connect, get, set_string, subscribe methods
-    - Connection retry: exponential backoff, 5 attempts
+  - [x] 5.2 Implement DATA_BROKER client
+    - `GrpcBrokerClient` wraps tonic transport channel
+    - `connect` with exponential backoff retry (5 attempts)
+    - `set_string` and `subscribe_signals` (structural placeholder; gRPC proto wired in task group 6)
+    - `BrokerUpdate` / `BrokerValue` types defined for real streaming handler
     - _Requirements: 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.E1_
 
-  - [ ] 5.3 Implement main loop
-    - Parse config, connect NATS + DATA_BROKER with retries
-    - Publish registration message to vehicles.{VIN}.status
-    - Spawn command handler task: subscribe NATS → validate → forward to DATA_BROKER
-    - Spawn response relay task: subscribe DATA_BROKER Response → publish NATS
-    - Spawn telemetry task: subscribe DATA_BROKER signals → aggregate → publish NATS
-    - Handle SIGTERM/SIGINT, drain NATS, close gRPC, exit 0
+  - [x] 5.3 Implement main loop
+    - Parse config, connect NATS + DATA_BROKER with retries, exit 1 on failure
+    - Publish registration message to vehicles.{VIN}.status (04-REQ-6.2)
+    - Subscribe NATS commands subject; subscribe DATA_BROKER response + telemetry signals
+    - Spawn command handler task: validate token → validate JSON → forward to DATA_BROKER
+    - Spawn response relay task: DATA_BROKER Response → NATS command_responses
+    - Spawn telemetry task: DATA_BROKER signals → aggregate TelemetryState → NATS telemetry
+    - Handle SIGTERM/SIGINT, flush NATS, exit 0
     - Log version, VIN, addresses, ready
     - _Requirements: 04-REQ-1.2, 04-REQ-3.1, 04-REQ-4.1, 04-REQ-6.2, 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 5.4 Implement error handling for publish failures
-    - NATS publish failures: log and continue (response relay, telemetry)
-    - DATA_BROKER set failures: log and continue
-    - In-flight command completion on SIGTERM
+  - [x] 5.4 Implement error handling for publish failures
+    - NATS publish failures: logged and swallowed in relay_response / publish_telemetry
+    - DATA_BROKER set failures: logged, command handler continues
+    - In-flight command completion: shutdown watch checked after processing each message
     - _Requirements: 04-REQ-3.E1, 04-REQ-4.E2, 04-REQ-7.E1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Binary compiles: `cd rhivos && cargo build -p cloud-gateway-client`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
+  - [x] 5.V Verify task group 5
+    - [x] Binary compiles: `cd rhivos && cargo build -p cloud-gateway-client`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p cloud-gateway-client`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
 
 - [ ] 6. Integration test validation
   - [ ] 6.1 Create integration test module

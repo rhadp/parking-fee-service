@@ -1,6 +1,11 @@
 use serde::Deserialize;
 
 /// Incoming lock/unlock command received from NATS.
+///
+/// The optional fields (`doors`, `source`, `vin`, `timestamp`) are part of the
+/// protocol schema and are parsed from JSON.  They are not yet consumed by the
+/// validation logic but are retained for future use.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct IncomingCommand {
     pub command_id: String,
@@ -15,6 +20,10 @@ pub struct IncomingCommand {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommandError {
     /// Bearer token is missing or does not match.
+    ///
+    /// Kept for completeness; the main command pipeline currently uses
+    /// [`validate_bearer_token`] directly rather than returning this variant.
+    #[allow(dead_code)]
     TokenRejected,
     /// Payload is not valid JSON.
     JsonParseFailed(String),

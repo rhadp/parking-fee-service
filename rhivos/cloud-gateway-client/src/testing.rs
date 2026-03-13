@@ -25,6 +25,7 @@ impl MockBrokerClient {
     }
 
     /// Configure the mock to fail on the next `set_string` call.
+    #[allow(dead_code)]
     pub fn fail_next_set_string(&self) {
         *self.fail_next_set_string.borrow_mut() = true;
     }
@@ -35,6 +36,7 @@ impl MockBrokerClient {
     }
 
     /// Clear all recorded calls and reset failure flags.
+    #[allow(dead_code)]
     pub fn reset(&self) {
         self.set_string_calls.borrow_mut().clear();
         *self.fail_next_set_string.borrow_mut() = false;
@@ -98,6 +100,7 @@ impl MockNatsPublisher {
     }
 
     /// Clear all recorded publishes and reset failure flags.
+    #[allow(dead_code)]
     pub fn reset(&self) {
         self.publishes.borrow_mut().clear();
         *self.fail_next.borrow_mut() = false;
