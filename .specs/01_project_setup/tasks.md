@@ -143,29 +143,29 @@ The ordering ensures dependencies are built before dependents: directories first
   - All skeleton binaries exit 0 with usage messages
   - Ask the user if questions arise
 
-- [ ] 6. Protocol Buffer definitions and code generation
-  - [ ] 6.1 Create proto files
+- [x] 6. Protocol Buffer definitions and code generation
+  - [x] 6.1 Create proto files
     - Create `proto/common.proto` with AdapterState, AdapterInfo, ErrorDetails (as specified in design.md)
     - Create `proto/update_service.proto` with UpdateService and all 5 RPCs
     - Create `proto/parking_adaptor.proto` with ParkingAdaptor and all 4 RPCs
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
 
-  - [ ] 6.2 Create proto generation script
+  - [x] 6.2 Create proto generation script
     - Add `proto` target to Makefile (or create a separate script) that runs `protoc` with Go plugins
     - Generate code into `gen/go/commonpb/`, `gen/go/updateservicepb/`, `gen/go/parkingadaptorpb/`
     - Include `protoc` availability check with error message
     - _Requirements: 01-REQ-5.5, 01-REQ-5.E1_
 
-  - [ ] 6.3 Generate and verify Go code
+  - [x] 6.3 Generate and verify Go code
     - Run `make proto` and verify generated code compiles
     - Add `gen/go/` module or ensure it's importable by backend and mock modules
     - _Requirements: 01-REQ-5.5, 01-REQ-5.6_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Proto tests pass: `cd tests/setup && go test -v -run 'TestProto' ./...`
-    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [ ] No linter warnings: `go vet ./...`
-    - [ ] _Test Spec: TS-01-18 through TS-01-23_
+  - [x] 6.V Verify task group 6
+    - [x] Proto tests pass: `cd tests/setup && go test -v -run 'TestProto' ./...`
+    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [x] No linter warnings: `go vet ./...`
+    - [x] _Test Spec: TS-01-18 through TS-01-23_
 
 - [ ] 7. Local infrastructure
   - [ ] 7.1 Create Podman Compose configuration
