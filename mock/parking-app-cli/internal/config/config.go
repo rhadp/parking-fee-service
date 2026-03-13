@@ -5,9 +5,8 @@ import "os"
 
 const (
 	DefaultParkingFeeServiceURL = "http://localhost:8080"
-	DefaultUpdateServiceAddr    = "localhost:50051"
-	DefaultParkingAdaptorAddr   = "localhost:50052"
-	DefaultDataBrokerAddr       = "localhost:55556"
+	DefaultUpdateServiceAddr    = "localhost:50052"
+	DefaultParkingAdaptorAddr   = "localhost:50053"
 )
 
 // GetEnv returns the value of the environment variable named by the key,
@@ -31,5 +30,5 @@ func UpdateServiceAddr() string {
 
 // ParkingAdaptorAddr returns the configured PARKING_OPERATOR_ADAPTOR gRPC address.
 func ParkingAdaptorAddr() string {
-	return GetEnv("PARKING_ADAPTOR_ADDR", DefaultParkingAdaptorAddr)
+	return GetEnv("ADAPTOR_ADDR", DefaultParkingAdaptorAddr)
 }

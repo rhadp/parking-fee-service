@@ -11,12 +11,8 @@ import (
 
 // RunStopSession executes the stop-session subcommand.
 // It calls PARKING_OPERATOR_ADAPTOR.StopSession via gRPC.
+// No arguments required — the adaptor tracks the active session.
 func RunStopSession(args []string, adaptorAddr string) error {
-	_, err := requireFlag(args, "session-id")
-	if err != nil {
-		return err
-	}
-
 	conn, err := grpcclient.Dial(adaptorAddr)
 	if err != nil {
 		return err

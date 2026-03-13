@@ -12,7 +12,7 @@ import (
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	subcmd := os.Args[1]
@@ -56,6 +56,6 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Environment Variables:")
 	fmt.Println("  PARKING_FEE_SERVICE_URL  (default: http://localhost:8080)")
-	fmt.Println("  UPDATE_SERVICE_ADDR      (default: localhost:50051)")
-	fmt.Println("  PARKING_ADAPTOR_ADDR     (default: localhost:50052)")
+	fmt.Println("  UPDATE_SERVICE_ADDR      (default: localhost:50052)")
+	fmt.Println("  ADAPTOR_ADDR             (default: localhost:50053)")
 }

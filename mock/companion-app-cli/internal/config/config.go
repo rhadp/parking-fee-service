@@ -22,6 +22,7 @@ func CloudGatewayURL() string {
 }
 
 // BearerToken returns the configured bearer token for authentication.
+// Reads from CLOUD_GATEWAY_TOKEN environment variable.
 func BearerToken() string {
-	return os.Getenv("BEARER_TOKEN")
+	return os.Getenv("CLOUD_GATEWAY_TOKEN")
 }

@@ -150,8 +150,8 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - [x] No linter warnings: `cd mock && go vet ./parking-operator/...`
     - [x] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-24, TS-09-E3, TS-09-E4, TS-09-E5, TS-09-P2_
 
-- [ ] 4. Mock CLI tools (Go)
-  - [ ] 4.1 Implement companion-app-cli
+- [x] 4. Mock CLI tools (Go)
+  - [x] 4.1 Implement companion-app-cli
     - Subcommand dispatch: `lock`, `unlock`, `status`, `--help`
     - Read CLOUD_GATEWAY_URL, bearer token from env/flags
     - `lock`/`unlock`: POST to /vehicles/{vin}/commands with generated command_id
@@ -160,33 +160,33 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - Print JSON response to stdout, errors to stderr
     - _Requirements: 09-REQ-3.1, 09-REQ-3.2, 09-REQ-3.3, 09-REQ-3.E1, 09-REQ-3.E2, 09-REQ-5.2, 09-REQ-6.1_
 
-  - [ ] 4.2 Implement parking-app-cli REST subcommands
+  - [x] 4.2 Implement parking-app-cli REST subcommands
     - Subcommand dispatch for all 9 subcommands + `--help`
     - `lookup`: GET /operators?lat=&lon= to PARKING_FEE_SERVICE
     - `adapter-info`: GET /operators/{id}/adapter to PARKING_FEE_SERVICE
     - Read PARKING_FEE_SERVICE_URL from env/flag
     - _Requirements: 09-REQ-4.1, 09-REQ-4.2, 09-REQ-5.3_
 
-  - [ ] 4.3 Implement parking-app-cli gRPC subcommands
+  - [x] 4.3 Implement parking-app-cli gRPC subcommands
     - Import generated proto code for UpdateService and ParkingAdaptor
     - `install`, `watch`, `list`, `remove`, `status`: call UPDATE_SERVICE gRPC
     - `start-session`, `stop-session`: call PARKING_OPERATOR_ADAPTOR gRPC
     - Read UPDATE_SERVICE_ADDR, ADAPTOR_ADDR from env/flags
     - _Requirements: 09-REQ-4.3, 09-REQ-4.4, 09-REQ-4.5, 09-REQ-4.6, 09-REQ-4.7, 09-REQ-4.8, 09-REQ-4.9, 09-REQ-5.3_
 
-  - [ ] 4.4 Implement shared error handling
+  - [x] 4.4 Implement shared error handling
     - Unknown subcommand: print usage, exit 1
     - Missing required flags: print error, exit 1
     - Connection errors: print error with address, exit 1
     - Upstream error responses: print details, exit 1
     - _Requirements: 09-REQ-4.E1, 09-REQ-4.E2, 09-REQ-4.E3, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] COMPANION_APP tests pass: `cd mock && go test -v ./companion-app-cli/...`
-    - [ ] PARKING_APP tests pass: `cd mock && go test -v ./parking-app-cli/...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd mock && go vet ./...`
-    - [ ] _Test Spec: TS-09-9 through TS-09-20, TS-09-22, TS-09-23, TS-09-25, TS-09-26, TS-09-27, TS-09-E6 through TS-09-E10, TS-09-P3, TS-09-P4, TS-09-P5_
+  - [x] 4.V Verify task group 4
+    - [x] COMPANION_APP tests pass: `cd mock && go test -v ./companion-app-cli/...`
+    - [x] PARKING_APP tests pass: `cd mock && go test -v ./parking-app-cli/...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd mock && go vet ./...`
+    - [x] _Test Spec: TS-09-9 through TS-09-20, TS-09-22, TS-09-23, TS-09-25, TS-09-26, TS-09-27, TS-09-E6 through TS-09-E10, TS-09-P3, TS-09-P4, TS-09-P5_
 
 - [ ] 5. Integration test validation
   - [ ] 5.1 Create integration test module

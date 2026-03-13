@@ -22,7 +22,14 @@ func parseFlag(args []string, name string) (string, bool) {
 func requireFlag(args []string, name string) (string, error) {
 	val, ok := parseFlag(args, name)
 	if !ok || val == "" {
-		return "", fmt.Errorf("required flag --%s is missing (vin required)", name)
+		return "", fmt.Errorf("required flag --%s is missing", name)
 	}
 	return val, nil
+}
+
+// ExtractFlag extracts an optional --key=value flag from args.
+// Returns the value if found, or empty string if not present.
+func ExtractFlag(args []string, name string) string {
+	val, _ := parseFlag(args, name)
+	return val
 }
