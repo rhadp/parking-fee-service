@@ -116,7 +116,7 @@ Ordering: tests first, then pure-function modules, then client wrappers, then as
     - [x] No linter warnings: `cd rhivos && cargo clippy -p cloud-gateway-client -- -D warnings`
     - [x] _Test Spec: TS-04-6, TS-04-8, TS-04-10, TS-04-11, TS-04-E6, TS-04-E7, TS-04-E8, TS-04-P1 through TS-04-P5_
 
-- [ ] 4. Checkpoint - Core Logic Complete
+- [x] 4. Checkpoint - Core Logic Complete
   - All unit and property tests pass
   - No integration tests yet (those require NATS + DATA_BROKER)
   - Ask the user if questions arise
