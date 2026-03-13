@@ -188,14 +188,14 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - [x] No linter warnings: `cd mock && go vet ./...`
     - [x] _Test Spec: TS-09-9 through TS-09-20, TS-09-22, TS-09-23, TS-09-25, TS-09-26, TS-09-27, TS-09-E6 through TS-09-E10, TS-09-P3, TS-09-P4, TS-09-P5_
 
-- [ ] 5. Integration test validation
-  - [ ] 5.1 Create integration test module
+- [x] 5. Integration test validation
+  - [x] 5.1 Create integration test module
     - Create `tests/mock-apps/` Go module
     - Add `go.work` entry for `./tests/mock-apps`
     - Shared helpers: start/stop DATA_BROKER, start/stop PARKING_OPERATOR server, build sensor binaries
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-8_
 
-  - [ ] 5.2 Write and run integration tests
+  - [x] 5.2 Write and run integration tests
     - `TestLocationSensorWritesToBroker` — TS-09-1
     - `TestSpeedSensorWritesToBroker` — TS-09-2
     - `TestDoorSensorWritesToBroker` — TS-09-3
@@ -203,12 +203,12 @@ Ordering: tests first, then Rust sensors (simplest, no upstream deps), then PARK
     - `TestParkingOperatorGracefulShutdown` — TS-09-8
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-8_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
-    - [ ] All requirements 09-REQ-1 through 09-REQ-6 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings && cd mock && go vet ./...`
+    - [x] All requirements 09-REQ-1 through 09-REQ-6 acceptance criteria met
 
 - [ ] 6. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
