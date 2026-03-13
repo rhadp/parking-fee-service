@@ -138,7 +138,7 @@ The ordering ensures dependencies are built before dependents: directories first
     - [x] No linter warnings: `go vet ./...`
     - [x] _Test Spec: TS-01-11 through TS-01-13, TS-01-15, TS-01-17_
 
-- [ ] 5. Checkpoint - Workspaces Complete
+- [x] 5. Checkpoint - Workspaces Complete
   - Ensure `cargo build`, `cargo test`, `go build ./...`, `go test ./...` all pass
   - All skeleton binaries exit 0 with usage messages
   - Ask the user if questions arise

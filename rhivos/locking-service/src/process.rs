@@ -1,5 +1,7 @@
 use crate::broker::BrokerClient;
-use crate::command::LockCommand;
+use crate::command::{Action, LockCommand};
+use crate::response;
+use crate::safety::{check_safety, SafetyResult};
 
 /// VSS signal paths for lock state and response
 pub const SIGNAL_IS_LOCKED: &str = "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked";
@@ -8,11 +10,45 @@ pub const SIGNAL_RESPONSE: &str = "Vehicle.Command.Door.Response";
 /// Process a validated lock/unlock command.
 /// Returns the response JSON string.
 pub async fn process_command<B: BrokerClient>(
-    _broker: &B,
-    _cmd: &LockCommand,
-    _lock_state: &mut bool,
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
 ) -> String {
-    todo!("process_command not yet implemented")
+    let resp_json = match cmd.action {
+        Action::Unlock => {
+            if *lock_state {
+                // Currently locked — unlock it
+                let _ = broker.set_bool(SIGNAL_IS_LOCKED, false).await;
+                *lock_state = false;
+            }
+            // Idempotent: already unlocked → just return success
+            response::success_response(&cmd.command_id)
+        }
+        Action::Lock => {
+            // Check safety before locking
+            let safety = check_safety(broker).await;
+            match safety {
+                SafetyResult::Safe => {
+                    if !*lock_state {
+                        // Currently unlocked — lock it
+                        let _ = broker.set_bool(SIGNAL_IS_LOCKED, true).await;
+                        *lock_state = true;
+                    }
+                    // Idempotent: already locked → just return success
+                    response::success_response(&cmd.command_id)
+                }
+                SafetyResult::VehicleMoving => {
+                    response::failure_response(&cmd.command_id, "vehicle_moving")
+                }
+                SafetyResult::DoorOpen => {
+                    response::failure_response(&cmd.command_id, "door_open")
+                }
+            }
+        }
+    };
+    // Publish response to broker (best-effort, ignore errors)
+    let _ = broker.set_string(SIGNAL_RESPONSE, &resp_json).await;
+    resp_json
 }
 
 #[cfg(test)]

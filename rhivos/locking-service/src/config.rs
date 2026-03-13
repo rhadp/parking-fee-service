@@ -3,7 +3,7 @@ pub const DEFAULT_DATABROKER_ADDR: &str = "http://localhost:55556";
 
 /// Get the DATA_BROKER gRPC address from environment.
 pub fn get_databroker_addr() -> String {
-    todo!("get_databroker_addr not yet implemented")
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| DEFAULT_DATABROKER_ADDR.to_string())
 }
 
 #[cfg(test)]

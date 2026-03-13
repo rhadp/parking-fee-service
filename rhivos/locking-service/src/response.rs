@@ -10,14 +10,33 @@ pub struct CommandResponse {
     pub timestamp: i64,
 }
 
+fn now_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
 /// Build a success response JSON string.
-pub fn success_response(_command_id: &str) -> String {
-    todo!("success_response not yet implemented")
+pub fn success_response(command_id: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp: now_secs(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse is always serializable")
 }
 
 /// Build a failure response JSON string.
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("failure_response not yet implemented")
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp: now_secs(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse is always serializable")
 }
 
 #[cfg(test)]
