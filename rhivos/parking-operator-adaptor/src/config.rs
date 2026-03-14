@@ -30,18 +30,28 @@ pub struct Config {
 
 /// Load configuration from environment variables, falling back to defaults.
 ///
-/// # Stub
-/// This function is **not yet implemented** — all fields are returned as empty
-/// strings / zero.  Task group 2 replaces this with the real implementation.
+/// Reads the following environment variables:
+/// - `PARKING_OPERATOR_URL` → [`DEFAULT_OPERATOR_URL`]
+/// - `DATA_BROKER_ADDR` → [`DEFAULT_DATA_BROKER_ADDR`]
+/// - `GRPC_PORT` → [`DEFAULT_GRPC_PORT`] (parsed as u16, falls back to default on parse error)
+/// - `VEHICLE_ID` → [`DEFAULT_VEHICLE_ID`]
+/// - `ZONE_ID` → [`DEFAULT_ZONE_ID`]
 pub fn load_config() -> Config {
-    // STUB: returns empty/zero values so that config tests fail (task group 1)
-    // Real implementation is in task group 2.
+    let grpc_port = std::env::var("GRPC_PORT")
+        .ok()
+        .and_then(|v| v.parse::<u16>().ok())
+        .unwrap_or(DEFAULT_GRPC_PORT);
+
     Config {
-        parking_operator_url: String::new(),
-        data_broker_addr: String::new(),
-        grpc_port: 0,
-        vehicle_id: String::new(),
-        zone_id: String::new(),
+        parking_operator_url: std::env::var("PARKING_OPERATOR_URL")
+            .unwrap_or_else(|_| DEFAULT_OPERATOR_URL.to_string()),
+        data_broker_addr: std::env::var("DATA_BROKER_ADDR")
+            .unwrap_or_else(|_| DEFAULT_DATA_BROKER_ADDR.to_string()),
+        grpc_port,
+        vehicle_id: std::env::var("VEHICLE_ID")
+            .unwrap_or_else(|_| DEFAULT_VEHICLE_ID.to_string()),
+        zone_id: std::env::var("ZONE_ID")
+            .unwrap_or_else(|_| DEFAULT_ZONE_ID.to_string()),
     }
 }
 

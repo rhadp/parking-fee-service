@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Body for `POST /parking/start`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StartRequest {
     /// Vehicle identifier.
     pub vehicle_id: String,
@@ -18,7 +18,7 @@ pub struct StartRequest {
 }
 
 /// Body for `POST /parking/stop`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StopRequest {
     /// The session identifier returned by `/parking/start`.
     pub session_id: String,
@@ -31,7 +31,7 @@ pub struct StopRequest {
 // ---------------------------------------------------------------------------
 
 /// Response from `POST /parking/start`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StartResponse {
     /// Operator-assigned session identifier.
     pub session_id: String,
@@ -40,7 +40,7 @@ pub struct StartResponse {
 }
 
 /// Response from `POST /parking/stop`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StopResponse {
     /// The session that was stopped.
     pub session_id: String,
