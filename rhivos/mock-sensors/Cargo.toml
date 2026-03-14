@@ -3,6 +3,9 @@ name = "mock-sensors"
 version = "0.1.0"
 edition = "2021"
 
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+
 [[bin]]
 name = "location-sensor"
 path = "src/bin/location-sensor.rs"
