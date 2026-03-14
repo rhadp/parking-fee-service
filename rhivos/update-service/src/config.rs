@@ -64,8 +64,16 @@ pub fn default_config() -> Config {
 /// - If the file does not exist, returns `default_config()` (requirement 07-REQ-7.E1).
 /// - If the file contains invalid JSON, returns `Err(ConfigError::InvalidJson)`.
 /// - Missing JSON fields are filled from defaults (requirement 07-REQ-7.3).
-pub fn load_config(_path: &str) -> Result<Config, ConfigError> {
-    todo!("implement load_config")
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::warn!("Config file '{}' not found, using defaults", path);
+            return Ok(default_config());
+        }
+        Err(e) => return Err(ConfigError::Io(e)),
+    };
+    serde_json::from_str::<Config>(&content).map_err(ConfigError::InvalidJson)
 }
 
 #[cfg(test)]

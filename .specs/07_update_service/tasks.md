@@ -89,8 +89,8 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 2. Model and config modules
-  - [ ] 2.1 Implement model module
+- [x] 2. Model and config modules
+  - [x] 2.1 Implement model module
     - Define `AdapterState` enum with all 7 states
     - Implement `derive_adapter_id(image_ref: &str) -> String`: extract last path segment + tag
     - Implement `generate_job_id() -> String`: UUID v4
@@ -98,7 +98,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - Define `AdapterStateEvent` struct
     - _Requirements: 07-REQ-1.5_
 
-  - [ ] 2.2 Implement config module
+  - [x] 2.2 Implement config module
     - Define `Config` struct with serde Deserialize
     - `load_config(path: &str) -> Result<Config, ConfigError>`: read JSON, apply defaults
     - `default_config() -> Config`: port 50052, timeout 86400, storage path `/var/lib/containers/adapters/`
@@ -106,11 +106,11 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - If invalid JSON: return error
     - _Requirements: 07-REQ-7.1, 07-REQ-7.2, 07-REQ-7.3, 07-REQ-7.E1, 07-REQ-7.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and model tests pass: `cd rhivos && cargo test -p update-service -- config model`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10, TS-07-P5, TS-07-P7_
+  - [x] 2.V Verify task group 2
+    - [x] Config and model tests pass: `cd rhivos && cargo test -p update-service -- config model`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10, TS-07-P5, TS-07-P7_
 
 - [ ] 3. State manager module
   - [ ] 3.1 Implement state manager

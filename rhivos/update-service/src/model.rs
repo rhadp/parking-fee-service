@@ -63,18 +63,24 @@ pub struct AdapterStateEvent {
 ///     "parkhaus-munich-v1.0.0"
 /// );
 /// ```
-pub fn derive_adapter_id(_image_ref: &str) -> String {
-    todo!("implement derive_adapter_id")
+pub fn derive_adapter_id(image_ref: &str) -> String {
+    // Take the last path segment (after the last '/')
+    let last_segment = image_ref.rsplit('/').next().unwrap_or(image_ref);
+    // Replace ':' tag separator with '-'
+    last_segment.replace(':', "-")
 }
 
 /// Generate a new UUID v4 job ID.
 pub fn generate_job_id() -> String {
-    todo!("implement generate_job_id")
+    uuid::Uuid::new_v4().to_string()
 }
 
 /// Return the current Unix timestamp in seconds.
 pub fn now_unix() -> i64 {
-    todo!("implement now_unix")
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 #[cfg(test)]
