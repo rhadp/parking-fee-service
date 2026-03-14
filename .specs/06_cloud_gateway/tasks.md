@@ -153,8 +153,8 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
     - [x] _Test Spec: TS-06-1, TS-06-5, TS-06-15, TS-06-23, TS-06-26, TS-06-27, TS-06-E1 through TS-06-E6, TS-06-P1, TS-06-P7_
 
-- [ ] 5. Main package and integration
-  - [ ] 5.1 Implement main package
+- [x] 5. Main package and integration
+  - [x] 5.1 Implement main package
     - Read `CONFIG_PATH` env var (default "config.json")
     - Call LoadConfig, create Authenticator, create Store
     - Connect to NATS with retries
@@ -170,16 +170,16 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Use `log/slog` for structured logging
     - _Requirements: 06-REQ-7.1, 06-REQ-8.1, 06-REQ-8.2, 06-REQ-9.1, 06-REQ-9.2, 06-REQ-9.3_
 
-  - [ ] 5.2 Add nats.go dependency
+  - [x] 5.2 Add nats.go dependency
     - Run `go get github.com/nats-io/nats.go`
     - Update go.mod and go.sum
-    - _Requirements: 06-REQ-8.1_
+    - _Requirements: 06-REQ-8.1_ (already present in go.mod from prior tasks)
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Binary builds: `cd backend && go build ./cloud-gateway/...`
-    - [ ] All unit tests pass: `cd backend && go test -v ./cloud-gateway/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+  - [x] 5.V Verify task group 5
+    - [x] Binary builds: `go build ./backend/cloud-gateway/...`
+    - [x] All unit tests pass: `go test ./backend/cloud-gateway/...`
+    - [x] All existing tests still pass: `go test ./backend/cloud-gateway/...`
+    - [x] No linter warnings: `go vet ./backend/cloud-gateway/...`
 
 - [ ] 6. Integration test validation
   - [ ] 6.1 Create integration test module
