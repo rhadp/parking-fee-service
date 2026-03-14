@@ -108,8 +108,8 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
     - [x] _Test Spec: TS-06-2, TS-06-10, TS-06-16, TS-06-17, TS-06-18, TS-06-19, TS-06-20, TS-06-E10, TS-06-E11, TS-06-P2, TS-06-P5, TS-06-P6_
 
-- [ ] 3. Store module
-  - [ ] 3.1 Implement store package
+- [x] 3. Store module
+  - [x] 3.1 Implement store package
     - `NewStore() *Store`: create mutex-protected map
     - `Add(cmd CommandStatus)`: store command with pending status and creation timestamp
     - `Get(commandID string) (*CommandStatus, bool)`: retrieve by command ID
@@ -118,11 +118,11 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Thread-safe via `sync.Mutex`
     - _Requirements: 06-REQ-1.4, 06-REQ-2.1, 06-REQ-2.2, 06-REQ-2.3, 06-REQ-3.2, 06-REQ-4.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [ ] _Test Spec: TS-06-4, TS-06-6, TS-06-7, TS-06-11, TS-06-12, TS-06-P3, TS-06-P4_
+  - [x] 3.V Verify task group 3
+    - [x] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [x] _Test Spec: TS-06-4, TS-06-6, TS-06-7, TS-06-11, TS-06-12, TS-06-P3, TS-06-P4_
 
 - [ ] 4. HTTP handlers and NATS client
   - [ ] 4.1 Implement handler package
