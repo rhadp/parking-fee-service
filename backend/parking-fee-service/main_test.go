@@ -6,11 +6,39 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 )
+
+// preBuiltBinary is the path to the binary compiled once in TestMain,
+// shared across all tests to avoid concurrent go-build races when
+// sub-packages run in parallel under go test -p N.
+var preBuiltBinary string
+
+// TestMain compiles the service binary once before running any test,
+// so that buildBinary() never races with the go test framework's own
+// compilation of sub-packages.
+func TestMain(m *testing.M) {
+	tmp, err := os.MkdirTemp("", "pfs-test-binary-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "TestMain: MkdirTemp: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.RemoveAll(tmp)
+
+	bin := filepath.Join(tmp, "parking-fee-service")
+	out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "TestMain: go build: %v\n%s", err, out)
+		os.Exit(1)
+	}
+	preBuiltBinary = bin
+
+	os.Exit(m.Run())
+}
 
 // TestParkingFeeServiceCompiles verifies the component compiles.
 func TestParkingFeeServiceCompiles(t *testing.T) {
@@ -19,20 +47,46 @@ func TestParkingFeeServiceCompiles(t *testing.T) {
 
 // TS-05-15: On startup, the service logs version, port, zone count, operator count.
 func TestStartupLogging(t *testing.T) {
+	// Use a non-default port to avoid conflicts with concurrent service instances.
+	const port = "18081"
+
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	cmd.Env = append(os.Environ(), "CONFIG_PATH=/nonexistent/config.json")
+	cmd.Env = append(os.Environ(),
+		"CONFIG_PATH=/nonexistent/config.json",
+		"PORT="+port,
+	)
 
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start: %v", err)
 	}
 
-	// Give the service a moment to print startup logs.
-	time.Sleep(300 * time.Millisecond)
+	// Poll the health endpoint rather than sleeping a fixed amount.  Under
+	// high CPU load (e.g. many parallel test packages) the subprocess may not
+	// be scheduled quickly enough for a fixed 300 ms sleep to be reliable.
+	healthURL := fmt.Sprintf("http://localhost:%s/health", port)
+	var ready bool
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(healthURL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				ready = true
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !ready {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		t.Fatal("service did not become ready within 5 seconds")
+	}
 
 	// Terminate the service gracefully.
 	_ = cmd.Process.Signal(syscall.SIGTERM)
@@ -50,7 +104,7 @@ func TestStartupLogging(t *testing.T) {
 	t.Logf("startup output:\n%s", output)
 
 	// The startup log must contain the port, zone count, and operator count.
-	checks := []string{"8080", "zones", "operators"}
+	checks := []string{port, "zones", "operators"}
 	for _, want := range checks {
 		if !strings.Contains(output, want) {
 			t.Errorf("startup log does not contain %q; full output:\n%s", want, output)
@@ -117,15 +171,13 @@ func TestGracefulShutdown(t *testing.T) {
 	}
 }
 
-// buildBinary compiles the parking-fee-service binary and returns the path.
+// buildBinary returns the path to the service binary compiled once in TestMain.
+// Using a pre-built binary avoids a race between this test's go build call and
+// the concurrent compilation of sub-packages under go test -p N.
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	bin := t.TempDir() + "/parking-fee-service"
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = "."
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go build failed: %v\n%s", err, out)
+	if preBuiltBinary == "" {
+		t.Fatal("preBuiltBinary is empty — did TestMain run?")
 	}
-	return bin
+	return preBuiltBinary
 }
