@@ -193,26 +193,26 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - [x] All unit tests still pass: `cd rhivos && cargo test -p update-service`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 6. Integration test validation
-  - [ ] 6.1 Create integration test module
+- [x] 6. Integration test validation
+  - [x] 6.1 Create integration test module
     - Create `tests/update-service/` Go module
     - Shared helpers: start/stop service, gRPC client helpers
     - Add `go.work` entry for `./tests/update-service`
     - _Test Spec: TS-07-22, TS-07-23_
 
-  - [ ] 6.2 Write and run integration tests
+  - [x] 6.2 Write and run integration tests
     - `TestStartupLogging` — TS-07-22
     - `TestGracefulShutdown` — TS-07-23
     - `TestInstallAdapterGRPC` — end-to-end with mock registry (optional)
     - `TestListAdaptersGRPC` — end-to-end query
     - _Test Spec: TS-07-22, TS-07-23_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass: `cd tests/update-service && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] All requirements 07-REQ-1 through 07-REQ-8 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] All integration tests pass: `cd tests/update-service && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p update-service`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] All requirements 07-REQ-1 through 07-REQ-8 acceptance criteria met
 
 - [ ] 7. Checkpoint - All Tests Green
   - All unit, property, and integration tests pass
