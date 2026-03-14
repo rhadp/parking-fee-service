@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -158,7 +159,8 @@ func TestContentTypeHeader(t *testing.T) {
 	}
 
 	for _, ep := range endpoints {
-		var bodyReader *strings.Reader
+		// Use io.Reader interface (not *strings.Reader) so nil body is a true nil interface.
+		var bodyReader io.Reader
 		if ep.body != "" {
 			bodyReader = strings.NewReader(ep.body)
 		}
