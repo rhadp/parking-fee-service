@@ -1,0 +1,75 @@
+// Minimal Kuksa Databroker v1 types needed by the LOCKING_SERVICE.
+// Derived from the official kuksa.val.v1 proto specification.
+syntax = "proto3";
+
+package kuksa.val.v1;
+
+// A single signal value at a point in time.
+message Datapoint {
+  oneof value {
+    string string = 11;
+    bool bool = 12;
+    int32 int32 = 13;
+    int64 int64 = 14;
+    uint32 uint32 = 15;
+    uint64 uint64 = 16;
+    float float = 17;
+    double double = 18;
+  }
+}
+
+// A VSS data entry combining path and value.
+message DataEntry {
+  string path = 1;
+  Datapoint value = 2;
+  Datapoint actuator_target = 3;
+}
+
+// Request for a single VSS entry (used in GetRequest).
+message EntryRequest {
+  string path = 1;
+  View view = 2;
+  repeated Field fields = 3;
+}
+
+// An update pairing a DataEntry with the field set to modify.
+message EntryUpdate {
+  DataEntry entry = 1;
+  repeated Field fields = 2;
+}
+
+// A single subscription entry (path + view + fields).
+message SubscribeEntry {
+  string path = 1;
+  View view = 2;
+  repeated Field fields = 3;
+}
+
+// Selects which aspect of an entry to operate on.
+enum Field {
+  FIELD_UNSPECIFIED = 0;
+  FIELD_PATH = 1;
+  FIELD_VALUE = 2;
+  FIELD_ACTUATOR_TARGET = 3;
+  FIELD_METADATA = 10;
+  FIELD_METADATA_DATA_TYPE = 11;
+  FIELD_METADATA_DESCRIPTION = 12;
+  FIELD_METADATA_ENTRY_TYPE = 13;
+}
+
+// Selects which aspects of an entry to retrieve.
+enum View {
+  VIEW_UNSPECIFIED = 0;
+  VIEW_CURRENT_VALUE = 1;
+  VIEW_TARGET_VALUE = 2;
+  VIEW_METADATA = 3;
+  VIEW_FIELDS = 4;
+  VIEW_ALL = 5;
+}
+
+// A generic gRPC error with code, reason, and message.
+message Error {
+  uint32 code = 1;
+  string reason = 2;
+  string message = 3;
+}
