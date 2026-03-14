@@ -112,8 +112,8 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10, TS-07-P5, TS-07-P7_
 
-- [ ] 3. State manager module
-  - [ ] 3.1 Implement state manager
+- [x] 3. State manager module
+  - [x] 3.1 Implement state manager
     - `StateManager` struct with `Arc<Mutex<HashMap<String, AdapterInfo>>>` and `broadcast::Sender<AdapterStateEvent>`
     - `new() -> Self`: create broadcast channel
     - `create_adapter(adapter_id, image_ref, checksum)`: add to map with DOWNLOADING state
@@ -124,18 +124,18 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `subscribe()`: return broadcast receiver
     - _Requirements: 07-REQ-1.2, 07-REQ-1.4, 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3, 07-REQ-4.1, 07-REQ-4.2_
 
-  - [ ] 3.2 Implement state transition validation
+  - [x] 3.2 Implement state transition validation
     - Define valid transitions as a lookup table
     - Reject invalid transitions with descriptive error
     - Set `stopped_at` timestamp when transitioning to STOPPED
     - _Requirements: 07-REQ-1.2, 07-REQ-5.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] State manager tests pass: `cd rhivos && cargo test -p update-service -- state`
-    - [ ] Property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-8 through TS-07-12, TS-07-14, TS-07-15, TS-07-16, TS-07-18, TS-07-E6, TS-07-P1, TS-07-P2, TS-07-P4, TS-07-P6_
+  - [x] 3.V Verify task group 3
+    - [x] State manager tests pass: `cd rhivos && cargo test -p update-service -- state`
+    - [x] Property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-8 through TS-07-12, TS-07-14, TS-07-15, TS-07-16, TS-07-18, TS-07-E6, TS-07-P1, TS-07-P2, TS-07-P4, TS-07-P6_
 
 - [ ] 4. Container runtime trait and service logic
   - [ ] 4.1 Define ContainerRuntime trait

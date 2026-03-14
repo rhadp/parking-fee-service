@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::container::ContainerRuntime;
-use crate::model::AdapterState;
+use crate::model::{derive_adapter_id, generate_job_id, AdapterState};
 use crate::state::StateManager;
 
 /// Errors returned by service-level operations, mapped to gRPC status codes
@@ -56,12 +56,108 @@ pub struct InstallResponse {
 /// and return the initial response immediately; for unit testing the full
 /// pipeline is awaited synchronously.
 pub async fn install_adapter(
-    _manager: Arc<StateManager>,
-    _runtime: Arc<dyn ContainerRuntime>,
-    _image_ref: &str,
-    _checksum_sha256: &str,
+    manager: Arc<StateManager>,
+    runtime: Arc<dyn ContainerRuntime>,
+    image_ref: &str,
+    checksum_sha256: &str,
 ) -> Result<InstallResponse, ServiceError> {
-    todo!("implement install_adapter")
+    // 1. Validate inputs
+    if image_ref.is_empty() {
+        return Err(ServiceError::InvalidArgument(
+            "image_ref must not be empty".to_string(),
+        ));
+    }
+    if checksum_sha256.is_empty() {
+        return Err(ServiceError::InvalidArgument(
+            "checksum_sha256 must not be empty".to_string(),
+        ));
+    }
+
+    // 2. Enforce single-adapter constraint
+    if let Some(running_id) = manager.get_running_adapter() {
+        // Get container_id before stopping
+        let container_id = manager
+            .get(&running_id)
+            .and_then(|a| a.container_id.clone())
+            .unwrap_or_else(|| running_id.clone());
+
+        runtime
+            .stop(&container_id)
+            .await
+            .map_err(|e| ServiceError::Internal(format!("failed to stop running adapter: {}", e)))?;
+
+        manager
+            .transition(&running_id, AdapterState::Stopped)
+            .map_err(|e| ServiceError::Internal(format!("failed to transition to STOPPED: {}", e)))?;
+    }
+
+    // 3. Derive IDs and create adapter record
+    let job_id = generate_job_id();
+    let adapter_id = derive_adapter_id(image_ref);
+
+    manager
+        .create_adapter(&adapter_id, image_ref, checksum_sha256)
+        .map_err(|e| ServiceError::Internal(format!("failed to create adapter: {}", e)))?;
+
+    // 4. Pull image
+    if let Err(e) = runtime.pull(image_ref).await {
+        manager.force_error(&adapter_id, &e.to_string());
+        return Err(ServiceError::Unavailable(format!(
+            "image pull failed: {}",
+            e
+        )));
+    }
+
+    // 5. Verify checksum
+    let digest = runtime.inspect_digest(image_ref).await.map_err(|e| {
+        manager.force_error(&adapter_id, &e.to_string());
+        ServiceError::Internal(format!("inspect digest failed: {}", e))
+    })?;
+
+    if digest != checksum_sha256 {
+        manager.force_error(
+            &adapter_id,
+            &format!(
+                "checksum mismatch: expected {}, got {}",
+                checksum_sha256, digest
+            ),
+        );
+        // Clean up the pulled image
+        let _ = runtime.remove_image(image_ref).await;
+        return Err(ServiceError::FailedPrecondition(format!(
+            "checksum mismatch: expected {}, got {}",
+            checksum_sha256, digest
+        )));
+    }
+
+    // 6. Transition to INSTALLING
+    manager
+        .transition(&adapter_id, AdapterState::Installing)
+        .map_err(|e| ServiceError::Internal(format!("failed to transition to INSTALLING: {}", e)))?;
+
+    // 7. Run the container
+    let container_id = match runtime.run(image_ref, &adapter_id).await {
+        Ok(id) => id,
+        Err(e) => {
+            manager.force_error(&adapter_id, &e.to_string());
+            return Err(ServiceError::Internal(format!(
+                "container start failed: {}",
+                e
+            )));
+        }
+    };
+
+    // Store container_id and transition to RUNNING
+    manager.set_container_id(&adapter_id, container_id);
+    manager
+        .transition(&adapter_id, AdapterState::Running)
+        .map_err(|e| ServiceError::Internal(format!("failed to transition to RUNNING: {}", e)))?;
+
+    Ok(InstallResponse {
+        job_id,
+        adapter_id,
+        initial_state: AdapterState::Downloading,
+    })
 }
 
 /// Remove an adapter:
@@ -71,11 +167,51 @@ pub async fn install_adapter(
 /// 4. Remove container, remove image.
 /// 5. Delete from state.
 pub async fn remove_adapter(
-    _manager: Arc<StateManager>,
-    _runtime: Arc<dyn ContainerRuntime>,
-    _adapter_id: &str,
+    manager: Arc<StateManager>,
+    runtime: Arc<dyn ContainerRuntime>,
+    adapter_id: &str,
 ) -> Result<(), ServiceError> {
-    todo!("implement remove_adapter")
+    // 1. Verify adapter exists
+    let info = manager
+        .get(adapter_id)
+        .ok_or_else(|| ServiceError::NotFound(format!("adapter '{}' not found", adapter_id)))?;
+
+    let image_ref = info.image_ref.clone();
+    let container_id = info.container_id.clone().unwrap_or_else(|| adapter_id.to_string());
+
+    // 2. Stop container if RUNNING
+    if info.state == AdapterState::Running {
+        runtime
+            .stop(&container_id)
+            .await
+            .map_err(|e| ServiceError::Internal(format!("failed to stop container: {}", e)))?;
+
+        manager
+            .transition(adapter_id, AdapterState::Stopped)
+            .map_err(|e| ServiceError::Internal(format!("failed to transition to STOPPED: {}", e)))?;
+    }
+
+    // 3. Transition to OFFLOADING
+    manager
+        .transition(adapter_id, AdapterState::Offloading)
+        .map_err(|e| ServiceError::Internal(format!("failed to transition to OFFLOADING: {}", e)))?;
+
+    // 4. Remove container
+    if let Err(e) = runtime.remove(&container_id).await {
+        manager.force_error(adapter_id, &e.to_string());
+        return Err(ServiceError::Internal(format!(
+            "container removal failed: {}",
+            e
+        )));
+    }
+
+    // Remove image
+    let _ = runtime.remove_image(&image_ref).await;
+
+    // 5. Delete from state
+    manager.remove(adapter_id).ok();
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

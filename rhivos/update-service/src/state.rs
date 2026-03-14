@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 
-use crate::model::{AdapterInfo, AdapterState, AdapterStateEvent};
+use crate::model::{now_unix, AdapterInfo, AdapterState, AdapterStateEvent};
 
 const BROADCAST_CAPACITY: usize = 256;
 
@@ -33,7 +33,6 @@ impl std::error::Error for StateError {}
 
 /// In-memory adapter state manager with event broadcasting.
 pub struct StateManager {
-    #[allow(dead_code)]
     adapters: Arc<Mutex<HashMap<String, AdapterInfo>>>,
     tx: broadcast::Sender<AdapterStateEvent>,
 }
@@ -51,11 +50,37 @@ impl StateManager {
     /// Register a new adapter in DOWNLOADING state.
     pub fn create_adapter(
         &self,
-        _adapter_id: &str,
-        _image_ref: &str,
-        _checksum: &str,
+        adapter_id: &str,
+        image_ref: &str,
+        checksum: &str,
     ) -> Result<(), StateError> {
-        todo!("implement StateManager::create_adapter")
+        let mut map = self.adapters.lock().unwrap();
+        if map.contains_key(adapter_id) {
+            return Err(StateError::AlreadyExists(adapter_id.to_string()));
+        }
+        let info = AdapterInfo {
+            adapter_id: adapter_id.to_string(),
+            image_ref: image_ref.to_string(),
+            checksum: checksum.to_string(),
+            state: AdapterState::Downloading,
+            container_id: None,
+            created_at: now_unix(),
+            stopped_at: None,
+            error_message: None,
+        };
+        map.insert(adapter_id.to_string(), info);
+
+        // Emit the UNKNOWN→DOWNLOADING event
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state: AdapterState::Unknown,
+            new_state: AdapterState::Downloading,
+            timestamp: now_unix(),
+        };
+        // Ignore send errors (no subscribers is fine)
+        let _ = self.tx.send(event);
+
+        Ok(())
     }
 
     /// Transition an existing adapter to `new_state`, broadcasting the event.
@@ -64,35 +89,87 @@ impl StateManager {
     /// valid state machine.
     pub fn transition(
         &self,
-        _adapter_id: &str,
-        _new_state: AdapterState,
+        adapter_id: &str,
+        new_state: AdapterState,
     ) -> Result<(), StateError> {
-        todo!("implement StateManager::transition")
+        let mut map = self.adapters.lock().unwrap();
+        let info = map
+            .get_mut(adapter_id)
+            .ok_or_else(|| StateError::NotFound(adapter_id.to_string()))?;
+
+        let old_state = info.state.clone();
+        if !is_valid_transition(&old_state, &new_state) {
+            return Err(StateError::InvalidTransition {
+                from: old_state,
+                to: new_state,
+            });
+        }
+
+        // Set stopped_at when transitioning to STOPPED
+        if new_state == AdapterState::Stopped {
+            info.stopped_at = Some(now_unix());
+        }
+
+        info.state = new_state.clone();
+
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state,
+            new_state,
+            timestamp: now_unix(),
+        };
+        drop(map); // release lock before sending
+
+        let _ = self.tx.send(event);
+
+        Ok(())
     }
 
     /// Look up an adapter by ID.
-    pub fn get(&self, _adapter_id: &str) -> Option<AdapterInfo> {
-        todo!("implement StateManager::get")
+    pub fn get(&self, adapter_id: &str) -> Option<AdapterInfo> {
+        self.adapters.lock().unwrap().get(adapter_id).cloned()
     }
 
     /// Return all known adapters.
     pub fn list(&self) -> Vec<AdapterInfo> {
-        todo!("implement StateManager::list")
+        self.adapters.lock().unwrap().values().cloned().collect()
     }
 
     /// Remove an adapter from in-memory state.  Does NOT emit an event.
-    pub fn remove(&self, _adapter_id: &str) -> Result<(), StateError> {
-        todo!("implement StateManager::remove")
+    pub fn remove(&self, adapter_id: &str) -> Result<(), StateError> {
+        let mut map = self.adapters.lock().unwrap();
+        if map.remove(adapter_id).is_none() {
+            return Err(StateError::NotFound(adapter_id.to_string()));
+        }
+        Ok(())
     }
 
     /// Return the adapter ID of the currently RUNNING adapter, if any.
     pub fn get_running_adapter(&self) -> Option<String> {
-        todo!("implement StateManager::get_running_adapter")
+        self.adapters
+            .lock()
+            .unwrap()
+            .values()
+            .find(|a| a.state == AdapterState::Running)
+            .map(|a| a.adapter_id.clone())
     }
 
     /// Return the adapter IDs whose STOPPED time exceeds `timeout_secs` ago.
-    pub fn get_stopped_expired(&self, _timeout_secs: u64) -> Vec<String> {
-        todo!("implement StateManager::get_stopped_expired")
+    pub fn get_stopped_expired(&self, timeout_secs: u64) -> Vec<String> {
+        let now = now_unix();
+        let threshold = timeout_secs as i64;
+        self.adapters
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|a| {
+                a.state == AdapterState::Stopped
+                    && a.stopped_at
+                        .map(|t| now - t > threshold)
+                        .unwrap_or(false)
+            })
+            .map(|a| a.adapter_id.clone())
+            .collect()
     }
 
     /// Subscribe to state-transition events.
@@ -102,8 +179,46 @@ impl StateManager {
 
     /// Update the `stopped_at` field of an adapter (test helper).
     #[cfg(test)]
-    pub fn set_stopped_at(&self, _adapter_id: &str, _ts: i64) {
-        todo!("implement StateManager::set_stopped_at")
+    pub fn set_stopped_at(&self, adapter_id: &str, ts: i64) {
+        let mut map = self.adapters.lock().unwrap();
+        if let Some(info) = map.get_mut(adapter_id) {
+            info.stopped_at = Some(ts);
+        }
+    }
+
+    /// Set the container ID for an adapter (used by service logic after run()).
+    pub fn set_container_id(&self, adapter_id: &str, container_id: String) {
+        let mut map = self.adapters.lock().unwrap();
+        if let Some(info) = map.get_mut(adapter_id) {
+            info.container_id = Some(container_id);
+        }
+    }
+
+    /// Set the error message for an adapter.
+    pub fn set_error_message(&self, adapter_id: &str, msg: String) {
+        let mut map = self.adapters.lock().unwrap();
+        if let Some(info) = map.get_mut(adapter_id) {
+            info.error_message = Some(msg);
+        }
+    }
+
+    /// Force-set an adapter's state without validation (used by service logic
+    /// to record ERROR without going through the state machine).
+    pub fn force_error(&self, adapter_id: &str, msg: &str) {
+        let mut map = self.adapters.lock().unwrap();
+        if let Some(info) = map.get_mut(adapter_id) {
+            let old_state = info.state.clone();
+            info.state = AdapterState::Error;
+            info.error_message = Some(msg.to_string());
+            let event = AdapterStateEvent {
+                adapter_id: adapter_id.to_string(),
+                old_state,
+                new_state: AdapterState::Error,
+                timestamp: now_unix(),
+            };
+            drop(map);
+            let _ = self.tx.send(event);
+        }
     }
 }
 
@@ -118,8 +233,18 @@ impl Default for StateManager {
 // ---------------------------------------------------------------------------
 
 /// Returns `true` if transitioning `from` → `to` is permitted.
-pub fn is_valid_transition(_from: &AdapterState, _to: &AdapterState) -> bool {
-    todo!("implement is_valid_transition")
+pub fn is_valid_transition(from: &AdapterState, to: &AdapterState) -> bool {
+    matches!(
+        (from, to),
+        (AdapterState::Downloading, AdapterState::Installing)
+            | (AdapterState::Downloading, AdapterState::Error)
+            | (AdapterState::Installing, AdapterState::Running)
+            | (AdapterState::Installing, AdapterState::Error)
+            | (AdapterState::Running, AdapterState::Stopped)
+            | (AdapterState::Running, AdapterState::Error)
+            | (AdapterState::Stopped, AdapterState::Offloading)
+            | (AdapterState::Stopped, AdapterState::Running)
+    )
 }
 
 // ---------------------------------------------------------------------------
