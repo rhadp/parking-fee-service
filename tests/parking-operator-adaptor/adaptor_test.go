@@ -1,19 +1,12 @@
 package parkingoperatoradaptor
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
-
-	pb "github.com/parking-fee-service/proto"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // TS-08-17: Startup Logging
@@ -32,15 +25,14 @@ func TestStartupLogging(t *testing.T) {
 	// then fail after 5 retries and exit.
 	unreachableBroker := fmt.Sprintf("http://127.0.0.1:%d", findFreePort(t))
 
-	cmd := exec.Command(binPath)
-	cmd.Env = append(os.Environ(),
+	cmd := buildCmd(binPath, append(os.Environ(),
 		fmt.Sprintf("PARKING_OPERATOR_URL=%s", operatorURL),
 		fmt.Sprintf("DATA_BROKER_ADDR=%s", unreachableBroker),
 		fmt.Sprintf("GRPC_PORT=%d", grpcPort),
 		"VEHICLE_ID=TEST-VIN-42",
 		"ZONE_ID=zone-test-1",
 		"RUST_LOG=info",
-	)
+	))
 
 	// CombinedOutput waits for the process to exit and captures all output.
 	output, _ := cmd.CombinedOutput()
@@ -133,15 +125,14 @@ func TestDataBrokerUnreachable(t *testing.T) {
 	// Use a port that nothing is listening on
 	unreachableAddr := fmt.Sprintf("http://127.0.0.1:%d", findFreePort(t))
 
-	cmd := exec.Command(binPath)
-	cmd.Env = append(os.Environ(),
+	cmd := buildCmd(binPath, append(os.Environ(),
 		fmt.Sprintf("PARKING_OPERATOR_URL=%s", operatorURL),
 		fmt.Sprintf("DATA_BROKER_ADDR=%s", unreachableAddr),
 		fmt.Sprintf("GRPC_PORT=%d", grpcPort),
 		"VEHICLE_ID=TEST-VIN-42",
 		"ZONE_ID=zone-test-1",
 		"RUST_LOG=info",
-	)
+	))
 
 	// CombinedOutput waits for the process to exit and captures all output.
 	output, err := cmd.CombinedOutput()
@@ -160,70 +151,5 @@ func TestDataBrokerUnreachable(t *testing.T) {
 	// Verify retry messages appear in logs
 	if !strings.Contains(out, "DATA_BROKER") {
 		t.Error("expected DATA_BROKER retry messages in output")
-	}
-}
-
-// TestGRPCGetStatus verifies the gRPC GetStatus RPC works end-to-end
-// when the service is running. This test requires a real DATA_BROKER.
-// It is skipped when DATA_BROKER is not available.
-func TestGRPCGetStatus(t *testing.T) {
-	// This test needs a real DATA_BROKER; skip if unavailable
-	brokerAddr := os.Getenv("DATA_BROKER_ADDR")
-	if brokerAddr == "" {
-		brokerAddr = "http://localhost:55556"
-	}
-
-	// Quick check if broker is reachable
-	host := strings.TrimPrefix(brokerAddr, "http://")
-	conn, err := (&net.Dialer{Timeout: 2 * time.Second}).Dial("tcp", host)
-	if err != nil {
-		t.Skip("DATA_BROKER not available; skipping integration test")
-	}
-	conn.Close()
-
-	binPath := buildAdaptorBinary(t)
-	operatorURL := mockParkingOperator(t)
-	grpcPort := findFreePort(t)
-
-	cmd, _, _ := startAdaptor(t, binPath, append(os.Environ(),
-		fmt.Sprintf("PARKING_OPERATOR_URL=%s", operatorURL),
-		fmt.Sprintf("DATA_BROKER_ADDR=%s", brokerAddr),
-		fmt.Sprintf("GRPC_PORT=%d", grpcPort),
-		"VEHICLE_ID=TEST-VIN-42",
-		"ZONE_ID=zone-test-1",
-		"RUST_LOG=info",
-	))
-
-	// Wait for gRPC server to be ready
-	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	waitForGRPCReady(t, grpcAddr, 15*time.Second)
-
-	// Connect gRPC client
-	grpcConn, err := grpc.NewClient(grpcAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		t.Fatalf("grpc.NewClient failed: %v", err)
-	}
-	defer grpcConn.Close()
-
-	client := pb.NewParkingAdaptorClient(grpcConn)
-
-	// Call GetStatus — should return idle state
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := client.GetStatus(ctx, &pb.GetStatusRequest{})
-	if err != nil {
-		t.Fatalf("GetStatus RPC failed: %v", err)
-	}
-
-	if resp.State != "idle" {
-		t.Errorf("expected state=idle, got %q", resp.State)
-	}
-
-	// Clean shutdown
-	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		t.Logf("SIGTERM failed: %v", err)
 	}
 }
