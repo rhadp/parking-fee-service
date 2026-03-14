@@ -11,8 +11,10 @@ pub mod kuksav1 {
 pub mod autonomous;
 pub mod broker;
 pub mod config;
+pub mod grpc_server;
 pub mod grpc_service;
 pub mod operator;
+pub mod proto;
 pub mod session;
 
 #[cfg(test)]

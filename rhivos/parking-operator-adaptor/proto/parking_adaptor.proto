@@ -1,0 +1,97 @@
+// PARKING_OPERATOR_ADAPTOR gRPC API definition.
+//
+// Provides four RPCs to the PARKING_APP (AAOS):
+//   StartSession — manually start a parking session
+//   StopSession  — manually stop the current session
+//   GetStatus    — query current session state
+//   GetRate      — query current parking rate
+//
+// Requirements: 08-REQ-3.1, 08-REQ-3.2, 08-REQ-4.1, 08-REQ-5.1
+
+syntax = "proto3";
+
+package parking.adaptor;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/go/adaptorpb";
+
+// ---------------------------------------------------------------------------
+// Service definition
+// ---------------------------------------------------------------------------
+
+service ParkingAdaptor {
+  // Start a parking session manually (override autonomous behaviour).
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+  // Stop the current parking session manually.
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+  // Query current session status.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  // Query the cached parking rate for the current session.
+  rpc GetRate(GetRateRequest) returns (GetRateResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
+message StartSessionRequest {
+  // Parking zone identifier.
+  string zone_id = 1;
+}
+
+message StartSessionResponse {
+  // PARKING_OPERATOR-assigned session identifier.
+  string session_id = 1;
+  // Session status string (e.g. "active").
+  string status = 2;
+}
+
+message StopSessionRequest {}
+
+message StopSessionResponse {
+  // PARKING_OPERATOR-assigned session identifier.
+  string session_id = 1;
+  // Session status string (e.g. "stopped").
+  string status = 2;
+  // Duration of the parking session in seconds.
+  uint64 duration_seconds = 3;
+  // Total parking fee amount.
+  double total_amount = 4;
+  // ISO 4217 currency code (e.g. "EUR").
+  string currency = 5;
+}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  // PARKING_OPERATOR-assigned session identifier (empty if no session).
+  string session_id = 1;
+  // Whether a session is currently active.
+  bool active = 2;
+  // Parking zone identifier (empty if no session).
+  string zone_id = 3;
+  // Unix timestamp when the session started (0 if no session).
+  int64 start_time = 4;
+  // Pricing details for the current session (absent if no session).
+  Rate rate = 5;
+}
+
+message GetRateRequest {}
+
+message GetRateResponse {
+  // Pricing model: "per_hour" or "flat_fee".
+  string rate_type = 1;
+  // Price amount.
+  double amount = 2;
+  // ISO 4217 currency code (e.g. "EUR").
+  string currency = 3;
+}
+
+// Parking rate information.
+message Rate {
+  // Pricing model: "per_hour" or "flat_fee".
+  string rate_type = 1;
+  // Price amount.
+  double amount = 2;
+  // ISO 4217 currency code (e.g. "EUR").
+  string currency = 3;
+}
