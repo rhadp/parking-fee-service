@@ -24,14 +24,14 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up Go module and test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up Go module and test file structure
     - Ensure `backend/cloud-gateway/` has proper package structure
     - Create package directories: `model/`, `config/`, `auth/`, `store/`, `handler/`, `natsclient/`
     - Create test files: `config/config_test.go`, `auth/auth_test.go`, `store/store_test.go`, `handler/handler_test.go`
     - _Test Spec: TS-06-1 through TS-06-27_
 
-  - [ ] 1.2 Write config and auth unit tests
+  - [x] 1.2 Write config and auth unit tests
     - `TestLoadConfigFromFile` — TS-06-18
     - `TestConfigFields` — TS-06-19
     - `TestConfigDefaults` — TS-06-20
@@ -41,7 +41,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestTokenVINAuthorization` — TS-06-17
     - _Test Spec: TS-06-16, TS-06-17, TS-06-18, TS-06-19, TS-06-20, TS-06-E10, TS-06-E11_
 
-  - [ ] 1.3 Write store and model unit tests
+  - [x] 1.3 Write store and model unit tests
     - `TestCommandStoredAsPending` — TS-06-4
     - `TestPendingStatusBeforeResponse` — TS-06-6
     - `TestSuccessAndFailedStatus` — TS-06-7
@@ -51,7 +51,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestCommandPayloadStructure` — TS-06-2
     - _Test Spec: TS-06-2, TS-06-4, TS-06-6, TS-06-7, TS-06-10, TS-06-11, TS-06-12_
 
-  - [ ] 1.4 Write handler integration tests (httptest)
+  - [x] 1.4 Write handler integration tests (httptest)
     - `TestCommandSubmission` — TS-06-1
     - `TestCommandStatusQuery` — TS-06-5
     - `TestTokenValidationOnEndpoints` — TS-06-15
@@ -66,7 +66,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestAuthOnStatusQuery` — TS-06-E6
     - _Test Spec: TS-06-1, TS-06-5, TS-06-15, TS-06-23, TS-06-26, TS-06-27, TS-06-E1 through TS-06-E6_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - `TestPropertyCommandRouting` — TS-06-P1
     - `TestPropertyAuthEnforcement` — TS-06-P2
     - `TestPropertyResponseStatusUpdate` — TS-06-P3
@@ -76,10 +76,10 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestPropertyNATSSubjects` — TS-06-P7
     - _Test Spec: TS-06-P1 through TS-06-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd backend && go test -v ./cloud-gateway/... -run NONE`
-    - [ ] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd backend && go test -v ./cloud-gateway/... -run NONE`
+    - [x] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
 - [ ] 2. Model, config, and auth modules
   - [ ] 2.1 Implement model package
