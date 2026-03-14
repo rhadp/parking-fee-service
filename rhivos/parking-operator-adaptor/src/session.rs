@@ -159,8 +159,21 @@ impl SessionManager {
     }
 
     /// Confirm autonomous start: store `session_id`, transition `Starting → Active`.
+    ///
+    /// Use [`confirm_start_with_data`] when zone_id and rate are available.
     pub fn confirm_start(&mut self, session_id: String) {
         self.session_id = Some(session_id);
+        self.start_time = Some(current_unix_timestamp());
+        self.state = SessionState::Active;
+    }
+
+    /// Confirm autonomous start with full session data (session_id, zone_id, rate).
+    ///
+    /// Stores all session metadata and transitions `Starting → Active`.
+    pub fn confirm_start_with_data(&mut self, session_id: String, zone_id: String, rate: Option<Rate>) {
+        self.session_id = Some(session_id);
+        self.zone_id = Some(zone_id);
+        self.rate = rate;
         self.start_time = Some(current_unix_timestamp());
         self.state = SessionState::Active;
     }

@@ -40,42 +40,93 @@ impl std::error::Error for OperatorError {}
 
 /// Concrete HTTP client for the PARKING_OPERATOR REST API.
 ///
-/// # Stub
-/// Not yet implemented — task group 4 adds the real `reqwest` calls.
+/// Uses `reqwest` to make JSON HTTP requests to the PARKING_OPERATOR backend.
+/// `reqwest::Client` is internally `Arc`-based and can be cheaply cloned.
 pub struct OperatorClient {
-    _base_url: String,
-    _http: reqwest::Client,
+    base_url: String,
+    http: reqwest::Client,
 }
 
 impl OperatorClient {
     /// Create a new `OperatorClient` for the given base URL.
     pub fn new(base_url: String) -> Self {
         Self {
-            _base_url: base_url,
-            _http: reqwest::Client::new(),
+            base_url,
+            http: reqwest::Client::new(),
         }
     }
 }
 
 #[tonic::async_trait]
 impl OperatorApi for OperatorClient {
+    /// Call `POST /parking/start` with vehicle_id, zone_id, and current timestamp.
     async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        // STUB: task group 4 implements real POST /parking/start.
-        Err(OperatorError::Unreachable("not implemented".to_string()))
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let body = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp,
+        };
+
+        let url = format!("{}/parking/start", self.base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| OperatorError::Unreachable(e.to_string()))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let code = status.as_u16();
+            let msg = resp.text().await.unwrap_or_default();
+            return Err(OperatorError::ServerError(code, msg));
+        }
+
+        resp.json::<StartResponse>()
+            .await
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 
-    async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        // STUB: task group 4 implements real POST /parking/stop.
-        Err(OperatorError::Unreachable("not implemented".to_string()))
+    /// Call `POST /parking/stop` with session_id and current timestamp.
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let body = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp,
+        };
+
+        let url = format!("{}/parking/stop", self.base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| OperatorError::Unreachable(e.to_string()))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let code = status.as_u16();
+            let msg = resp.text().await.unwrap_or_default();
+            return Err(OperatorError::ServerError(code, msg));
+        }
+
+        resp.json::<StopResponse>()
+            .await
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 }
-
-// Suppress unused import warnings on the models in the stub.
-const _: fn() = || {
-    let _ = std::mem::size_of::<StartRequest>();
-    let _ = std::mem::size_of::<StopRequest>();
-};

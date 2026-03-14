@@ -102,6 +102,11 @@ impl OperatorApi for MockOperatorClient {
         Ok(StartResponse {
             session_id,
             status: "active".to_string(),
+            rate: Some(crate::session::Rate {
+                rate_type: "per_hour".to_string(),
+                amount: 2.50,
+                currency: "EUR".to_string(),
+            }),
         })
     }
 

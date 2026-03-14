@@ -37,6 +37,8 @@ pub struct StartResponse {
     pub session_id: String,
     /// Session status string (e.g. `"active"`).
     pub status: String,
+    /// Pricing information for the session (optional — older operators may omit).
+    pub rate: Option<crate::session::Rate>,
 }
 
 /// Response from `POST /parking/stop`.

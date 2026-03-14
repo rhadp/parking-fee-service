@@ -85,22 +85,91 @@ impl ParkingService {
     /// `StartSession(zone_id)` — start a parking session.
     ///
     /// Returns `ALREADY_EXISTS` if a session is already active (08-REQ-3.E1).
-    ///
-    /// # Stub — returns `UNIMPLEMENTED` (task group 5)
+    /// Calls the PARKING_OPERATOR start API and stores session state on success.
     pub async fn start_session(&self, zone_id: &str) -> Result<StartResult, Status> {
-        // STUB: task group 5 implements real session start via operator API.
-        let _ = zone_id;
-        Err(Status::unimplemented("start_session not yet implemented"))
+        // Check for existing session (08-REQ-3.E1).
+        {
+            let s = self.session.lock().await;
+            if s.is_active() {
+                return Err(Status::already_exists(
+                    "a parking session is already active",
+                ));
+            }
+        }
+
+        // Call the PARKING_OPERATOR (same flow as autonomous start).
+        let resp = self
+            .operator
+            .start_session(&self.vehicle_id, zone_id)
+            .await
+            .map_err(|e| Status::internal(format!("operator start_session failed: {}", e)))?;
+
+        // Store session state using the manual (gRPC) flow.
+        let rate = resp.rate.unwrap_or(crate::session::Rate {
+            rate_type: "unknown".to_string(),
+            amount: 0.0,
+            currency: "EUR".to_string(),
+        });
+
+        {
+            let mut s = self.session.lock().await;
+            s.start(&resp.session_id, zone_id, rate).map_err(|e| {
+                Status::already_exists(format!("session start conflict: {}", e))
+            })?;
+        }
+
+        // Publish SessionActive=true to DATA_BROKER (08-REQ-1.3).
+        if let Err(e) = self.publisher.set_session_active(true).await {
+            tracing::error!(error = %e, "failed to publish SessionActive=true");
+        }
+
+        Ok(StartResult {
+            session_id: resp.session_id,
+            status: resp.status,
+        })
     }
 
     /// `StopSession()` — stop the current parking session.
     ///
     /// Returns `NOT_FOUND` if no session is active (08-REQ-3.E2).
-    ///
-    /// # Stub — returns `UNIMPLEMENTED` (task group 5)
+    /// Calls the PARKING_OPERATOR stop API and clears session state on success.
     pub async fn stop_session(&self) -> Result<StopResult, Status> {
-        // STUB: task group 5 implements real session stop via operator API.
-        Err(Status::unimplemented("stop_session not yet implemented"))
+        // Get the session_id; return NOT_FOUND if no session (08-REQ-3.E2).
+        let session_id = {
+            let s = self.session.lock().await;
+            if !s.is_active() {
+                return Err(Status::not_found("no active parking session"));
+            }
+            s.session_id()
+                .unwrap_or_default()
+                .to_string()
+        };
+
+        // Call the PARKING_OPERATOR.
+        let resp = self
+            .operator
+            .stop_session(&session_id)
+            .await
+            .map_err(|e| Status::internal(format!("operator stop_session failed: {}", e)))?;
+
+        // Clear session state (08-REQ-2.2).
+        {
+            let mut s = self.session.lock().await;
+            let _ = s.stop(); // best-effort; already checked is_active above
+        }
+
+        // Publish SessionActive=false to DATA_BROKER (08-REQ-2.3).
+        if let Err(e) = self.publisher.set_session_active(false).await {
+            tracing::error!(error = %e, "failed to publish SessionActive=false");
+        }
+
+        Ok(StopResult {
+            session_id: resp.session_id,
+            status: resp.status,
+            duration_seconds: resp.duration,
+            total_amount: resp.fee,
+            currency: "EUR".to_string(),
+        })
     }
 
     /// `GetStatus()` — return the current session status.

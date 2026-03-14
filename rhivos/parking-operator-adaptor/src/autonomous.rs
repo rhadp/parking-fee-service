@@ -108,7 +108,7 @@ pub async fn handle_lock_event(
         Ok(resp) => {
             info!(session_id = %resp.session_id, "autonomous session started");
             let mut s = session.lock().await;
-            s.confirm_start(resp.session_id);
+            s.confirm_start_with_data(resp.session_id, zone_id.to_string(), resp.rate);
 
             // Publish SessionActive = true to DATA_BROKER
             if let Err(e) = publisher.set_session_active(true).await {
