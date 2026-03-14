@@ -168,8 +168,8 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7, TS-07-13, TS-07-14, TS-07-15, TS-07-16, TS-07-17, TS-07-18, TS-07-E1 through TS-07-E5, TS-07-E7, TS-07-E8, TS-07-P2, TS-07-P3_
 
-- [ ] 5. gRPC server and main
-  - [ ] 5.1 Implement gRPC service
+- [x] 5. gRPC server and main
+  - [x] 5.1 Implement gRPC service
     - Implement `UpdateService` tonic trait for all 5 RPCs
     - `install_adapter`: delegate to install logic
     - `watch_adapter_states`: create subscriber, stream events
@@ -179,7 +179,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - Map errors to appropriate gRPC status codes
     - _Requirements: 07-REQ-1.1, 07-REQ-3.1, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1_
 
-  - [ ] 5.2 Implement main
+  - [x] 5.2 Implement main
     - Read `CONFIG_PATH` env var, load config
     - Create StateManager, PodmanRuntime, gRPC service
     - Start offload timer as tokio task
@@ -188,10 +188,10 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - Handle SIGTERM/SIGINT: stop running adapters, shutdown gRPC server
     - _Requirements: 07-REQ-7.1, 07-REQ-8.1, 07-REQ-8.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Binary compiles: `cd rhivos && cargo build -p update-service`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p update-service`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+  - [x] 5.V Verify task group 5
+    - [x] Binary compiles: `cd rhivos && cargo build -p update-service`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p update-service`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
 - [ ] 6. Integration test validation
   - [ ] 6.1 Create integration test module
