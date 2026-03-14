@@ -82,16 +82,30 @@ impl std::fmt::Display for SessionError {
 impl std::error::Error for SessionError {}
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+fn current_unix_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+// ---------------------------------------------------------------------------
 // SessionManager
 // ---------------------------------------------------------------------------
 
 /// In-memory session state machine.
 ///
-/// # Stub
-/// All mutating methods are **not yet implemented** and return errors or do
-/// nothing.  Task group 3 replaces the stubs with the real implementation.
-// zone_id, rate, and start_time are stored here for future use in get_status().
-#[allow(dead_code)]
+/// Tracks the lifecycle of a single parking session.  Two flows are
+/// supported:
+///
+/// * **Autonomous** — `try_start` → (HTTP call) → `confirm_start` or
+///   `fail_start`; then `try_stop` → (HTTP call) → `confirm_stop` or
+///   `fail_stop`.
+/// * **Manual (gRPC)** — `start` and `stop` perform the full transition
+///   atomically (no intermediate state).
 pub struct SessionManager {
     state: SessionState,
     session_id: Option<String>,
@@ -103,7 +117,7 @@ pub struct SessionManager {
 impl SessionManager {
     /// Create a new `SessionManager` in the `Idle` state.
     ///
-    /// `default_zone_id` is informational only in this stub.
+    /// `default_zone_id` is stored for informational purposes.
     pub fn new(_default_zone_id: Option<String>) -> Self {
         Self {
             state: SessionState::Idle,
@@ -136,55 +150,51 @@ impl SessionManager {
     /// Begin autonomous start: transition `Idle → Starting`.
     ///
     /// Returns `SessionError::AlreadyActive` if the session is not idle.
-    ///
-    /// # Stub — not yet implemented (task group 3)
     pub fn try_start(&mut self) -> Result<(), SessionError> {
-        // STUB: task group 3 implements the real transition.
         if self.state != SessionState::Idle {
             return Err(SessionError::AlreadyActive);
         }
-        // Stub keeps state as Idle (real impl would set Starting)
+        self.state = SessionState::Starting;
         Ok(())
     }
 
     /// Confirm autonomous start: store `session_id`, transition `Starting → Active`.
-    ///
-    /// # Stub — no-op (task group 3)
-    pub fn confirm_start(&mut self, _session_id: String) {
-        // STUB: no-op — real impl stores session_id and transitions to Active.
+    pub fn confirm_start(&mut self, session_id: String) {
+        self.session_id = Some(session_id);
+        self.start_time = Some(current_unix_timestamp());
+        self.state = SessionState::Active;
     }
 
-    /// Autonomous start failed: transition `Starting → Idle`.
-    ///
-    /// # Stub — sets state to Idle (task group 3)
+    /// Autonomous start failed: transition `Starting → Idle`, clear partial state.
     pub fn fail_start(&mut self) {
         self.state = SessionState::Idle;
+        self.session_id = None;
+        self.zone_id = None;
+        self.rate = None;
+        self.start_time = None;
     }
 
     /// Begin autonomous stop: transition `Active → Stopping`.
     ///
     /// Returns `SessionError::NotActive` if there is no active session.
-    ///
-    /// # Stub — not yet implemented (task group 3)
     pub fn try_stop(&mut self) -> Result<(), SessionError> {
-        // STUB: task group 3 implements the real transition.
         if self.state != SessionState::Active {
             return Err(SessionError::NotActive);
         }
-        // Stub keeps state as Active (real impl would set Stopping)
+        self.state = SessionState::Stopping;
         Ok(())
     }
 
     /// Confirm autonomous stop: clear session, transition `Stopping → Idle`.
-    ///
-    /// # Stub — no-op (task group 3)
     pub fn confirm_stop(&mut self) {
-        // STUB: no-op — real impl clears session and transitions to Idle.
+        self.state = SessionState::Idle;
+        self.session_id = None;
+        self.zone_id = None;
+        self.rate = None;
+        self.start_time = None;
     }
 
     /// Autonomous stop failed: transition `Stopping → Active`.
-    ///
-    /// # Stub — resets to Active to allow retry (task group 3)
     pub fn fail_stop(&mut self) {
         self.state = SessionState::Active;
     }
@@ -195,47 +205,66 @@ impl SessionManager {
 
     /// Atomically start a session (gRPC override / direct use).
     ///
+    /// Stores `session_id`, `zone_id`, `rate`, and the current timestamp.
     /// Returns `SessionError::AlreadyActive` if a session is already active.
-    ///
-    /// # Stub — not yet implemented (task group 3)
     pub fn start(
         &mut self,
-        _session_id: &str,
-        _zone_id: &str,
-        _rate: Rate,
+        session_id: &str,
+        zone_id: &str,
+        rate: Rate,
     ) -> Result<(), SessionError> {
-        // STUB: returns AlreadyActive so tests fail (task group 3 implements real logic).
-        Err(SessionError::AlreadyActive)
+        if self.state != SessionState::Idle {
+            return Err(SessionError::AlreadyActive);
+        }
+        self.session_id = Some(session_id.to_string());
+        self.zone_id = Some(zone_id.to_string());
+        self.rate = Some(rate);
+        self.start_time = Some(current_unix_timestamp());
+        self.state = SessionState::Active;
+        Ok(())
     }
 
     /// Atomically stop the current session (gRPC override / direct use).
     ///
+    /// Clears all stored session data.
     /// Returns `SessionError::NotActive` if no session is active.
-    ///
-    /// # Stub — not yet implemented (task group 3)
     pub fn stop(&mut self) -> Result<(), SessionError> {
-        // STUB: returns NotActive so tests fail (task group 3 implements real logic).
-        Err(SessionError::NotActive)
+        if self.state != SessionState::Active {
+            return Err(SessionError::NotActive);
+        }
+        self.state = SessionState::Idle;
+        self.session_id = None;
+        self.zone_id = None;
+        self.rate = None;
+        self.start_time = None;
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
     // Query methods
     // -----------------------------------------------------------------------
 
-    /// Return the current session status, or `None` if idle.
-    ///
-    /// # Stub — always returns `None` (task group 3)
+    /// Return the current session status, or `None` if no session is active.
     pub fn get_status(&self) -> Option<SessionStatus> {
-        // STUB: always returns None — real impl returns Some(SessionStatus{...}).
-        None
+        if self.state != SessionState::Active {
+            return None;
+        }
+        Some(SessionStatus {
+            session_id: self.session_id.clone()?,
+            zone_id: self.zone_id.clone().unwrap_or_default(),
+            start_time: self.start_time.unwrap_or(0),
+            rate: self.rate.clone()?,
+            active: true,
+        })
     }
 
-    /// Return the cached rate for the current session, or `None` if idle.
-    ///
-    /// # Stub — always returns `None` (task group 3)
+    /// Return the cached rate for the current session, or `None` if no
+    /// session is active.
     pub fn get_rate(&self) -> Option<Rate> {
-        // STUB: always returns None — real impl returns Some(Rate{...}).
-        None
+        if self.state != SessionState::Active {
+            return None;
+        }
+        self.rate.clone()
     }
 }
 
@@ -378,5 +407,89 @@ mod tests {
     fn test_get_rate_no_session() {
         let sm = SessionManager::new(None);
         assert!(sm.get_rate().is_none());
+    }
+
+    // -----------------------------------------------------------------------
+    // Autonomous flow transitions
+    // -----------------------------------------------------------------------
+
+    /// Verify try_start transitions Idle → Starting.
+    #[test]
+    fn test_try_start_transitions_to_starting() {
+        let mut sm = SessionManager::new(None);
+        assert_eq!(*sm.state(), SessionState::Idle);
+        sm.try_start().unwrap();
+        assert_eq!(*sm.state(), SessionState::Starting);
+    }
+
+    /// Verify try_start fails when not Idle.
+    #[test]
+    fn test_try_start_fails_when_not_idle() {
+        let mut sm = SessionManager::new(None);
+        sm.start("s-1", "z-1", make_rate()).unwrap(); // Active
+        let err = sm.try_start().unwrap_err();
+        assert_eq!(err, SessionError::AlreadyActive);
+    }
+
+    /// Verify confirm_start stores session_id and transitions to Active.
+    #[test]
+    fn test_confirm_start_transitions_to_active() {
+        let mut sm = SessionManager::new(None);
+        sm.try_start().unwrap();
+        sm.confirm_start("sess-auto-001".to_string());
+        assert_eq!(*sm.state(), SessionState::Active);
+        assert_eq!(sm.session_id(), Some("sess-auto-001"));
+        assert!(sm.is_active());
+    }
+
+    /// Verify fail_start resets to Idle.
+    #[test]
+    fn test_fail_start_resets_to_idle() {
+        let mut sm = SessionManager::new(None);
+        sm.try_start().unwrap();
+        sm.fail_start();
+        assert_eq!(*sm.state(), SessionState::Idle);
+        assert!(!sm.is_active());
+    }
+
+    /// Verify try_stop transitions Active → Stopping.
+    #[test]
+    fn test_try_stop_transitions_to_stopping() {
+        let mut sm = SessionManager::new(None);
+        sm.start("s-1", "z-1", make_rate()).unwrap();
+        sm.try_stop().unwrap();
+        assert_eq!(*sm.state(), SessionState::Stopping);
+    }
+
+    /// Verify try_stop fails when not Active.
+    #[test]
+    fn test_try_stop_fails_when_not_active() {
+        let mut sm = SessionManager::new(None);
+        let err = sm.try_stop().unwrap_err();
+        assert_eq!(err, SessionError::NotActive);
+    }
+
+    /// Verify confirm_stop clears session and transitions to Idle.
+    #[test]
+    fn test_confirm_stop_clears_and_transitions_to_idle() {
+        let mut sm = SessionManager::new(None);
+        sm.start("s-1", "z-1", make_rate()).unwrap();
+        sm.try_stop().unwrap();
+        sm.confirm_stop();
+        assert_eq!(*sm.state(), SessionState::Idle);
+        assert!(!sm.is_active());
+        assert!(sm.session_id().is_none());
+        assert!(sm.get_status().is_none());
+    }
+
+    /// Verify fail_stop transitions Stopping → Active.
+    #[test]
+    fn test_fail_stop_returns_to_active() {
+        let mut sm = SessionManager::new(None);
+        sm.start("s-1", "z-1", make_rate()).unwrap();
+        sm.try_stop().unwrap();
+        sm.fail_stop();
+        assert_eq!(*sm.state(), SessionState::Active);
+        assert!(sm.is_active());
     }
 }
