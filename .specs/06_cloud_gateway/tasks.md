@@ -181,14 +181,14 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] All existing tests still pass: `go test ./backend/cloud-gateway/...`
     - [x] No linter warnings: `go vet ./backend/cloud-gateway/...`
 
-- [ ] 6. Integration test validation
-  - [ ] 6.1 Create integration test module
+- [x] 6. Integration test validation
+  - [x] 6.1 Create integration test module
     - Create `tests/cloud-gateway/` Go module
     - Shared helpers: start/stop NATS, start/stop service, NATS publish/subscribe helpers
     - Add `go.work` entry for `./tests/cloud-gateway`
     - _Test Spec: TS-06-3, TS-06-8, TS-06-9, TS-06-13, TS-06-14, TS-06-21, TS-06-22, TS-06-24, TS-06-25_
 
-  - [ ] 6.2 Write and run integration tests
+  - [x] 6.2 Write and run integration tests
     - `TestBearerTokenInNATSHeader` — TS-06-3
     - `TestNATSResponseSubscription` — TS-06-8
     - `TestResponseUpdatesStore` — TS-06-9
@@ -198,7 +198,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestNATSSubscriptionsActive` — TS-06-22
     - _Test Spec: TS-06-3, TS-06-8, TS-06-9, TS-06-13, TS-06-14, TS-06-21, TS-06-22_
 
-  - [ ] 6.3 Write and run lifecycle and edge case integration tests
+  - [x] 6.3 Write and run lifecycle and edge case integration tests
     - `TestStartupLogging` — TS-06-24
     - `TestGracefulShutdown` — TS-06-25
     - `TestInvalidNATSResponseJSON` — TS-06-E7
@@ -207,12 +207,11 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestNATSUnreachable` — TS-06-E12
     - _Test Spec: TS-06-24, TS-06-25, TS-06-E7, TS-06-E8, TS-06-E9, TS-06-E12_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass: `cd tests/cloud-gateway && go test -v ./...`
-    - [ ] All unit tests still pass: `cd backend && go test -v ./cloud-gateway/...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [ ] All requirements 06-REQ-1 through 06-REQ-10 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] All integration tests pass: `cd tests/cloud-gateway && go test -v ./...`
+    - [x] All unit tests still pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [x] All requirements 06-REQ-1 through 06-REQ-10 acceptance criteria met
 
 - [ ] 7. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
