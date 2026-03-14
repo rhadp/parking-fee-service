@@ -137,36 +137,36 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] _Test Spec: TS-07-8 through TS-07-12, TS-07-14, TS-07-15, TS-07-16, TS-07-18, TS-07-E6, TS-07-P1, TS-07-P2, TS-07-P4, TS-07-P6_
 
-- [ ] 4. Container runtime trait and service logic
-  - [ ] 4.1 Define ContainerRuntime trait
+- [x] 4. Container runtime trait and service logic
+  - [x] 4.1 Define ContainerRuntime trait
     - `async fn pull(image_ref)`, `async fn inspect_digest(image_ref)`, `async fn run(image_ref, adapter_id)`, `async fn stop(container_id)`, `async fn remove(container_id)`, `async fn remove_image(image_ref)`
     - Implement `PodmanRuntime` struct: each method calls podman CLI via `tokio::process::Command`
     - `run` uses `--network=host` and `--name={adapter_id}`
     - _Requirements: 07-REQ-1.1, 07-REQ-1.3, 07-REQ-1.4_
 
-  - [ ] 4.2 Create MockContainerRuntime
+  - [x] 4.2 Create MockContainerRuntime
     - Configurable success/failure for each operation
     - Records calls for assertion
     - Configurable digest return value
     - _Test Spec: TS-07-1, TS-07-3, TS-07-4, TS-07-6, TS-07-13, TS-07-E2, TS-07-E3, TS-07-E4, TS-07-E5, TS-07-E8_
 
-  - [ ] 4.3 Implement install logic
+  - [x] 4.3 Implement install logic
     - Orchestrate: validate inputs → check single adapter constraint → stop running if needed → create adapter → pull → verify checksum → run
     - Transition through DOWNLOADING → INSTALLING → RUNNING (or ERROR)
     - On checksum mismatch: remove image, transition to ERROR
     - _Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3, 07-REQ-2.1, 07-REQ-2.2_
 
-  - [ ] 4.4 Implement remove and offload logic
+  - [x] 4.4 Implement remove and offload logic
     - Remove: stop (if running) → transition OFFLOADING → remove container → remove image → remove from state
     - Offload timer: periodic task checking `get_stopped_expired()`, triggers removal
     - _Requirements: 07-REQ-5.1, 07-REQ-5.2, 07-REQ-5.3, 07-REQ-6.1, 07-REQ-6.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All unit tests pass: `cd rhivos && cargo test -p update-service`
-    - [ ] All property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7, TS-07-13, TS-07-14, TS-07-15, TS-07-16, TS-07-17, TS-07-18, TS-07-E1 through TS-07-E5, TS-07-E7, TS-07-E8, TS-07-P2, TS-07-P3_
+  - [x] 4.V Verify task group 4
+    - [x] All unit tests pass: `cd rhivos && cargo test -p update-service`
+    - [x] All property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7, TS-07-13, TS-07-14, TS-07-15, TS-07-16, TS-07-17, TS-07-18, TS-07-E1 through TS-07-E5, TS-07-E7, TS-07-E8, TS-07-P2, TS-07-P3_
 
 - [ ] 5. gRPC server and main
   - [ ] 5.1 Implement gRPC service

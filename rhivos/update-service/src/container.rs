@@ -242,27 +242,116 @@ pub struct PodmanRuntime {
 
 #[async_trait]
 impl ContainerRuntime for PodmanRuntime {
-    async fn pull(&self, _image_ref: &str) -> Result<(), ContainerError> {
-        todo!("implement PodmanRuntime::pull")
+    /// Pull an OCI image using `podman pull`.
+    async fn pull(&self, image_ref: &str) -> Result<(), ContainerError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["pull", image_ref])
+            .output()
+            .await
+            .map_err(|e| ContainerError::PullFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(ContainerError::PullFailed(stderr));
+        }
+        Ok(())
     }
 
-    async fn inspect_digest(&self, _image_ref: &str) -> Result<String, ContainerError> {
-        todo!("implement PodmanRuntime::inspect_digest")
+    /// Retrieve the OCI manifest digest using `podman image inspect`.
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, ContainerError> {
+        let output = tokio::process::Command::new("podman")
+            .args([
+                "image",
+                "inspect",
+                "--format",
+                "{{.Digest}}",
+                image_ref,
+            ])
+            .output()
+            .await
+            .map_err(|e| ContainerError::InspectFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(ContainerError::InspectFailed(stderr));
+        }
+
+        let digest = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if digest.is_empty() {
+            return Err(ContainerError::InspectFailed(
+                "empty digest returned by podman image inspect".to_string(),
+            ));
+        }
+        Ok(digest)
     }
 
-    async fn run(&self, _image_ref: &str, _adapter_id: &str) -> Result<String, ContainerError> {
-        todo!("implement PodmanRuntime::run")
+    /// Run the container in detached mode with `--network=host`.
+    ///
+    /// Returns the container ID printed by `podman run`.
+    async fn run(&self, image_ref: &str, adapter_id: &str) -> Result<String, ContainerError> {
+        let output = tokio::process::Command::new("podman")
+            .args([
+                "run",
+                "--detach",
+                "--network=host",
+                &format!("--name={}", adapter_id),
+                image_ref,
+            ])
+            .output()
+            .await
+            .map_err(|e| ContainerError::RunFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(ContainerError::RunFailed(stderr));
+        }
+
+        let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(container_id)
     }
 
-    async fn stop(&self, _container_id: &str) -> Result<(), ContainerError> {
-        todo!("implement PodmanRuntime::stop")
+    /// Stop a running container with `podman stop`.
+    async fn stop(&self, container_id: &str) -> Result<(), ContainerError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["stop", container_id])
+            .output()
+            .await
+            .map_err(|e| ContainerError::StopFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(ContainerError::StopFailed(stderr));
+        }
+        Ok(())
     }
 
-    async fn remove(&self, _container_id: &str) -> Result<(), ContainerError> {
-        todo!("implement PodmanRuntime::remove")
+    /// Remove a stopped container with `podman rm`.
+    async fn remove(&self, container_id: &str) -> Result<(), ContainerError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rm", container_id])
+            .output()
+            .await
+            .map_err(|e| ContainerError::RemoveFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(ContainerError::RemoveFailed(stderr));
+        }
+        Ok(())
     }
 
-    async fn remove_image(&self, _image_ref: &str) -> Result<(), ContainerError> {
-        todo!("implement PodmanRuntime::remove_image")
+    /// Remove an image from local storage with `podman rmi`.
+    async fn remove_image(&self, image_ref: &str) -> Result<(), ContainerError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rmi", image_ref])
+            .output()
+            .await
+            .map_err(|e| ContainerError::RemoveImageFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(ContainerError::RemoveImageFailed(stderr));
+        }
+        Ok(())
     }
 }
