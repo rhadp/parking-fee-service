@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-	"time"
 )
 
 // repoRoot returns the absolute path to the repository root.
@@ -54,6 +53,14 @@ func buildAdaptorBinary(t *testing.T) string {
 	return binPath
 }
 
+// buildCmd creates a configured exec.Cmd for the adaptor binary with the
+// given environment. Used for tests that call CombinedOutput directly.
+func buildCmd(binPath string, env []string) *exec.Cmd {
+	cmd := exec.Command(binPath)
+	cmd.Env = env
+	return cmd
+}
+
 // findFreePort returns an available TCP port on localhost.
 func findFreePort(t *testing.T) int {
 	t.Helper()
@@ -68,7 +75,7 @@ func findFreePort(t *testing.T) int {
 
 // mockParkingOperator starts a minimal HTTP server that responds to
 // POST /parking/start and POST /parking/stop with valid JSON responses.
-// Returns the base URL and a cleanup function.
+// Returns the base URL.
 func mockParkingOperator(t *testing.T) string {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -85,7 +92,7 @@ func mockParkingOperator(t *testing.T) string {
 				"currency":  "EUR",
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
 	})
 
 	mux.HandleFunc("POST /parking/stop", func(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +105,7 @@ func mockParkingOperator(t *testing.T) string {
 			"total_amount":     2.50,
 			"currency":         "EUR",
 		}
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
 	})
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -107,7 +114,7 @@ func mockParkingOperator(t *testing.T) string {
 	}
 
 	server := &http.Server{Handler: mux}
-	go server.Serve(ln)
+	go server.Serve(ln) //nolint:errcheck
 	t.Cleanup(func() { server.Close() })
 
 	return fmt.Sprintf("http://127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port)
@@ -137,20 +144,4 @@ func startAdaptor(t *testing.T, binPath string, env []string) (*exec.Cmd, *bytes
 	})
 
 	return cmd, &stdout, &stderr
-}
-
-// waitForGRPCReady polls the given TCP address until a connection succeeds
-// or the timeout elapses.
-func waitForGRPCReady(t *testing.T, addr string, timeout time.Duration) {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf("gRPC server at %s did not become ready within %v", addr, timeout)
 }
