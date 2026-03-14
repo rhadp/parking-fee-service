@@ -1,0 +1,59 @@
+// Minimal Kuksa Databroker v2 VAL service — used by integration tests.
+// Based on the official kuksa.val.v2 proto specification.
+syntax = "proto3";
+
+package kuksa.val.v2;
+
+option go_package = "github.com/parking-fee-service/proto/kuksa/val/v2";
+
+// Vehicle Abstraction Layer v2 — the Kuksa Databroker gRPC service.
+service VAL {
+  // Get the latest value of a single signal.
+  rpc GetValue(GetValueRequest) returns (GetValueResponse);
+}
+
+// ── GetValue ──────────────────────────────────────────────────────────────────
+
+message GetValueRequest {
+  // Identifier of the requested signal.
+  SignalID signal_id = 1;
+}
+
+message GetValueResponse {
+  // The latest datapoint for the requested signal.
+  DataPoint data_point = 1;
+}
+
+// ── Signal identity ───────────────────────────────────────────────────────────
+
+// Identifies a signal either by numeric ID or by VSS path string.
+message SignalID {
+  oneof signal {
+    // Numeric (internal) ID assigned by the databroker.
+    uint32 id = 1;
+    // VSS path string (e.g. "Vehicle.Speed").
+    string path = 2;
+  }
+}
+
+// ── DataPoint ────────────────────────────────────────────────────────────────
+
+// A single signal value at a point in time.
+message DataPoint {
+  // Signal value.
+  Value value = 2;
+}
+
+// Typed value of a VSS signal.
+message Value {
+  oneof typed_value {
+    string  string = 11;
+    bool    bool   = 12;
+    int32   int32  = 13;
+    int64   int64  = 14;
+    uint32  uint32 = 15;
+    uint64  uint64 = 16;
+    float   float  = 17;
+    double  double = 18;
+  }
+}
