@@ -214,7 +214,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] All requirements 07-REQ-1 through 07-REQ-8 acceptance criteria met
 
-- [ ] 7. Checkpoint - All Tests Green
+- [x] 7. Checkpoint - All Tests Green
   - All unit, property, and integration tests pass
   - Binary starts, serves gRPC requests, manages containers, shuts down cleanly
   - Ask the user if questions arise
