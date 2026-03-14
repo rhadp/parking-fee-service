@@ -81,32 +81,32 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [ ] 2. Model, config, and auth modules
-  - [ ] 2.1 Implement model package
+- [x] 2. Model, config, and auth modules
+  - [x] 2.1 Implement model package
     - Define types: `Command`, `CommandStatus`, `CommandResponse`, `TokenMapping`, `Config`
     - Add JSON struct tags for all fields
     - Add `parseCommand([]byte) (*Command, error)` with validation
     - Add `parseResponse([]byte) (*CommandResponse, error)`
     - _Requirements: 06-REQ-1.2, 06-REQ-3.3_
 
-  - [ ] 2.2 Implement config package
+  - [x] 2.2 Implement config package
     - `LoadConfig(path string) (*Config, error)`: read JSON file, unmarshal, apply defaults
     - `DefaultConfig() *Config`: port 8081, NATS nats://localhost:4222, timeout 30s, empty tokens
     - If file not found: return DefaultConfig, log warning
     - If invalid JSON: return error
     - _Requirements: 06-REQ-7.1, 06-REQ-7.2, 06-REQ-7.3, 06-REQ-7.E1, 06-REQ-7.E2_
 
-  - [ ] 2.3 Implement auth package
+  - [x] 2.3 Implement auth package
     - `ValidateToken(header string) (string, error)`: extract token from `Bearer <token>` format
     - `NewAuthenticator(tokens []TokenMapping) *Authenticator`
     - `(a *Authenticator) AuthorizeVIN(token, vin string) bool`: check token-VIN mapping
     - _Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/... ./cloud-gateway/model/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [ ] _Test Spec: TS-06-2, TS-06-10, TS-06-16, TS-06-17, TS-06-18, TS-06-19, TS-06-20, TS-06-E10, TS-06-E11, TS-06-P2, TS-06-P5, TS-06-P6_
+  - [x] 2.V Verify task group 2
+    - [x] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/... ./cloud-gateway/model/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [x] _Test Spec: TS-06-2, TS-06-10, TS-06-16, TS-06-17, TS-06-18, TS-06-19, TS-06-20, TS-06-E10, TS-06-E11, TS-06-P2, TS-06-P5, TS-06-P6_
 
 - [ ] 3. Store module
   - [ ] 3.1 Implement store package

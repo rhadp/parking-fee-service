@@ -1,7 +1,11 @@
 // Package model defines core data types for the cloud-gateway service.
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
 
 // Command represents a lock/unlock command sent by a COMPANION_APP.
 type Command struct {
@@ -44,10 +48,30 @@ type Config struct {
 // Returns an error if the payload is invalid, missing required fields,
 // or has an invalid command type.
 func ParseCommand(data []byte) (*Command, error) {
-	return nil, nil
+	var cmd Command
+	if err := json.Unmarshal(data, &cmd); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	if cmd.CommandID == "" {
+		return nil, fmt.Errorf("missing required field: command_id")
+	}
+	if cmd.Type == "" {
+		return nil, fmt.Errorf("missing required field: type")
+	}
+	if cmd.Type != "lock" && cmd.Type != "unlock" {
+		return nil, fmt.Errorf("invalid command type %q: must be \"lock\" or \"unlock\"", cmd.Type)
+	}
+	if len(cmd.Doors) == 0 {
+		return nil, fmt.Errorf("missing required field: doors (must be non-empty)")
+	}
+	return &cmd, nil
 }
 
 // ParseResponse parses a JSON command response payload.
 func ParseResponse(data []byte) (*CommandResponse, error) {
-	return nil, nil
+	var resp CommandResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	return &resp, nil
 }
