@@ -1,15 +1,14 @@
-fn main() {
-    println!("parking-operator-adaptor v0.1.0 - Parking operator adapter service");
-    println!();
-    println!("Usage: parking-operator-adaptor [options]");
-    println!();
-    println!("This is a skeleton implementation. See spec 05 for full functionality.");
-}
+//! PARKING_OPERATOR_ADAPTOR — binary entry point.
+//!
+//! All application logic lives in the library crate (`lib.rs` and its
+//! sub-modules).  This file is intentionally thin; task group 5 wires
+//! everything together here.
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_compiles() {
-        assert!(true);
-    }
+fn main() {
+    println!(
+        "parking-operator-adaptor v{} starting",
+        env!("CARGO_PKG_VERSION")
+    );
+    // Task group 5 implements the full async main (tokio runtime, gRPC server,
+    // DATA_BROKER connection, shutdown handler).
 }

@@ -33,7 +33,10 @@ pub async fn run_autonomous_loop(
     };
 
     // Subscribe to lock events
-    let mut stream = match subscriber.subscribe_lock_events().await {
+    let mut stream: futures::stream::BoxStream<
+        'static,
+        Result<crate::broker::subscriber::LockEvent, String>,
+    > = match subscriber.subscribe_lock_events().await {
         Ok(s) => s,
         Err(e) => {
             error!(error = %e, "failed to subscribe to lock events; autonomous mode disabled");
