@@ -3,7 +3,8 @@ fn main() {
     println!();
     println!("Usage: update-service [options]");
     println!();
-    println!("This is a skeleton implementation. See spec 02 for full functionality.");
+    println!("Run with a valid CONFIG_PATH environment variable pointing to config.json.");
+    println!("See spec 07 for full functionality.");
 }
 
 #[cfg(test)]

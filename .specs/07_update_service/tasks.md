@@ -24,14 +24,14 @@ Ordering: tests first, then data types and config, then state manager, then cont
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add dependencies to update-service Cargo.toml
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add dependencies to update-service Cargo.toml
     - Add: tonic, prost, tokio, serde, serde_json, uuid, tracing, tracing-subscriber, async-trait, proptest (dev)
     - Vendor update_service.proto and common.proto into `rhivos/update-service/proto/`
     - Add tonic-build to build.rs for proto code generation
     - _Test Spec: TS-07-1 through TS-07-23_
 
-  - [ ] 1.2 Write config and model tests
+  - [x] 1.2 Write config and model tests
     - Create `rhivos/update-service/src/config.rs` with test module
     - `test_load_config_from_file` — TS-07-19
     - `test_config_fields` — TS-07-20
@@ -42,7 +42,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `test_adapter_id_derivation` — TS-07-5
     - _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10_
 
-  - [ ] 1.3 Write state manager tests
+  - [x] 1.3 Write state manager tests
     - Create `rhivos/update-service/src/state.rs` with test module
     - `test_install_happy_path` — TS-07-1
     - `test_state_transitions_during_install` — TS-07-2
@@ -52,7 +52,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `test_previous_adapter_stopped_state` — TS-07-7
     - _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7_
 
-  - [ ] 1.4 Write watch, list, remove, and offload tests
+  - [x] 1.4 Write watch, list, remove, and offload tests
     - `test_watch_state_stream` — TS-07-8
     - `test_multiple_watch_subscribers` — TS-07-9
     - `test_state_event_fields` — TS-07-10
@@ -66,7 +66,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `test_offloading_events` — TS-07-18
     - _Test Spec: TS-07-8 through TS-07-18_
 
-  - [ ] 1.5 Write edge case and property tests
+  - [x] 1.5 Write edge case and property tests
     - `test_empty_image_ref` — TS-07-E1
     - `test_pull_failure` — TS-07-E2
     - `test_checksum_mismatch` — TS-07-E3
@@ -84,10 +84,10 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `proptest_config_defaults` — TS-07-P7
     - _Test Spec: TS-07-E1 through TS-07-E8, TS-07-P1 through TS-07-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
-    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
+    - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
 - [ ] 2. Model and config modules
   - [ ] 2.1 Implement model module
