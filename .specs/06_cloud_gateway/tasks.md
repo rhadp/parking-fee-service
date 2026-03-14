@@ -213,7 +213,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
     - [x] All requirements 06-REQ-1 through 06-REQ-10 acceptance criteria met
 
-- [ ] 7. Checkpoint - All Tests Green
+- [x] 7. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
   - Binary starts, serves REST requests, routes to NATS, shuts down cleanly
   - Ask the user if questions arise
