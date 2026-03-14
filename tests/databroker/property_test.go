@@ -34,6 +34,7 @@ var allCatalogSignals = append(customSignals, standardSignals...)
 func TestPropertyDualListenerAvailability(t *testing.T) {
 	requireLiveDatabroker(t)
 	startDatabroker(t)
+	requireUDSSocket(t) // skip if socket not visible from host (e.g. Podman on macOS)
 
 	for _, sig := range allCatalogSignals {
 		t.Run(sig.path, func(t *testing.T) {

@@ -18,7 +18,7 @@ services:
       - "--vss"
       - "/vss_release_4.0.json,/etc/kuksa/vss-overlay.json"
       - "--address"
-      - "0.0.0.0"
+      - "0.0.0.0" # gRPC TCP bind address (0.0.0.0:55555 with default port 55555, mapped to host 55556)
       - "--unix-socket"
       - "/tmp/kuksa-databroker.sock"
 

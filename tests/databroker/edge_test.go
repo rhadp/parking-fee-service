@@ -48,6 +48,7 @@ func TestEdgeUDSSocketRestart(t *testing.T) {
 func TestEdgeConcurrentTCPUDS(t *testing.T) {
 	requireLiveDatabroker(t)
 	startDatabroker(t)
+	requireUDSSocket(t) // skip if socket not visible from host (e.g. Podman on macOS)
 
 	const signal = "Vehicle.Speed"
 	const value = "50.0"
@@ -121,7 +122,7 @@ func TestEdgeMalformedOverlay(t *testing.T) {
 		return exec.CommandContext(ctx,
 			"grpcurl", "-plaintext",
 			"localhost:55557",
-			"kuksa.val.v1.VAL/GetServerInfo",
+			"kuksa.val.v2.VAL/GetServerInfo",
 		).Run() == nil
 	}
 

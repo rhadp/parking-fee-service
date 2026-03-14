@@ -22,6 +22,7 @@ func TestLiveDualListener(t *testing.T) {
 	})
 
 	t.Run("UDS", func(t *testing.T) {
+		requireUDSSocket(t)
 		out, err := grpcGetMetadata(udsEndpoint, "Vehicle.Speed")
 		if err != nil {
 			t.Fatalf("UDS gRPC call failed: %v\noutput: %s", err, out)

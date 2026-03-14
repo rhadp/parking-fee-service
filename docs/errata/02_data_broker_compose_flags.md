@@ -101,9 +101,57 @@ Correct grpcurl body:
 
 ---
 
+## 7. gRPC API Version: `kuksa.val.v1.VAL` is not exposed
+
+**Spec says (design.md, test_spec.md):** gRPC calls to `kuksa.val.v1.VAL` service
+(methods `Get`, `Set`, `Subscribe`).
+
+**Reality:** `kuksa-databroker:0.5.0` exposes **only** `kuksa.val.v2.VAL` by
+default. The `--enable-databroker-v1` flag enables `sdv.databroker.v1` (a
+different legacy API), **not** `kuksa.val.v1.VAL`.
+
+The `kuksa.val.v2.VAL` API differs significantly from v1:
+
+| Operation | v1 (spec assumed) | v2 (actual) |
+|-----------|-------------------|-------------|
+| Health check | `GetServerInfo` (not in v1) | `GetServerInfo` ✓ |
+| Get metadata | `Get` + `FIELD_METADATA` | `ListMetadata` + `{"root": "<path>"}` |
+| Get value | `Get` + `FIELD_VALUE` | `GetValue` + `{"signal_id": {"path": "..."}}` |
+| Set value | `Set` + `EntryUpdate` + `fields` | `PublishValue` + `{"signal_id": ..., "data_point": ...}` |
+| Subscribe | `Subscribe` + `entries[]` | `Subscribe` + `{"signal_paths": [...]}` |
+
+Datatype labels in `ListMetadata` responses use `DATA_TYPE_BOOLEAN`,
+`DATA_TYPE_FLOAT`, `DATA_TYPE_DOUBLE`, `DATA_TYPE_STRING` — the substring
+checks (`BOOL`, `FLOAT`, `DOUBLE`, `STRING`) still match correctly.
+
+NOT_FOUND errors in v2 are surfaced as grpcurl non-zero exit with text
+`"Code: NotFound"` (no underscore), not as a JSON body field.
+
+**Correction:** All gRPC helpers in `tests/databroker/helpers_test.go` updated
+to use `kuksa.val.v2.VAL` methods and request formats. `hasNotFoundInBody`
+updated to also match `"notfound"` and `"not found"`.
+
+---
+
+## 8. VSS Loading: Overlay Only vs Standard + Overlay
+
+**Spec says (design.md):** Load only the overlay file via `--metadata`.
+
+**Reality:** When `--vss` is specified, the built-in standard VSS tree is NOT
+auto-loaded. Both files must be listed explicitly:
+
+```
+--vss /vss_release_4.0.json,/etc/kuksa/vss-overlay.json
+```
+
+**Correction:** `compose.yml` updated to include both files in the `--vss` flag.
+
+---
+
 ## Impact on Tests
 
 The integration tests in `tests/databroker/` use the corrected values above.
 The `compose_test.go` tests check for `--unix-socket` (not `--uds-path`) and
-`kuksa-databroker:0.5.0` (not `:0.5.1`). Inline comments in each test
-reference the relevant spec test ID and note the divergence.
+`kuksa-databroker:0.5.0` (not `:0.5.1`). All live tests use `kuksa.val.v2.VAL`
+RPCs. Inline comments in each test reference the relevant spec test ID and note
+the divergence.

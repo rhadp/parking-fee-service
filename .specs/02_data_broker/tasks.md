@@ -107,34 +107,34 @@ The ordering ensures tests are written first (TDD), then configuration changes a
   - Ensure all compose-parsing tests pass
   - Ask the user if questions arise
 
-- [ ] 4. Integration test validation (live databroker)
-  - [ ] 4.1 Verify dual listener connectivity
+- [x] 4. Integration test validation (live databroker)
+  - [x] 4.1 Verify dual listener connectivity
     - Start databroker: `make infra-up`
     - Run connectivity tests: `cd tests/databroker && go test -v -run 'TestLiveDualListener' ./...`
     - Fix any connection issues (socket path, port mapping)
     - _Requirements: 02-REQ-1.4_
 
-  - [ ] 4.2 Verify signal metadata (custom + standard)
+  - [x] 4.2 Verify signal metadata (custom + standard)
     - Run signal metadata tests: `cd tests/databroker && go test -v -run 'TestSignal' ./...`
     - Verify all 8 signals are accessible with correct datatypes
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3, 02-REQ-4.1, 02-REQ-4.2, 02-REQ-4.3, 02-REQ-4.4, 02-REQ-4.5_
 
-  - [ ] 4.3 Verify set/get and pub/sub
+  - [x] 4.3 Verify set/get and pub/sub
     - Run pub/sub tests: `cd tests/databroker && go test -v -run 'TestPubSub|TestBoolean|TestString' ./...`
     - _Requirements: 02-REQ-3.4, 02-REQ-5.1, 02-REQ-5.2, 02-REQ-5.3_
 
-  - [ ] 4.4 Verify edge cases and properties
+  - [x] 4.4 Verify edge cases and properties
     - Run edge case tests: `cd tests/databroker && go test -v -run 'TestEdge' ./...`
     - Run property tests: `cd tests/databroker && go test -v -run 'TestProperty' ./...`
     - Fix any failures
     - _Requirements: 02-REQ-1.E1, 02-REQ-1.E2, 02-REQ-3.E1, 02-REQ-3.E2, 02-REQ-4.E1, 02-REQ-5.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All integration tests pass: `cd tests/databroker && go test -v ./...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
-    - [ ] All requirements 02-REQ-1 through 02-REQ-5 acceptance criteria met
-    - [ ] `make infra-down` cleans up containers
+  - [x] 4.V Verify task group 4
+    - [x] All integration tests pass: `cd tests/databroker && go test -v ./...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd tests/databroker && go vet ./...`
+    - [x] All requirements 02-REQ-1 through 02-REQ-5 acceptance criteria met
+    - [x] `make infra-down` cleans up containers
 
 ### Checkbox States
 

@@ -73,6 +73,20 @@ func requireLiveDatabroker(t *testing.T) {
 	requireGrpcurl(t)
 }
 
+// requireUDSSocket skips the test if the databroker UDS socket is not
+// accessible from the host at the expected path. On macOS with Podman running
+// in a VM, the socket is created inside the VM and is not visible from the
+// macOS host filesystem.
+func requireUDSSocket(t *testing.T) {
+	t.Helper()
+	const sockPath = "/tmp/kuksa/kuksa-databroker.sock"
+	if _, err := os.Stat(sockPath); err != nil {
+		t.Skipf("skipping UDS test: socket %s not accessible from host "+
+			"(Podman on macOS creates UDS sockets inside the VM, not on the host): %v",
+			sockPath, err)
+	}
+}
+
 // ---- Container lifecycle ------------------------------------------------------
 
 // composeFile returns the path to deployments/compose.yml.
@@ -129,13 +143,15 @@ func waitForDatabroker(t *testing.T, timeout time.Duration) bool {
 
 // databrokerHealthyTCP returns true when the TCP endpoint responds to a
 // GetServerInfo RPC.
+//
+// Note: kuksa-databroker 0.5.0 exposes kuksa.val.v2.VAL (not v1).
 func databrokerHealthyTCP() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx,
 		"grpcurl", "-plaintext",
 		"localhost:55556",
-		"kuksa.val.v1.VAL/GetServerInfo",
+		"kuksa.val.v2.VAL/GetServerInfo",
 	)
 	return cmd.Run() == nil
 }
@@ -159,69 +175,78 @@ func grpcCall(endpoint, method, body string) (string, error) {
 	return string(out), err
 }
 
-// grpcGetMetadata fetches signal metadata via VAL/Get with FIELD_METADATA.
-// The kuksa.val.v1.VAL service has no separate GetMetadata RPC; metadata is
-// retrieved via Get with fields=["FIELD_METADATA"].
+// grpcGetMetadata fetches signal metadata via VAL/ListMetadata.
+//
+// Note: kuksa-databroker 0.5.0 uses kuksa.val.v2.VAL. Metadata is retrieved
+// via ListMetadata with {"root": "<path>"}. The response does not include the
+// queried path name, so we prepend "signal=<path>" to the returned string so
+// that callers can assert the correct signal was queried.
 func grpcGetMetadata(endpoint, path string) (string, error) {
-	body := fmt.Sprintf(`{"entries": [{"path": %q, "fields": ["FIELD_METADATA"]}]}`, path)
-	return grpcCall(endpoint, "kuksa.val.v1.VAL/Get", body)
+	body := fmt.Sprintf(`{"root": %q}`, path)
+	out, err := grpcCall(endpoint, "kuksa.val.v2.VAL/ListMetadata", body)
+	// Prepend the queried path so callers can verify which signal's metadata
+	// was returned (v2 ListMetadata response omits the signal path).
+	return fmt.Sprintf("signal=%s\n%s", path, out), err
 }
 
-// grpcGet fetches the current value of a signal via VAL/Get with FIELD_VALUE.
+// grpcGet fetches the current value of a signal via VAL/GetValue.
+//
+// Note: kuksa.val.v2.VAL/GetValue uses {"signal_id": {"path": "..."}} format.
 func grpcGet(endpoint, path string) (string, error) {
-	body := fmt.Sprintf(`{"entries": [{"path": %q, "fields": ["FIELD_VALUE"]}]}`, path)
-	return grpcCall(endpoint, "kuksa.val.v1.VAL/Get", body)
+	body := fmt.Sprintf(`{"signal_id": {"path": %q}}`, path)
+	return grpcCall(endpoint, "kuksa.val.v2.VAL/GetValue", body)
 }
 
-// grpcSetBool sets a boolean signal value via VAL/Set.
-// The EntryUpdate must include fields=["FIELD_VALUE"] to specify what to write.
+// grpcSetBool sets a boolean signal value via VAL/PublishValue.
+//
+// Note: kuksa.val.v2.VAL/PublishValue uses signal_id + data_point format.
 func grpcSetBool(endpoint, path string, value bool) (string, error) {
 	v := "false"
 	if value {
 		v = "true"
 	}
 	body := fmt.Sprintf(
-		`{"updates": [{"entry": {"path": %q, "value": {"bool": %s}}, "fields": ["FIELD_VALUE"]}]}`,
+		`{"signal_id": {"path": %q}, "data_point": {"value": {"bool": %s}}}`,
 		path, v,
 	)
-	return grpcCall(endpoint, "kuksa.val.v1.VAL/Set", body)
+	return grpcCall(endpoint, "kuksa.val.v2.VAL/PublishValue", body)
 }
 
-// grpcSetFloat sets a float signal value via VAL/Set.
+// grpcSetFloat sets a float signal value via VAL/PublishValue.
 func grpcSetFloat(endpoint, path, value string) (string, error) {
 	body := fmt.Sprintf(
-		`{"updates": [{"entry": {"path": %q, "value": {"float": %s}}, "fields": ["FIELD_VALUE"]}]}`,
+		`{"signal_id": {"path": %q}, "data_point": {"value": {"float": %s}}}`,
 		path, value,
 	)
-	return grpcCall(endpoint, "kuksa.val.v1.VAL/Set", body)
+	return grpcCall(endpoint, "kuksa.val.v2.VAL/PublishValue", body)
 }
 
-// grpcSetString sets a string signal value via VAL/Set.
+// grpcSetString sets a string signal value via VAL/PublishValue.
 func grpcSetString(endpoint, path, value string) (string, error) {
 	// JSON-encode the value string using fmt.Sprintf %q (adds quotes and escapes).
 	body := fmt.Sprintf(
-		`{"updates": [{"entry": {"path": %q, "value": {"string": %q}}, "fields": ["FIELD_VALUE"]}]}`,
+		`{"signal_id": {"path": %q}, "data_point": {"value": {"string": %q}}}`,
 		path, value,
 	)
-	return grpcCall(endpoint, "kuksa.val.v1.VAL/Set", body)
+	return grpcCall(endpoint, "kuksa.val.v2.VAL/PublishValue", body)
 }
 
 // grpcSubscribeCapture starts a Subscribe stream for signalPath, runs action(),
 // and returns what the stream emitted within timeout. The stream is always
 // cancelled before returning.
 //
-// Subscribe request format: {"entries": [{"path": "...", "fields": ["FIELD_VALUE"]}]}
+// Note: kuksa.val.v2.VAL/Subscribe uses {"signal_paths": ["..."]} format.
 func grpcSubscribeCapture(t *testing.T, endpoint, signalPath string, timeout time.Duration, action func()) string {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	body := fmt.Sprintf(`{"entries": [{"path": %q, "fields": ["FIELD_VALUE"]}]}`, signalPath)
+	body := fmt.Sprintf(`{"signal_paths": [%q]}`, signalPath)
 	cmd := exec.CommandContext(ctx,
 		"grpcurl", "-plaintext",
 		"-d", body,
 		endpoint,
-		"kuksa.val.v1.VAL/Subscribe",
+		"kuksa.val.v2.VAL/Subscribe",
 	)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
@@ -257,12 +282,18 @@ func readCompose(t *testing.T) string {
 	return string(data)
 }
 
-// hasNotFoundInBody returns true if the JSON response body contains a not_found
-// indicator. grpcurl exits 0 even for NOT_FOUND responses — the error is in the
-// JSON body.
+// hasNotFoundInBody returns true if the gRPC response (or grpcurl output)
+// contains a NOT_FOUND indicator.
+//
+// In kuksa.val.v2, grpcurl outputs "Code: NotFound" (with capital letters and
+// no underscore) to combined output when the signal path is not found. In some
+// v1-compatible error bodies the indicator appears as "not_found". We check
+// multiple forms for robustness.
 func hasNotFoundInBody(body string) bool {
 	lower := strings.ToLower(body)
 	return strings.Contains(lower, "not_found") ||
+		strings.Contains(lower, "notfound") ||
+		strings.Contains(lower, "not found") ||
 		strings.Contains(lower, `"code": 404`) ||
 		strings.Contains(lower, `"code":404`)
 }
