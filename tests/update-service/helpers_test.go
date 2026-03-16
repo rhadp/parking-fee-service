@@ -191,7 +191,7 @@ func startService(t *testing.T, cfg serviceConfig) *serviceProcess {
 	configPath := createConfig(t, cfg)
 
 	buf := &safeBuffer{}
-	cmd := exec.Command(bin)
+	cmd := exec.Command(bin, "serve")
 	cmd.Env = append(os.Environ(),
 		"CONFIG_PATH="+configPath,
 		"RUST_LOG=info",

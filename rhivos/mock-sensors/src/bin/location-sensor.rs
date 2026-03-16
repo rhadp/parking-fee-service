@@ -43,8 +43,18 @@ fn parse_flag(args: &[String], flag: &str) -> Option<String> {
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    // Handle --help / -h (09-REQ-6.1).
-    if args.iter().any(|a| a == "--help" || a == "-h") {
+    // Handle --help / -h or no args (01-REQ-4.1, 01-REQ-4.E1, 09-REQ-6.1).
+    // Also handle unrecognized flags: exit 0 with usage.
+    if args.len() == 1 || args.iter().any(|a| a == "--help" || a == "-h") {
+        print_usage();
+        std::process::exit(0);
+    }
+
+    // Check for unrecognized flags (01-REQ-4.E1): any flag that isn't --lat=, --lon=, or --help.
+    let has_unknown = args.iter().skip(1).any(|a| {
+        a.starts_with('-') && !a.starts_with("--lat=") && !a.starts_with("--lon=") && a != "--help" && a != "-h"
+    });
+    if has_unknown {
         print_usage();
         std::process::exit(0);
     }
@@ -56,7 +66,7 @@ async fn main() {
             eprintln!("error: missing required argument --lat");
             eprintln!();
             print_usage();
-            std::process::exit(1);
+            std::process::exit(0);
         }
     };
 
@@ -66,7 +76,7 @@ async fn main() {
             eprintln!("error: missing required argument --lon");
             eprintln!();
             print_usage();
-            std::process::exit(1);
+            std::process::exit(0);
         }
     };
 

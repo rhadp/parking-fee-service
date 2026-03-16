@@ -18,8 +18,33 @@ use update_service::{
     state::StateManager,
 };
 
+fn print_usage() {
+    println!(
+        "update-service v{} - RHIVOS OCI adapter lifecycle manager",
+        env!("CARGO_PKG_VERSION")
+    );
+    println!();
+    println!("Usage: update-service [command]");
+    println!();
+    println!("Commands:");
+    println!("  serve    Start the update service gRPC server");
+    println!();
+    println!("Environment variables:");
+    println!("  CONFIG_PATH    Path to config.json [default: config.json]");
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Check for subcommand: no args or --help or unknown flags → print usage, exit 0.
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 1
+        || args.iter().any(|a| a == "--help" || a == "-h")
+        || (args.len() > 1 && args[1] != "serve")
+    {
+        print_usage();
+        std::process::exit(0);
+    }
+
     // ---------------------------------------------------------------------------
     // Initialise structured logging
     // ---------------------------------------------------------------------------

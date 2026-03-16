@@ -37,8 +37,36 @@ const TELEMETRY_SIGNALS: &[&str] =
 /// Service version from Cargo.toml.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Service version from Cargo.toml (duplicated for usage before tracing init).
+const USAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn print_usage() {
+    println!("cloud-gateway-client v{} - RHIVOS cloud gateway relay", USAGE_VERSION);
+    println!();
+    println!("Usage: cloud-gateway-client [command]");
+    println!();
+    println!("Commands:");
+    println!("  serve    Start the cloud gateway client");
+    println!();
+    println!("Environment variables:");
+    println!("  VIN                Vehicle Identification Number (required)");
+    println!("  NATS_URL           NATS server URL [default: nats://localhost:4222]");
+    println!("  DATABROKER_ADDR    DATA_BROKER gRPC address [default: http://localhost:55556]");
+    println!("  BEARER_TOKEN       Token for NATS command authentication");
+}
+
 #[tokio::main]
 async fn main() {
+    // Check for subcommand: no args or --help or unknown flags → print usage, exit 0.
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 1
+        || args.iter().any(|a| a == "--help" || a == "-h")
+        || (args.len() > 1 && args[1] != "serve")
+    {
+        print_usage();
+        std::process::exit(0);
+    }
+
     // Initialise structured logging.
     tracing_subscriber::fmt::init();
 

@@ -258,7 +258,7 @@ func startLockingService(t *testing.T, addr string) *lockingServiceProcess {
 	bin := ensureBinary(t)
 
 	buf := &safeBuffer{}
-	cmd := exec.Command(bin)
+	cmd := exec.Command(bin, "serve")
 	cmd.Env = append(os.Environ(),
 		"DATABROKER_ADDR="+addr,
 		"RUST_LOG=info",

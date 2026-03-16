@@ -32,8 +32,30 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Maximum subscription reconnect attempts (03-REQ-1.E2).
 const MAX_RESUBSCRIBE_ATTEMPTS: u32 = 3;
 
+fn print_usage() {
+    println!("locking-service v{} - RHIVOS door lock/unlock command processor", VERSION);
+    println!();
+    println!("Usage: locking-service [command]");
+    println!();
+    println!("Commands:");
+    println!("  serve    Start the locking service (default when 'serve' is passed)");
+    println!();
+    println!("Environment variables:");
+    println!("  DATABROKER_ADDR   DATA_BROKER gRPC address [default: http://localhost:55556]");
+}
+
 #[tokio::main]
 async fn main() {
+    // Check for subcommand: no args or --help or unknown flags → print usage, exit 0.
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 1
+        || args.iter().any(|a| a == "--help" || a == "-h")
+        || (args.len() > 1 && args[1] != "serve")
+    {
+        print_usage();
+        std::process::exit(0);
+    }
+
     // Initialise structured logging.
     tracing_subscriber::fmt::init();
 

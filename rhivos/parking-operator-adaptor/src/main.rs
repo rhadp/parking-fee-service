@@ -33,8 +33,37 @@ use parking_operator_adaptor::{
 // Entry point
 // ---------------------------------------------------------------------------
 
+fn print_usage() {
+    println!(
+        "parking-operator-adaptor v{} - RHIVOS parking operator gRPC adaptor",
+        env!("CARGO_PKG_VERSION")
+    );
+    println!();
+    println!("Usage: parking-operator-adaptor [command]");
+    println!();
+    println!("Commands:");
+    println!("  serve    Start the parking operator adaptor gRPC server");
+    println!();
+    println!("Environment variables:");
+    println!("  GRPC_PORT              gRPC listen port [default: 50053]");
+    println!("  PARKING_OPERATOR_URL   Operator HTTP endpoint [default: http://localhost:8080]");
+    println!("  DATA_BROKER_ADDR       DATA_BROKER gRPC address [default: http://localhost:55556]");
+    println!("  VEHICLE_ID             Vehicle identifier [default: DEMO-VIN-001]");
+    println!("  ZONE_ID                Parking zone identifier [default: zone-demo-1]");
+}
+
 #[tokio::main]
 async fn main() {
+    // Check for subcommand: no args or --help or unknown flags → print usage, exit 0.
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 1
+        || args.iter().any(|a| a == "--help" || a == "-h")
+        || (args.len() > 1 && args[1] != "serve")
+    {
+        print_usage();
+        std::process::exit(0);
+    }
+
     // -----------------------------------------------------------------------
     // Initialise structured logging
     // -----------------------------------------------------------------------

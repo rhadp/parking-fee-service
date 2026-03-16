@@ -238,7 +238,7 @@ type serviceProcess struct {
 // environment. It registers a cleanup that kills the process if still running.
 func startService(t *testing.T, binPath string, env map[string]string) *serviceProcess {
 	t.Helper()
-	cmd := exec.Command(binPath)
+	cmd := exec.Command(binPath, "serve")
 
 	// Build env: inherit current env, then overlay test-specific vars.
 	cmdEnv := os.Environ()

@@ -32,8 +32,17 @@ fn print_usage() {
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    // Handle --help / -h (09-REQ-6.1).
-    if args.iter().any(|a| a == "--help" || a == "-h") {
+    // Handle --help / -h or no args (01-REQ-4.1, 01-REQ-4.E1, 09-REQ-6.1).
+    if args.len() == 1 || args.iter().any(|a| a == "--help" || a == "-h") {
+        print_usage();
+        std::process::exit(0);
+    }
+
+    // Check for unrecognized flags (01-REQ-4.E1).
+    let has_unknown = args.iter().skip(1).any(|a| {
+        a.starts_with('-') && a != "--open" && a != "--closed" && a != "--help" && a != "-h"
+    });
+    if has_unknown {
         print_usage();
         std::process::exit(0);
     }
@@ -47,7 +56,7 @@ async fn main() {
         eprintln!("error: must specify --open or --closed");
         eprintln!();
         print_usage();
-        std::process::exit(1);
+        std::process::exit(0);
     };
 
     // Connect to DATA_BROKER (09-REQ-1.E2, 09-REQ-5.1).

@@ -125,7 +125,7 @@ func mockParkingOperator(t *testing.T) string {
 // captured stdout/stderr buffers.
 func startAdaptor(t *testing.T, binPath string, env []string) (*exec.Cmd, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
-	cmd := exec.Command(binPath)
+	cmd := exec.Command(binPath, "serve")
 	cmd.Env = env
 
 	var stdout, stderr bytes.Buffer
