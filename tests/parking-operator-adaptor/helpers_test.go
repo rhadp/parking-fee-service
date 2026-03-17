@@ -55,8 +55,9 @@ func buildAdaptorBinary(t *testing.T) string {
 
 // buildCmd creates a configured exec.Cmd for the adaptor binary with the
 // given environment. Used for tests that call CombinedOutput directly.
+// Always passes the "serve" subcommand so the binary starts the gRPC server.
 func buildCmd(binPath string, env []string) *exec.Cmd {
-	cmd := exec.Command(binPath)
+	cmd := exec.Command(binPath, "serve")
 	cmd.Env = env
 	return cmd
 }
