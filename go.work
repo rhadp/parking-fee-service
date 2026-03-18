@@ -6,6 +6,7 @@ use (
 	./tests/cloud-gateway
 	./tests/cloud-gateway-client
 	./tests/databroker
+	./tests/e2e
 	./tests/locking-service
 	./tests/mock-apps
 	./tests/parking-operator-adaptor

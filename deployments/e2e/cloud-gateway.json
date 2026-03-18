@@ -1,0 +1,8 @@
+{
+  "port": 8081,
+  "nats_url": "nats://nats:4222",
+  "command_timeout_seconds": 30,
+  "tokens": [
+    { "token": "demo-token-car1", "vin": "VIN12345" }
+  ]
+}

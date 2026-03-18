@@ -1,0 +1,25 @@
+# Rust build artifacts (massive, causes OOM during COPY)
+rhivos/target/
+
+# Go test binaries and caches
+**/*_test.go
+
+# Git
+.git/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Specs and docs (not needed in images)
+.specs/
+docs/
+tests/
+
+# CI / config files
+.github/
+CLAUDE.md
+AGENTS.md
+*.md

@@ -1,0 +1,133 @@
+# End-to-end compose stack.
+#
+# Starts all infrastructure and application services for E2E testing.
+#
+# Usage:
+#   podman compose -f deployments/compose.e2e.yml up -d --build
+#   go test ./tests/e2e/ -v
+#   podman compose -f deployments/compose.e2e.yml down
+
+# ── Infrastructure ────────────────────────────────────────────────────────────
+
+services:
+  nats:
+    image: docker.io/nats:latest
+    ports:
+      - "4222:4222"
+    volumes:
+      - ./nats/nats-server.conf:/etc/nats/nats-server.conf
+    command: ["--config", "/etc/nats/nats-server.conf"]
+
+  databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
+    ports:
+      - "55556:55555"
+    volumes:
+      - ./vss-overlay.json:/etc/kuksa/vss-overlay.json
+      - kuksa-uds:/tmp
+    command:
+      - "--vss"
+      - "/vss_release_4.0.json,/etc/kuksa/vss-overlay.json"
+      - "--address"
+      - "0.0.0.0"
+      - "--unix-socket"
+      - "/tmp/kuksa-databroker.sock"
+
+# ── Go backend services ──────────────────────────────────────────────────────
+
+  parking-fee-service:
+    build:
+      context: ..
+      dockerfile: Containerfile.goservices
+      args:
+        SERVICE_PATH: backend/parking-fee-service
+    ports:
+      - "8080:8080"
+
+  cloud-gateway:
+    build:
+      context: ..
+      dockerfile: Containerfile.goservices
+      args:
+        SERVICE_PATH: backend/cloud-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      CONFIG_PATH: /etc/cloud-gateway/config.json
+    volumes:
+      - ./e2e/cloud-gateway.json:/etc/cloud-gateway/config.json:ro
+    depends_on:
+      nats:
+        condition: service_started
+
+  mock-parking-operator:
+    build:
+      context: ..
+      dockerfile: Containerfile.goservices
+      args:
+        SERVICE_PATH: mock/parking-operator
+    command: ["serve"]
+    ports:
+      - "8082:8082"
+
+# ── Rust RHIVOS services ─────────────────────────────────────────────────────
+
+  update-service:
+    build:
+      context: ..
+      dockerfile: Containerfile.rhivos
+      args:
+        BINARY_NAME: update-service
+    command: ["serve"]
+    ports:
+      - "50051:50051"
+
+  parking-operator-adaptor:
+    build:
+      context: ..
+      dockerfile: Containerfile.rhivos
+      args:
+        BINARY_NAME: parking-operator-adaptor
+    command: ["serve"]
+    ports:
+      - "50052:50052"
+
+  locking-service:
+    build:
+      context: ..
+      dockerfile: Containerfile.rhivos
+      args:
+        BINARY_NAME: locking-service
+    command: ["serve"]
+
+  cloud-gateway-client:
+    build:
+      context: ..
+      dockerfile: Containerfile.rhivos
+      args:
+        BINARY_NAME: cloud-gateway-client
+    command: ["serve"]
+    depends_on:
+      nats:
+        condition: service_started
+      databroker:
+        condition: service_started
+
+  mock-sensors:
+    build:
+      context: ..
+      dockerfile: Containerfile.rhivos
+      args:
+        BINARY_NAME: location-sensor
+    command: ["serve"]
+    depends_on:
+      databroker:
+        condition: service_started
+
+volumes:
+  kuksa-uds:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/kuksa

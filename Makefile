@@ -9,13 +9,16 @@
 #   clean       Remove all build artifacts
 #   infra-up    Start local infrastructure (NATS + Kuksa Databroker)
 #   infra-down  Stop and remove local infrastructure containers
+#   e2e-up      Build and start all services for E2E testing
+#   e2e-down    Stop and remove E2E containers
+#   e2e-test    Run E2E tests (starts stack, runs tests, tears down)
 
 PROTO_DIR      := proto
 GEN_GO_DIR     := gen/go
 DEPLOYMENTS    := deployments
 RHIVOS_DIR     := rhivos
 
-.PHONY: proto build test lint check clean infra-up infra-down
+.PHONY: proto build test lint check clean infra-up infra-down e2e-up e2e-down e2e-test
 
 # ---------------------------------------------------------------------------
 # Proto generation
@@ -104,3 +107,22 @@ infra-down:
 		exit 1; \
 	}
 	podman compose -f $(DEPLOYMENTS)/compose.yml down
+
+# ---------------------------------------------------------------------------
+# End-to-end testing (Podman Compose)
+# ---------------------------------------------------------------------------
+
+e2e-up:
+	@command -v podman >/dev/null 2>&1 || { \
+		echo "Error: podman is required but not installed."; \
+		exit 1; \
+	}
+	@mkdir -p /tmp/kuksa
+	podman compose -f $(DEPLOYMENTS)/compose.e2e.yml up -d --build
+
+e2e-down:
+	podman compose -f $(DEPLOYMENTS)/compose.e2e.yml down
+
+e2e-test: e2e-up
+	go test ./tests/e2e/ -v -timeout 120s
+	$(MAKE) e2e-down
