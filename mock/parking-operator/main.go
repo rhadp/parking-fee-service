@@ -73,6 +73,7 @@ func runServer(port int) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /parking/start", handler.StartHandler(s))
 	mux.HandleFunc("POST /parking/stop", handler.StopHandler(s))
+	mux.HandleFunc("GET /parking/sessions", handler.ListSessionsHandler(s))
 	mux.HandleFunc("GET /parking/status/{session_id}", handler.StatusHandler(s))
 
 	addr := fmt.Sprintf(":%d", port)

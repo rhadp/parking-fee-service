@@ -58,6 +58,14 @@ func StopHandler(s *store.Store) http.HandlerFunc {
 	}
 }
 
+// ListSessionsHandler handles GET /parking/sessions.
+// Returns all sessions for test observability.
+func ListSessionsHandler(s *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, s.ListSessions())
+	}
+}
+
 // StatusHandler handles GET /parking/status/{session_id}.
 // Requirement: 09-REQ-2.4, 09-REQ-2.E2
 func StatusHandler(s *store.Store) http.HandlerFunc {

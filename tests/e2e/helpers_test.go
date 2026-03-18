@@ -26,9 +26,10 @@ import (
 // ── Service addresses (override via env vars if testing against remote) ──────
 
 const (
-	parkingFeeServiceURL = "http://localhost:8080"
-	cloudGatewayURL      = "http://localhost:8081"
-	natsURL              = "nats://localhost:4222"
+	parkingFeeServiceURL   = "http://localhost:8080"
+	cloudGatewayURL        = "http://localhost:8081"
+	mockParkingOperatorURL = "http://localhost:8082"
+	natsURL                = "nats://localhost:4222"
 
 	// Default credentials matching deployments/e2e/cloud-gateway.json.
 	testToken = "demo-token-car1"
@@ -75,6 +76,15 @@ func ensureStack(t *testing.T) {
 	waitForTCP(t, "localhost:4222", 30*time.Second)
 	waitForHTTP(t, parkingFeeServiceURL+"/health", 30*time.Second)
 	waitForHTTP(t, cloudGatewayURL+"/health", 30*time.Second)
+}
+
+// ensureFullStack waits for all services including mock-parking-operator and
+// gRPC services to be ready.
+func ensureFullStack(t *testing.T) {
+	t.Helper()
+	ensureStack(t)
+	waitForTCP(t, "localhost:8082", 30*time.Second)
+	waitForTCP(t, "localhost:50052", 30*time.Second)
 }
 
 // ── NATS helpers ─────────────────────────────────────────────────────────────

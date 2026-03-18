@@ -120,6 +120,18 @@ func (s *Store) Stop(req StopRequest) (StopResponse, error) {
 	}, nil
 }
 
+// ListSessions returns a copy of all sessions.
+func (s *Store) ListSessions() []Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	result := make([]Session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		result = append(result, *sess)
+	}
+	return result
+}
+
 // GetStatus returns the session with the given ID, or an error if not found.
 func (s *Store) GetStatus(sessionID string) (*Session, error) {
 	s.mu.Lock()

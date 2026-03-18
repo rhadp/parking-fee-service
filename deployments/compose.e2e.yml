@@ -7,7 +7,7 @@
 #   go test ./tests/e2e/ -v
 #   podman compose -f deployments/compose.e2e.yml down
 
-# ── Infrastructure ────────────────────────────────────────────────────────────
+# -- Infrastructure -----------------------------------------------------------
 
 services:
   nats:
@@ -33,7 +33,7 @@ services:
       - "--unix-socket"
       - "/tmp/kuksa-databroker.sock"
 
-# ── Go backend services ──────────────────────────────────────────────────────
+# -- Go backend services ------------------------------------------------------
 
   parking-fee-service:
     build:
@@ -66,11 +66,11 @@ services:
       dockerfile: Containerfile.goservices
       args:
         SERVICE_PATH: mock/parking-operator
-    command: ["serve"]
+    command: ["serve", "--port=8082"]
     ports:
       - "8082:8082"
 
-# ── Rust RHIVOS services ─────────────────────────────────────────────────────
+# -- Rust RHIVOS services -----------------------------------------------------
 
   update-service:
     build:
@@ -80,7 +80,7 @@ services:
         BINARY_NAME: update-service
     command: ["serve"]
     ports:
-      - "50051:50051"
+      - "50051:50052"
 
   parking-operator-adaptor:
     build:
@@ -90,7 +90,17 @@ services:
         BINARY_NAME: parking-operator-adaptor
     command: ["serve"]
     ports:
-      - "50052:50052"
+      - "50052:50053"
+    environment:
+      PARKING_OPERATOR_URL: "http://mock-parking-operator:8082"
+      DATA_BROKER_ADDR: "http://databroker:55555"
+      VEHICLE_ID: "VIN12345"
+      ZONE_ID: "munich-central"
+    depends_on:
+      databroker:
+        condition: service_started
+      mock-parking-operator:
+        condition: service_started
 
   locking-service:
     build:
@@ -99,6 +109,11 @@ services:
       args:
         BINARY_NAME: locking-service
     command: ["serve"]
+    environment:
+      DATABROKER_ADDR: "http://databroker:55555"
+    depends_on:
+      databroker:
+        condition: service_started
 
   cloud-gateway-client:
     build:
@@ -107,6 +122,11 @@ services:
       args:
         BINARY_NAME: cloud-gateway-client
     command: ["serve"]
+    environment:
+      VIN: "VIN12345"
+      NATS_URL: "nats://nats:4222"
+      DATABROKER_ADDR: "http://databroker:55555"
+      BEARER_TOKEN: "demo-token-car1"
     depends_on:
       nats:
         condition: service_started
@@ -120,6 +140,8 @@ services:
       args:
         BINARY_NAME: location-sensor
     command: ["serve"]
+    environment:
+      DATA_BROKER_ADDR: "http://databroker:55555"
     depends_on:
       databroker:
         condition: service_started
