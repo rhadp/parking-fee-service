@@ -9,7 +9,9 @@
 #   clean       Remove all build artifacts
 #   infra-up    Start local infrastructure (NATS + Kuksa Databroker)
 #   infra-down  Stop and remove local infrastructure containers
-#   e2e-up      Build and start all services for E2E testing
+#   e2e-build   Cross-compile binaries for Linux containers
+#   e2e-images  Build E2E container images from pre-built binaries
+#   e2e-up      Build images and start all services for E2E testing
 #   e2e-down    Stop and remove E2E containers
 #   e2e-test    Run E2E tests (starts stack, runs tests, tears down)
 
@@ -17,8 +19,15 @@ PROTO_DIR      := proto
 GEN_GO_DIR     := gen/go
 DEPLOYMENTS    := deployments
 RHIVOS_DIR     := rhivos
+BUILD_DIR      := build
+GOARCH         := $(shell go env GOARCH)
+E2E_PREFIX     := parking-e2e
 
-.PHONY: proto build test lint check clean infra-up infra-down e2e-up e2e-down e2e-test
+RUST_E2E_BINARIES := update-service parking-operator-adaptor locking-service \
+                      cloud-gateway-client location-sensor
+
+.PHONY: proto build test lint check clean infra-up infra-down \
+        e2e-build e2e-images e2e-up e2e-down e2e-test
 
 # ---------------------------------------------------------------------------
 # Proto generation
@@ -77,7 +86,7 @@ lint:
 # Check (build + test + lint)
 # ---------------------------------------------------------------------------
 
-check: build test lint
+check: proto build test lint
 
 # ---------------------------------------------------------------------------
 # Clean
@@ -87,6 +96,7 @@ clean:
 	cd $(RHIVOS_DIR) && cargo clean
 	go clean ./...
 	rm -rf $(GEN_GO_DIR)
+	rm -rf $(BUILD_DIR)
 
 # ---------------------------------------------------------------------------
 # Infrastructure (Podman Compose)
@@ -99,6 +109,7 @@ infra-up:
 		exit 1; \
 	}
 	@mkdir -p /tmp/kuksa
+	@podman machine ssh "mkdir -p /tmp/kuksa" 2>/dev/null || true
 	podman compose -f $(DEPLOYMENTS)/compose.yml up -d
 
 infra-down:
@@ -109,16 +120,47 @@ infra-down:
 	podman compose -f $(DEPLOYMENTS)/compose.yml down
 
 # ---------------------------------------------------------------------------
+# E2E: cross-compile binaries for Linux containers
+# ---------------------------------------------------------------------------
+
+e2e-build:
+	@command -v go >/dev/null 2>&1 || { echo "Error: go (Go toolchain) is required but not installed."; exit 1; }
+	@command -v podman >/dev/null 2>&1 || { echo "Error: podman is required but not installed."; exit 1; }
+	@mkdir -p $(BUILD_DIR)
+	@echo "==> Cross-compiling Go services for linux/$(GOARCH)..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/parking-fee-service ./backend/parking-fee-service/
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/cloud-gateway ./backend/cloud-gateway/
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/parking-operator ./mock/parking-operator/
+	@echo "==> Building Rust services for linux (in container)..."
+	podman build -f Containerfile.rust-builder -t parking-rust-builder .
+	podman run --rm \
+		-v $$(pwd)/$(RHIVOS_DIR):/src:Z \
+		-v parking-rust-cargo:/usr/local/cargo/registry:Z \
+		-v parking-rust-target:/tmp/target:Z \
+		-v $$(pwd)/$(BUILD_DIR):/out:Z \
+		parking-rust-builder \
+		sh -c 'cd /src && cargo build --release --target-dir /tmp/target && \
+			for bin in $(RUST_E2E_BINARIES); do cp /tmp/target/release/$$bin /out/$$bin; done'
+
+# ---------------------------------------------------------------------------
+# E2E: build container images from pre-built binaries
+# ---------------------------------------------------------------------------
+
+e2e-images: e2e-build
+	@echo "==> Building E2E container images..."
+	@for bin in $$(ls $(BUILD_DIR)/); do \
+		echo "    $(E2E_PREFIX)/$$bin"; \
+		podman build -q -f Containerfile.e2e --build-arg BINARY=$$bin -t $(E2E_PREFIX)/$$bin . ; \
+	done
+
+# ---------------------------------------------------------------------------
 # End-to-end testing (Podman Compose)
 # ---------------------------------------------------------------------------
 
-e2e-up:
-	@command -v podman >/dev/null 2>&1 || { \
-		echo "Error: podman is required but not installed."; \
-		exit 1; \
-	}
+e2e-up: e2e-images
 	@mkdir -p /tmp/kuksa
-	podman compose -f $(DEPLOYMENTS)/compose.e2e.yml up -d --build
+	@podman machine ssh "mkdir -p /tmp/kuksa" 2>/dev/null || true
+	podman compose -f $(DEPLOYMENTS)/compose.e2e.yml up -d
 
 e2e-down:
 	podman compose -f $(DEPLOYMENTS)/compose.e2e.yml down
