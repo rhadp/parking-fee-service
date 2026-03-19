@@ -14,6 +14,8 @@
 #   e2e-up      Build images and start all services for E2E testing
 #   e2e-down    Stop and remove E2E containers
 #   e2e-test    Run E2E tests (starts stack, runs tests, tears down)
+#   e2e-run-SERVICE  Start a single E2E service (+ its dependencies)
+#                    e.g. make e2e-run-cloud-gateway-client
 
 PROTO_DIR      := proto
 GEN_GO_DIR     := gen/go
@@ -26,8 +28,13 @@ E2E_PREFIX     := parking-e2e
 RUST_E2E_BINARIES := update-service parking-operator-adaptor locking-service \
                       cloud-gateway-client location-sensor
 
+E2E_SERVICES := nats databroker parking-fee-service cloud-gateway \
+                mock-parking-operator update-service parking-operator-adaptor \
+                locking-service cloud-gateway-client mock-sensors
+
 .PHONY: proto build test lint check clean infra-up infra-down \
-        e2e-build e2e-images e2e-up e2e-down e2e-test
+        e2e-build e2e-images e2e-up e2e-down e2e-test \
+        $(addprefix e2e-run-,$(E2E_SERVICES))
 
 # ---------------------------------------------------------------------------
 # Proto generation
@@ -168,3 +175,18 @@ e2e-down:
 e2e-test: e2e-up
 	go test ./tests/e2e/ -v -timeout 120s
 	$(MAKE) e2e-down
+
+# ---------------------------------------------------------------------------
+# E2E: start individual services (+ dependencies)
+# ---------------------------------------------------------------------------
+# Usage:
+# make e2e-run-cloud-gateway-client   # starts nats + databroker + cloud-gateway-client
+# make e2e-run-parking-fee-service    # starts only parking-fee-service (no deps)
+# make e2e-run-parking-operator-adaptor  # starts databroker + mock-parking-operator + adaptor
+#
+# Compose automatically starts any depends_on services that aren't running.
+
+$(addprefix e2e-run-,$(E2E_SERVICES)): e2e-run-%: e2e-images
+	@mkdir -p /tmp/kuksa
+	@podman machine ssh "mkdir -p /tmp/kuksa" 2>/dev/null || true
+	podman compose -f $(DEPLOYMENTS)/compose.e2e.yml up -d $*
