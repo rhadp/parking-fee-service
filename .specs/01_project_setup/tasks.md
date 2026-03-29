@@ -26,170 +26,170 @@ The ordering ensures dependencies are built before dependents: directories first
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Create tests/setup Go module
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Create tests/setup Go module
     - Create `tests/setup/go.mod` with module path `github.com/rhadp/parking-fee-service/tests/setup`
     - Create `tests/setup/structure_test.go` with tests for directory structure (TS-01-1 through TS-01-6)
     - Create `tests/setup/rust_workspace_test.go` with tests for Cargo workspace (TS-01-7 through TS-01-10)
     - _Test Spec: TS-01-1 through TS-01-10_
 
-  - [x] 1.2 Write Go workspace and skeleton tests
+  - [ ] 1.2 Write Go workspace and skeleton tests
     - Create `tests/setup/go_workspace_test.go` with tests for Go workspace (TS-01-11 through TS-01-13)
     - Create `tests/setup/skeleton_test.go` with tests for binary exit behavior (TS-01-14 through TS-01-17)
     - _Test Spec: TS-01-11 through TS-01-17_
 
-  - [x] 1.3 Write proto and infrastructure tests
+  - [ ] 1.3 Write proto and infrastructure tests
     - Create `tests/setup/proto_test.go` with tests for proto files and generation (TS-01-18 through TS-01-23)
     - Create `tests/setup/infra_test.go` with tests for compose file and infrastructure (TS-01-24 through TS-01-28)
     - _Test Spec: TS-01-18 through TS-01-28_
 
-  - [x] 1.4 Write Makefile and test infrastructure tests
+  - [ ] 1.4 Write Makefile and test infrastructure tests
     - Create `tests/setup/makefile_test.go` with tests for Makefile targets (TS-01-29 through TS-01-34)
     - Create `tests/setup/test_infra_test.go` with tests for test runner discovery (TS-01-35 through TS-01-38)
     - _Test Spec: TS-01-29 through TS-01-38_
 
-  - [x] 1.5 Write edge case and property tests
+  - [ ] 1.5 Write edge case and property tests
     - Create `tests/setup/edge_cases_test.go` with edge case tests (TS-01-E1 through TS-01-E9)
     - Create `tests/setup/property_test.go` with property tests (TS-01-P1 through TS-01-P8)
     - _Test Spec: TS-01-E1 through TS-01-E9, TS-01-P1 through TS-01-P8_
 
-  - [x] 1.V Verify task group 1
-    - [x] All spec tests exist and are syntactically valid: `cd tests/setup && go vet ./...`
-    - [x] All spec tests FAIL (red) — no implementation yet: `cd tests/setup && go test -v ./... 2>&1 | grep FAIL`
-    - [x] No linter warnings: `cd tests/setup && go vet ./...`
+  - [ ] 1.V Verify task group 1
+    - [ ] All spec tests exist and are syntactically valid: `cd tests/setup && go vet ./...`
+    - [ ] All spec tests FAIL (red) — no implementation yet: `cd tests/setup && go test -v ./... 2>&1 | grep FAIL`
+    - [ ] No linter warnings: `cd tests/setup && go vet ./...`
 
-- [x] 2. Directory structure and placeholder directories
-  - [x] 2.1 Create top-level directories
+- [ ] 2. Directory structure and placeholder directories
+  - [ ] 2.1 Create top-level directories
     - Create directories: `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/`, `tests/`
     - _Requirements: 01-REQ-1.1_
 
-  - [x] 2.2 Create Rust component subdirectories
+  - [ ] 2.2 Create Rust component subdirectories
     - Create: `rhivos/locking-service/src/`, `rhivos/cloud-gateway-client/src/`, `rhivos/update-service/src/`, `rhivos/parking-operator-adaptor/src/`, `rhivos/mock-sensors/src/bin/`
     - _Requirements: 01-REQ-1.2_
 
-  - [x] 2.3 Create Go and mock subdirectories
+  - [ ] 2.3 Create Go and mock subdirectories
     - Create: `backend/parking-fee-service/`, `backend/cloud-gateway/`, `mock/parking-app-cli/`, `mock/companion-app-cli/`, `mock/parking-operator/`
     - _Requirements: 01-REQ-1.3, 01-REQ-1.4_
 
-  - [x] 2.4 Create placeholder directories with READMEs
+  - [ ] 2.4 Create placeholder directories with READMEs
     - Create `android/README.md` with placeholder text for AAOS PARKING_APP
     - Create `mobile/README.md` with placeholder text for Flutter COMPANION_APP
     - _Requirements: 01-REQ-1.5, 01-REQ-1.6_
 
-  - [x] 2.V Verify task group 2
-    - [x] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
-    - [x] _Test Spec: TS-01-1 through TS-01-6_
+  - [ ] 2.V Verify task group 2
+    - [ ] Directory structure tests pass: `cd tests/setup && go test -v -run 'TestTopLevel|TestRust.*Dir|TestGo.*Dir|TestMock.*Dir|TestPlaceholder' ./...`
+    - [ ] _Test Spec: TS-01-1 through TS-01-6_
 
-- [x] 3. Rust workspace and skeletons
-  - [x] 3.1 Create Cargo workspace root
+- [ ] 3. Rust workspace and skeletons
+  - [ ] 3.1 Create Cargo workspace root
     - Create `rhivos/Cargo.toml` with `[workspace]` defining members: `locking-service`, `cloud-gateway-client`, `update-service`, `parking-operator-adaptor`, `mock-sensors`
     - _Requirements: 01-REQ-2.1_
 
-  - [x] 3.2 Create Rust skeleton crates
+  - [ ] 3.2 Create Rust skeleton crates
     - Create `Cargo.toml` and `src/main.rs` for: locking-service, cloud-gateway-client, update-service, parking-operator-adaptor
     - Each `main.rs` prints usage with component name and exits 0
     - Each crate includes a `#[test] fn it_compiles()` test
     - _Requirements: 01-REQ-4.1, 01-REQ-4.3, 01-REQ-4.E1_
 
-  - [x] 3.3 Create mock-sensors crate with binary targets
+  - [ ] 3.3 Create mock-sensors crate with binary targets
     - Create `rhivos/mock-sensors/Cargo.toml` with `[[bin]]` entries for location-sensor, speed-sensor, door-sensor
     - Create `src/bin/location-sensor.rs`, `src/bin/speed-sensor.rs`, `src/bin/door-sensor.rs`
     - Create `src/lib.rs` with shared stub code
     - Each binary prints usage and exits 0
     - _Requirements: 01-REQ-2.4, 01-REQ-4.1, 01-REQ-4.3_
 
-  - [x] 3.4 Verify Rust workspace builds and tests pass
+  - [ ] 3.4 Verify Rust workspace builds and tests pass
     - Run `cd rhivos && cargo build` — must exit 0
     - Run `cd rhivos && cargo test` — must discover and pass tests for all crates
     - Run `cd rhivos && cargo clippy -- -D warnings` — must pass
     - _Requirements: 01-REQ-2.2, 01-REQ-2.3, 01-REQ-8.1_
 
-  - [x] 3.V Verify task group 3
-    - [x] Rust workspace tests pass: `cd tests/setup && go test -v -run 'TestCargo|TestRustSkeleton|TestRustBinary' ./...`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
-    - [x] _Test Spec: TS-01-7 through TS-01-10, TS-01-14, TS-01-16_
+  - [ ] 3.V Verify task group 3
+    - [ ] Rust workspace tests pass: `cd tests/setup && go test -v -run 'TestCargo|TestRustSkeleton|TestRustBinary' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -- -D warnings`
+    - [ ] _Test Spec: TS-01-7 through TS-01-10, TS-01-14, TS-01-16_
 
-- [x] 4. Go workspace and skeletons
-  - [x] 4.1 Create Go modules
+- [ ] 4. Go workspace and skeletons
+  - [ ] 4.1 Create Go modules
     - Create `backend/go.mod` (module `github.com/rhadp/parking-fee-service/backend`)
     - Create `mock/go.mod` (module `github.com/rhadp/parking-fee-service/mock`)
     - Create `go.work` at repo root with `use` directives for `./backend`, `./mock`, `./tests/setup`
     - _Requirements: 01-REQ-3.1_
 
-  - [x] 4.2 Create Go skeleton binaries
+  - [ ] 4.2 Create Go skeleton binaries
     - Create `main.go` for: `backend/parking-fee-service`, `backend/cloud-gateway`, `mock/parking-app-cli`, `mock/companion-app-cli`, `mock/parking-operator`
     - Each prints usage with component name and exits 0
     - _Requirements: 01-REQ-4.2, 01-REQ-4.4, 01-REQ-4.E1_
 
-  - [x] 4.3 Create Go placeholder tests
+  - [ ] 4.3 Create Go placeholder tests
     - Create `main_test.go` for each Go binary with a trivial `TestMain` test
     - _Requirements: 01-REQ-8.2_
 
-  - [x] 4.4 Verify Go workspace builds and tests pass
+  - [ ] 4.4 Verify Go workspace builds and tests pass
     - Run `go build ./...` — must exit 0
     - Run `go test ./...` — must discover and pass tests
     - Run `go vet ./...` — must pass
     - _Requirements: 01-REQ-3.2, 01-REQ-3.3, 01-REQ-8.2_
 
-  - [x] 4.V Verify task group 4
-    - [x] Go workspace tests pass: `cd tests/setup && go test -v -run 'TestGoWork|TestGoSkeleton|TestGoBinary' ./...`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [x] No linter warnings: `go vet ./...`
-    - [x] _Test Spec: TS-01-11 through TS-01-13, TS-01-15, TS-01-17_
+  - [ ] 4.V Verify task group 4
+    - [ ] Go workspace tests pass: `cd tests/setup && go test -v -run 'TestGoWork|TestGoSkeleton|TestGoBinary' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `go vet ./...`
+    - [ ] _Test Spec: TS-01-11 through TS-01-13, TS-01-15, TS-01-17_
 
-- [x] 5. Checkpoint - Workspaces Complete
+- [ ] 5. Checkpoint - Workspaces Complete
   - Ensure `cargo build`, `cargo test`, `go build ./...`, `go test ./...` all pass
   - All skeleton binaries exit 0 with usage messages
   - Ask the user if questions arise
 
-- [x] 6. Protocol Buffer definitions and code generation
-  - [x] 6.1 Create proto files
+- [ ] 6. Protocol Buffer definitions and code generation
+  - [ ] 6.1 Create proto files
     - Create `proto/common.proto` with AdapterState, AdapterInfo, ErrorDetails (as specified in design.md)
     - Create `proto/update_service.proto` with UpdateService and all 5 RPCs
     - Create `proto/parking_adaptor.proto` with ParkingAdaptor and all 4 RPCs
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
 
-  - [x] 6.2 Create proto generation script
+  - [ ] 6.2 Create proto generation script
     - Add `proto` target to Makefile (or create a separate script) that runs `protoc` with Go plugins
     - Generate code into `gen/go/commonpb/`, `gen/go/updateservicepb/`, `gen/go/parkingadaptorpb/`
     - Include `protoc` availability check with error message
     - _Requirements: 01-REQ-5.5, 01-REQ-5.E1_
 
-  - [x] 6.3 Generate and verify Go code
+  - [ ] 6.3 Generate and verify Go code
     - Run `make proto` and verify generated code compiles
     - Add `gen/go/` module or ensure it's importable by backend and mock modules
     - _Requirements: 01-REQ-5.5, 01-REQ-5.6_
 
-  - [x] 6.V Verify task group 6
-    - [x] Proto tests pass: `cd tests/setup && go test -v -run 'TestProto' ./...`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [x] No linter warnings: `go vet ./...`
-    - [x] _Test Spec: TS-01-18 through TS-01-23_
+  - [ ] 6.V Verify task group 6
+    - [ ] Proto tests pass: `cd tests/setup && go test -v -run 'TestProto' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `go vet ./...`
+    - [ ] _Test Spec: TS-01-18 through TS-01-23_
 
-- [x] 7. Local infrastructure
-  - [x] 7.1 Create Podman Compose configuration
+- [ ] 7. Local infrastructure
+  - [ ] 7.1 Create Podman Compose configuration
     - Create `deployments/compose.yml` with NATS (:4222) and Kuksa Databroker (:55556)
     - Create `deployments/nats/nats-server.conf` with port 4222 configuration
     - _Requirements: 01-REQ-6.1, 01-REQ-6.4_
 
-  - [x] 7.2 Create VSS overlay file
+  - [ ] 7.2 Create VSS overlay file
     - Create `deployments/vss-overlay.json` with custom signals: Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response
     - _Requirements: 01-REQ-6.5_
 
-  - [x] 7.3 Add infra-up and infra-down to Makefile
+  - [ ] 7.3 Add infra-up and infra-down to Makefile
     - Add `infra-up` target: `podman compose -f deployments/compose.yml up -d`
     - Add `infra-down` target: `podman compose -f deployments/compose.yml down`
     - Include Podman availability check
     - _Requirements: 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.E1_
 
-  - [x] 7.V Verify task group 7
-    - [x] Infrastructure tests pass: `cd tests/setup && go test -v -run 'TestCompose|TestNATS|TestVSS|TestInfra' ./...`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [x] _Test Spec: TS-01-24 through TS-01-28_
+  - [ ] 7.V Verify task group 7
+    - [ ] Infrastructure tests pass: `cd tests/setup && go test -v -run 'TestCompose|TestNATS|TestVSS|TestInfra' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] _Test Spec: TS-01-24 through TS-01-28_
 
-- [x] 8. Root Makefile and final integration
-  - [x] 8.1 Complete root Makefile
+- [ ] 8. Root Makefile and final integration
+  - [ ] 8.1 Complete root Makefile
     - Add `build` target (cargo build + go build)
     - Add `test` target (cargo test + go test)
     - Add `lint` target (cargo clippy + go vet)
@@ -198,7 +198,7 @@ The ordering ensures dependencies are built before dependents: directories first
     - Include toolchain availability checks
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3, 01-REQ-7.4, 01-REQ-7.5, 01-REQ-7.6, 01-REQ-7.E1_
 
-  - [x] 8.2 Verify all Makefile targets
+  - [ ] 8.2 Verify all Makefile targets
     - Run `make build` — must exit 0
     - Run `make test` — must exit 0, output both Rust and Go test results
     - Run `make lint` — must exit 0
@@ -206,34 +206,34 @@ The ordering ensures dependencies are built before dependents: directories first
     - Run `make clean` — must remove build artifacts
     - _Requirements: 01-REQ-7.1 through 01-REQ-7.6, 01-REQ-8.4_
 
-  - [x] 8.V Verify task group 8
-    - [x] Makefile tests pass: `cd tests/setup && go test -v -run 'TestMakefile|TestMakeTarget' ./...`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [x] No linter warnings: `make lint`
-    - [x] _Test Spec: TS-01-29 through TS-01-34, TS-01-38_
+  - [ ] 8.V Verify task group 8
+    - [ ] Makefile tests pass: `cd tests/setup && go test -v -run 'TestMakefile|TestMakeTarget' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `make lint`
+    - [ ] _Test Spec: TS-01-29 through TS-01-34, TS-01-38_
 
-- [x] 9. Edge cases and property verification
-  - [x] 9.1 Verify edge case tests
+- [ ] 9. Edge cases and property verification
+  - [ ] 9.1 Verify edge case tests
     - Run edge case tests: `cd tests/setup && go test -v -run 'TestEdge' ./...`
     - Fix any failures in the implementation
     - _Test Spec: TS-01-E1 through TS-01-E9_
 
-  - [x] 9.2 Verify property tests
+  - [ ] 9.2 Verify property tests
     - Run property tests: `cd tests/setup && go test -v -run 'TestProperty' ./...`
     - Fix any failures in the implementation
     - _Test Spec: TS-01-P1 through TS-01-P8_
 
-  - [x] 9.3 Update README.md
+  - [ ] 9.3 Update README.md
     - Update README.md to match the PRD-authoritative directory structure
     - Ensure directory names match: `deployments/`, `android/`, `mobile/`
     - Ensure documented Makefile targets match actual implementation
 
-  - [x] 9.V Verify task group 9
-    - [x] All edge case tests pass: `cd tests/setup && go test -v -run 'TestEdge' ./...`
-    - [x] All property tests pass: `cd tests/setup && go test -v -run 'TestProperty' ./...`
-    - [x] All tests pass: `make test && cd tests/setup && go test -v ./...`
-    - [x] No linter warnings: `make lint`
-    - [x] README accurately reflects implementation
+  - [ ] 9.V Verify task group 9
+    - [ ] All edge case tests pass: `cd tests/setup && go test -v -run 'TestEdge' ./...`
+    - [ ] All property tests pass: `cd tests/setup && go test -v -run 'TestProperty' ./...`
+    - [ ] All tests pass: `make test && cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `make lint`
+    - [ ] README accurately reflects implementation
 
 ### Checkbox States
 

@@ -23,21 +23,21 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Set up Go module and test file structure
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Set up Go module and test file structure
     - Ensure `backend/parking-fee-service/` has `go.mod` (or is part of Go workspace)
     - Create package directories: `model/`, `config/`, `geo/`, `store/`, `handler/`
     - Create test files: `geo/geo_test.go`, `config/config_test.go`, `store/store_test.go`, `handler/handler_test.go`
     - _Test Spec: TS-05-1 through TS-05-16_
 
-  - [x] 1.2 Write geo package tests
+  - [ ] 1.2 Write geo package tests
     - `TestPointInPolygonInside` — TS-05-2 (inside returns true)
     - `TestPointInPolygonOutside` — TS-05-2 (outside returns false)
     - `TestProximityMatchingWithinThreshold` — TS-05-3
     - `TestProximityThresholdUsed` — TS-05-11
     - _Test Spec: TS-05-2, TS-05-3, TS-05-11_
 
-  - [x] 1.3 Write config and store package tests
+  - [ ] 1.3 Write config and store package tests
     - `TestLoadConfigFromFile` — TS-05-9
     - `TestConfigStructureValidation` — TS-05-10
     - `TestConfigFileMissingDefaults` — TS-05-E5
@@ -45,7 +45,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - `TestMultipleOperatorsReturned` — TS-05-4
     - _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6_
 
-  - [x] 1.4 Write handler integration tests (httptest)
+  - [ ] 1.4 Write handler integration tests (httptest)
     - `TestOperatorLookup` — TS-05-1
     - `TestEmptyArrayNoMatches` — TS-05-5
     - `TestAdapterMetadataRetrieval` — TS-05-6
@@ -60,7 +60,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - `TestUnknownOperatorID` — TS-05-E4
     - _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4_
 
-  - [x] 1.5 Write property tests
+  - [ ] 1.5 Write property tests
     - `TestPropertyPointInPolygon` — TS-05-P1
     - `TestPropertyProximityMatching` — TS-05-P2
     - `TestPropertyOperatorZoneAssociation` — TS-05-P3
@@ -69,19 +69,19 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - `TestPropertyConfigDefaults` — TS-05-P6
     - _Test Spec: TS-05-P1 through TS-05-P6_
 
-  - [x] 1.V Verify task group 1
-    - [x] All test files compile: `cd backend && go test -v ./parking-fee-service/... -run NONE`
-    - [x] All spec tests FAIL (red): `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep FAIL`
-    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+  - [ ] 1.V Verify task group 1
+    - [ ] All test files compile: `cd backend && go test -v ./parking-fee-service/... -run NONE`
+    - [ ] All spec tests FAIL (red): `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep FAIL`
+    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
 
-- [x] 2. Model, config, and store modules
-  - [x] 2.1 Implement model package
+- [ ] 2. Model, config, and store modules
+  - [ ] 2.1 Implement model package
     - Define types: `Coordinate`, `Zone`, `Rate`, `AdapterMeta`, `Operator`, `Config`
     - Add JSON struct tags for all fields
     - Define `OperatorResponse` struct (excludes `Adapter` field) for lookup responses
     - _Requirements: 05-REQ-5.2_
 
-  - [x] 2.2 Implement config package
+  - [ ] 2.2 Implement config package
     - `LoadConfig(path string) (*Config, error)`: read JSON file, unmarshal into Config
     - `DefaultConfig() *Config`: built-in Munich demo data (2 zones, 2 operators)
     - If file not found: return DefaultConfig, log warning
@@ -90,7 +90,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Support `CONFIG_PATH` env var in main
     - _Requirements: 05-REQ-4.1, 05-REQ-4.2, 05-REQ-4.3, 05-REQ-4.E1, 05-REQ-4.E2_
 
-  - [x] 2.3 Implement store package
+  - [ ] 2.3 Implement store package
     - `NewStore(zones []Zone, operators []Operator) *Store`
     - `GetZone(id string) (*Zone, bool)` — lookup by zone ID
     - `GetOperator(id string) (*Operator, bool)` — lookup by operator ID
@@ -98,46 +98,46 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Index zones by ID, operators by ID, operators by zone ID
     - _Requirements: 05-REQ-1.4, 05-REQ-2.1_
 
-  - [x] 2.V Verify task group 2
-    - [x] Config and store tests pass: `cd backend && go test -v ./parking-fee-service/config/... ./parking-fee-service/store/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
-    - [x] _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6, TS-05-P3, TS-05-P5, TS-05-P6_
+  - [ ] 2.V Verify task group 2
+    - [ ] Config and store tests pass: `cd backend && go test -v ./parking-fee-service/config/... ./parking-fee-service/store/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+    - [ ] _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6, TS-05-P3, TS-05-P5, TS-05-P6_
 
-- [x] 3. Geo module
-  - [x] 3.1 Implement PointInPolygon
+- [ ] 3. Geo module
+  - [ ] 3.1 Implement PointInPolygon
     - Ray casting algorithm for point-in-polygon test
     - Takes `Coordinate` point and `[]Coordinate` polygon
     - Returns `bool`
     - _Requirements: 05-REQ-1.2_
 
-  - [x] 3.2 Implement HaversineDistance
+  - [ ] 3.2 Implement HaversineDistance
     - Great-circle distance between two `Coordinate` values
     - Returns distance in meters
     - Uses `math` stdlib
     - _Requirements: 05-REQ-1.3_
 
-  - [x] 3.3 Implement DistanceToPolygonEdge
+  - [ ] 3.3 Implement DistanceToPolygonEdge
     - Minimum distance from a point to the nearest edge of a polygon
     - Iterates over polygon edges, computes perpendicular distance to each segment
     - Returns distance in meters
     - _Requirements: 05-REQ-1.3_
 
-  - [x] 3.4 Implement FindMatchingZones
+  - [ ] 3.4 Implement FindMatchingZones
     - For each zone: check PointInPolygon first, then proximity if outside
     - Returns list of matching zone IDs
     - Uses configured proximity threshold
     - _Requirements: 05-REQ-1.1, 05-REQ-1.3, 05-REQ-1.5_
 
-  - [x] 3.V Verify task group 3
-    - [x] Geo tests pass: `cd backend && go test -v ./parking-fee-service/geo/...`
-    - [x] Property tests pass: `cd backend && go test -v ./parking-fee-service/... -run Property`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
-    - [x] _Test Spec: TS-05-2, TS-05-3, TS-05-11, TS-05-P1, TS-05-P2_
+  - [ ] 3.V Verify task group 3
+    - [ ] Geo tests pass: `cd backend && go test -v ./parking-fee-service/geo/...`
+    - [ ] Property tests pass: `cd backend && go test -v ./parking-fee-service/... -run Property`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+    - [ ] _Test Spec: TS-05-2, TS-05-3, TS-05-11, TS-05-P1, TS-05-P2_
 
-- [x] 4. HTTP handlers and main
-  - [x] 4.1 Implement handler package
+- [ ] 4. HTTP handlers and main
+  - [ ] 4.1 Implement handler package
     - `NewOperatorHandler(store *Store, zones []Zone, threshold float64) http.HandlerFunc`:
       - Parse and validate lat/lon query params
       - Call FindMatchingZones, then GetOperatorsByZoneIDs
@@ -153,7 +153,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Use `{"error":"<message>"}` format for errors
     - _Requirements: 05-REQ-1.1, 05-REQ-1.E1, 05-REQ-1.E2, 05-REQ-1.E3, 05-REQ-2.1, 05-REQ-2.E1, 05-REQ-3.1, 05-REQ-5.1, 05-REQ-5.2, 05-REQ-5.3_
 
-  - [x] 4.2 Implement main package
+  - [ ] 4.2 Implement main package
     - Read `CONFIG_PATH` env var (default "config.json")
     - Call LoadConfig, create Store
     - Register routes using Go 1.22 ServeMux patterns:
@@ -166,15 +166,15 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Use `log/slog` for structured logging
     - _Requirements: 05-REQ-4.1, 05-REQ-6.1, 05-REQ-6.2_
 
-  - [x] 4.V Verify task group 4
-    - [x] All handler tests pass: `cd backend && go test -v ./parking-fee-service/handler/...`
-    - [x] All spec tests pass: `cd backend && go test -v ./parking-fee-service/...`
-    - [x] Binary builds: `cd backend && go build ./parking-fee-service/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
-    - [x] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
+  - [ ] 4.V Verify task group 4
+    - [ ] All handler tests pass: `cd backend && go test -v ./parking-fee-service/handler/...`
+    - [ ] All spec tests pass: `cd backend && go test -v ./parking-fee-service/...`
+    - [ ] Binary builds: `cd backend && go build ./parking-fee-service/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+    - [ ] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
 
-- [x] 5. Checkpoint - All Tests Green
+- [ ] 5. Checkpoint - All Tests Green
   - All unit, integration, and property tests pass
   - Binary starts, serves requests, shuts down cleanly
   - Ask the user if questions arise

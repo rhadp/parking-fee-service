@@ -24,14 +24,14 @@ Ordering: tests first, then data types and config, then state manager, then cont
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Add dependencies to update-service Cargo.toml
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Add dependencies to update-service Cargo.toml
     - Add: tonic, prost, tokio, serde, serde_json, uuid, tracing, tracing-subscriber, async-trait, proptest (dev)
     - Vendor update_service.proto and common.proto into `rhivos/update-service/proto/`
     - Add tonic-build to build.rs for proto code generation
     - _Test Spec: TS-07-1 through TS-07-23_
 
-  - [x] 1.2 Write config and model tests
+  - [ ] 1.2 Write config and model tests
     - Create `rhivos/update-service/src/config.rs` with test module
     - `test_load_config_from_file` — TS-07-19
     - `test_config_fields` — TS-07-20
@@ -42,7 +42,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `test_adapter_id_derivation` — TS-07-5
     - _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10_
 
-  - [x] 1.3 Write state manager tests
+  - [ ] 1.3 Write state manager tests
     - Create `rhivos/update-service/src/state.rs` with test module
     - `test_install_happy_path` — TS-07-1
     - `test_state_transitions_during_install` — TS-07-2
@@ -52,7 +52,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `test_previous_adapter_stopped_state` — TS-07-7
     - _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7_
 
-  - [x] 1.4 Write watch, list, remove, and offload tests
+  - [ ] 1.4 Write watch, list, remove, and offload tests
     - `test_watch_state_stream` — TS-07-8
     - `test_multiple_watch_subscribers` — TS-07-9
     - `test_state_event_fields` — TS-07-10
@@ -66,7 +66,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `test_offloading_events` — TS-07-18
     - _Test Spec: TS-07-8 through TS-07-18_
 
-  - [x] 1.5 Write edge case and property tests
+  - [ ] 1.5 Write edge case and property tests
     - `test_empty_image_ref` — TS-07-E1
     - `test_pull_failure` — TS-07-E2
     - `test_checksum_mismatch` — TS-07-E3
@@ -84,13 +84,13 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `proptest_config_defaults` — TS-07-P7
     - _Test Spec: TS-07-E1 through TS-07-E8, TS-07-P1 through TS-07-P7_
 
-  - [x] 1.V Verify task group 1
-    - [x] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
-    - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+  - [ ] 1.V Verify task group 1
+    - [ ] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
+    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [x] 2. Model and config modules
-  - [x] 2.1 Implement model module
+- [ ] 2. Model and config modules
+  - [ ] 2.1 Implement model module
     - Define `AdapterState` enum with all 7 states
     - Implement `derive_adapter_id(image_ref: &str) -> String`: extract last path segment + tag
     - Implement `generate_job_id() -> String`: UUID v4
@@ -98,7 +98,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - Define `AdapterStateEvent` struct
     - _Requirements: 07-REQ-1.5_
 
-  - [x] 2.2 Implement config module
+  - [ ] 2.2 Implement config module
     - Define `Config` struct with serde Deserialize
     - `load_config(path: &str) -> Result<Config, ConfigError>`: read JSON, apply defaults
     - `default_config() -> Config`: port 50052, timeout 86400, storage path `/var/lib/containers/adapters/`
@@ -106,14 +106,14 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - If invalid JSON: return error
     - _Requirements: 07-REQ-7.1, 07-REQ-7.2, 07-REQ-7.3, 07-REQ-7.E1, 07-REQ-7.E2_
 
-  - [x] 2.V Verify task group 2
-    - [x] Config and model tests pass: `cd rhivos && cargo test -p update-service -- config model`
-    - [x] All existing tests still pass: `cd rhivos && cargo test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [x] _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10, TS-07-P5, TS-07-P7_
+  - [ ] 2.V Verify task group 2
+    - [ ] Config and model tests pass: `cd rhivos && cargo test -p update-service -- config model`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] _Test Spec: TS-07-5, TS-07-19, TS-07-20, TS-07-21, TS-07-E9, TS-07-E10, TS-07-P5, TS-07-P7_
 
-- [x] 3. State manager module
-  - [x] 3.1 Implement state manager
+- [ ] 3. State manager module
+  - [ ] 3.1 Implement state manager
     - `StateManager` struct with `Arc<Mutex<HashMap<String, AdapterInfo>>>` and `broadcast::Sender<AdapterStateEvent>`
     - `new() -> Self`: create broadcast channel
     - `create_adapter(adapter_id, image_ref, checksum)`: add to map with DOWNLOADING state
@@ -124,52 +124,52 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - `subscribe()`: return broadcast receiver
     - _Requirements: 07-REQ-1.2, 07-REQ-1.4, 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3, 07-REQ-4.1, 07-REQ-4.2_
 
-  - [x] 3.2 Implement state transition validation
+  - [ ] 3.2 Implement state transition validation
     - Define valid transitions as a lookup table
     - Reject invalid transitions with descriptive error
     - Set `stopped_at` timestamp when transitioning to STOPPED
     - _Requirements: 07-REQ-1.2, 07-REQ-5.2_
 
-  - [x] 3.V Verify task group 3
-    - [x] State manager tests pass: `cd rhivos && cargo test -p update-service -- state`
-    - [x] Property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
-    - [x] All existing tests still pass: `cd rhivos && cargo test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [x] _Test Spec: TS-07-8 through TS-07-12, TS-07-14, TS-07-15, TS-07-16, TS-07-18, TS-07-E6, TS-07-P1, TS-07-P2, TS-07-P4, TS-07-P6_
+  - [ ] 3.V Verify task group 3
+    - [ ] State manager tests pass: `cd rhivos && cargo test -p update-service -- state`
+    - [ ] Property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] _Test Spec: TS-07-8 through TS-07-12, TS-07-14, TS-07-15, TS-07-16, TS-07-18, TS-07-E6, TS-07-P1, TS-07-P2, TS-07-P4, TS-07-P6_
 
-- [x] 4. Container runtime trait and service logic
-  - [x] 4.1 Define ContainerRuntime trait
+- [ ] 4. Container runtime trait and service logic
+  - [ ] 4.1 Define ContainerRuntime trait
     - `async fn pull(image_ref)`, `async fn inspect_digest(image_ref)`, `async fn run(image_ref, adapter_id)`, `async fn stop(container_id)`, `async fn remove(container_id)`, `async fn remove_image(image_ref)`
     - Implement `PodmanRuntime` struct: each method calls podman CLI via `tokio::process::Command`
     - `run` uses `--network=host` and `--name={adapter_id}`
     - _Requirements: 07-REQ-1.1, 07-REQ-1.3, 07-REQ-1.4_
 
-  - [x] 4.2 Create MockContainerRuntime
+  - [ ] 4.2 Create MockContainerRuntime
     - Configurable success/failure for each operation
     - Records calls for assertion
     - Configurable digest return value
     - _Test Spec: TS-07-1, TS-07-3, TS-07-4, TS-07-6, TS-07-13, TS-07-E2, TS-07-E3, TS-07-E4, TS-07-E5, TS-07-E8_
 
-  - [x] 4.3 Implement install logic
+  - [ ] 4.3 Implement install logic
     - Orchestrate: validate inputs → check single adapter constraint → stop running if needed → create adapter → pull → verify checksum → run
     - Transition through DOWNLOADING → INSTALLING → RUNNING (or ERROR)
     - On checksum mismatch: remove image, transition to ERROR
     - _Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3, 07-REQ-2.1, 07-REQ-2.2_
 
-  - [x] 4.4 Implement remove and offload logic
+  - [ ] 4.4 Implement remove and offload logic
     - Remove: stop (if running) → transition OFFLOADING → remove container → remove image → remove from state
     - Offload timer: periodic task checking `get_stopped_expired()`, triggers removal
     - _Requirements: 07-REQ-5.1, 07-REQ-5.2, 07-REQ-5.3, 07-REQ-6.1, 07-REQ-6.3_
 
-  - [x] 4.V Verify task group 4
-    - [x] All unit tests pass: `cd rhivos && cargo test -p update-service`
-    - [x] All property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
-    - [x] All existing tests still pass: `cd rhivos && cargo test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [x] _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7, TS-07-13, TS-07-14, TS-07-15, TS-07-16, TS-07-17, TS-07-18, TS-07-E1 through TS-07-E5, TS-07-E7, TS-07-E8, TS-07-P2, TS-07-P3_
+  - [ ] 4.V Verify task group 4
+    - [ ] All unit tests pass: `cd rhivos && cargo test -p update-service`
+    - [ ] All property tests pass: `cd rhivos && cargo test -p update-service -- proptest`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] _Test Spec: TS-07-1 through TS-07-4, TS-07-6, TS-07-7, TS-07-13, TS-07-14, TS-07-15, TS-07-16, TS-07-17, TS-07-18, TS-07-E1 through TS-07-E5, TS-07-E7, TS-07-E8, TS-07-P2, TS-07-P3_
 
-- [x] 5. gRPC server and main
-  - [x] 5.1 Implement gRPC service
+- [ ] 5. gRPC server and main
+  - [ ] 5.1 Implement gRPC service
     - Implement `UpdateService` tonic trait for all 5 RPCs
     - `install_adapter`: delegate to install logic
     - `watch_adapter_states`: create subscriber, stream events
@@ -179,7 +179,7 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - Map errors to appropriate gRPC status codes
     - _Requirements: 07-REQ-1.1, 07-REQ-3.1, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1_
 
-  - [x] 5.2 Implement main
+  - [ ] 5.2 Implement main
     - Read `CONFIG_PATH` env var, load config
     - Create StateManager, PodmanRuntime, gRPC service
     - Start offload timer as tokio task
@@ -188,33 +188,33 @@ Ordering: tests first, then data types and config, then state manager, then cont
     - Handle SIGTERM/SIGINT: stop running adapters, shutdown gRPC server
     - _Requirements: 07-REQ-7.1, 07-REQ-8.1, 07-REQ-8.2_
 
-  - [x] 5.V Verify task group 5
-    - [x] Binary compiles: `cd rhivos && cargo build -p update-service`
-    - [x] All unit tests still pass: `cd rhivos && cargo test -p update-service`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+  - [ ] 5.V Verify task group 5
+    - [ ] Binary compiles: `cd rhivos && cargo build -p update-service`
+    - [ ] All unit tests still pass: `cd rhivos && cargo test -p update-service`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [x] 6. Integration test validation
-  - [x] 6.1 Create integration test module
+- [ ] 6. Integration test validation
+  - [ ] 6.1 Create integration test module
     - Create `tests/update-service/` Go module
     - Shared helpers: start/stop service, gRPC client helpers
     - Add `go.work` entry for `./tests/update-service`
     - _Test Spec: TS-07-22, TS-07-23_
 
-  - [x] 6.2 Write and run integration tests
+  - [ ] 6.2 Write and run integration tests
     - `TestStartupLogging` — TS-07-22
     - `TestGracefulShutdown` — TS-07-23
     - `TestInstallAdapterGRPC` — end-to-end with mock registry (optional)
     - `TestListAdaptersGRPC` — end-to-end query
     - _Test Spec: TS-07-22, TS-07-23_
 
-  - [x] 6.V Verify task group 6
-    - [x] All integration tests pass: `cd tests/update-service && go test -v ./...`
-    - [x] All unit tests still pass: `cd rhivos && cargo test -p update-service`
-    - [x] All existing tests still pass: `make test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [x] All requirements 07-REQ-1 through 07-REQ-8 acceptance criteria met
+  - [ ] 6.V Verify task group 6
+    - [ ] All integration tests pass: `cd tests/update-service && go test -v ./...`
+    - [ ] All unit tests still pass: `cd rhivos && cargo test -p update-service`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [ ] All requirements 07-REQ-1 through 07-REQ-8 acceptance criteria met
 
-- [x] 7. Checkpoint - All Tests Green
+- [ ] 7. Checkpoint - All Tests Green
   - All unit, property, and integration tests pass
   - Binary starts, serves gRPC requests, manages containers, shuts down cleanly
   - Ask the user if questions arise

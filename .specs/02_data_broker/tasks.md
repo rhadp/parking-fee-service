@@ -24,14 +24,14 @@ The ordering ensures tests are written first (TDD), then configuration changes a
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Create tests/databroker Go module
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Create tests/databroker Go module
     - Create `tests/databroker/go.mod` with module path `github.com/rhadp/parking-fee-service/tests/databroker`
     - Add `go.work` entry for `./tests/databroker`
     - Create shared test helper `tests/databroker/helpers_test.go` with: Podman skip check, databroker start/stop, gRPC connect (TCP + UDS), compose.yml parser
     - _Test Spec: TS-02-1 through TS-02-17_
 
-  - [x] 1.2 Write compose configuration tests
+  - [ ] 1.2 Write compose configuration tests
     - Create `tests/databroker/compose_test.go` with tests for compose.yml parsing
     - `TestComposeTCPListener` — TS-02-1: verify port mapping and --address flag
     - `TestComposeUDSListener` — TS-02-2: verify --unix-socket flag (errata: spec says --uds-path)
@@ -39,7 +39,7 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestComposeImageVersion` — TS-02-5: verify pinned image version (errata: 0.5.0, spec says 0.5.1)
     - _Test Spec: TS-02-1, TS-02-2, TS-02-3, TS-02-5_
 
-  - [x] 1.3 Write live connectivity and signal metadata tests
+  - [ ] 1.3 Write live connectivity and signal metadata tests
     - Create `tests/databroker/signal_test.go` with tests requiring running databroker
     - `TestLiveDualListener` — TS-02-4: TCP + UDS connectivity
     - `TestSignalCustomSessionActive` — TS-02-6: custom signal metadata
@@ -49,7 +49,7 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestSignalStandardIsOpen` — TS-02-11: standard signal metadata
     - _Test Spec: TS-02-4, TS-02-6, TS-02-7, TS-02-8, TS-02-10, TS-02-11_
 
-  - [x] 1.4 Write signal set/get and pub/sub tests
+  - [ ] 1.4 Write signal set/get and pub/sub tests
     - Create `tests/databroker/pubsub_test.go`
     - `TestSignalStandardLatitude` — TS-02-12: standard signal metadata
     - `TestSignalStandardLongitude` — TS-02-13: standard signal metadata
@@ -60,7 +60,7 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestStringJsonRoundtrip` — TS-02-17: JSON string set/get
     - _Test Spec: TS-02-9, TS-02-12, TS-02-13, TS-02-14, TS-02-15, TS-02-16, TS-02-17_
 
-  - [x] 1.5 Write edge case and property tests
+  - [ ] 1.5 Write edge case and property tests
     - Create `tests/databroker/edge_test.go`
     - `TestEdgeUDSSocketRestart` — TS-02-E1: restart with existing socket
     - `TestEdgeConcurrentTCPUDS` — TS-02-E2: simultaneous TCP + UDS clients
@@ -76,65 +76,65 @@ The ordering ensures tests are written first (TDD), then configuration changes a
     - `TestPropertyPubSubDelivery` — TS-02-P5
     - _Test Spec: TS-02-E1 through TS-02-E6, TS-02-P1 through TS-02-P5_
 
-  - [x] 1.V Verify task group 1
-    - [x] All spec tests exist and are syntactically valid: `cd tests/databroker && go vet ./...`
-    - [x] Compose config tests FAIL (compose.yml not yet updated): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
-    - [x] No linter warnings: `cd tests/databroker && go vet ./...`
+  - [ ] 1.V Verify task group 1
+    - [ ] All spec tests exist and are syntactically valid: `cd tests/databroker && go vet ./...`
+    - [ ] Compose config tests FAIL (compose.yml not yet updated): `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
 
-- [x] 2. Update compose.yml for dual listeners and version pinning
-  - [x] 2.1 Pin Kuksa Databroker image version
+- [ ] 2. Update compose.yml for dual listeners and version pinning
+  - [ ] 2.1 Pin Kuksa Databroker image version
     - Update `deployments/compose.yml` databroker image from `latest` to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`
     - _Requirements: 02-REQ-2.1_
 
-  - [x] 2.2 Configure dual listeners
+  - [ ] 2.2 Configure dual listeners
     - Update databroker service `command` to include `--address 0.0.0.0:55555` and `--uds-path /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
 
-  - [x] 2.3 Add UDS volume mount
+  - [ ] 2.3 Add UDS volume mount
     - Add a named volume `kuksa-uds` with bind mount to `/tmp/kuksa` on the host
     - Mount the volume to `/tmp` in the databroker container
     - Create `/tmp/kuksa` host directory in Makefile `infra-up` target if needed
     - _Requirements: 02-REQ-1.3_
 
-  - [x] 2.V Verify task group 2
-    - [x] Compose config tests pass: `cd tests/databroker && go test -v -run 'TestCompose' ./...`
-    - [x] All existing tests still pass: `cd tests/setup && go test -v ./...`
-    - [x] No linter warnings: `cd tests/databroker && go vet ./...`
-    - [x] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.3, 02-REQ-2.1 acceptance criteria met
+  - [ ] 2.V Verify task group 2
+    - [ ] Compose config tests pass: `cd tests/databroker && go test -v -run 'TestCompose' ./...`
+    - [ ] All existing tests still pass: `cd tests/setup && go test -v ./...`
+    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
+    - [ ] Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.3, 02-REQ-2.1 acceptance criteria met
 
-- [x] 3. Checkpoint - Configuration Complete
+- [ ] 3. Checkpoint - Configuration Complete
   - Verify compose.yml is valid: `podman compose -f deployments/compose.yml config`
   - Ensure all compose-parsing tests pass
   - Ask the user if questions arise
 
-- [x] 4. Integration test validation (live databroker)
-  - [x] 4.1 Verify dual listener connectivity
+- [ ] 4. Integration test validation (live databroker)
+  - [ ] 4.1 Verify dual listener connectivity
     - Start databroker: `make infra-up`
     - Run connectivity tests: `cd tests/databroker && go test -v -run 'TestLiveDualListener' ./...`
     - Fix any connection issues (socket path, port mapping)
     - _Requirements: 02-REQ-1.4_
 
-  - [x] 4.2 Verify signal metadata (custom + standard)
+  - [ ] 4.2 Verify signal metadata (custom + standard)
     - Run signal metadata tests: `cd tests/databroker && go test -v -run 'TestSignal' ./...`
     - Verify all 8 signals are accessible with correct datatypes
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3, 02-REQ-4.1, 02-REQ-4.2, 02-REQ-4.3, 02-REQ-4.4, 02-REQ-4.5_
 
-  - [x] 4.3 Verify set/get and pub/sub
+  - [ ] 4.3 Verify set/get and pub/sub
     - Run pub/sub tests: `cd tests/databroker && go test -v -run 'TestPubSub|TestBoolean|TestString' ./...`
     - _Requirements: 02-REQ-3.4, 02-REQ-5.1, 02-REQ-5.2, 02-REQ-5.3_
 
-  - [x] 4.4 Verify edge cases and properties
+  - [ ] 4.4 Verify edge cases and properties
     - Run edge case tests: `cd tests/databroker && go test -v -run 'TestEdge' ./...`
     - Run property tests: `cd tests/databroker && go test -v -run 'TestProperty' ./...`
     - Fix any failures
     - _Requirements: 02-REQ-1.E1, 02-REQ-1.E2, 02-REQ-3.E1, 02-REQ-3.E2, 02-REQ-4.E1, 02-REQ-5.E1_
 
-  - [x] 4.V Verify task group 4
-    - [x] All integration tests pass: `cd tests/databroker && go test -v ./...`
-    - [x] All existing tests still pass: `make test`
-    - [x] No linter warnings: `cd tests/databroker && go vet ./...`
-    - [x] All requirements 02-REQ-1 through 02-REQ-5 acceptance criteria met
-    - [x] `make infra-down` cleans up containers
+  - [ ] 4.V Verify task group 4
+    - [ ] All integration tests pass: `cd tests/databroker && go test -v ./...`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd tests/databroker && go vet ./...`
+    - [ ] All requirements 02-REQ-1 through 02-REQ-5 acceptance criteria met
+    - [ ] `make infra-down` cleans up containers
 
 ### Checkbox States
 
