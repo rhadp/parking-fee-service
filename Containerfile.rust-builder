@@ -1,8 +1,0 @@
-# Builder image for cross-compiling Rust (RHIVOS) services from macOS.
-#
-# Usage (via Makefile — not called directly):
-#   podman build -f Containerfile.rust-builder -t parking-rust-builder .
-
-FROM docker.io/rust:1.88
-
-RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
