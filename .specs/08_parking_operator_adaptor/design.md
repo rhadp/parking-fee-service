@@ -2,131 +2,192 @@
 
 ## Overview
 
-The PARKING_OPERATOR_ADAPTOR is a containerized Rust application (`rhivos/parking-operator-adaptor`) that bridges the PARKING_APP (gRPC) with a PARKING_OPERATOR (REST), and autonomously manages parking sessions based on lock/unlock events from DATA_BROKER. It exposes four gRPC RPCs (StartSession, StopSession, GetStatus, GetRate) via tonic, communicates with DATA_BROKER via kuksa.val.v1 gRPC (subscribe + set), and calls the PARKING_OPERATOR's REST API via reqwest. Lock/unlock events are processed sequentially, and session operations are idempotent.
+The PARKING_OPERATOR_ADAPTOR is a Rust binary (`rhivos/parking-operator-adaptor`) that runs as a long-lived containerized process in the RHIVOS QM partition. It serves a dual role: (1) exposing a gRPC interface for PARKING_APP to manually manage parking sessions, and (2) autonomously starting/stopping sessions based on lock/unlock events from DATA_BROKER. Outbound communication with the PARKING_OPERATOR backend uses REST (reqwest). Session state is maintained in-memory only. Events and commands are serialized through a single processing loop to prevent race conditions.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    PA["PARKING_APP\n(AAOS)"] -->|"gRPC: StartSession\nStopSession\nGetStatus\nGetRate"| POA["PARKING_OPERATOR_ADAPTOR\n:50053"]
-
-    POA -->|"gRPC: subscribe\nIsLocked"| DB["DATA_BROKER\n:55556"]
-    POA -->|"gRPC: set\nSessionActive"| DB
-    POA -->|"REST: start/stop/status"| PO["PARKING_OPERATOR\n(backend)"]
-
-    subgraph PARKING_OPERATOR_ADAPTOR
-        GRPC["gRPC Server\n(tonic)"]
-        Session["Session Manager"]
-        Broker["BrokerClient\n(kuksa.val.v1)"]
-        OpClient["Operator Client\n(reqwest)"]
-        AutoLoop["Auto-Session Loop"]
+    subgraph QMPartition["RHIVOS QM Partition"]
+        POA["PARKING_OPERATOR_ADAPTOR\n(gRPC :50053)"]
     end
 
-    GRPC --> Session
-    AutoLoop --> Session
-    Session --> OpClient
-    Session --> Broker
-    AutoLoop --> Broker
+    subgraph SafetyPartition["RHIVOS Safety Partition"]
+        DB["DATA_BROKER\n(Kuksa Databroker)"]
+    end
+
+    PA["PARKING_APP"] -->|gRPC: StartSession, StopSession,\nGetStatus, GetRate| POA
+
+    DB -->|subscribe:\nVehicle.Cabin.Door.Row1.DriverSide.IsLocked| POA
+    POA -->|write:\nVehicle.Parking.SessionActive| DB
+
+    PO["PARKING_OPERATOR\n(REST)"] <-->|POST /parking/start\nPOST /parking/stop\nGET /parking/status/{id}| POA
 ```
 
 ```mermaid
 sequenceDiagram
-    participant DB as DATA_BROKER
+    participant PA as PARKING_APP
     participant POA as PARKING_OPERATOR_ADAPTOR
+    participant DB as DATA_BROKER
     participant PO as PARKING_OPERATOR
 
-    DB->>POA: Subscribe: IsLocked = true
-    POA->>POA: Check: no active session
+    Note over POA: Startup
+    POA->>DB: Connect (gRPC, network TCP)
+    POA->>DB: Set(Vehicle.Parking.SessionActive = false)
+    POA->>DB: Subscribe(Vehicle.Cabin.Door.Row1.DriverSide.IsLocked)
+    POA->>POA: Start gRPC server on :50053
+
+    Note over DB,POA: Autonomous Start (Lock Event)
+    DB->>POA: Notification(IsLocked = true)
+    POA->>POA: Session not active → proceed
     POA->>PO: POST /parking/start {vehicle_id, zone_id, timestamp}
     PO-->>POA: 200 {session_id, status, rate}
     POA->>POA: Store session state
-    POA->>DB: Set: SessionActive = true
+    POA->>DB: Set(Vehicle.Parking.SessionActive = true)
 
-    Note over POA: Driver returns, unlocks vehicle
-
-    DB->>POA: Subscribe: IsLocked = false
-    POA->>POA: Check: session active
+    Note over DB,POA: Autonomous Stop (Unlock Event)
+    DB->>POA: Notification(IsLocked = false)
+    POA->>POA: Session active → proceed
     POA->>PO: POST /parking/stop {session_id, timestamp}
-    PO-->>POA: 200 {session_id, duration, total_amount}
+    PO-->>POA: 200 {session_id, status, duration_seconds, total_amount, currency}
     POA->>POA: Clear session state
-    POA->>DB: Set: SessionActive = false
+    POA->>DB: Set(Vehicle.Parking.SessionActive = false)
+
+    Note over PA,POA: Manual Override (StopSession)
+    PA->>POA: gRPC StopSession()
+    POA->>PO: POST /parking/stop {session_id, timestamp}
+    PO-->>POA: 200 {session_id, status, duration_seconds, total_amount, currency}
+    POA->>POA: Clear session state
+    POA->>DB: Set(Vehicle.Parking.SessionActive = false)
+    POA-->>PA: StopSessionResponse
+
+    Note over PA,POA: Status Query
+    PA->>POA: gRPC GetStatus()
+    POA-->>PA: StatusResponse {active: false, ...}
 ```
 
 ### Module Responsibilities
 
-1. **main** — Entry point: loads config, connects DATA_BROKER, sets up gRPC server, starts auto-session loop, handles shutdown.
-2. **config** — Configuration from env vars with defaults.
-3. **session** — Session manager: in-memory session state, start/stop logic, idempotency.
-4. **operator_client** — REST client for PARKING_OPERATOR: start, stop, status calls with retry logic.
-5. **broker** — BrokerClient: subscribe to lock signal, write SessionActive signal.
-6. **grpc_service** — gRPC handlers: StartSession, StopSession, GetStatus, GetRate.
-7. **model** — Core data types: SessionState, Rate, OperatorStartResponse, OperatorStopResponse.
+1. **main** — Entry point: parses config from env vars, connects to DATA_BROKER, starts gRPC server, creates the event processing loop, handles shutdown signals.
+2. **config** — Configuration: reads and validates environment variables (PARKING_OPERATOR_URL, DATA_BROKER_ADDR, GRPC_PORT, VEHICLE_ID, ZONE_ID) with defaults.
+3. **session** — Session state management: in-memory session record (session_id, zone_id, start_time, rate, active), start/stop/query operations.
+4. **operator** — PARKING_OPERATOR REST client: sends start/stop/status requests via reqwest, parses responses, implements retry logic with exponential backoff.
+5. **broker** — DATA_BROKER client abstraction: wraps tonic-generated kuksa.val.v1 gRPC client, provides typed subscribe/set operations on VSS signals.
+6. **grpc_server** — gRPC service implementation: handles StartSession, StopSession, GetStatus, GetRate RPCs, delegates to the session/operator modules.
+7. **event_loop** — Event processing: receives lock/unlock events from DATA_BROKER subscription and gRPC commands from the server, serializes them into a single processing stream.
+
+## Execution Paths
+
+### Path 1: Autonomous Session Start (Lock Event)
+
+1. DATA_BROKER subscription delivers `IsLocked = true`
+2. Event loop checks session state: if active → log info, no-op
+3. If not active → call `operator::start_session(vehicle_id, zone_id)`
+4. On success → update session state, set `Vehicle.Parking.SessionActive = true` in DATA_BROKER
+5. On failure (after retries) → log error, session state unchanged
+
+### Path 2: Autonomous Session Stop (Unlock Event)
+
+1. DATA_BROKER subscription delivers `IsLocked = false`
+2. Event loop checks session state: if not active → log info, no-op
+3. If active → call `operator::stop_session(session_id)`
+4. On success → clear session state, set `Vehicle.Parking.SessionActive = false` in DATA_BROKER
+5. On failure (after retries) → log error, session state unchanged
+
+### Path 3: Manual StartSession (gRPC)
+
+1. PARKING_APP calls `StartSession(zone_id)` via gRPC
+2. If session already active → return `ALREADY_EXISTS` error
+3. Call `operator::start_session(vehicle_id, zone_id)`
+4. On success → update session state, set `Vehicle.Parking.SessionActive = true` in DATA_BROKER
+5. Return StartSessionResponse with session_id, status, rate
+
+### Path 4: Manual StopSession (gRPC)
+
+1. PARKING_APP calls `StopSession()` via gRPC
+2. If no session active → return `FAILED_PRECONDITION` error
+3. Call `operator::stop_session(session_id)`
+4. On success → clear session state, set `Vehicle.Parking.SessionActive = false` in DATA_BROKER
+5. Return StopSessionResponse with session_id, status, duration, total, currency
+
+### Path 5: GetStatus / GetRate Query (gRPC)
+
+1. PARKING_APP calls `GetStatus()` or `GetRate()` via gRPC
+2. Read in-memory session state
+3. Return current state (or empty/inactive response if no session)
 
 ## Components and Interfaces
 
-### gRPC API (from proto/parking_adaptor.proto)
+### CLI Interface
 
-| RPC | Request | Response |
-|-----|---------|----------|
-| StartSession | `{zone_id}` | `{session_id, status}` |
-| StopSession | `{}` | `{session_id, status, duration_seconds, total_amount, currency}` |
-| GetStatus | `{}` | `{session_id, active, zone_id, start_time, rate}` |
-| GetRate | `{}` | `{rate_type, amount, currency}` |
+```
+$ parking-operator-adaptor
+parking-operator-adaptor v0.1.0 - Parking operator adapter for RHIVOS QM
+
+Usage: parking-operator-adaptor [options]
+
+Environment:
+  PARKING_OPERATOR_URL   Operator REST base URL (default: http://localhost:8080)
+  DATA_BROKER_ADDR       DATA_BROKER gRPC address (default: http://localhost:55556)
+  GRPC_PORT              gRPC listen port (default: 50053)
+  VEHICLE_ID             Vehicle identifier (default: DEMO-VIN-001)
+  ZONE_ID                Default parking zone (default: zone-demo-1)
+
+The service subscribes to lock/unlock events and manages parking sessions
+autonomously. Manual override available via gRPC.
+```
 
 ### Core Data Types
 
 ```rust
-#[derive(Clone, Debug)]
-pub struct SessionState {
-    pub session_id: String,
-    pub zone_id: String,
-    pub start_time: i64,   // Unix timestamp
-    pub rate: Rate,
-    pub active: bool,
+/// In-memory parking session state
+struct SessionState {
+    session_id: String,
+    zone_id: String,
+    start_time: i64,        // Unix timestamp
+    rate: Rate,
+    active: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Rate {
-    pub rate_type: String,  // "per_hour" | "flat_fee"
-    pub amount: f64,
-    pub currency: String,   // "EUR"
+/// Rate information from PARKING_OPERATOR
+struct Rate {
+    rate_type: String,      // "per_hour" | "flat_fee"
+    amount: f64,
+    currency: String,
 }
 
-#[derive(Serialize)]
-pub struct StartRequest {
-    pub vehicle_id: String,
-    pub zone_id: String,
-    pub timestamp: i64,
+/// Configuration parsed from environment
+struct Config {
+    parking_operator_url: String,
+    data_broker_addr: String,
+    grpc_port: u16,
+    vehicle_id: String,
+    zone_id: String,
 }
 
-#[derive(Deserialize)]
-pub struct StartResponse {
-    pub session_id: String,
-    pub status: String,
-    pub rate: Rate,
+/// Operator REST start response
+struct StartResponse {
+    session_id: String,
+    status: String,
+    rate: Rate,
 }
 
-#[derive(Serialize)]
-pub struct StopRequest {
-    pub session_id: String,
-    pub timestamp: i64,
+/// Operator REST stop response
+struct StopResponse {
+    session_id: String,
+    status: String,
+    duration_seconds: u64,
+    total_amount: f64,
+    currency: String,
 }
 
-#[derive(Deserialize)]
-pub struct StopResponse {
-    pub session_id: String,
-    pub status: String,
-    pub duration_seconds: u64,
-    pub total_amount: f64,
-    pub currency: String,
-}
-
-pub struct Config {
-    pub parking_operator_url: String,
-    pub data_broker_addr: String,
-    pub grpc_port: u16,
-    pub vehicle_id: String,
-    pub zone_id: String,
+/// Internal event type for serialized processing
+enum SessionEvent {
+    LockChanged(bool),                          // from DATA_BROKER subscription
+    ManualStart { zone_id: String },            // from gRPC StartSession
+    ManualStop,                                 // from gRPC StopSession
+    QueryStatus { reply: oneshot::Sender },     // from gRPC GetStatus
+    QueryRate { reply: oneshot::Sender },        // from gRPC GetRate
 }
 ```
 
@@ -134,134 +195,170 @@ pub struct Config {
 
 ```rust
 // config module
-pub fn load_config() -> Config;
+fn load_config() -> Result<Config, ConfigError>;
 
 // session module
-pub struct SessionManager { /* Arc<Mutex<Option<SessionState>>> */ }
-impl SessionManager {
-    pub fn new() -> Self;
-    pub fn start(&self, session_id: &str, zone_id: &str, rate: Rate) -> Result<(), SessionError>;
-    pub fn stop(&self) -> Result<SessionState, SessionError>;
-    pub fn get_status(&self) -> Option<SessionState>;
-    pub fn get_rate(&self) -> Option<Rate>;
-    pub fn is_active(&self) -> bool;
+struct Session { /* wraps Option<SessionState> */ }
+impl Session {
+    fn new() -> Self;
+    fn is_active(&self) -> bool;
+    fn start(&mut self, session_id: String, zone_id: String, start_time: i64, rate: Rate);
+    fn stop(&mut self) -> Option<String>;  // returns session_id if was active
+    fn status(&self) -> Option<&SessionState>;
+    fn rate(&self) -> Option<&Rate>;
 }
 
-// operator_client module (trait for testability)
-#[async_trait]
-pub trait OperatorClient: Send + Sync {
+// operator module
+struct OperatorClient { /* wraps reqwest::Client + base_url */ }
+impl OperatorClient {
+    fn new(base_url: &str) -> Self;
     async fn start_session(&self, vehicle_id: &str, zone_id: &str) -> Result<StartResponse, OperatorError>;
     async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError>;
-    async fn get_session_status(&self, session_id: &str) -> Result<serde_json::Value, OperatorError>;
+    async fn get_status(&self, session_id: &str) -> Result<StatusResponse, OperatorError>;
 }
 
-pub struct HttpOperatorClient { /* reqwest::Client + base_url */ }
-impl OperatorClient for HttpOperatorClient { ... }
+// broker module
+struct BrokerClient { /* wraps kuksa.val.v1 gRPC client */ }
+impl BrokerClient {
+    async fn connect(addr: &str) -> Result<Self, BrokerError>;
+    async fn subscribe_bool(&self, signal: &str) -> Result<BoolSubscriptionStream, BrokerError>;
+    async fn set_bool(&self, signal: &str, value: bool) -> Result<(), BrokerError>;
+}
 
-// broker module (trait for testability)
-#[async_trait]
-pub trait BrokerClient: Send + Sync {
-    async fn subscribe_lock_state(&self) -> Result<Receiver<bool>, BrokerError>;
-    async fn set_session_active(&self, active: bool) -> Result<(), BrokerError>;
+// grpc_server module
+struct ParkingAdaptorService { /* holds event channel sender */ }
+impl ParkingAdaptor for ParkingAdaptorService {
+    async fn start_session(&self, request: Request<StartSessionRequest>) -> Result<Response<StartSessionResponse>, Status>;
+    async fn stop_session(&self, request: Request<StopSessionRequest>) -> Result<Response<StopSessionResponse>, Status>;
+    async fn get_status(&self, request: Request<GetStatusRequest>) -> Result<Response<GetStatusResponse>, Status>;
+    async fn get_rate(&self, request: Request<GetRateRequest>) -> Result<Response<GetRateResponse>, Status>;
 }
 ```
 
 ## Data Models
 
-### PARKING_OPERATOR REST API Contract
+### Operator REST: Start Session Request
 
-**Start Session:**
-```
-POST /parking/start
-Body: {"vehicle_id": "DEMO-VIN-001", "zone_id": "zone-demo-1", "timestamp": 1700000000}
-Response: {"session_id": "sess-001", "status": "active", "rate": {"rate_type": "per_hour", "amount": 2.50, "currency": "EUR"}}
-```
-
-**Stop Session:**
-```
-POST /parking/stop
-Body: {"session_id": "sess-001", "timestamp": 1700003600}
-Response: {"session_id": "sess-001", "status": "stopped", "duration_seconds": 3600, "total_amount": 2.50, "currency": "EUR"}
+```json
+{
+  "vehicle_id": "string (from VEHICLE_ID env)",
+  "zone_id": "string (from ZONE_ID env or StartSession param)",
+  "timestamp": "integer (Unix timestamp)"
+}
 ```
 
-**Get Status:**
-```
-GET /parking/status/sess-001
-Response: {"session_id": "sess-001", "status": "active", "zone_id": "zone-demo-1", "start_time": 1700000000}
+### Operator REST: Start Session Response
+
+```json
+{
+  "session_id": "string (UUID from operator)",
+  "status": "string (e.g. 'active')",
+  "rate": {
+    "type": "string ('per_hour' | 'flat_fee')",
+    "amount": "number (e.g. 2.50)",
+    "currency": "string (e.g. 'EUR')"
+  }
+}
 ```
 
-## Operational Readiness
+### Operator REST: Stop Session Request
 
-- **Startup logging:** Logs version, port, operator URL, DATA_BROKER address, vehicle ID.
-- **Shutdown:** Handles SIGTERM/SIGINT, stops active session, closes DATA_BROKER connection, shuts down gRPC server.
-- **Health:** GetStatus RPC can serve as a health indicator.
-- **Rollback:** Revert via `git checkout`. No persistent state.
+```json
+{
+  "session_id": "string (from session state)",
+  "timestamp": "integer (Unix timestamp)"
+}
+```
+
+### Operator REST: Stop Session Response
+
+```json
+{
+  "session_id": "string",
+  "status": "string (e.g. 'completed')",
+  "duration_seconds": "integer",
+  "total_amount": "number",
+  "currency": "string"
+}
+```
+
+### Configuration
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `PARKING_OPERATOR_URL` | `http://localhost:8080` | PARKING_OPERATOR REST base URL |
+| `DATA_BROKER_ADDR` | `http://localhost:55556` | DATA_BROKER gRPC endpoint (network TCP) |
+| `GRPC_PORT` | `50053` | gRPC listen port |
+| `VEHICLE_ID` | `DEMO-VIN-001` | Vehicle identifier for operator requests |
+| `ZONE_ID` | `zone-demo-1` | Default parking zone identifier |
 
 ## Correctness Properties
 
-### Property 1: Autonomous Session Start on Lock
+### Property 1: Session State Consistency
 
-*For any* lock event (IsLocked = true) when no session is active, the adaptor SHALL call the PARKING_OPERATOR start API and, on success, store the session and write SessionActive = true to DATA_BROKER.
+*For any* sequence of lock events, unlock events, and manual gRPC calls, the in-memory session state SHALL match the last successful operation outcome. If a start succeeded, `active == true`. If a stop succeeded or no start has occurred, `active == false`.
 
-**Validates: Requirements 08-REQ-1.1, 08-REQ-1.2, 08-REQ-1.3**
+**Validates: Requirements 08-REQ-6.1, 08-REQ-6.2, 08-REQ-6.3**
 
-### Property 2: Autonomous Session Stop on Unlock
+### Property 2: Idempotent Lock Events
 
-*For any* unlock event (IsLocked = false) when a session is active, the adaptor SHALL call the PARKING_OPERATOR stop API and, on success, clear the session and write SessionActive = false to DATA_BROKER.
+*For any* lock event received when a session is already active, the service SHALL not call the PARKING_OPERATOR and SHALL not modify session state. For any unlock event received when no session is active, the same applies.
 
-**Validates: Requirements 08-REQ-2.1, 08-REQ-2.2, 08-REQ-2.3**
+**Validates: Requirements 08-REQ-3.E1, 08-REQ-3.E2**
 
-### Property 3: Session Idempotency
+### Property 3: Override Non-Persistence
 
-*For any* lock event while a session is already active, the adaptor SHALL not call the PARKING_OPERATOR and not modify session state. *For any* unlock event while no session is active, the same SHALL hold.
+*For any* manual StopSession followed by a lock event, the service SHALL start a new session autonomously. Manual override does not disable autonomous behavior beyond the current cycle.
 
-**Validates: Requirements 08-REQ-1.E1, 08-REQ-2.E1**
+**Validates: Requirements 08-REQ-5.1, 08-REQ-5.2, 08-REQ-5.3, 08-REQ-5.E1**
 
-### Property 4: Manual Override Consistency
+### Property 4: Retry Exhaustion Safety
 
-*For any* manual StartSession or StopSession call, the adaptor SHALL perform the same PARKING_OPERATOR API call and state updates as the autonomous flow, and resume autonomous behavior on the next lock/unlock cycle.
+*For any* PARKING_OPERATOR REST call that fails all 3 retry attempts, the service SHALL not update session state and SHALL return an error to the caller. The service SHALL remain operational and process subsequent events.
 
-**Validates: Requirements 08-REQ-3.1, 08-REQ-3.2, 08-REQ-3.3**
+**Validates: Requirements 08-REQ-2.E1, 08-REQ-2.E2**
 
-### Property 5: Operator Retry Logic
+### Property 5: SessionActive Signal Consistency
 
-*For any* PARKING_OPERATOR REST API failure, the adaptor SHALL retry up to 3 times with exponential backoff (1s, 2s, 4s) before reporting failure.
+*For any* successful session start, `Vehicle.Parking.SessionActive` SHALL be `true` in DATA_BROKER. For any successful session stop, it SHALL be `false`. The signal value SHALL always match `session.active`.
 
-**Validates: Requirements 08-REQ-1.E2, 08-REQ-2.E2**
+**Validates: Requirements 08-REQ-4.1, 08-REQ-4.2, 08-REQ-4.3**
 
-### Property 6: Config Defaults
+### Property 6: Sequential Event Processing
 
-*For any* missing environment variable, the adaptor SHALL use the defined default value.
+*For any* concurrent arrival of lock/unlock events and gRPC commands, the service SHALL serialize processing so that at most one operation is in-flight at any time. No race conditions on session state.
 
-**Validates: Requirements 08-REQ-7.1, 08-REQ-7.2**
+**Validates: Requirements 08-REQ-9.1, 08-REQ-9.2**
 
 ## Error Handling
 
 | Error Condition | Behavior | Requirement |
 |----------------|----------|-------------|
-| Lock event while session active | No-op, log info | 08-REQ-1.E1 |
-| Operator start fails after 3 retries | Log error, session not started | 08-REQ-1.E2 |
-| Unlock event while no session | No-op, log info | 08-REQ-2.E1 |
-| Operator stop fails after 3 retries | Log error, session not cleared | 08-REQ-2.E2 |
-| StartSession while session active | gRPC ALREADY_EXISTS | 08-REQ-3.E1 |
-| StopSession while no session | gRPC NOT_FOUND | 08-REQ-3.E2 |
-| GetRate while no session | gRPC NOT_FOUND | 08-REQ-5.2 |
-| DATA_BROKER unreachable at startup | Retry 5x, exit non-zero | 08-REQ-6.E1 |
-| SessionActive write fails | Log error, continue | 08-REQ-6.E2 |
+| PARKING_OPERATOR REST call fails | Retry up to 3 times with exponential backoff (1s, 2s, 4s), then return UNAVAILABLE error | 08-REQ-2.E1 |
+| PARKING_OPERATOR returns non-200 status | Treat as failure, apply retry logic | 08-REQ-2.E2 |
+| DATA_BROKER unreachable on startup | Retry with exponential backoff (1s, 2s, 4s) up to 5 attempts, then exit non-zero | 08-REQ-3.E3 |
+| Lock event while session active | No-op, log info message | 08-REQ-3.E1 |
+| Unlock event while no session active | No-op, log info message | 08-REQ-3.E2 |
+| StartSession when session active | Return ALREADY_EXISTS gRPC error | 08-REQ-1.E1 |
+| StopSession when no session active | Return FAILED_PRECONDITION gRPC error | 08-REQ-1.E2 |
+| Publishing SessionActive to DATA_BROKER fails | Log error, continue operation | 08-REQ-4.E1 |
+| GRPC_PORT non-numeric | Exit with non-zero code, log error | 08-REQ-7.E1 |
+| Service restart | Session state lost, start with no active session | 08-REQ-6.E1 |
+| SIGTERM during in-flight REST call | Wait for call to complete or timeout, then exit 0 | 08-REQ-8.E1 |
 
 ## Technology Stack
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| Rust | 2021 edition | Service implementation |
-| tonic | latest | gRPC server framework |
-| prost | latest | Protobuf code generation |
-| tokio | latest | Async runtime |
-| tonic-build | latest | Proto code generation (build.rs) |
-| reqwest | latest | HTTP client for PARKING_OPERATOR REST API |
-| serde + serde_json | latest | JSON serialization |
-| tracing + tracing-subscriber | latest | Structured logging |
-| proptest | latest (dev) | Property-based testing |
+| Rust | edition 2021 | Service implementation |
+| tonic | 0.11+ | gRPC server and DATA_BROKER client |
+| prost | 0.12+ | Protocol Buffer code generation |
+| tokio | 1.x | Async runtime |
+| reqwest | 0.11+ | HTTP client for PARKING_OPERATOR REST API |
+| serde / serde_json | 1.x | JSON serialization/deserialization |
+| tracing | 0.1+ | Structured logging |
+| kuksa.val.v1 proto | — | Kuksa Databroker gRPC API definitions (vendored) |
+| parking_adaptor.proto | — | ParkingAdaptor gRPC service definition (from spec 01 group 6) |
 
 ## Definition of Done
 
@@ -278,8 +375,15 @@ A task group is complete when ALL of the following are true:
 
 ## Testing Strategy
 
-- **Unit tests:** Rust `#[cfg(test)]` modules. The `session`, `config`, `operator_client`, and `grpc_service` modules have unit tests. The `operator_client` and `broker` modules use trait-based mock implementations.
-- **Property tests:** Rust `proptest` crate for session idempotency, retry behavior, and config defaults.
-- **Integration tests:** `tests/parking-operator-adaptor/` Go module for end-to-end gRPC + REST testing with mock PARKING_OPERATOR.
-- **All unit/property tests run via:** `cd rhivos && cargo test -p parking-operator-adaptor`
-- **Integration tests run via:** `cd tests/parking-operator-adaptor && go test -v ./...`
+- **Unit tests:** The `config`, `session`, `operator`, and `grpc_server` modules contain pure functions or mockable interfaces testable without external services. Tests use `#[test]` and `#[tokio::test]` with mock HTTP servers (via `mockito` or `wiremock`) and mock DATA_BROKER clients.
+- **Integration tests:** A `tests/parking-operator-adaptor/` Go module starts the DATA_BROKER container and a mock PARKING_OPERATOR HTTP server, runs the parking-operator-adaptor binary, and verifies end-to-end lock→start→unlock→stop flows via gRPC and DATA_BROKER signals.
+- **Property tests:** Use `proptest` crate for session state invariants (idempotent operations, override non-persistence, state consistency after arbitrary event sequences).
+- **Mock operator:** Unit tests for the operator module use a mock HTTP server (wiremock or similar) that returns configurable responses and can simulate failures for retry testing.
+- **Mock broker:** Unit tests for the event loop and gRPC server use a mock `BrokerClient` trait implementation to avoid dependency on a live DATA_BROKER.
+
+## Operational Readiness
+
+- **Startup logging:** Service logs version, all configuration values (PARKING_OPERATOR_URL, DATA_BROKER_ADDR, GRPC_PORT, VEHICLE_ID, ZONE_ID), and a "ready" message once initialized.
+- **Shutdown:** Handles SIGTERM/SIGINT, completes in-flight operations, logs shutdown message, exits 0.
+- **Health:** The service is healthy if the gRPC server is listening and the DATA_BROKER subscription is active. No separate health endpoint (containerized service — liveness is checked by the container runtime).
+- **Rollback:** Revert to skeleton binary via `git checkout`. No persistent state — session state is in-memory only.

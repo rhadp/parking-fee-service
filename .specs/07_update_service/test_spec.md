@@ -2,534 +2,483 @@
 
 ## Overview
 
-This test specification defines concrete test contracts for the UPDATE_SERVICE, a Rust gRPC service managing containerized adapter lifecycle. Tests are organized into unit tests (config, state, model, container modules using mock ContainerRuntime) and integration tests (gRPC client tests in `tests/update-service/`). Unit tests run via `cd rhivos && cargo test -p update-service`. The container module uses a trait-based abstraction (ContainerRuntime) with mock implementations for unit testing without podman.
+This test specification defines concrete test contracts for the UPDATE_SERVICE, a Rust gRPC server managing the lifecycle of containerized PARKING_OPERATOR_ADAPTORs. Tests are organized into unit tests (config, adapter, state, podman modules), integration tests (gRPC client against running service with mock podman), and property tests (proptest). All Rust tests run via `cd rhivos && cargo test -p update-service`. Integration tests run via `cd tests/update-service && go test -v ./...`.
 
 ## Test Cases
 
-### TS-07-1: Install Adapter Happy Path
+### TS-07-1: InstallAdapter Returns Response Immediately
 
 **Requirement:** 07-REQ-1.1
 **Type:** unit
-**Description:** InstallAdapter pulls image, verifies checksum, starts container, and returns job_id, adapter_id, and DOWNLOADING state.
+**Description:** An `InstallAdapter` call returns an `InstallAdapterResponse` with a UUID v4 `job_id`, the derived `adapter_id`, and initial state DOWNLOADING.
 
 **Preconditions:**
-- Mock ContainerRuntime configured to succeed for pull, inspect (returns matching digest), and run.
+- State manager is empty (no adapters installed).
+- Mock podman executor configured (pull succeeds after delay).
 
 **Input:**
-- `image_ref: "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0"`
-- `checksum_sha256: "sha256:abc123def456"`
+- `InstallAdapter(image_ref: "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0", checksum_sha256: "sha256:abc123")`
 
 **Expected:**
-- Response contains non-empty `job_id`, `adapter_id == "parkhaus-munich-v1.0.0"`, `state == DOWNLOADING`.
-- After completion: adapter state is RUNNING.
+- Response contains non-empty `job_id` matching UUID v4 format.
+- Response contains `adapter_id` equal to `"parkhaus-munich-v1.0.0"`.
+- Response contains `state` equal to `DOWNLOADING`.
 
 **Assertion pseudocode:**
 ```
-resp = service.install_adapter(image_ref, checksum)
-ASSERT resp.job_id != ""
+mock_podman = MockPodmanExecutor::new()
+mock_podman.set_pull_result(Ok(()))
+mock_podman.set_inspect_result(Ok("sha256:abc123"))
+state_mgr = StateManager::new(broadcast_tx)
+resp = grpc_service.install_adapter("us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0", "sha256:abc123")
+ASSERT resp.job_id matches UUID_V4_REGEX
 ASSERT resp.adapter_id == "parkhaus-munich-v1.0.0"
 ASSERT resp.state == DOWNLOADING
-wait_for_state(adapter_id, RUNNING)
 ```
 
-### TS-07-2: State Transitions During Install
+### TS-07-2: Podman Pull Executed on Install
 
 **Requirement:** 07-REQ-1.2
 **Type:** unit
-**Description:** During successful installation, the adapter transitions through DOWNLOADING → INSTALLING → RUNNING.
+**Description:** After `InstallAdapter`, the service executes `podman pull` with the provided image_ref.
 
 **Preconditions:**
-- Mock ContainerRuntime succeeds on all operations.
-- WatchAdapterStates subscriber active.
+- Mock podman executor tracks calls.
 
 **Input:**
-- InstallAdapter call.
+- `InstallAdapter(image_ref: "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0", checksum_sha256: "sha256:abc123")`
 
 **Expected:**
-- Three state events: (UNKNOWN→DOWNLOADING), (DOWNLOADING→INSTALLING), (INSTALLING→RUNNING).
+- Mock podman executor received a `pull("us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0")` call.
 
 **Assertion pseudocode:**
 ```
-events = collect_events_during(install_adapter(image_ref, checksum))
-ASSERT events[0] == (UNKNOWN, DOWNLOADING)
-ASSERT events[1] == (DOWNLOADING, INSTALLING)
-ASSERT events[2] == (INSTALLING, RUNNING)
+mock_podman = MockPodmanExecutor::new()
+mock_podman.set_pull_result(Ok(()))
+mock_podman.set_inspect_result(Ok("sha256:abc123"))
+mock_podman.set_run_result(Ok(()))
+grpc_service.install_adapter("us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0", "sha256:abc123")
+tokio::time::sleep(100ms).await  // allow async task to run
+ASSERT mock_podman.pull_calls() == ["us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0"]
 ```
 
-### TS-07-3: Checksum Verification
+### TS-07-3: Checksum Verification After Pull
 
 **Requirement:** 07-REQ-1.3
 **Type:** unit
-**Description:** After pulling, the service compares the image digest against the provided checksum.
+**Description:** After pulling, the service inspects the image digest and compares it with the provided checksum.
 
 **Preconditions:**
-- Mock ContainerRuntime: pull succeeds, inspect_digest returns "sha256:abc123def456".
+- Mock podman: pull succeeds, inspect returns `"sha256:abc123"`.
 
 **Input:**
-- `checksum_sha256: "sha256:abc123def456"` (matching)
+- `InstallAdapter(image_ref: "...", checksum_sha256: "sha256:abc123")`
 
 **Expected:**
-- Verification passes, installation continues to INSTALLING.
+- Mock podman received an `inspect_digest` call.
+- Adapter transitions to INSTALLING (checksum matches).
 
 **Assertion pseudocode:**
 ```
-service.install_adapter(image_ref, "sha256:abc123def456")
-adapter = state_manager.get("parkhaus-munich-v1.0.0")
-ASSERT adapter.state != ERROR
+mock_podman = MockPodmanExecutor::new()
+mock_podman.set_pull_result(Ok(()))
+mock_podman.set_inspect_result(Ok("sha256:abc123"))
+mock_podman.set_run_result(Ok(()))
+grpc_service.install_adapter(image_ref, "sha256:abc123")
+tokio::time::sleep(100ms).await
+ASSERT mock_podman.inspect_digest_calls().len() == 1
+adapter = state_mgr.get_adapter("parkhaus-munich-v1.0.0")
+ASSERT adapter.state IN [Installing, Running]  // may have progressed
 ```
 
-### TS-07-4: Container Started with Host Networking
+### TS-07-4: Container Started With Network Host
 
 **Requirement:** 07-REQ-1.4
 **Type:** unit
-**Description:** The container is started with `--network=host`.
+**Description:** On checksum match, the service starts the container with `--network=host` and the derived adapter_id as the container name.
 
 **Preconditions:**
-- Mock ContainerRuntime recording run arguments.
+- Mock podman: pull succeeds, inspect returns matching checksum, run succeeds.
 
 **Input:**
-- InstallAdapter call.
+- `InstallAdapter(image_ref: "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0", checksum_sha256: "sha256:abc123")`
 
 **Expected:**
-- Container run was called (mock recorded the call with image_ref and adapter_id).
+- Mock podman received a `run("parkhaus-munich-v1.0.0", "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0")` call.
 
 **Assertion pseudocode:**
 ```
-service.install_adapter(image_ref, checksum)
-ASSERT mock_runtime.run_called_with(image_ref, adapter_id)
-// PodmanRuntime implementation verifies --network=host via integration test
+mock_podman = MockPodmanExecutor::new()
+mock_podman.set_pull_result(Ok(()))
+mock_podman.set_inspect_result(Ok("sha256:abc123"))
+mock_podman.set_run_result(Ok(()))
+grpc_service.install_adapter(image_ref, "sha256:abc123")
+tokio::time::sleep(100ms).await
+ASSERT mock_podman.run_calls() == [("parkhaus-munich-v1.0.0", image_ref)]
 ```
 
-### TS-07-5: Adapter ID Derivation
+### TS-07-5: State Transitions to RUNNING on Success
 
 **Requirement:** 07-REQ-1.5
 **Type:** unit
-**Description:** adapter_id is derived from image_ref's last path segment and tag.
+**Description:** After successful container start, the adapter state transitions to RUNNING.
 
 **Preconditions:**
-- None.
+- Mock podman: all operations succeed.
 
 **Input:**
-- `"us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0"` → `"parkhaus-munich-v1.0.0"`
-- `"registry.io/repo/my-adapter:latest"` → `"my-adapter-latest"`
+- `InstallAdapter` with valid inputs.
 
 **Expected:**
-- Deterministic, human-readable adapter_id.
+- Adapter final state is RUNNING.
+
+**Assertion pseudocode:**
+```
+// ... setup mock podman with all successes ...
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter("parkhaus-munich-v1.0.0")
+ASSERT adapter.state == Running
+```
+
+### TS-07-6: Adapter ID Derivation
+
+**Requirement:** 07-REQ-1.6
+**Type:** unit
+**Description:** The adapter_id is derived from the image_ref by extracting the last path segment and replacing the colon with a hyphen.
+
+**Preconditions:** None.
+
+**Input:**
+- `"us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0"`
+- `"registry.example.com/my-adapter:latest"`
+- `"simple-image:v2"`
+
+**Expected:**
+- `"parkhaus-munich-v1.0.0"`
+- `"my-adapter-latest"`
+- `"simple-image-v2"`
 
 **Assertion pseudocode:**
 ```
 ASSERT derive_adapter_id("us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0") == "parkhaus-munich-v1.0.0"
-ASSERT derive_adapter_id("registry.io/repo/my-adapter:latest") == "my-adapter-latest"
+ASSERT derive_adapter_id("registry.example.com/my-adapter:latest") == "my-adapter-latest"
+ASSERT derive_adapter_id("simple-image:v2") == "simple-image-v2"
 ```
 
-### TS-07-6: Single Adapter Stops Running Before New Install
+### TS-07-7: Single Adapter Constraint Stops Running Adapter
 
-**Requirement:** 07-REQ-2.1
+**Requirement:** 07-REQ-2.1, 07-REQ-2.2
 **Type:** unit
 **Description:** When InstallAdapter is called while another adapter is RUNNING, the running adapter is stopped first.
 
 **Preconditions:**
-- Adapter "old-adapter" in RUNNING state.
+- Adapter A is in state RUNNING.
+- Mock podman: stop succeeds for adapter A, all operations succeed for adapter B.
 
 **Input:**
-- InstallAdapter with a new image_ref.
+- `InstallAdapter` for adapter B.
 
 **Expected:**
-- "old-adapter" transitions to STOPPED.
-- New adapter installation proceeds.
+- Mock podman received a `stop` call for adapter A's adapter_id.
+- Adapter A transitions to STOPPED.
+- Adapter B transitions to RUNNING.
 
 **Assertion pseudocode:**
 ```
-install_adapter("old-image:v1", checksum1)  // now RUNNING
-install_adapter("new-image:v1", checksum2)
-ASSERT state_manager.get("old-adapter").state == STOPPED
-ASSERT state_manager.get("new-adapter").state == RUNNING
+// Install adapter A first
+grpc_service.install_adapter(image_ref_a, checksum_a)
+tokio::time::sleep(200ms).await
+ASSERT state_mgr.get_adapter(adapter_id_a).state == Running
+
+// Install adapter B
+grpc_service.install_adapter(image_ref_b, checksum_b)
+tokio::time::sleep(200ms).await
+ASSERT mock_podman.stop_calls().contains(adapter_id_a)
+ASSERT state_mgr.get_adapter(adapter_id_a).state == Stopped
+ASSERT state_mgr.get_adapter(adapter_id_b).state == Running
 ```
 
-### TS-07-7: Previous Adapter Stopped State
+### TS-07-8: WatchAdapterStates Streams Events
 
-**Requirement:** 07-REQ-2.2
+**Requirement:** 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3
 **Type:** unit
-**Description:** The previously running adapter transitions to STOPPED before the new one starts.
+**Description:** WatchAdapterStates returns a stream that delivers AdapterStateEvent messages for all state transitions.
 
 **Preconditions:**
-- Adapter "adapter-a" in RUNNING state.
+- A subscriber is connected via WatchAdapterStates.
 
 **Input:**
-- InstallAdapter with new image.
+- `InstallAdapter` triggers state transitions.
 
 **Expected:**
-- State events show adapter-a transitioning to STOPPED before new adapter starts.
+- Subscriber receives events with adapter_id, old_state, new_state, and timestamp for each transition.
 
 **Assertion pseudocode:**
 ```
-events = collect_events_during(install_adapter("new-image:v1", checksum))
-stop_event = find_event(events, adapter_id="adapter-a", new_state=STOPPED)
-ASSERT stop_event EXISTS
-ASSERT stop_event.timestamp <= first_event_for_new_adapter.timestamp
+stream = grpc_service.watch_adapter_states()
+grpc_service.install_adapter(image_ref, checksum)
+events = collect_events(stream, timeout=500ms)
+ASSERT events.len() >= 3  // UNKNOWN->DOWNLOADING, DOWNLOADING->INSTALLING, INSTALLING->RUNNING
+ASSERT events[0].old_state == Unknown
+ASSERT events[0].new_state == Downloading
+ASSERT events[0].adapter_id == "parkhaus-munich-v1.0.0"
+ASSERT events[0].timestamp > 0
+ASSERT events[1].old_state == Downloading
+ASSERT events[1].new_state == Installing
+ASSERT events[2].old_state == Installing
+ASSERT events[2].new_state == Running
 ```
 
-### TS-07-8: Watch Adapter States Stream
+### TS-07-9: WatchAdapterStates No Historical Replay
 
-**Requirement:** 07-REQ-3.1
+**Requirement:** 07-REQ-3.4
 **Type:** unit
-**Description:** WatchAdapterStates returns a stream of state events for subsequent transitions.
+**Description:** A new subscriber does not receive events from before the subscription started.
 
 **Preconditions:**
-- Active subscriber.
+- An adapter was installed and is RUNNING before the subscriber connects.
 
 **Input:**
-- Subscribe, then trigger an InstallAdapter.
+- Subscribe to WatchAdapterStates after installation completes.
+- Then trigger a new state transition (e.g., stop the adapter).
 
 **Expected:**
-- Subscriber receives state transition events.
+- Subscriber receives only the RUNNING->STOPPED event, not the earlier transitions.
 
 **Assertion pseudocode:**
 ```
-rx = state_manager.subscribe()
-install_adapter(image_ref, checksum)
-event = rx.recv()
-ASSERT event.adapter_id != ""
-ASSERT event.new_state != UNKNOWN
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+stream = grpc_service.watch_adapter_states()
+grpc_service.remove_adapter(adapter_id)
+events = collect_events(stream, timeout=500ms)
+// Should NOT contain UNKNOWN->DOWNLOADING or DOWNLOADING->INSTALLING
+FOR event IN events:
+    ASSERT event.old_state != Unknown
+    ASSERT event.new_state != Downloading
 ```
 
-### TS-07-9: Multiple Watch Subscribers
-
-**Requirement:** 07-REQ-3.2
-**Type:** unit
-**Description:** Multiple WatchAdapterStates subscribers each receive all events.
-
-**Preconditions:**
-- Two active subscribers.
-
-**Input:**
-- Trigger a state transition.
-
-**Expected:**
-- Both subscribers receive the same event.
-
-**Assertion pseudocode:**
-```
-rx1 = state_manager.subscribe()
-rx2 = state_manager.subscribe()
-state_manager.transition("adapter-1", RUNNING)
-event1 = rx1.recv()
-event2 = rx2.recv()
-ASSERT event1.adapter_id == event2.adapter_id
-ASSERT event1.new_state == event2.new_state
-```
-
-### TS-07-10: State Event Fields
-
-**Requirement:** 07-REQ-3.3
-**Type:** unit
-**Description:** Each AdapterStateEvent includes adapter_id, old_state, new_state, and timestamp.
-
-**Preconditions:**
-- Subscriber active.
-
-**Input:**
-- Trigger a state transition.
-
-**Expected:**
-- Event has all four fields populated.
-
-**Assertion pseudocode:**
-```
-rx = state_manager.subscribe()
-state_manager.transition("adapter-1", INSTALLING)
-event = rx.recv()
-ASSERT event.adapter_id == "adapter-1"
-ASSERT event.old_state == DOWNLOADING
-ASSERT event.new_state == INSTALLING
-ASSERT event.timestamp > 0
-```
-
-### TS-07-11: List Adapters
+### TS-07-10: ListAdapters Returns All Known Adapters
 
 **Requirement:** 07-REQ-4.1
 **Type:** unit
-**Description:** ListAdapters returns all known adapters with current states.
+**Description:** ListAdapters returns all known adapters with their current states.
 
 **Preconditions:**
-- Two adapters in state manager.
+- Two adapters have been installed (one RUNNING, one STOPPED).
 
 **Input:**
-- ListAdapters call.
+- `ListAdapters()`
 
 **Expected:**
-- Returns 2 adapters with correct states.
+- Response contains exactly 2 adapters with correct adapter_ids and states.
 
 **Assertion pseudocode:**
 ```
-state_manager.create_adapter("a1", "img1", "chk1")
-state_manager.create_adapter("a2", "img2", "chk2")
-list = state_manager.list()
-ASSERT len(list) == 2
+grpc_service.install_adapter(image_ref_a, checksum_a)
+tokio::time::sleep(200ms).await
+grpc_service.install_adapter(image_ref_b, checksum_b)  // stops A
+tokio::time::sleep(200ms).await
+resp = grpc_service.list_adapters()
+ASSERT resp.adapters.len() == 2
+ids = resp.adapters.map(|a| a.adapter_id).sort()
+ASSERT ids == [adapter_id_a, adapter_id_b].sort()
 ```
 
-### TS-07-12: Get Adapter Status
+### TS-07-11: GetAdapterStatus Returns Current State
 
 **Requirement:** 07-REQ-4.2
 **Type:** unit
-**Description:** GetAdapterStatus returns the current status of a specific adapter.
+**Description:** GetAdapterStatus returns the current state of a specific adapter.
 
 **Preconditions:**
-- Adapter "a1" exists in RUNNING state.
+- An adapter is installed and RUNNING.
 
 **Input:**
-- GetAdapterStatus("a1").
+- `GetAdapterStatus(adapter_id)`
 
 **Expected:**
-- Returns adapter info with state=RUNNING, image_ref, timestamps.
+- Response contains the adapter_id and state RUNNING.
 
 **Assertion pseudocode:**
 ```
-info = state_manager.get("a1")
-ASSERT info.state == RUNNING
-ASSERT info.image_ref != ""
-ASSERT info.created_at > 0
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+resp = grpc_service.get_adapter_status("parkhaus-munich-v1.0.0")
+ASSERT resp.adapter_id == "parkhaus-munich-v1.0.0"
+ASSERT resp.state == Running
 ```
 
-### TS-07-13: Remove Adapter
+### TS-07-12: RemoveAdapter Cleans Up Container and Image
 
-**Requirement:** 07-REQ-5.1
+**Requirement:** 07-REQ-5.1, 07-REQ-5.2
 **Type:** unit
-**Description:** RemoveAdapter stops container, removes container and image, deletes from state.
+**Description:** RemoveAdapter stops the container, removes the container and image, and removes the adapter from state.
 
 **Preconditions:**
-- Adapter "a1" in RUNNING state. Mock ContainerRuntime succeeds.
+- An adapter is installed and RUNNING.
+- Mock podman: stop, rm, rmi all succeed.
 
 **Input:**
-- RemoveAdapter("a1").
+- `RemoveAdapter(adapter_id)`
 
 **Expected:**
-- Mock runtime stop, remove, remove_image called.
-- Adapter no longer in state manager.
+- Mock podman received stop, rm, and rmi calls.
+- Adapter is no longer in state manager.
 
 **Assertion pseudocode:**
 ```
-service.remove_adapter("a1")
-ASSERT state_manager.get("a1") == None
-ASSERT mock_runtime.stop_called
-ASSERT mock_runtime.remove_called
-ASSERT mock_runtime.remove_image_called
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+grpc_service.remove_adapter("parkhaus-munich-v1.0.0")
+ASSERT mock_podman.stop_calls().contains("parkhaus-munich-v1.0.0")
+ASSERT mock_podman.rm_calls().contains("parkhaus-munich-v1.0.0")
+ASSERT mock_podman.rmi_calls().contains(image_ref)
+ASSERT state_mgr.get_adapter("parkhaus-munich-v1.0.0").is_none()
 ```
 
-### TS-07-14: Remove Adapter State Transitions
+### TS-07-13: Offload Timer Triggers After Inactivity
 
-**Requirement:** 07-REQ-5.2
+**Requirement:** 07-REQ-6.1, 07-REQ-6.2, 07-REQ-6.3, 07-REQ-6.4
 **Type:** unit
-**Description:** During removal, adapter transitions through STOPPED → OFFLOADING → (removed).
+**Description:** A STOPPED adapter is offloaded after the inactivity timeout expires.
 
 **Preconditions:**
-- Adapter "a1" in RUNNING state.
+- Config with inactivity_timeout_secs = 1 (short for testing).
+- An adapter is in STOPPED state.
+- Mock podman: rm, rmi succeed.
 
 **Input:**
-- RemoveAdapter("a1").
+- Wait for offload timer to fire.
 
 **Expected:**
-- Events: RUNNING→STOPPED, STOPPED→OFFLOADING.
+- Adapter transitions to OFFLOADING, then is removed from state.
+- Mock podman received rm and rmi calls.
+- Event subscribers received STOPPED->OFFLOADING event.
 
 **Assertion pseudocode:**
 ```
-events = collect_events_during(remove_adapter("a1"))
-ASSERT (RUNNING, STOPPED) IN events
-ASSERT (STOPPED, OFFLOADING) IN events
+config.inactivity_timeout_secs = 1
+// ... install and stop adapter ...
+ASSERT state_mgr.get_adapter(adapter_id).state == Stopped
+tokio::time::sleep(2s).await  // wait for offload timer
+ASSERT state_mgr.get_adapter(adapter_id).is_none()
+ASSERT mock_podman.rm_calls().contains(adapter_id)
+ASSERT mock_podman.rmi_calls().contains(image_ref)
+ASSERT events_received.contains(AdapterStateEvent { old_state: Stopped, new_state: Offloading })
 ```
 
-### TS-07-15: Remove Adapter Events Emitted
+### TS-07-14: Config Loading From File
 
-**Requirement:** 07-REQ-5.3
+**Requirement:** 07-REQ-7.1, 07-REQ-7.2
 **Type:** unit
-**Description:** State transition events are emitted during adapter removal.
+**Description:** The service loads configuration from a JSON file specified by CONFIG_PATH.
 
 **Preconditions:**
-- Subscriber active.
+- A temporary JSON config file with custom values.
 
 **Input:**
-- RemoveAdapter on a running adapter.
+- `load_config("/tmp/test-config.json")`
 
 **Expected:**
-- Subscriber receives state transition events.
+- Config struct populated with values from the file.
 
 **Assertion pseudocode:**
 ```
-rx = state_manager.subscribe()
-remove_adapter("a1")
-events = collect_all(rx)
-ASSERT len(events) >= 2
-```
-
-### TS-07-16: Automatic Offloading
-
-**Requirement:** 07-REQ-6.1
-**Type:** unit
-**Description:** Stopped adapters past the inactivity timeout are automatically offloaded.
-
-**Preconditions:**
-- Adapter "a1" in STOPPED state, stopped_at set to 25 hours ago. Inactivity timeout is 24 hours.
-
-**Input:**
-- Offload timer triggers check.
-
-**Expected:**
-- Adapter "a1" transitions to OFFLOADING, then removed.
-
-**Assertion pseudocode:**
-```
-state_manager.create_adapter("a1", ...)
-state_manager.transition("a1", STOPPED)
-// Set stopped_at to 25 hours ago
-expired = state_manager.get_stopped_expired(86400)
-ASSERT "a1" IN expired
-```
-
-### TS-07-17: Configurable Inactivity Timeout
-
-**Requirement:** 07-REQ-6.2
-**Type:** unit
-**Description:** The inactivity timeout is loaded from config.
-
-**Preconditions:**
-- Config file with `inactivity_timeout_secs: 3600`.
-
-**Input:**
-- LoadConfig.
-
-**Expected:**
-- Config.inactivity_timeout_secs == 3600.
-
-**Assertion pseudocode:**
-```
-cfg = load_config(path_with_timeout_3600)
+write_file("/tmp/test-config.json", r#"{"grpc_port":50099,"registry_url":"example.com","inactivity_timeout_secs":3600,"container_storage_path":"/tmp/adapters/"}"#)
+cfg = config::load_config("/tmp/test-config.json")
+ASSERT cfg.grpc_port == 50099
+ASSERT cfg.registry_url == "example.com"
 ASSERT cfg.inactivity_timeout_secs == 3600
+ASSERT cfg.container_storage_path == "/tmp/adapters/"
 ```
 
-### TS-07-18: Offloading Events Emitted
+### TS-07-15: Container Exit Non-Zero Transitions to ERROR
 
-**Requirement:** 07-REQ-6.3
+**Requirement:** 07-REQ-9.1
 **Type:** unit
-**Description:** State transition events are emitted during automatic offloading.
+**Description:** When a running container exits with a non-zero exit code, the adapter transitions to ERROR.
 
 **Preconditions:**
-- Subscriber active. Adapter past inactivity threshold.
+- An adapter is RUNNING.
+- Mock podman: wait returns exit code 1.
 
 **Input:**
-- Offload timer triggers.
+- Container exits (mock podman wait completes with code 1).
 
 **Expected:**
-- Events emitted for STOPPED→OFFLOADING.
+- Adapter state transitions to ERROR.
+- Error state event emitted.
 
 **Assertion pseudocode:**
 ```
-rx = state_manager.subscribe()
-trigger_offload_check()
-event = rx.recv()
-ASSERT event.new_state == OFFLOADING
+mock_podman.set_wait_result(Ok(1))  // non-zero exit
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await  // container starts and then "exits"
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
 ```
 
-### TS-07-19: Config Loading
+### TS-07-16: Container Exit Code Zero Transitions to STOPPED
 
-**Requirement:** 07-REQ-7.1
+**Requirement:** 07-REQ-9.2
 **Type:** unit
-**Description:** Configuration is loaded from CONFIG_PATH env var.
+**Description:** When a running container exits with exit code 0, the adapter transitions to STOPPED.
 
 **Preconditions:**
-- Temp config file.
+- An adapter is RUNNING.
+- Mock podman: wait returns exit code 0.
 
 **Input:**
-- load_config(path).
+- Container exits (mock podman wait completes with code 0).
 
 **Expected:**
-- Config values match file.
+- Adapter state transitions to STOPPED.
+- STOPPED state event emitted.
 
 **Assertion pseudocode:**
 ```
-cfg = load_config("/tmp/test-config.json")
-ASSERT cfg.grpc_port == 50053
+mock_podman.set_wait_result(Ok(0))  // clean exit
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Stopped
 ```
 
-### TS-07-20: Config Fields
+### TS-07-17: Startup Logging
 
-**Requirement:** 07-REQ-7.2
-**Type:** unit
-**Description:** Config includes port, registry URL, inactivity timeout, and storage path.
-
-**Preconditions:**
-- Full config file.
-
-**Input:**
-- load_config.
-
-**Expected:**
-- All fields populated.
-
-**Assertion pseudocode:**
-```
-cfg = load_config(full_config_path)
-ASSERT cfg.grpc_port > 0
-ASSERT cfg.registry_url != ""
-ASSERT cfg.inactivity_timeout_secs > 0
-ASSERT cfg.container_storage_path != ""
-```
-
-### TS-07-21: Config Defaults
-
-**Requirement:** 07-REQ-7.3
-**Type:** unit
-**Description:** Missing fields use defaults.
-
-**Preconditions:**
-- Config file with empty JSON `{}`.
-
-**Input:**
-- load_config.
-
-**Expected:**
-- Defaults: port=50052, timeout=86400, storage=/var/lib/containers/adapters/.
-
-**Assertion pseudocode:**
-```
-cfg = load_config(empty_config)
-ASSERT cfg.grpc_port == 50052
-ASSERT cfg.inactivity_timeout_secs == 86400
-ASSERT cfg.container_storage_path == "/var/lib/containers/adapters/"
-```
-
-### TS-07-22: Startup Logging
-
-**Requirement:** 07-REQ-8.1
+**Requirement:** 07-REQ-10.1
 **Type:** integration
-**Description:** On startup, the service logs version, port, registry URL.
+**Description:** On startup, the service logs its configuration and a ready message.
 
 **Preconditions:**
-- Service starts.
+- Service starts with default config.
 
 **Input:**
-- Capture startup logs.
+- Capture stdout/stderr during startup.
 
 **Expected:**
-- Logs contain port, registry URL.
+- Log output contains port number (50052), inactivity timeout, and ready indicator.
 
 **Assertion pseudocode:**
 ```
 output = captureStartupLogs()
 ASSERT "50052" IN output
-ASSERT "registry" IN output
+ASSERT "ready" IN output.to_lowercase()
 ```
 
-### TS-07-23: Graceful Shutdown
+### TS-07-18: Graceful Shutdown
 
-**Requirement:** 07-REQ-8.2
+**Requirement:** 07-REQ-10.2
 **Type:** integration
-**Description:** SIGTERM stops running adapters and exits with code 0.
+**Description:** On SIGTERM, the service stops accepting RPCs and exits with code 0.
 
 **Preconditions:**
-- Service running.
+- Service is running.
 
 **Input:**
-- Send SIGTERM.
+- Send SIGTERM to the service process.
 
 **Expected:**
 - Service exits with code 0.
@@ -544,382 +493,564 @@ ASSERT exitCode == 0
 
 ## Edge Case Tests
 
-### TS-07-E1: Empty Image Ref or Checksum
+### TS-07-E1: Empty image_ref Returns INVALID_ARGUMENT
 
 **Requirement:** 07-REQ-1.E1
 **Type:** unit
-**Description:** Empty image_ref or checksum returns INVALID_ARGUMENT.
+**Description:** InstallAdapter with an empty image_ref returns INVALID_ARGUMENT.
 
-**Preconditions:**
-- None.
+**Preconditions:** None.
 
 **Input:**
-- InstallAdapter with empty image_ref.
-- InstallAdapter with empty checksum.
+- `InstallAdapter(image_ref: "", checksum_sha256: "sha256:abc123")`
 
 **Expected:**
-- gRPC INVALID_ARGUMENT error.
+- gRPC status INVALID_ARGUMENT with message containing `"image_ref is required"`.
 
 **Assertion pseudocode:**
 ```
-err = service.install_adapter("", "sha256:abc")
-ASSERT err.code == INVALID_ARGUMENT
-
-err = service.install_adapter("image:v1", "")
-ASSERT err.code == INVALID_ARGUMENT
+result = grpc_service.install_adapter("", "sha256:abc123")
+ASSERT result.is_err()
+ASSERT result.err().code() == INVALID_ARGUMENT
+ASSERT result.err().message().contains("image_ref is required")
 ```
 
-### TS-07-E2: Image Pull Failure
+### TS-07-E2: Empty checksum_sha256 Returns INVALID_ARGUMENT
 
 **Requirement:** 07-REQ-1.E2
 **Type:** unit
-**Description:** Pull failure transitions adapter to ERROR and returns UNAVAILABLE.
+**Description:** InstallAdapter with an empty checksum returns INVALID_ARGUMENT.
 
-**Preconditions:**
-- Mock ContainerRuntime: pull returns error.
+**Preconditions:** None.
 
 **Input:**
-- InstallAdapter call.
+- `InstallAdapter(image_ref: "example.com/img:v1", checksum_sha256: "")`
 
 **Expected:**
-- Adapter state is ERROR.
-- gRPC UNAVAILABLE error.
+- gRPC status INVALID_ARGUMENT with message containing `"checksum_sha256 is required"`.
 
 **Assertion pseudocode:**
 ```
-mock_runtime.set_pull_error(true)
-err = service.install_adapter(image_ref, checksum)
-ASSERT err.code == UNAVAILABLE
-adapter = state_manager.get(adapter_id)
-ASSERT adapter.state == ERROR
+result = grpc_service.install_adapter("example.com/img:v1", "")
+ASSERT result.is_err()
+ASSERT result.err().code() == INVALID_ARGUMENT
+ASSERT result.err().message().contains("checksum_sha256 is required")
 ```
 
-### TS-07-E3: Checksum Mismatch
+### TS-07-E3: Podman Pull Failure Transitions to ERROR
 
 **Requirement:** 07-REQ-1.E3
 **Type:** unit
-**Description:** Checksum mismatch transitions to ERROR, removes image, returns FAILED_PRECONDITION.
+**Description:** When podman pull fails, the adapter transitions to ERROR.
 
 **Preconditions:**
-- Mock ContainerRuntime: pull succeeds, inspect_digest returns "sha256:wrong".
+- Mock podman: pull returns error with stderr "connection refused".
 
 **Input:**
-- InstallAdapter with checksum "sha256:expected".
+- `InstallAdapter(image_ref: "bad-registry.com/img:v1", checksum_sha256: "sha256:abc")`
 
 **Expected:**
 - Adapter state is ERROR.
-- remove_image called on mock.
-- gRPC FAILED_PRECONDITION error.
+- Error event emitted with podman stderr.
 
 **Assertion pseudocode:**
 ```
-mock_runtime.set_digest("sha256:wrong")
-err = service.install_adapter(image_ref, "sha256:expected")
-ASSERT err.code == FAILED_PRECONDITION
-ASSERT mock_runtime.remove_image_called
-adapter = state_manager.get(adapter_id)
-ASSERT adapter.state == ERROR
+mock_podman.set_pull_result(Err(PodmanError::new("connection refused")))
+grpc_service.install_adapter("bad-registry.com/img:v1", "sha256:abc")
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
+ASSERT adapter.error_message.contains("connection refused")
 ```
 
-### TS-07-E4: Container Start Failure
+### TS-07-E4: Checksum Mismatch Transitions to ERROR and Removes Image
 
 **Requirement:** 07-REQ-1.E4
 **Type:** unit
-**Description:** Container start failure transitions to ERROR and returns INTERNAL.
+**Description:** When the pulled image digest does not match the provided checksum, the adapter transitions to ERROR and the image is removed.
 
 **Preconditions:**
-- Mock ContainerRuntime: pull and inspect succeed, run returns error.
+- Mock podman: pull succeeds, inspect returns `"sha256:different"`.
 
 **Input:**
-- InstallAdapter call.
+- `InstallAdapter(image_ref: "example.com/img:v1", checksum_sha256: "sha256:expected")`
+
+**Expected:**
+- Adapter state is ERROR with error_message containing `"checksum_mismatch"`.
+- Mock podman received an `rmi` call for the image.
+
+**Assertion pseudocode:**
+```
+mock_podman.set_pull_result(Ok(()))
+mock_podman.set_inspect_result(Ok("sha256:different"))
+grpc_service.install_adapter("example.com/img:v1", "sha256:expected")
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
+ASSERT adapter.error_message.contains("checksum_mismatch")
+ASSERT mock_podman.rmi_calls().contains("example.com/img:v1")
+```
+
+### TS-07-E5: Podman Run Failure Transitions to ERROR
+
+**Requirement:** 07-REQ-1.E5
+**Type:** unit
+**Description:** When podman run fails, the adapter transitions to ERROR.
+
+**Preconditions:**
+- Mock podman: pull and inspect succeed, run returns error.
+
+**Input:**
+- `InstallAdapter(image_ref: "example.com/img:v1", checksum_sha256: "sha256:abc")`
 
 **Expected:**
 - Adapter state is ERROR.
-- gRPC INTERNAL error.
 
 **Assertion pseudocode:**
 ```
-mock_runtime.set_run_error(true)
-err = service.install_adapter(image_ref, checksum)
-ASSERT err.code == INTERNAL
-adapter = state_manager.get(adapter_id)
-ASSERT adapter.state == ERROR
+mock_podman.set_pull_result(Ok(()))
+mock_podman.set_inspect_result(Ok("sha256:abc"))
+mock_podman.set_run_result(Err(PodmanError::new("container create failed")))
+grpc_service.install_adapter("example.com/img:v1", "sha256:abc")
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
 ```
 
-### TS-07-E5: Stop Running Adapter Fails
+### TS-07-E6: Stop Running Adapter Fails But Install Proceeds
 
 **Requirement:** 07-REQ-2.E1
 **Type:** unit
-**Description:** If stopping the running adapter fails, new install is aborted with INTERNAL.
+**Description:** If stopping the running adapter fails, the old adapter transitions to ERROR but the new install still proceeds.
 
 **Preconditions:**
-- Adapter "old" is RUNNING. Mock ContainerRuntime: stop returns error.
+- Adapter A is RUNNING.
+- Mock podman: stop returns error for adapter A, all operations succeed for adapter B.
 
 **Input:**
-- InstallAdapter with new image.
+- `InstallAdapter` for adapter B.
 
 **Expected:**
-- gRPC INTERNAL error. New adapter not created.
+- Adapter A state is ERROR.
+- Adapter B state is RUNNING (install proceeded).
 
 **Assertion pseudocode:**
 ```
-mock_runtime.set_stop_error(true)
-err = service.install_adapter("new-image:v1", checksum)
-ASSERT err.code == INTERNAL
-ASSERT state_manager.get("new-adapter") == None
+// adapter A is RUNNING
+mock_podman.set_stop_result_for(adapter_id_a, Err(PodmanError::new("timeout")))
+grpc_service.install_adapter(image_ref_b, checksum_b)
+tokio::time::sleep(200ms).await
+ASSERT state_mgr.get_adapter(adapter_id_a).state == Error
+ASSERT state_mgr.get_adapter(adapter_id_b).state == Running
 ```
 
-### TS-07-E6: Get Unknown Adapter
+### TS-07-E7: Subscriber Disconnect Does Not Affect Others
+
+**Requirement:** 07-REQ-3.E1
+**Type:** unit
+**Description:** When one subscriber disconnects, other subscribers continue receiving events.
+
+**Preconditions:**
+- Two subscribers are connected.
+
+**Input:**
+- Subscriber 1 disconnects.
+- Trigger a state transition.
+
+**Expected:**
+- Subscriber 2 receives the event.
+- No panics or errors in the service.
+
+**Assertion pseudocode:**
+```
+stream1 = grpc_service.watch_adapter_states()
+stream2 = grpc_service.watch_adapter_states()
+drop(stream1)  // disconnect subscriber 1
+grpc_service.install_adapter(image_ref, checksum)
+events = collect_events(stream2, timeout=500ms)
+ASSERT events.len() >= 1
+```
+
+### TS-07-E8: GetAdapterStatus Unknown ID Returns NOT_FOUND
 
 **Requirement:** 07-REQ-4.E1
 **Type:** unit
-**Description:** GetAdapterStatus with unknown adapter_id returns NOT_FOUND.
+**Description:** GetAdapterStatus with an unknown adapter_id returns NOT_FOUND.
 
 **Preconditions:**
-- No adapters in state manager.
+- No adapters installed.
 
 **Input:**
-- GetAdapterStatus("nonexistent").
+- `GetAdapterStatus("nonexistent-adapter")`
 
 **Expected:**
-- gRPC NOT_FOUND error.
+- gRPC status NOT_FOUND with message containing `"adapter not found"`.
 
 **Assertion pseudocode:**
 ```
-result = state_manager.get("nonexistent")
-ASSERT result == None
+result = grpc_service.get_adapter_status("nonexistent-adapter")
+ASSERT result.is_err()
+ASSERT result.err().code() == NOT_FOUND
+ASSERT result.err().message().contains("adapter not found")
 ```
 
-### TS-07-E7: Remove Unknown Adapter
+### TS-07-E9: ListAdapters Returns Empty When None Installed
+
+**Requirement:** 07-REQ-4.E2
+**Type:** unit
+**Description:** ListAdapters returns an empty list when no adapters have been installed.
+
+**Preconditions:**
+- No adapters installed.
+
+**Input:**
+- `ListAdapters()`
+
+**Expected:**
+- Response contains an empty adapters list.
+
+**Assertion pseudocode:**
+```
+resp = grpc_service.list_adapters()
+ASSERT resp.adapters.len() == 0
+```
+
+### TS-07-E10: RemoveAdapter Unknown ID Returns NOT_FOUND
 
 **Requirement:** 07-REQ-5.E1
 **Type:** unit
-**Description:** RemoveAdapter with unknown adapter_id returns NOT_FOUND.
+**Description:** RemoveAdapter with an unknown adapter_id returns NOT_FOUND.
 
 **Preconditions:**
-- No adapters in state manager.
+- No adapters installed.
 
 **Input:**
-- RemoveAdapter("nonexistent").
+- `RemoveAdapter("nonexistent-adapter")`
 
 **Expected:**
-- gRPC NOT_FOUND error.
+- gRPC status NOT_FOUND with message containing `"adapter not found"`.
 
 **Assertion pseudocode:**
 ```
-err = service.remove_adapter("nonexistent")
-ASSERT err.code == NOT_FOUND
+result = grpc_service.remove_adapter("nonexistent-adapter")
+ASSERT result.is_err()
+ASSERT result.err().code() == NOT_FOUND
+ASSERT result.err().message().contains("adapter not found")
 ```
 
-### TS-07-E8: Container Removal Failure
+### TS-07-E11: Podman Removal Failure Returns INTERNAL
 
 **Requirement:** 07-REQ-5.E2
 **Type:** unit
-**Description:** Container removal failure transitions to ERROR and returns INTERNAL.
+**Description:** When podman rm or rmi fails during RemoveAdapter, the service returns INTERNAL.
 
 **Preconditions:**
-- Adapter "a1" in STOPPED state. Mock ContainerRuntime: remove returns error.
+- An adapter is STOPPED.
+- Mock podman: rm returns error.
 
 **Input:**
-- RemoveAdapter("a1").
+- `RemoveAdapter(adapter_id)`
 
 **Expected:**
-- Adapter transitions to ERROR.
-- gRPC INTERNAL error.
+- gRPC status INTERNAL.
+- Adapter state is ERROR.
 
 **Assertion pseudocode:**
 ```
-mock_runtime.set_remove_error(true)
-err = service.remove_adapter("a1")
-ASSERT err.code == INTERNAL
-adapter = state_manager.get("a1")
-ASSERT adapter.state == ERROR
+mock_podman.set_rm_result(Err(PodmanError::new("container in use")))
+result = grpc_service.remove_adapter(adapter_id)
+ASSERT result.is_err()
+ASSERT result.err().code() == INTERNAL
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
 ```
 
-### TS-07-E9: Config File Missing
+### TS-07-E12: Offload Cleanup Failure Transitions to ERROR
+
+**Requirement:** 07-REQ-6.E1
+**Type:** unit
+**Description:** If offloading cleanup fails, the adapter transitions to ERROR.
+
+**Preconditions:**
+- Config with short inactivity timeout (1s).
+- Adapter is STOPPED.
+- Mock podman: rmi returns error.
+
+**Input:**
+- Wait for offload timer to fire.
+
+**Expected:**
+- Adapter transitions to ERROR (not removed from state).
+
+**Assertion pseudocode:**
+```
+mock_podman.set_rm_result(Ok(()))
+mock_podman.set_rmi_result(Err(PodmanError::new("image in use")))
+// ... adapter is in STOPPED state ...
+tokio::time::sleep(2s).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
+```
+
+### TS-07-E13: Config File Missing Uses Defaults
 
 **Requirement:** 07-REQ-7.E1
 **Type:** unit
-**Description:** Missing config file uses defaults with warning.
+**Description:** When the config file does not exist, the service starts with built-in defaults.
 
 **Preconditions:**
-- No file at path.
+- No config file at the specified path.
 
 **Input:**
-- load_config("/nonexistent/config.json").
+- `load_config("/nonexistent/path/config.json")`
 
 **Expected:**
-- Returns default config. No error.
+- Returns a valid Config with default values.
 
 **Assertion pseudocode:**
 ```
-cfg = load_config("/nonexistent/config.json")
+cfg = config::load_config("/nonexistent/path/config.json")
+ASSERT cfg.is_ok()
+cfg = cfg.unwrap()
 ASSERT cfg.grpc_port == 50052
+ASSERT cfg.inactivity_timeout_secs == 86400
+ASSERT cfg.container_storage_path == "/var/lib/containers/adapters/"
 ```
 
-### TS-07-E10: Config Invalid JSON
+### TS-07-E14: Invalid JSON Config Exits With Error
 
 **Requirement:** 07-REQ-7.E2
 **Type:** unit
-**Description:** Invalid JSON config returns error.
+**Description:** When the config file contains invalid JSON, load_config returns an error.
 
 **Preconditions:**
-- File containing `{invalid`.
+- A temporary file containing `{invalid json`.
 
 **Input:**
-- load_config(invalid_path).
+- `load_config("/tmp/invalid-config.json")`
 
 **Expected:**
-- Returns error.
+- Returns an error.
 
 **Assertion pseudocode:**
 ```
-result = load_config(invalid_json_path)
+write_file("/tmp/invalid-config.json", "{invalid json")
+result = config::load_config("/tmp/invalid-config.json")
 ASSERT result.is_err()
+```
+
+### TS-07-E15: No Subscribers Active During Transition
+
+**Requirement:** 07-REQ-8.E1
+**Type:** unit
+**Description:** When no subscribers are active, state transitions still update in-memory state without errors.
+
+**Preconditions:**
+- No WatchAdapterStates subscribers.
+
+**Input:**
+- `InstallAdapter` (triggers state transitions).
+
+**Expected:**
+- Adapter reaches RUNNING state.
+- No panics or errors.
+
+**Assertion pseudocode:**
+```
+// No subscribers registered
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Running
+```
+
+### TS-07-E16: Podman Wait Failure Transitions to ERROR
+
+**Requirement:** 07-REQ-9.E1
+**Type:** unit
+**Description:** If podman wait fails, the adapter transitions to ERROR.
+
+**Preconditions:**
+- An adapter is RUNNING.
+- Mock podman: wait returns error.
+
+**Input:**
+- Container monitor detects podman wait failure.
+
+**Expected:**
+- Adapter state transitions to ERROR.
+
+**Assertion pseudocode:**
+```
+mock_podman.set_wait_result(Err(PodmanError::new("connection lost")))
+grpc_service.install_adapter(image_ref, checksum)
+tokio::time::sleep(200ms).await
+adapter = state_mgr.get_adapter(adapter_id)
+ASSERT adapter.state == Error
 ```
 
 ## Property Test Cases
 
-### TS-07-P1: State Machine Validity
+### TS-07-P1: Adapter ID Determinism
 
 **Property:** Property 1 from design.md
-**Validates:** 07-REQ-1.2, 07-REQ-5.2
+**Validates:** 07-REQ-1.6
 **Type:** property
-**Description:** Only valid state transitions from the transition table are accepted.
+**Description:** For any valid OCI image reference, derive_adapter_id returns the same result on every call, and different last-segment:tag combinations produce different IDs.
 
-**For any:** Random adapter state and random target state.
-**Invariant:** The transition succeeds if and only if (from, to) is in the valid transition table.
+**For any:** Random strings in the format `registry/path/name:tag` where name and tag are alphanumeric with hyphens.
+**Invariant:** `derive_adapter_id(ref) == derive_adapter_id(ref)` and `name1:tag1 != name2:tag2 => derive_adapter_id(ref1) != derive_adapter_id(ref2)`.
 
 **Assertion pseudocode:**
 ```
-FOR ANY from_state IN all_states, to_state IN all_states:
-    result = state_manager.transition(adapter, to_state)
-    IF (from_state, to_state) IN valid_transitions:
-        ASSERT result.is_ok()
-    ELSE:
-        ASSERT result.is_err()
+FOR ANY image_ref IN random_image_refs:
+    id1 = derive_adapter_id(image_ref)
+    id2 = derive_adapter_id(image_ref)
+    ASSERT id1 == id2
+
+FOR ANY ref_a, ref_b IN random_image_refs WHERE last_segment(ref_a) != last_segment(ref_b):
+    ASSERT derive_adapter_id(ref_a) != derive_adapter_id(ref_b)
 ```
 
-### TS-07-P2: Single Adapter Constraint
+### TS-07-P2: Single Adapter Invariant
 
 **Property:** Property 2 from design.md
 **Validates:** 07-REQ-2.1, 07-REQ-2.2
 **Type:** property
-**Description:** At most one adapter is in RUNNING state at any time.
+**Description:** At most one adapter is in RUNNING state at any time, regardless of the sequence of InstallAdapter calls.
 
-**For any:** Random sequence of InstallAdapter calls.
-**Invariant:** After each operation, at most one adapter is RUNNING.
+**For any:** Sequence of 1..5 InstallAdapter calls with distinct image_refs.
+**Invariant:** After each call settles, at most one adapter in the state manager has state RUNNING.
 
 **Assertion pseudocode:**
 ```
-FOR ANY operations IN random_install_sequences:
-    FOR op IN operations:
-        service.install_adapter(op.image_ref, op.checksum)
-    running = state_manager.list().filter(|a| a.state == RUNNING)
-    ASSERT len(running) <= 1
+FOR ANY install_sequence IN random_sequences(1..5):
+    state_mgr.reset()
+    FOR image_ref IN install_sequence:
+        grpc_service.install_adapter(image_ref, checksum)
+        tokio::time::sleep(300ms).await
+        running_count = state_mgr.list_adapters().filter(|a| a.state == Running).count()
+        ASSERT running_count <= 1
 ```
 
-### TS-07-P3: Checksum Gate
+### TS-07-P3: State Transition Validity
 
 **Property:** Property 3 from design.md
-**Validates:** 07-REQ-1.3, 07-REQ-1.E3
+**Validates:** 07-REQ-8.1
 **Type:** property
-**Description:** Mismatched checksums always result in ERROR, never RUNNING.
+**Description:** Every observed state transition follows the valid state machine edges.
 
-**For any:** Random image digest and random provided checksum where they differ.
-**Invariant:** Adapter state is ERROR and container was not started.
+**For any:** Any sequence of operations (install, remove, stop).
+**Invariant:** Each AdapterStateEvent has a valid (old_state, new_state) pair from the state machine.
 
 **Assertion pseudocode:**
 ```
-FOR ANY digest IN random_digests, checksum IN random_checksums:
-    IF digest != checksum:
-        mock_runtime.set_digest(digest)
-        service.install_adapter(image_ref, checksum)
-        ASSERT state_manager.get(adapter_id).state == ERROR
-        ASSERT mock_runtime.run_not_called
+VALID_TRANSITIONS = {
+    (Unknown, Downloading), (Downloading, Installing), (Downloading, Error),
+    (Installing, Running), (Installing, Error),
+    (Running, Stopped), (Running, Error),
+    (Stopped, Running), (Stopped, Offloading),
+    (Offloading, Error),
+}
+FOR ANY events IN observed_events:
+    FOR event IN events:
+        ASSERT (event.old_state, event.new_state) IN VALID_TRANSITIONS
 ```
 
-### TS-07-P4: State Event Broadcasting
+### TS-07-P4: Event Delivery Completeness
 
 **Property:** Property 4 from design.md
-**Validates:** 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3
+**Validates:** 07-REQ-3.3, 07-REQ-8.3
 **Type:** property
-**Description:** Every state transition emits an event with correct fields to all subscribers.
+**Description:** All active subscribers receive the same state events for any transition.
 
-**For any:** Random number of subscribers (1-10) and random state transition.
-**Invariant:** All subscribers receive the event with matching adapter_id, old_state, new_state, and non-zero timestamp.
+**For any:** N subscribers (N in 1..3) and any operation triggering state transitions.
+**Invariant:** All N subscribers receive identical event sequences.
 
 **Assertion pseudocode:**
 ```
-FOR ANY n_subs IN 1..10, transition IN valid_transitions:
-    subscribers = (0..n_subs).map(|_| state_manager.subscribe())
-    state_manager.transition(adapter, transition.to)
-    FOR sub IN subscribers:
-        event = sub.recv()
-        ASSERT event.adapter_id == adapter
-        ASSERT event.old_state == transition.from
-        ASSERT event.new_state == transition.to
-        ASSERT event.timestamp > 0
+FOR ANY n IN 1..3:
+    streams = [grpc_service.watch_adapter_states() FOR _ IN 1..n]
+    grpc_service.install_adapter(image_ref, checksum)
+    all_events = [collect_events(s, timeout=500ms) FOR s IN streams]
+    FOR i IN 1..n:
+        ASSERT all_events[i] == all_events[0]
 ```
 
-### TS-07-P5: Adapter ID Derivation
+### TS-07-P5: Checksum Verification Soundness
 
 **Property:** Property 5 from design.md
-**Validates:** 07-REQ-1.5
+**Validates:** 07-REQ-1.3, 07-REQ-1.E4
 **Type:** property
-**Description:** derive_adapter_id is deterministic and non-empty for valid image refs.
+**Description:** When the pulled image digest does not match the provided checksum, the adapter transitions to ERROR and the image is removed.
 
-**For any:** Random valid OCI image references (registry/path:tag format).
-**Invariant:** Result is non-empty, deterministic (same input → same output), and contains the image name.
+**For any:** Random digest and checksum where digest != checksum.
+**Invariant:** Adapter state is ERROR and rmi was called.
 
 **Assertion pseudocode:**
 ```
-FOR ANY image_ref IN random_oci_refs:
-    id1 = derive_adapter_id(image_ref)
-    id2 = derive_adapter_id(image_ref)
-    ASSERT id1 == id2
-    ASSERT id1 != ""
+FOR ANY digest, checksum IN random_sha256_pairs WHERE digest != checksum:
+    mock_podman.set_inspect_result(Ok(digest))
+    mock_podman.set_pull_result(Ok(()))
+    grpc_service.install_adapter(image_ref, checksum)
+    tokio::time::sleep(200ms).await
+    ASSERT state_mgr.get_adapter(adapter_id).state == Error
+    ASSERT mock_podman.rmi_calls().contains(image_ref)
 ```
 
-### TS-07-P6: Inactivity Offloading
+### TS-07-P6: Offload Timing Correctness
 
 **Property:** Property 6 from design.md
-**Validates:** 07-REQ-6.1, 07-REQ-6.2
+**Validates:** 07-REQ-6.1
 **Type:** property
-**Description:** Stopped adapters past the timeout appear in the expired list.
+**Description:** Offloading does not occur before the inactivity timeout has elapsed since entering STOPPED state.
 
-**For any:** Random timeout values and random stopped_at times.
-**Invariant:** If now - stopped_at > timeout, the adapter is in the expired list.
+**For any:** Inactivity timeout T in 1..5 seconds, check time S < T.
+**Invariant:** At time S, the adapter is still in STOPPED state (not offloaded).
 
 **Assertion pseudocode:**
 ```
-FOR ANY timeout IN random_durations, age IN random_ages:
-    // Set adapter stopped_at to now - age
-    expired = state_manager.get_stopped_expired(timeout)
-    IF age > timeout:
-        ASSERT adapter_id IN expired
-    ELSE:
-        ASSERT adapter_id NOT IN expired
+FOR ANY timeout_secs IN 2..5:
+    config.inactivity_timeout_secs = timeout_secs
+    // ... install adapter, then stop it ...
+    tokio::time::sleep((timeout_secs - 1) seconds).await
+    ASSERT state_mgr.get_adapter(adapter_id).is_some()
+    ASSERT state_mgr.get_adapter(adapter_id).state == Stopped
 ```
 
-### TS-07-P7: Config Defaults
+## Integration Smoke Tests
 
-**Property:** Property 7 from design.md
-**Validates:** 07-REQ-7.1, 07-REQ-7.3, 07-REQ-7.E1
-**Type:** property
-**Description:** Missing config files always return valid defaults.
+### TS-07-SMOKE-1: End-to-End Install and Query
 
-**For any:** Random nonexistent file paths.
-**Invariant:** Config has port=50052, timeout=86400, valid storage path.
+**Type:** integration
+**Description:** Start the UPDATE_SERVICE binary, call InstallAdapter via gRPC, then verify ListAdapters and GetAdapterStatus return the installed adapter.
 
-**Assertion pseudocode:**
-```
-FOR ANY path IN random_nonexistent_paths:
-    cfg = load_config(path)
-    ASSERT cfg.grpc_port == 50052
-    ASSERT cfg.inactivity_timeout_secs == 86400
-    ASSERT cfg.container_storage_path == "/var/lib/containers/adapters/"
-```
+**Preconditions:**
+- UPDATE_SERVICE binary is built.
+- A mock OCI registry or pre-pulled image is available.
+
+**Steps:**
+1. Start UPDATE_SERVICE process.
+2. Call `InstallAdapter(image_ref, checksum)` via grpcurl or Go client.
+3. Call `ListAdapters()` and verify the adapter appears.
+4. Call `GetAdapterStatus(adapter_id)` and verify state is RUNNING.
+5. Call `RemoveAdapter(adapter_id)` and verify success.
+6. Call `ListAdapters()` and verify the adapter is gone.
+7. Send SIGTERM and verify clean exit.
+
+### TS-07-SMOKE-2: WatchAdapterStates Stream
+
+**Type:** integration
+**Description:** Subscribe to WatchAdapterStates, install an adapter, and verify the stream delivers state transition events.
+
+**Preconditions:**
+- UPDATE_SERVICE binary is running.
+
+**Steps:**
+1. Open `WatchAdapterStates()` stream via grpcurl or Go client.
+2. Call `InstallAdapter(image_ref, checksum)`.
+3. Collect events from the stream.
+4. Verify events include DOWNLOADING, INSTALLING, RUNNING transitions.
 
 ## Coverage Matrix
 
@@ -930,38 +1061,51 @@ FOR ANY path IN random_nonexistent_paths:
 | 07-REQ-1.3 | TS-07-3 | unit |
 | 07-REQ-1.4 | TS-07-4 | unit |
 | 07-REQ-1.5 | TS-07-5 | unit |
+| 07-REQ-1.6 | TS-07-6 | unit |
 | 07-REQ-1.E1 | TS-07-E1 | unit |
 | 07-REQ-1.E2 | TS-07-E2 | unit |
 | 07-REQ-1.E3 | TS-07-E3 | unit |
 | 07-REQ-1.E4 | TS-07-E4 | unit |
-| 07-REQ-2.1 | TS-07-6 | unit |
+| 07-REQ-1.E5 | TS-07-E5 | unit |
+| 07-REQ-2.1 | TS-07-7 | unit |
 | 07-REQ-2.2 | TS-07-7 | unit |
-| 07-REQ-2.E1 | TS-07-E5 | unit |
+| 07-REQ-2.E1 | TS-07-E6 | unit |
 | 07-REQ-3.1 | TS-07-8 | unit |
-| 07-REQ-3.2 | TS-07-9 | unit |
-| 07-REQ-3.3 | TS-07-10 | unit |
-| 07-REQ-4.1 | TS-07-11 | unit |
-| 07-REQ-4.2 | TS-07-12 | unit |
-| 07-REQ-4.E1 | TS-07-E6 | unit |
-| 07-REQ-5.1 | TS-07-13 | unit |
-| 07-REQ-5.2 | TS-07-14 | unit |
-| 07-REQ-5.3 | TS-07-15 | unit |
-| 07-REQ-5.E1 | TS-07-E7 | unit |
-| 07-REQ-5.E2 | TS-07-E8 | unit |
-| 07-REQ-6.1 | TS-07-16 | unit |
-| 07-REQ-6.2 | TS-07-17 | unit |
-| 07-REQ-6.3 | TS-07-18 | unit |
-| 07-REQ-7.1 | TS-07-19 | unit |
-| 07-REQ-7.2 | TS-07-20 | unit |
-| 07-REQ-7.3 | TS-07-21 | unit |
-| 07-REQ-7.E1 | TS-07-E9 | unit |
-| 07-REQ-7.E2 | TS-07-E10 | unit |
-| 07-REQ-8.1 | TS-07-22 | integration |
-| 07-REQ-8.2 | TS-07-23 | integration |
+| 07-REQ-3.2 | TS-07-8 | unit |
+| 07-REQ-3.3 | TS-07-8 | unit |
+| 07-REQ-3.4 | TS-07-9 | unit |
+| 07-REQ-3.E1 | TS-07-E7 | unit |
+| 07-REQ-4.1 | TS-07-10 | unit |
+| 07-REQ-4.2 | TS-07-11 | unit |
+| 07-REQ-4.E1 | TS-07-E8 | unit |
+| 07-REQ-4.E2 | TS-07-E9 | unit |
+| 07-REQ-5.1 | TS-07-12 | unit |
+| 07-REQ-5.2 | TS-07-12 | unit |
+| 07-REQ-5.E1 | TS-07-E10 | unit |
+| 07-REQ-5.E2 | TS-07-E11 | unit |
+| 07-REQ-6.1 | TS-07-13 | unit |
+| 07-REQ-6.2 | TS-07-13 | unit |
+| 07-REQ-6.3 | TS-07-13 | unit |
+| 07-REQ-6.4 | TS-07-13 | unit |
+| 07-REQ-6.E1 | TS-07-E12 | unit |
+| 07-REQ-7.1 | TS-07-14 | unit |
+| 07-REQ-7.2 | TS-07-14 | unit |
+| 07-REQ-7.3 | TS-07-17 | integration |
+| 07-REQ-7.E1 | TS-07-E13 | unit |
+| 07-REQ-7.E2 | TS-07-E14 | unit |
+| 07-REQ-8.1 | TS-07-8 | unit |
+| 07-REQ-8.2 | TS-07-8 | unit |
+| 07-REQ-8.3 | TS-07-8 | unit |
+| 07-REQ-8.E1 | TS-07-E15 | unit |
+| 07-REQ-9.1 | TS-07-15 | unit |
+| 07-REQ-9.2 | TS-07-16 | unit |
+| 07-REQ-9.E1 | TS-07-E16 | unit |
+| 07-REQ-10.1 | TS-07-17 | integration |
+| 07-REQ-10.2 | TS-07-18 | integration |
+| 07-REQ-10.E1 | TS-07-18 | integration |
 | Property 1 | TS-07-P1 | property |
 | Property 2 | TS-07-P2 | property |
 | Property 3 | TS-07-P3 | property |
 | Property 4 | TS-07-P4 | property |
 | Property 5 | TS-07-P5 | property |
 | Property 6 | TS-07-P6 | property |
-| Property 7 | TS-07-P7 | property |

@@ -1,690 +1,441 @@
-# Test Specification: DATA_BROKER
+# Test Specification: DATA_BROKER (Spec 02)
 
 ## Overview
 
-All tests for the DATA_BROKER spec are integration tests that require a running Kuksa Databroker container. Tests verify compose.yml configuration (dual listeners, version pinning), VSS signal availability (custom and standard), and pub/sub functionality via gRPC. Tests live in `tests/databroker/` as a standalone Go module and use the `kuksa.val.v1` gRPC API or `grpcurl` CLI.
-
-Tests that require Podman skip gracefully when Podman is not available.
+This test specification defines the integration, property, edge case, and smoke tests for the DATA_BROKER component. Since the DATA_BROKER is a pre-built container (Eclipse Kuksa Databroker 0.5.1) with no custom application code, all verification is performed through integration tests that exercise the gRPC API over TCP and UDS transports. Tests are implemented in Go under `tests/databroker/`.
 
 ## Test Cases
 
-### TS-02-1: TCP Listener Configuration
-
-**Requirement:** 02-REQ-1.1
-**Type:** integration
-**Description:** Verify the databroker compose service configures a TCP listener on 0.0.0.0:55555 mapped to host port 55556.
-
-**Preconditions:**
-- `deployments/compose.yml` exists.
-
-**Input:**
-- Parse compose.yml and inspect the databroker service definition.
-
-**Expected:**
-- Port mapping `55556:55555` is present.
-- Command args include `--address` and `0.0.0.0:55555`.
-
-**Assertion pseudocode:**
-```
-config = parse_yaml("deployments/compose.yml")
-svc = config.services.databroker
-ASSERT "55556:55555" IN svc.ports
-ASSERT "--address" IN svc.command
-ASSERT "0.0.0.0:55555" IN svc.command
-```
-
-### TS-02-2: UDS Listener Configuration
-
-**Requirement:** 02-REQ-1.2
-**Type:** integration
-**Description:** Verify the databroker compose service configures a UDS listener at /tmp/kuksa-databroker.sock.
-
-**Preconditions:**
-- `deployments/compose.yml` exists.
-
-**Input:**
-- Parse compose.yml and inspect the databroker service command.
-
-**Expected:**
-- Command args include `--uds-path` and `/tmp/kuksa-databroker.sock`.
-
-**Assertion pseudocode:**
-```
-config = parse_yaml("deployments/compose.yml")
-svc = config.services.databroker
-ASSERT "--uds-path" IN svc.command
-ASSERT "/tmp/kuksa-databroker.sock" IN svc.command
-```
-
-### TS-02-3: UDS Volume Mount
-
-**Requirement:** 02-REQ-1.3
-**Type:** integration
-**Description:** Verify the databroker service exposes the UDS socket directory to the host via a volume mount.
-
-**Preconditions:**
-- `deployments/compose.yml` exists.
-
-**Input:**
-- Parse compose.yml and inspect volumes.
-
-**Expected:**
-- A volume mount maps a host path to `/tmp` in the container for UDS socket access.
-
-**Assertion pseudocode:**
-```
-config = parse_yaml("deployments/compose.yml")
-svc = config.services.databroker
-ASSERT any volume in svc.volumes maps to "/tmp" in container
-```
-
-### TS-02-4: Dual Listener Connectivity
-
-**Requirement:** 02-REQ-1.4
-**Type:** integration
-**Description:** Verify the running databroker accepts gRPC connections on both TCP and UDS.
-
-**Preconditions:**
-- Databroker container is running via `podman compose up -d`.
-- Podman is available (skip if not).
-
-**Input:**
-- Connect to `localhost:55556` via TCP gRPC.
-- Connect to `/tmp/kuksa/kuksa-databroker.sock` via UDS gRPC.
-
-**Expected:**
-- Both connections succeed and respond to a gRPC health or metadata call.
-
-**Assertion pseudocode:**
-```
-start_databroker()
-tcp_conn = grpc_connect("localhost:55556")
-ASSERT tcp_conn.get_metadata("Vehicle.Speed") succeeds
-uds_conn = grpc_connect("unix:///tmp/kuksa/kuksa-databroker.sock")
-ASSERT uds_conn.get_metadata("Vehicle.Speed") succeeds
-stop_databroker()
-```
-
-### TS-02-5: Image Version Pinning
-
-**Requirement:** 02-REQ-2.1
-**Type:** unit
-**Description:** Verify the compose.yml uses a pinned image version, not latest.
-
-**Preconditions:**
-- `deployments/compose.yml` exists.
-
-**Input:**
-- Parse compose.yml and read the databroker image field.
-
-**Expected:**
-- Image is `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
-
-**Assertion pseudocode:**
-```
-config = parse_yaml("deployments/compose.yml")
-ASSERT config.services.databroker.image == "ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1"
-```
-
-### TS-02-6: Custom Signal SessionActive
-
-**Requirement:** 02-REQ-3.1
-**Type:** integration
-**Description:** Verify Vehicle.Parking.SessionActive is exposed with boolean datatype.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.Parking.SessionActive`.
-
-**Expected:**
-- Signal exists with datatype boolean.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.Parking.SessionActive")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == BOOLEAN
-```
-
-### TS-02-7: Custom Signal Door Lock Command
-
-**Requirement:** 02-REQ-3.2
-**Type:** integration
-**Description:** Verify Vehicle.Command.Door.Lock is exposed with string datatype.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.Command.Door.Lock`.
-
-**Expected:**
-- Signal exists with datatype string.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.Command.Door.Lock")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == STRING
-```
-
-### TS-02-8: Custom Signal Door Response
-
-**Requirement:** 02-REQ-3.3
-**Type:** integration
-**Description:** Verify Vehicle.Command.Door.Response is exposed with string datatype.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.Command.Door.Response`.
-
-**Expected:**
-- Signal exists with datatype string.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.Command.Door.Response")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == STRING
-```
-
-### TS-02-9: Custom Signal Set/Get Roundtrip
-
-**Requirement:** 02-REQ-3.4
-**Type:** integration
-**Description:** Verify a custom signal value can be set and read back.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- Set `Vehicle.Parking.SessionActive` to `true` via gRPC.
-- Get `Vehicle.Parking.SessionActive` via gRPC.
-
-**Expected:**
-- Returned value is `true`.
-
-**Assertion pseudocode:**
-```
-grpc_set("Vehicle.Parking.SessionActive", true)
-result = grpc_get("Vehicle.Parking.SessionActive")
-ASSERT result.value == true
-```
-
-### TS-02-10: Standard Signal IsLocked
-
-**Requirement:** 02-REQ-4.1
-**Type:** integration
-**Description:** Verify Vehicle.Cabin.Door.Row1.DriverSide.IsLocked is available.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`.
-
-**Expected:**
-- Signal exists with datatype boolean.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == BOOLEAN
-```
-
-### TS-02-11: Standard Signal IsOpen
-
-**Requirement:** 02-REQ-4.2
-**Type:** integration
-**Description:** Verify Vehicle.Cabin.Door.Row1.DriverSide.IsOpen is available.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen`.
-
-**Expected:**
-- Signal exists with datatype boolean.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.Cabin.Door.Row1.DriverSide.IsOpen")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == BOOLEAN
-```
-
-### TS-02-12: Standard Signal Latitude
-
-**Requirement:** 02-REQ-4.3
-**Type:** integration
-**Description:** Verify Vehicle.CurrentLocation.Latitude is available.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.CurrentLocation.Latitude`.
-
-**Expected:**
-- Signal exists with datatype double.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.CurrentLocation.Latitude")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == DOUBLE
-```
-
-### TS-02-13: Standard Signal Longitude
-
-**Requirement:** 02-REQ-4.4
-**Type:** integration
-**Description:** Verify Vehicle.CurrentLocation.Longitude is available.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.CurrentLocation.Longitude`.
-
-**Expected:**
-- Signal exists with datatype double.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.CurrentLocation.Longitude")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == DOUBLE
-```
-
-### TS-02-14: Standard Signal Speed
-
-**Requirement:** 02-REQ-4.5
-**Type:** integration
-**Description:** Verify Vehicle.Speed is available.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC GetMetadata for `Vehicle.Speed`.
-
-**Expected:**
-- Signal exists with datatype float.
-
-**Assertion pseudocode:**
-```
-metadata = grpc_get_metadata("Vehicle.Speed")
-ASSERT metadata.exists == true
-ASSERT metadata.datatype == FLOAT
-```
-
-### TS-02-15: Pub/Sub Notification
-
-**Requirement:** 02-REQ-5.1
-**Type:** integration
-**Description:** Verify that a subscriber receives a notification when a signal value is set.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- Client A subscribes to `Vehicle.Parking.SessionActive`.
-- Client B sets `Vehicle.Parking.SessionActive` to `true`.
-
-**Expected:**
-- Client A receives a notification with value `true`.
-
-**Assertion pseudocode:**
-```
-subscription = grpc_subscribe("Vehicle.Parking.SessionActive")
-grpc_set("Vehicle.Parking.SessionActive", true)
-notification = subscription.receive(timeout=5s)
-ASSERT notification.value == true
-```
-
-### TS-02-16: Boolean Set/Get Roundtrip
-
-**Requirement:** 02-REQ-5.2
-**Type:** integration
-**Description:** Verify boolean signal roundtrip integrity.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- Set `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` to `true`.
-- Get `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`.
-
-**Expected:**
-- Returned value is `true`.
-
-**Assertion pseudocode:**
-```
-grpc_set("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", true)
-result = grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
-ASSERT result.value == true
-```
-
-### TS-02-17: String/JSON Set/Get Roundtrip
-
-**Requirement:** 02-REQ-5.3
-**Type:** integration
-**Description:** Verify string signal roundtrip with JSON payload.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- Set `Vehicle.Command.Door.Lock` to `{"command_id":"abc-123","action":"lock","doors":["driver"],"source":"companion_app","vin":"WDB123","timestamp":1700000000}`.
-- Get `Vehicle.Command.Door.Lock`.
-
-**Expected:**
-- Returned value is the exact same JSON string.
-
-**Assertion pseudocode:**
-```
-payload = '{"command_id":"abc-123","action":"lock","doors":["driver"],"source":"companion_app","vin":"WDB123","timestamp":1700000000}'
-grpc_set("Vehicle.Command.Door.Lock", payload)
-result = grpc_get("Vehicle.Command.Door.Lock")
-ASSERT result.value == payload
-```
-
-## Edge Case Tests
-
-### TS-02-E1: UDS Socket Overwrite on Restart
-
-**Requirement:** 02-REQ-1.E1
-**Type:** integration
-**Description:** Verify the databroker starts successfully even if the UDS socket file exists from a previous run.
-
-**Preconditions:**
-- Databroker container was previously running and stopped (socket file may persist).
-
-**Input:**
-- Start the databroker container again.
-
-**Expected:**
-- Container starts without error.
-
-**Assertion pseudocode:**
-```
-start_databroker()
-stop_databroker()
-start_databroker()
-ASSERT databroker_is_healthy()
-stop_databroker()
-```
-
-### TS-02-E2: Concurrent TCP and UDS Clients
-
-**Requirement:** 02-REQ-1.E2
-**Type:** integration
-**Description:** Verify TCP and UDS clients can operate simultaneously.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- TCP client sets `Vehicle.Speed` to 50.0.
-- UDS client reads `Vehicle.Speed`.
-
-**Expected:**
-- UDS client reads 50.0.
-
-**Assertion pseudocode:**
-```
-tcp_conn = grpc_connect("localhost:55556")
-uds_conn = grpc_connect("unix:///tmp/kuksa/kuksa-databroker.sock")
-tcp_conn.set("Vehicle.Speed", 50.0)
-result = uds_conn.get("Vehicle.Speed")
-ASSERT result.value == 50.0
-```
-
-### TS-02-E3: Malformed VSS Overlay
-
-**Requirement:** 02-REQ-3.E1
-**Type:** integration
-**Description:** Verify the databroker fails to start with malformed overlay JSON.
-
-**Preconditions:**
-- A temporary malformed overlay file is created.
-
-**Input:**
-- Start databroker with a malformed JSON overlay file.
-
-**Expected:**
-- Container exits with non-zero code or fails to reach healthy state.
-
-**Assertion pseudocode:**
-```
-write_file("deployments/vss-overlay-bad.json", "{invalid json")
-start_databroker_with_overlay("vss-overlay-bad.json")
-ASSERT container_exit_code != 0 OR NOT databroker_is_healthy()
-cleanup("deployments/vss-overlay-bad.json")
-```
-
-### TS-02-E4: Get Unset Custom Signal
-
-**Requirement:** 02-REQ-3.E2
-**Type:** integration
-**Description:** Verify getting a custom signal that has never been set returns no value (not an error).
-
-**Preconditions:**
-- Databroker container is freshly started (no values set).
-
-**Input:**
-- gRPC Get for `Vehicle.Parking.SessionActive` without prior Set.
-
-**Expected:**
-- Response succeeds (no error) but contains no value.
-
-**Assertion pseudocode:**
-```
-result = grpc_get("Vehicle.Parking.SessionActive")
-ASSERT result.error == nil
-ASSERT result.has_value == false
-```
-
-### TS-02-E5: Query Non-Existent Signal
-
-**Requirement:** 02-REQ-4.E1
-**Type:** integration
-**Description:** Verify querying a non-existent signal path returns NOT_FOUND.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- gRPC Get for `Vehicle.NonExistent.Signal`.
-
-**Expected:**
-- Response contains a NOT_FOUND error.
-
-**Assertion pseudocode:**
-```
-result = grpc_get("Vehicle.NonExistent.Signal")
-ASSERT result.error == NOT_FOUND
-```
-
-### TS-02-E6: Subscriber Reconnect
-
-**Requirement:** 02-REQ-5.E1
-**Type:** integration
-**Description:** Verify a subscriber can disconnect and reconnect without error.
-
-**Preconditions:**
-- Databroker container is running.
-
-**Input:**
-- Subscribe to `Vehicle.Parking.SessionActive`, then cancel subscription.
-- Subscribe again to the same signal.
-- Set the signal value.
-
-**Expected:**
-- Second subscription receives the notification.
-
-**Assertion pseudocode:**
-```
-sub1 = grpc_subscribe("Vehicle.Parking.SessionActive")
-sub1.cancel()
-sub2 = grpc_subscribe("Vehicle.Parking.SessionActive")
-grpc_set("Vehicle.Parking.SessionActive", true)
-notification = sub2.receive(timeout=5s)
-ASSERT notification.value == true
-```
+### TS-02-1: TCP connectivity
+
+- **Requirement:** 02-REQ-2
+- **Type:** Integration
+- **Description:** Verify that a gRPC client can establish a connection to the DATA_BROKER via TCP on host port 55556.
+- **Preconditions:** DATA_BROKER container is running via `podman compose up databroker`.
+- **Input:** gRPC channel open to `localhost:55556`.
+- **Expected:** Channel connects successfully; a simple metadata or get request returns a valid gRPC response (not UNAVAILABLE).
+- **Assertion pseudocode:**
+  ```
+  conn = grpc.Dial("localhost:55556")
+  resp = conn.GetMetadata("Vehicle.Speed")
+  assert resp.status == OK
+  ```
+
+### TS-02-2: UDS connectivity
+
+- **Requirement:** 02-REQ-3
+- **Type:** Integration
+- **Description:** Verify that a gRPC client can establish a connection to the DATA_BROKER via UDS.
+- **Preconditions:** DATA_BROKER container is running; UDS socket volume is mounted.
+- **Input:** gRPC channel open to `unix:///tmp/kuksa-databroker.sock`.
+- **Expected:** Channel connects successfully; a simple metadata or get request returns a valid gRPC response.
+- **Assertion pseudocode:**
+  ```
+  conn = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  resp = conn.GetMetadata("Vehicle.Speed")
+  assert resp.status == OK
+  ```
+
+### TS-02-3: Pinned image version
+
+- **Requirement:** 02-REQ-1
+- **Type:** Integration
+- **Description:** Verify that the running DATA_BROKER container uses the pinned image version 0.5.1.
+- **Preconditions:** DATA_BROKER container is running.
+- **Input:** Inspect the running container image reference.
+- **Expected:** Image reference matches `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
+- **Assertion pseudocode:**
+  ```
+  image = podman_inspect("databroker").image
+  assert image contains "kuksa-databroker:0.5.1"
+  ```
+
+### TS-02-4: Standard VSS signal metadata
+
+- **Requirement:** 02-REQ-5
+- **Type:** Integration
+- **Description:** Verify that all 5 standard VSS v5.1 signals are present in the DATA_BROKER metadata with correct types.
+- **Preconditions:** DATA_BROKER container is running.
+- **Input:** GetMetadata requests for each standard signal.
+- **Expected:** Each signal returns valid metadata with the correct data type.
+- **Assertion pseudocode:**
+  ```
+  expected = {
+    "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": BOOL,
+    "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen": BOOL,
+    "Vehicle.CurrentLocation.Latitude": DOUBLE,
+    "Vehicle.CurrentLocation.Longitude": DOUBLE,
+    "Vehicle.Speed": FLOAT
+  }
+  for signal, type in expected:
+    resp = conn.GetMetadata(signal)
+    assert resp.status == OK
+    assert resp.dataType == type
+  ```
+
+### TS-02-5: Custom VSS signal metadata
+
+- **Requirement:** 02-REQ-6
+- **Type:** Integration
+- **Description:** Verify that all 3 custom VSS signals from the overlay are present with correct types.
+- **Preconditions:** DATA_BROKER container is running with overlay loaded.
+- **Input:** GetMetadata requests for each custom signal.
+- **Expected:** Each custom signal returns valid metadata with the correct data type.
+- **Assertion pseudocode:**
+  ```
+  expected = {
+    "Vehicle.Parking.SessionActive": BOOL,
+    "Vehicle.Command.Door.Lock": STRING,
+    "Vehicle.Command.Door.Response": STRING
+  }
+  for signal, type in expected:
+    resp = conn.GetMetadata(signal)
+    assert resp.status == OK
+    assert resp.dataType == type
+  ```
+
+### TS-02-6: Signal set/get via TCP
+
+- **Requirement:** 02-REQ-8
+- **Type:** Integration
+- **Description:** Verify that signals can be set and retrieved via the TCP gRPC interface.
+- **Preconditions:** DATA_BROKER container is running; TCP connection established.
+- **Input:** Set multiple signals of different types via TCP, then get each.
+- **Expected:** Each get returns the value that was set.
+- **Assertion pseudocode:**
+  ```
+  tcp = grpc.Dial("localhost:55556")
+  tcp.Set("Vehicle.Speed", 50.0)
+  assert tcp.Get("Vehicle.Speed").value == 50.0
+
+  tcp.Set("Vehicle.Parking.SessionActive", true)
+  assert tcp.Get("Vehicle.Parking.SessionActive").value == true
+
+  json = '{"command_id":"abc","action":"lock"}'
+  tcp.Set("Vehicle.Command.Door.Lock", json)
+  assert tcp.Get("Vehicle.Command.Door.Lock").value == json
+  ```
+
+### TS-02-7: Signal set/get via UDS
+
+- **Requirement:** 02-REQ-9
+- **Type:** Integration
+- **Description:** Verify that signals can be set and retrieved via the UDS gRPC interface.
+- **Preconditions:** DATA_BROKER container is running; UDS connection established.
+- **Input:** Set signals via UDS, then get each.
+- **Expected:** Each get returns the value that was set.
+- **Assertion pseudocode:**
+  ```
+  uds = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  uds.Set("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", true)
+  assert uds.Get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked").value == true
+
+  uds.Set("Vehicle.CurrentLocation.Latitude", 48.1351)
+  assert uds.Get("Vehicle.CurrentLocation.Latitude").value == 48.1351
+  ```
+
+### TS-02-8: Cross-transport consistency (TCP write, UDS read)
+
+- **Requirement:** 02-REQ-4, 02-REQ-9
+- **Type:** Integration
+- **Description:** Verify that a signal written via TCP is readable via UDS.
+- **Preconditions:** DATA_BROKER running; both TCP and UDS connections established.
+- **Input:** Set a signal via TCP, read via UDS.
+- **Expected:** UDS read returns the value written via TCP.
+- **Assertion pseudocode:**
+  ```
+  tcp = grpc.Dial("localhost:55556")
+  uds = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  tcp.Set("Vehicle.Speed", 75.5)
+  assert uds.Get("Vehicle.Speed").value == 75.5
+  ```
+
+### TS-02-9: Cross-transport consistency (UDS write, TCP read)
+
+- **Requirement:** 02-REQ-4, 02-REQ-9
+- **Type:** Integration
+- **Description:** Verify that a signal written via UDS is readable via TCP.
+- **Preconditions:** DATA_BROKER running; both TCP and UDS connections established.
+- **Input:** Set a signal via UDS, read via TCP.
+- **Expected:** TCP read returns the value written via UDS.
+- **Assertion pseudocode:**
+  ```
+  tcp = grpc.Dial("localhost:55556")
+  uds = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  uds.Set("Vehicle.Parking.SessionActive", true)
+  assert tcp.Get("Vehicle.Parking.SessionActive").value == true
+  ```
+
+### TS-02-10: Signal subscription via TCP
+
+- **Requirement:** 02-REQ-10
+- **Type:** Integration
+- **Description:** Verify that a TCP subscriber receives notifications when a signal value changes.
+- **Preconditions:** DATA_BROKER running; TCP connection established.
+- **Input:** Subscribe to a signal via TCP, then set the signal from another client.
+- **Expected:** Subscriber receives the updated value in the subscription stream.
+- **Assertion pseudocode:**
+  ```
+  tcp1 = grpc.Dial("localhost:55556")
+  tcp2 = grpc.Dial("localhost:55556")
+  stream = tcp1.Subscribe("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
+  tcp2.Set("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", true)
+  update = stream.Recv(timeout=5s)
+  assert update.value == true
+  ```
+
+### TS-02-11: Signal subscription cross-transport
+
+- **Requirement:** 02-REQ-10, 02-REQ-4
+- **Type:** Integration
+- **Description:** Verify that a UDS subscriber receives notifications when a signal is set via TCP.
+- **Preconditions:** DATA_BROKER running; both connections established.
+- **Input:** Subscribe via UDS, set via TCP.
+- **Expected:** UDS subscriber receives the update.
+- **Assertion pseudocode:**
+  ```
+  uds = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  tcp = grpc.Dial("localhost:55556")
+  stream = uds.Subscribe("Vehicle.Parking.SessionActive")
+  tcp.Set("Vehicle.Parking.SessionActive", true)
+  update = stream.Recv(timeout=5s)
+  assert update.value == true
+  ```
+
+### TS-02-12: Permissive mode (no auth required)
+
+- **Requirement:** 02-REQ-7
+- **Type:** Integration
+- **Description:** Verify that the DATA_BROKER accepts requests without authorization tokens.
+- **Preconditions:** DATA_BROKER running in permissive mode.
+- **Input:** gRPC request with no authorization metadata.
+- **Expected:** Request succeeds (no PERMISSION_DENIED error).
+- **Assertion pseudocode:**
+  ```
+  conn = grpc.Dial("localhost:55556", no_credentials)
+  resp = conn.Set("Vehicle.Speed", 10.0)
+  assert resp.status == OK
+  ```
 
 ## Property Test Cases
 
-### TS-02-P1: Dual Listener Availability
+### TS-02-P1: Signal completeness property
 
-**Property:** Property 1 from design.md
-**Validates:** 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.4
-**Type:** property
-**Description:** Both TCP and UDS listeners accept gRPC connections simultaneously.
+- **Requirement:** 02-REQ-5, 02-REQ-6
+- **Type:** Property
+- **Description:** For every signal in the expected set of 8, metadata is present and type-correct.
+- **Preconditions:** DATA_BROKER running with overlay loaded.
+- **Input:** Complete list of 8 expected signals with their types.
+- **Expected:** All 8 signals found, zero missing.
+- **Assertion pseudocode:**
+  ```
+  all_signals = [5 standard + 3 custom]
+  for signal in all_signals:
+    resp = conn.GetMetadata(signal.path)
+    assert resp.status == OK
+    assert resp.dataType == signal.expected_type
+  assert found_count == 8
+  ```
 
-**For any:** Running databroker instance (single instance per test run)
-**Invariant:** A gRPC metadata query succeeds on both TCP (localhost:55556) and UDS (/tmp/kuksa/kuksa-databroker.sock).
+### TS-02-P2: Write-read roundtrip property
 
-**Assertion pseudocode:**
-```
-FOR ANY signal IN all_catalog_signals:
-    tcp_result = tcp_conn.get_metadata(signal)
-    uds_result = uds_conn.get_metadata(signal)
-    ASSERT tcp_result.exists == uds_result.exists
-    ASSERT tcp_result.datatype == uds_result.datatype
-```
+- **Requirement:** 02-REQ-8, 02-REQ-9
+- **Type:** Property
+- **Description:** For any signal, setting a value and immediately getting it returns the same value.
+- **Preconditions:** DATA_BROKER running.
+- **Input:** Set/get pairs for each signal type (bool, float, double, string).
+- **Expected:** Get value equals set value for every signal.
+- **Assertion pseudocode:**
+  ```
+  test_values = {
+    BOOL: [true, false],
+    FLOAT: [0.0, 50.0, 999.9],
+    DOUBLE: [48.1351, -122.4194],
+    STRING: ['{"command_id":"x"}', '{}']
+  }
+  for signal in all_signals:
+    for val in test_values[signal.type]:
+      conn.Set(signal.path, val)
+      assert conn.Get(signal.path).value == val
+  ```
 
-### TS-02-P2: Custom Signal Completeness
+### TS-02-P3: Cross-transport equivalence property
 
-**Property:** Property 2 from design.md
-**Validates:** 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3
-**Type:** property
-**Description:** All custom signals from the overlay are exposed with correct datatypes.
+- **Requirement:** 02-REQ-4, 02-REQ-9
+- **Type:** Property
+- **Description:** For any signal, the value read via TCP equals the value read via UDS after a write on either transport.
+- **Preconditions:** DATA_BROKER running; both connections available.
+- **Input:** Write via TCP, read via both; write via UDS, read via both.
+- **Expected:** All reads return identical values.
+- **Assertion pseudocode:**
+  ```
+  for signal in all_signals:
+    tcp.Set(signal.path, test_value)
+    assert tcp.Get(signal.path).value == uds.Get(signal.path).value
+    uds.Set(signal.path, other_value)
+    assert tcp.Get(signal.path).value == uds.Get(signal.path).value
+  ```
 
-**For any:** Custom signal in the set {Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response}
-**Invariant:** The signal exists in the databroker metadata with the expected datatype.
+### TS-02-P4: Subscription delivery
 
-**Assertion pseudocode:**
-```
-expected = {
-    "Vehicle.Parking.SessionActive": BOOLEAN,
-    "Vehicle.Command.Door.Lock": STRING,
-    "Vehicle.Command.Door.Response": STRING,
-}
-FOR ANY (signal, dtype) IN expected:
-    metadata = grpc_get_metadata(signal)
-    ASSERT metadata.exists == true
-    ASSERT metadata.datatype == dtype
-```
+- **Requirement:** 02-REQ-10
+- **Type:** Property
+- **Description:** For any active subscription on a signal, a value change is delivered exactly once.
+- **Preconditions:** DATA_BROKER running; subscription established on target signal.
+- **Input:** Subscribe to a signal, then set the signal to a new value.
+- **Expected:** Subscriber receives exactly one update matching the set value.
+- **Assertion pseudocode:**
+  ```
+  for signal in all_signals:
+    stream = conn.Subscribe(signal.path)
+    conn.Set(signal.path, test_value)
+    update = stream.Recv(timeout=5s)
+    assert update.value == test_value
+    no_more = stream.Recv(timeout=1s)
+    assert no_more == TIMEOUT
+  ```
 
-### TS-02-P3: Standard Signal Availability
+## Edge Case Tests
 
-**Property:** Property 3 from design.md
-**Validates:** 02-REQ-4.1, 02-REQ-4.2, 02-REQ-4.3, 02-REQ-4.4, 02-REQ-4.5
-**Type:** property
-**Description:** All standard VSS signals from the catalog are present with correct datatypes.
+### TS-02-E1: Set non-existent signal
 
-**For any:** Standard signal in the catalog (5 signals)
-**Invariant:** The signal exists in the databroker metadata with the expected datatype.
+- **Requirement:** 02-REQ-8.E1
+- **Type:** Edge case
+- **Description:** Verify that setting a non-existent signal returns an appropriate error.
+- **Preconditions:** DATA_BROKER running.
+- **Input:** Set request for `Vehicle.NonExistent.Signal`.
+- **Expected:** gRPC NOT_FOUND or equivalent error status.
+- **Assertion pseudocode:**
+  ```
+  resp = conn.Set("Vehicle.NonExistent.Signal", 42)
+  assert resp.status == NOT_FOUND
+  ```
 
-**Assertion pseudocode:**
-```
-expected = {
-    "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": BOOLEAN,
-    "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen": BOOLEAN,
-    "Vehicle.CurrentLocation.Latitude": DOUBLE,
-    "Vehicle.CurrentLocation.Longitude": DOUBLE,
-    "Vehicle.Speed": FLOAT,
-}
-FOR ANY (signal, dtype) IN expected:
-    metadata = grpc_get_metadata(signal)
-    ASSERT metadata.exists == true
-    ASSERT metadata.datatype == dtype
-```
+### TS-02-E2: Overlay syntax error
 
-### TS-02-P4: Set/Get Roundtrip Integrity
+- **Requirement:** 02-REQ-6.E1
+- **Type:** Edge case
+- **Description:** Verify that the DATA_BROKER fails to start when the overlay file has a syntax error.
+- **Preconditions:** Overlay file replaced with malformed content.
+- **Input:** Start DATA_BROKER container with invalid overlay.
+- **Expected:** Container exits with non-zero status; logs contain parse error.
+- **Assertion pseudocode:**
+  ```
+  replace_overlay_with_invalid_content()
+  exit_code = podman_compose_up("databroker")
+  assert exit_code != 0
+  logs = podman_logs("databroker")
+  assert "error" in logs.lower() or "parse" in logs.lower()
+  restore_valid_overlay()
+  ```
 
-**Property:** Property 4 from design.md
-**Validates:** 02-REQ-3.4, 02-REQ-5.2, 02-REQ-5.3
-**Type:** property
-**Description:** Setting a signal value and reading it back returns the identical value.
+### TS-02-E3: Missing overlay file
 
-**For any:** Signal in the catalog and a valid value for that signal's datatype
-**Invariant:** get(signal) == value after set(signal, value)
+- **Requirement:** 02-REQ-6.E2
+- **Type:** Edge case
+- **Description:** Verify that the DATA_BROKER fails to start when the overlay file is missing.
+- **Preconditions:** Overlay file removed or path misconfigured.
+- **Input:** Start DATA_BROKER container with missing overlay path.
+- **Expected:** Container exits with non-zero status.
+- **Assertion pseudocode:**
+  ```
+  rename_overlay_to_backup()
+  exit_code = podman_compose_up("databroker")
+  assert exit_code != 0
+  restore_overlay_from_backup()
+  ```
 
-**Assertion pseudocode:**
-```
-test_values = {
-    "Vehicle.Parking.SessionActive": [true, false],
-    "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": [true, false],
-    "Vehicle.Speed": [0.0, 50.5, 130.0],
-    "Vehicle.Command.Door.Lock": ['{"command_id":"x","action":"lock"}', '{"command_id":"y","action":"unlock"}'],
-}
-FOR ANY (signal, values) IN test_values:
-    FOR ANY value IN values:
-        grpc_set(signal, value)
-        result = grpc_get(signal)
-        ASSERT result.value == value
-```
+### TS-02-E4: Permissive mode with arbitrary token
 
-### TS-02-P5: Pub/Sub Notification Delivery
+- **Requirement:** 02-REQ-7.E1
+- **Type:** Edge case
+- **Description:** Verify that the DATA_BROKER accepts requests even when an invalid token is provided.
+- **Preconditions:** DATA_BROKER running in permissive mode.
+- **Input:** gRPC request with `Authorization: Bearer invalid-token-12345` metadata.
+- **Expected:** Request succeeds (not rejected).
+- **Assertion pseudocode:**
+  ```
+  conn = grpc.Dial("localhost:55556", metadata={"authorization": "Bearer invalid-token"})
+  resp = conn.Get("Vehicle.Speed")
+  assert resp.status == OK
+  ```
 
-**Property:** Property 5 from design.md
-**Validates:** 02-REQ-5.1
-**Type:** property
-**Description:** Active subscribers receive notifications when signal values change.
+## Integration Smoke Tests
 
-**For any:** Signal with an active subscription and a new value set
-**Invariant:** The subscriber receives a notification containing the new value.
+### TS-02-SMOKE-1: Databroker health check
 
-**Assertion pseudocode:**
-```
-FOR ANY signal IN ["Vehicle.Parking.SessionActive", "Vehicle.Speed"]:
-    sub = grpc_subscribe(signal)
-    FOR ANY value IN test_values[signal]:
-        grpc_set(signal, value)
-        notification = sub.receive(timeout=5s)
-        ASSERT notification.value == value
-    sub.cancel()
-```
+- **Requirement:** 02-REQ-1, 02-REQ-2
+- **Type:** Smoke
+- **Description:** Quick verification that the DATA_BROKER container starts and accepts TCP connections.
+- **Preconditions:** None (starts container itself).
+- **Input:** `podman compose up -d databroker`, then gRPC connect to `localhost:55556`.
+- **Expected:** Connection succeeds within 10 seconds of container start.
+- **Assertion pseudocode:**
+  ```
+  podman_compose_up("databroker", detached=true)
+  wait_for_port(55556, timeout=10s)
+  conn = grpc.Dial("localhost:55556")
+  resp = conn.GetMetadata("Vehicle.Speed")
+  assert resp.status == OK
+  podman_compose_down()
+  ```
+
+### TS-02-SMOKE-2: Full signal inventory check
+
+- **Requirement:** 02-REQ-5, 02-REQ-6
+- **Type:** Smoke
+- **Description:** Quick verification that all 8 signals are present after startup.
+- **Preconditions:** DATA_BROKER container running.
+- **Input:** Metadata queries for all 8 signals.
+- **Expected:** All 8 return valid metadata.
+- **Assertion pseudocode:**
+  ```
+  signals = [
+    "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
+    "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen",
+    "Vehicle.CurrentLocation.Latitude",
+    "Vehicle.CurrentLocation.Longitude",
+    "Vehicle.Speed",
+    "Vehicle.Parking.SessionActive",
+    "Vehicle.Command.Door.Lock",
+    "Vehicle.Command.Door.Response"
+  ]
+  for s in signals:
+    assert conn.GetMetadata(s).status == OK
+  ```
 
 ## Coverage Matrix
 
-| Requirement | Test Spec Entry | Type |
-|-------------|-----------------|------|
-| 02-REQ-1.1 | TS-02-1 | integration |
-| 02-REQ-1.2 | TS-02-2 | integration |
-| 02-REQ-1.3 | TS-02-3 | integration |
-| 02-REQ-1.4 | TS-02-4 | integration |
-| 02-REQ-1.E1 | TS-02-E1 | integration |
-| 02-REQ-1.E2 | TS-02-E2 | integration |
-| 02-REQ-2.1 | TS-02-5 | unit |
-| 02-REQ-2.E1 | (runtime — covered by Podman pull behavior) | — |
-| 02-REQ-3.1 | TS-02-6 | integration |
-| 02-REQ-3.2 | TS-02-7 | integration |
-| 02-REQ-3.3 | TS-02-8 | integration |
-| 02-REQ-3.4 | TS-02-9 | integration |
-| 02-REQ-3.E1 | TS-02-E3 | integration |
-| 02-REQ-3.E2 | TS-02-E4 | integration |
-| 02-REQ-4.1 | TS-02-10 | integration |
-| 02-REQ-4.2 | TS-02-11 | integration |
-| 02-REQ-4.3 | TS-02-12 | integration |
-| 02-REQ-4.4 | TS-02-13 | integration |
-| 02-REQ-4.5 | TS-02-14 | integration |
-| 02-REQ-4.E1 | TS-02-E5 | integration |
-| 02-REQ-5.1 | TS-02-15 | integration |
-| 02-REQ-5.2 | TS-02-16 | integration |
-| 02-REQ-5.3 | TS-02-17 | integration |
-| 02-REQ-5.E1 | TS-02-E6 | integration |
-| Property 1 | TS-02-P1 | property |
-| Property 2 | TS-02-P2 | property |
-| Property 3 | TS-02-P3 | property |
-| Property 4 | TS-02-P4 | property |
-| Property 5 | TS-02-P5 | property |
+| Requirement | Acceptance Tests | Property Tests | Edge Case Tests | Smoke Tests |
+|------------|-----------------|----------------|-----------------|-------------|
+| 02-REQ-1.1 | TS-02-3 | | | TS-02-SMOKE-1 |
+| 02-REQ-1.2 | TS-02-3 | | | TS-02-SMOKE-1 |
+| 02-REQ-1.E1 | | | | |
+| 02-REQ-2.1 | TS-02-1 | | | TS-02-SMOKE-1 |
+| 02-REQ-2.2 | TS-02-1 | | | TS-02-SMOKE-1 |
+| 02-REQ-2.E1 | | | | |
+| 02-REQ-3.1 | TS-02-2 | | | |
+| 02-REQ-3.2 | TS-02-2 | | | |
+| 02-REQ-3.E1 | | | | |
+| 02-REQ-3.E2 | | | | |
+| 02-REQ-4.1 | TS-02-8, TS-02-9, TS-02-11 | TS-02-P3 | | |
+| 02-REQ-4.E1 | | | | |
+| 02-REQ-5.1 | TS-02-4 | TS-02-P1 | | TS-02-SMOKE-2 |
+| 02-REQ-5.2 | TS-02-4 | TS-02-P1 | | TS-02-SMOKE-2 |
+| 02-REQ-5.E1 | | | | |
+| 02-REQ-6.1 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
+| 02-REQ-6.2 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
+| 02-REQ-6.3 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
+| 02-REQ-6.4 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
+| 02-REQ-6.E1 | | | TS-02-E2 | |
+| 02-REQ-6.E2 | | | TS-02-E3 | |
+| 02-REQ-7.1 | TS-02-12 | | | |
+| 02-REQ-7.E1 | | | TS-02-E4 | |
+| 02-REQ-8.1 | TS-02-6 | TS-02-P2 | | |
+| 02-REQ-8.2 | TS-02-6 | TS-02-P2 | | |
+| 02-REQ-8.E1 | | | TS-02-E1 | |
+| 02-REQ-9.1 | TS-02-7 | TS-02-P2, TS-02-P3 | | |
+| 02-REQ-9.2 | TS-02-8, TS-02-9 | TS-02-P3 | | |
+| 02-REQ-9.E1 | | | | |
+| 02-REQ-10.1 | TS-02-10, TS-02-11 | TS-02-P4 | | |
+| 02-REQ-10.E1 | | | | |

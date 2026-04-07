@@ -2,545 +2,284 @@
 
 ## Overview
 
-This test specification defines concrete test contracts for the CLOUD_GATEWAY, a Go HTTP server with dual REST/NATS interfaces. Tests are organized into unit tests (auth, config, store, handler, nats_client packages) and integration tests (httptest-based HTTP tests and NATS-connected end-to-end tests). Unit tests run via `cd backend && go test -v ./cloud-gateway/...`. Integration tests requiring NATS run in `tests/cloud-gateway/`.
+This test specification defines concrete test contracts for the CLOUD_GATEWAY, a Go service with REST and NATS interfaces for vehicle command routing. Tests are organized into unit tests (config, auth, store, handler packages), integration tests (httptest-based end-to-end and NATS-based), and integration smoke tests (full-stack REST-to-NATS flow). Unit and handler tests run via `cd backend && go test -v ./cloud-gateway/...`. Integration tests requiring NATS run via `cd backend && go test -v ./cloud-gateway/... -tags=integration`.
 
 ## Test Cases
 
-### TS-06-1: Command Submission via REST
+### TS-06-1: Command Submission Success
 
 **Requirement:** 06-REQ-1.1
 **Type:** integration
-**Description:** A valid POST to `/vehicles/{vin}/commands` publishes the command to NATS and returns HTTP 202.
+**Description:** A POST to `/vehicles/{vin}/commands` with a valid token and body publishes to NATS and returns HTTP 202.
 
 **Preconditions:**
-- Service running with NATS connected and demo token `demo-token-car1` mapped to VIN `VIN12345`.
+- Service is running with config containing token "demo-token-001" mapped to VIN "VIN12345".
+- NATS server is available.
 
 **Input:**
 - `POST /vehicles/VIN12345/commands`
-- Header: `Authorization: Bearer demo-token-car1`
+- Header: `Authorization: Bearer demo-token-001`
 - Body: `{"command_id":"cmd-001","type":"lock","doors":["driver"]}`
 
 **Expected:**
 - HTTP 202
-- Body contains `{"command_id":"cmd-001","status":"pending"}`
+- Response body: `{"command_id":"cmd-001","type":"lock","doors":["driver"]}`
 - Command published to NATS subject `vehicles.VIN12345.commands`
 
 **Assertion pseudocode:**
 ```
-resp = httptest.POST("/vehicles/VIN12345/commands", body, authHeader)
+resp = httptest.POST("/vehicles/VIN12345/commands",
+    header("Authorization", "Bearer demo-token-001"),
+    body({"command_id":"cmd-001","type":"lock","doors":["driver"]}))
 ASSERT resp.StatusCode == 202
 body = json.Decode(resp.Body)
 ASSERT body.command_id == "cmd-001"
-ASSERT body.status == "pending"
+ASSERT body.type == "lock"
+ASSERT body.doors == ["driver"]
+// Verify NATS message received on vehicles.VIN12345.commands
+msg = nats.Subscribe("vehicles.VIN12345.commands").NextMsg(1s)
+ASSERT msg != nil
+ASSERT json.Decode(msg.Data).command_id == "cmd-001"
 ```
 
-### TS-06-2: Command Payload Structure
+### TS-06-2: NATS Authorization Header
 
 **Requirement:** 06-REQ-1.2
-**Type:** unit
-**Description:** The command payload is validated to contain command_id, type, and doors.
+**Type:** integration
+**Description:** Commands published to NATS include the bearer token as a NATS message header.
 
 **Preconditions:**
-- None.
+- Service is running with valid config. NATS server is available.
 
 **Input:**
-- Valid: `{"command_id":"c1","type":"lock","doors":["driver"]}`
-- Missing type: `{"command_id":"c1","doors":["driver"]}`
-- Missing doors: `{"command_id":"c1","type":"lock"}`
+- `POST /vehicles/VIN12345/commands` with bearer token "demo-token-001"
 
 **Expected:**
-- Valid input parses successfully.
-- Missing fields return validation error.
+- NATS message header contains `Authorization: Bearer demo-token-001`
 
 **Assertion pseudocode:**
 ```
-cmd, err = parseCommand(validJSON)
-ASSERT err == nil
-ASSERT cmd.CommandID == "c1"
-
-_, err = parseCommand(missingTypeJSON)
-ASSERT err != nil
+// Submit command via REST
+httptest.POST("/vehicles/VIN12345/commands",
+    header("Authorization", "Bearer demo-token-001"),
+    body({"command_id":"cmd-002","type":"unlock","doors":["driver"]}))
+// Check NATS message headers
+msg = nats.Subscribe("vehicles.VIN12345.commands").NextMsg(1s)
+ASSERT msg.Header.Get("Authorization") == "Bearer demo-token-001"
 ```
 
-### TS-06-3: Bearer Token in NATS Header
+### TS-06-3: Command Timeout
 
 **Requirement:** 06-REQ-1.3
-**Type:** integration
-**Description:** When publishing a command to NATS, the bearer token is included as a NATS message header.
-
-**Preconditions:**
-- NATS server running. Service connected.
-
-**Input:**
-- Submit command with token `demo-token-car1`.
-
-**Expected:**
-- NATS message on `vehicles.VIN12345.commands` has header `Authorization: Bearer demo-token-car1`.
-
-**Assertion pseudocode:**
-```
-// Subscribe to NATS, submit command via REST
-msg = nats.Subscribe("vehicles.VIN12345.commands")
-submitCommand(token="demo-token-car1")
-received = msg.Next()
-ASSERT received.Header.Get("Authorization") == "Bearer demo-token-car1"
-```
-
-### TS-06-4: Command Stored as Pending
-
-**Requirement:** 06-REQ-1.4
 **Type:** unit
-**Description:** After submission, the command is stored with status "pending" in the in-memory store.
+**Description:** When no response is received within the timeout, the command status becomes "timeout".
 
 **Preconditions:**
-- Empty command store.
+- Store is initialized. Timeout configured to 100ms (for fast test).
 
 **Input:**
-- Add command with ID "cmd-001".
+- `store.StartTimeout("cmd-003", 100ms)`
+- Wait 200ms
 
 **Expected:**
-- Store.Get("cmd-001") returns status "pending".
+- `store.GetResponse("cmd-003")` returns `{command_id:"cmd-003", status:"timeout"}`
 
 **Assertion pseudocode:**
 ```
 store = NewStore()
-store.Add(CommandStatus{CommandID: "cmd-001", Status: "pending"})
-cs, found = store.Get("cmd-001")
+store.StartTimeout("cmd-003", 100*time.Millisecond)
+time.Sleep(200 * time.Millisecond)
+resp, found = store.GetResponse("cmd-003")
 ASSERT found == true
-ASSERT cs.Status == "pending"
+ASSERT resp.CommandID == "cmd-003"
+ASSERT resp.Status == "timeout"
 ```
 
-### TS-06-5: Command Status Query
+### TS-06-4: Command Status Query Success
 
 **Requirement:** 06-REQ-2.1
 **Type:** integration
-**Description:** GET `/vehicles/{vin}/commands/{command_id}` returns the current command status.
+**Description:** GET `/vehicles/{vin}/commands/{command_id}` returns the stored command response.
 
 **Preconditions:**
-- Command "cmd-001" exists in store with status "success".
+- Service is running. A command response has been stored for "cmd-004".
 
 **Input:**
-- `GET /vehicles/VIN12345/commands/cmd-001`
-- Header: `Authorization: Bearer demo-token-car1`
+- Store response: `{command_id:"cmd-004", status:"success"}`
+- `GET /vehicles/VIN12345/commands/cmd-004` with valid bearer token
 
 **Expected:**
 - HTTP 200
-- Body: `{"command_id":"cmd-001","status":"success"}`
+- Body: `{"command_id":"cmd-004","status":"success"}`
 
 **Assertion pseudocode:**
 ```
-resp = httptest.GET("/vehicles/VIN12345/commands/cmd-001", authHeader)
+store.StoreResponse({CommandID:"cmd-004", Status:"success"})
+resp = httptest.GET("/vehicles/VIN12345/commands/cmd-004",
+    header("Authorization", "Bearer demo-token-001"))
 ASSERT resp.StatusCode == 200
 body = json.Decode(resp.Body)
-ASSERT body.command_id == "cmd-001"
+ASSERT body.command_id == "cmd-004"
 ASSERT body.status == "success"
 ```
 
-### TS-06-6: Pending Status Before Response
+### TS-06-5: Response Store Thread Safety
 
 **Requirement:** 06-REQ-2.2
 **Type:** unit
-**Description:** A newly submitted command returns status "pending".
+**Description:** Concurrent writes and reads to the response store do not cause data races.
 
 **Preconditions:**
-- Command "cmd-002" submitted, no response received.
+- Store is initialized.
 
 **Input:**
-- Query command "cmd-002".
+- 100 concurrent goroutines each writing a unique command response.
+- 100 concurrent goroutines each reading a random command response.
 
 **Expected:**
-- Status is "pending".
+- No data race detected (run with `-race` flag).
+- All written responses are retrievable after goroutines complete.
 
 **Assertion pseudocode:**
 ```
-store.Add(CommandStatus{CommandID: "cmd-002", Status: "pending"})
-cs, _ = store.Get("cmd-002")
-ASSERT cs.Status == "pending"
+store = NewStore()
+wg = sync.WaitGroup{}
+FOR i IN 0..99:
+    go func(i):
+        store.StoreResponse({CommandID: fmt.Sprintf("cmd-%d", i), Status: "success"})
+        wg.Done()
+    go func(i):
+        store.GetResponse(fmt.Sprintf("cmd-%d", i))
+        wg.Done()
+wg.Wait()
+FOR i IN 0..99:
+    resp, found = store.GetResponse(fmt.Sprintf("cmd-%d", i))
+    ASSERT found == true
+    ASSERT resp.Status == "success"
 ```
 
-### TS-06-7: Success and Failed Status
+### TS-06-6: NATS Response Subscription
 
-**Requirement:** 06-REQ-2.3
-**Type:** unit
-**Description:** After receiving a response, the command status reflects the response status.
+**Requirement:** 06-REQ-5.1, 06-REQ-5.2
+**Type:** integration
+**Description:** The service subscribes to command responses on NATS and stores them.
 
 **Preconditions:**
-- Command "cmd-003" is pending.
+- Service is running and connected to NATS.
 
 **Input:**
-- Update with response: `{command_id: "cmd-003", status: "failed", reason: "vehicle_moving"}`.
+- Publish to NATS subject `vehicles.VIN12345.command_responses`:
+  `{"command_id":"cmd-005","status":"success"}`
 
 **Expected:**
-- Status is "failed", reason is "vehicle_moving".
+- `store.GetResponse("cmd-005")` returns `{command_id:"cmd-005", status:"success"}`
 
 **Assertion pseudocode:**
 ```
-store.Add(CommandStatus{CommandID: "cmd-003", Status: "pending"})
-store.UpdateFromResponse(CommandResponse{CommandID: "cmd-003", Status: "failed", Reason: "vehicle_moving"})
-cs, _ = store.Get("cmd-003")
-ASSERT cs.Status == "failed"
-ASSERT cs.Reason == "vehicle_moving"
+nats.Publish("vehicles.VIN12345.command_responses",
+    {"command_id":"cmd-005","status":"success"})
+time.Sleep(100 * time.Millisecond)  // allow subscription processing
+resp, found = store.GetResponse("cmd-005")
+ASSERT found == true
+ASSERT resp.Status == "success"
 ```
 
-### TS-06-8: NATS Response Subscription
+### TS-06-7: Telemetry Subscription Logging
+
+**Requirement:** 06-REQ-5.3
+**Type:** integration
+**Description:** The service subscribes to telemetry on NATS and logs it without storing.
+
+**Preconditions:**
+- Service is running and connected to NATS. Log output captured.
+
+**Input:**
+- Publish to NATS subject `vehicles.VIN12345.telemetry`:
+  `{"speed": 60, "location": {"lat": 48.137, "lon": 11.575}}`
+
+**Expected:**
+- Log output contains the telemetry data or VIN reference.
+- No telemetry data in the response store.
+
+**Assertion pseudocode:**
+```
+logBuf = captureLog()
+nats.Publish("vehicles.VIN12345.telemetry",
+    {"speed": 60, "location": {"lat": 48.137, "lon": 11.575}})
+time.Sleep(100 * time.Millisecond)
+ASSERT "VIN12345" IN logBuf.String()
+ASSERT "telemetry" IN logBuf.String()
+```
+
+### TS-06-8: Bearer Token Validation
 
 **Requirement:** 06-REQ-3.1
-**Type:** integration
-**Description:** The service subscribes to `vehicles.*.command_responses` at startup.
+**Type:** unit
+**Description:** The auth middleware extracts and validates bearer tokens.
 
 **Preconditions:**
-- NATS server running.
+- Config contains token "demo-token-001" mapped to VIN "VIN12345".
 
 **Input:**
-- Start service, publish a response to `vehicles.VIN12345.command_responses`.
+- Request with `Authorization: Bearer demo-token-001` to `/vehicles/VIN12345/commands`
 
 **Expected:**
-- The service receives and processes the response.
+- Request passes through middleware to handler.
 
 **Assertion pseudocode:**
 ```
-startService()
-nats.Publish("vehicles.VIN12345.command_responses", responseJSON)
-// Verify command store updated
+handler = auth.Middleware(cfg)(testHandler)
+req = httptest.NewRequest("GET", "/vehicles/VIN12345/commands/x", nil)
+req.Header.Set("Authorization", "Bearer demo-token-001")
+rec = httptest.NewRecorder()
+handler.ServeHTTP(rec, req)
+ASSERT rec.Code != 401
+ASSERT rec.Code != 403
 ```
 
-### TS-06-9: Response Updates Command Store
+### TS-06-9: VIN Authorization Check
 
 **Requirement:** 06-REQ-3.2
-**Type:** integration
-**Description:** A NATS response updates the corresponding command in the store.
-
-**Preconditions:**
-- Command "cmd-004" stored as "pending". NATS connected.
-
-**Input:**
-- NATS message on `vehicles.VIN12345.command_responses`: `{"command_id":"cmd-004","status":"success"}`
-
-**Expected:**
-- Store.Get("cmd-004") returns status "success".
-
-**Assertion pseudocode:**
-```
-store.Add(cmd004_pending)
-nats.Publish("vehicles.VIN12345.command_responses", successJSON)
-wait()
-cs, _ = store.Get("cmd-004")
-ASSERT cs.Status == "success"
-```
-
-### TS-06-10: Response Payload Parsing
-
-**Requirement:** 06-REQ-3.3
 **Type:** unit
-**Description:** NATS response payloads are parsed as JSON with command_id, status, and optional reason.
+**Description:** A valid token used against a different VIN returns HTTP 403.
 
 **Preconditions:**
-- None.
+- Config contains token "demo-token-001" mapped to VIN "VIN12345".
 
 **Input:**
-- `{"command_id":"cmd-005","status":"success"}`
-- `{"command_id":"cmd-006","status":"failed","reason":"door_open"}`
+- `POST /vehicles/VIN99999/commands` with `Authorization: Bearer demo-token-001`
 
 **Expected:**
-- Both parse correctly. Reason is empty string when omitted.
+- HTTP 403
+- Body: `{"error":"forbidden"}`
 
 **Assertion pseudocode:**
 ```
-resp1 = parseResponse(successJSON)
-ASSERT resp1.CommandID == "cmd-005"
-ASSERT resp1.Status == "success"
-ASSERT resp1.Reason == ""
-
-resp2 = parseResponse(failedJSON)
-ASSERT resp2.Reason == "door_open"
+handler = auth.Middleware(cfg)(testHandler)
+req = httptest.NewRequest("POST", "/vehicles/VIN99999/commands", nil)
+req.Header.Set("Authorization", "Bearer demo-token-001")
+rec = httptest.NewRecorder()
+handler.ServeHTTP(rec, req)
+ASSERT rec.Code == 403
+body = json.Decode(rec.Body)
+ASSERT body.error == "forbidden"
 ```
 
-### TS-06-11: Command Timeout
+### TS-06-10: Health Check
 
 **Requirement:** 06-REQ-4.1
-**Type:** unit
-**Description:** Commands pending beyond the timeout duration are marked as "timeout".
-
-**Preconditions:**
-- Command "cmd-007" added at time T. Timeout is 1 second (for testing).
-
-**Input:**
-- Wait 1.5 seconds, then call ExpireTimedOut.
-
-**Expected:**
-- Command "cmd-007" status is "timeout".
-
-**Assertion pseudocode:**
-```
-store.Add(CommandStatus{CommandID: "cmd-007", Status: "pending", CreatedAt: time.Now().Add(-2*time.Second)})
-store.ExpireTimedOut(1 * time.Second)
-cs, _ = store.Get("cmd-007")
-ASSERT cs.Status == "timeout"
-```
-
-### TS-06-12: Configurable Timeout
-
-**Requirement:** 06-REQ-4.2
-**Type:** unit
-**Description:** The timeout duration is loaded from the config file.
-
-**Preconditions:**
-- Config file with `command_timeout_seconds: 60`.
-
-**Input:**
-- Load config.
-
-**Expected:**
-- Config.CommandTimeout == 60.
-
-**Assertion pseudocode:**
-```
-cfg = LoadConfig(pathWithTimeout60)
-ASSERT cfg.CommandTimeout == 60
-```
-
-### TS-06-13: Telemetry Subscription
-
-**Requirement:** 06-REQ-5.1
 **Type:** integration
-**Description:** The service subscribes to `vehicles.*.telemetry` at startup.
+**Description:** GET `/health` returns HTTP 200 with `{"status":"ok"}`.
 
 **Preconditions:**
-- NATS server running.
-
-**Input:**
-- Publish telemetry to `vehicles.VIN12345.telemetry`.
-
-**Expected:**
-- Service logs the telemetry (verify via log capture or test hook).
-
-**Assertion pseudocode:**
-```
-startService()
-nats.Publish("vehicles.VIN12345.telemetry", telemetryJSON)
-ASSERT logContains("VIN12345")
-```
-
-### TS-06-14: Telemetry Logging
-
-**Requirement:** 06-REQ-5.2
-**Type:** integration
-**Description:** Received telemetry is logged with the VIN extracted from the NATS subject.
-
-**Preconditions:**
-- Service running with NATS connected.
-
-**Input:**
-- Publish telemetry to `vehicles.VIN12345.telemetry`.
-
-**Expected:**
-- Log output includes "VIN12345" and telemetry content.
-
-**Assertion pseudocode:**
-```
-nats.Publish("vehicles.VIN12345.telemetry", '{"speed": 0}')
-ASSERT logContains("VIN12345")
-```
-
-### TS-06-15: Token Validation on All Endpoints
-
-**Requirement:** 06-REQ-6.1
-**Type:** integration
-**Description:** Bearer token is validated on POST and GET command endpoints.
-
-**Preconditions:**
-- Service running with token config.
-
-**Input:**
-- POST and GET with valid token → success.
-- POST and GET with no token → 401.
-
-**Expected:**
-- Valid token: 202/200 respectively.
-- No token: 401 on both.
-
-**Assertion pseudocode:**
-```
-resp1 = POST("/vehicles/VIN12345/commands", body, validAuth)
-ASSERT resp1.StatusCode == 202
-
-resp2 = POST("/vehicles/VIN12345/commands", body, noAuth)
-ASSERT resp2.StatusCode == 401
-
-resp3 = GET("/vehicles/VIN12345/commands/cmd-001", noAuth)
-ASSERT resp3.StatusCode == 401
-```
-
-### TS-06-16: Token-VIN Loading from Config
-
-**Requirement:** 06-REQ-6.2
-**Type:** unit
-**Description:** Token-to-VIN mappings are loaded from the JSON config file.
-
-**Preconditions:**
-- Config file with one token mapping.
-
-**Input:**
-- LoadConfig with token mapping `{token: "abc", vin: "VIN1"}`.
-
-**Expected:**
-- Config.Tokens has one entry with matching values.
-
-**Assertion pseudocode:**
-```
-cfg = LoadConfig(pathWithToken)
-ASSERT len(cfg.Tokens) == 1
-ASSERT cfg.Tokens[0].Token == "abc"
-ASSERT cfg.Tokens[0].VIN == "VIN1"
-```
-
-### TS-06-17: Token-VIN Authorization
-
-**Requirement:** 06-REQ-6.3
-**Type:** unit
-**Description:** A token is verified against the VIN in the URL path.
-
-**Preconditions:**
-- Authenticator created with `{token: "t1", vin: "V1"}`.
-
-**Input:**
-- AuthorizeVIN("t1", "V1") → true
-- AuthorizeVIN("t1", "V2") → false
-
-**Expected:**
-- Only the matching VIN returns true.
-
-**Assertion pseudocode:**
-```
-auth = NewAuthenticator([{Token: "t1", VIN: "V1"}])
-ASSERT auth.AuthorizeVIN("t1", "V1") == true
-ASSERT auth.AuthorizeVIN("t1", "V2") == false
-```
-
-### TS-06-18: Config File Loading
-
-**Requirement:** 06-REQ-7.1
-**Type:** unit
-**Description:** Configuration is loaded from the path specified by CONFIG_PATH env var.
-
-**Preconditions:**
-- A temporary config file.
-
-**Input:**
-- LoadConfig(path).
-
-**Expected:**
-- Config values match file contents.
-
-**Assertion pseudocode:**
-```
-cfg = LoadConfig("/tmp/test-gw-config.json")
-ASSERT cfg.Port == 9090
-```
-
-### TS-06-19: Config Fields
-
-**Requirement:** 06-REQ-7.2
-**Type:** unit
-**Description:** Config includes port, NATS URL, command timeout, and token mappings.
-
-**Preconditions:**
-- A full config file.
-
-**Input:**
-- LoadConfig with all fields set.
-
-**Expected:**
-- All fields populated.
-
-**Assertion pseudocode:**
-```
-cfg = LoadConfig(fullConfigPath)
-ASSERT cfg.Port > 0
-ASSERT cfg.NatsURL != ""
-ASSERT cfg.CommandTimeout > 0
-ASSERT len(cfg.Tokens) > 0
-```
-
-### TS-06-20: Config Defaults
-
-**Requirement:** 06-REQ-7.3
-**Type:** unit
-**Description:** Missing config fields use defaults: port 8081, NATS nats://localhost:4222, timeout 30.
-
-**Preconditions:**
-- Config file with empty JSON `{}`.
-
-**Input:**
-- LoadConfig with empty object.
-
-**Expected:**
-- Defaults applied.
-
-**Assertion pseudocode:**
-```
-cfg = LoadConfig(emptyConfigPath)
-ASSERT cfg.Port == 8081
-ASSERT cfg.NatsURL == "nats://localhost:4222"
-ASSERT cfg.CommandTimeout == 30
-```
-
-### TS-06-21: NATS Connection
-
-**Requirement:** 06-REQ-8.1
-**Type:** integration
-**Description:** The service connects to the configured NATS server URL at startup.
-
-**Preconditions:**
-- NATS server running on localhost:4222.
-
-**Input:**
-- Start service with NATS URL nats://localhost:4222.
-
-**Expected:**
-- Service connects successfully.
-
-**Assertion pseudocode:**
-```
-nc, err = Connect("nats://localhost:4222", 5)
-ASSERT err == nil
-ASSERT nc.IsConnected()
-```
-
-### TS-06-22: NATS Subscriptions Active
-
-**Requirement:** 06-REQ-8.2
-**Type:** integration
-**Description:** After connecting, the service subscribes to command_responses and telemetry.
-
-**Preconditions:**
-- NATS connected.
-
-**Input:**
-- Start service, check subscriptions are active.
-
-**Expected:**
-- Subscriptions to `vehicles.*.command_responses` and `vehicles.*.telemetry` are active.
-
-**Assertion pseudocode:**
-```
-// Verified by publishing to both subjects and confirming messages are received
-```
-
-### TS-06-23: Health Check
-
-**Requirement:** 06-REQ-9.1
-**Type:** integration
-**Description:** GET /health returns HTTP 200 with `{"status":"ok"}`.
-
-**Preconditions:**
-- Service running.
+- Service is running.
 
 **Input:**
 - `GET /health`
 
 **Expected:**
-- HTTP 200, body `{"status":"ok"}`
+- HTTP 200
+- Body: `{"status":"ok"}`
 
 **Assertion pseudocode:**
 ```
@@ -550,40 +289,98 @@ body = json.Decode(resp.Body)
 ASSERT body.status == "ok"
 ```
 
-### TS-06-24: Startup Logging
+### TS-06-11: Config Loading
 
-**Requirement:** 06-REQ-9.2
-**Type:** integration
-**Description:** On startup, the service logs version, port, NATS URL, and token count.
+**Requirement:** 06-REQ-6.1, 06-REQ-6.2
+**Type:** unit
+**Description:** LoadConfig reads configuration from the specified file path with all required fields.
 
 **Preconditions:**
-- Service starts with default config.
+- A temporary JSON config file with port, nats_url, command_timeout_seconds, and tokens.
 
 **Input:**
-- Capture startup logs.
+- Path to the temporary config file.
 
 **Expected:**
-- Logs contain port, NATS URL, token count.
+- Config struct populated with values from the file.
 
 **Assertion pseudocode:**
 ```
-output = captureStartupLogs()
-ASSERT "8081" IN output
-ASSERT "nats://" IN output
-ASSERT "tokens" IN output
+cfg, err = config.LoadConfig("/tmp/test-config.json")
+ASSERT err == nil
+ASSERT cfg.Port == 8081
+ASSERT cfg.NatsURL == "nats://localhost:4222"
+ASSERT cfg.CommandTimeoutSeconds == 30
+ASSERT len(cfg.Tokens) >= 1
+ASSERT cfg.Tokens[0].Token != ""
+ASSERT cfg.Tokens[0].VIN != ""
 ```
 
-### TS-06-25: Graceful Shutdown
+### TS-06-12: Config Token-VIN Lookup
 
-**Requirement:** 06-REQ-9.3
-**Type:** integration
-**Description:** SIGTERM causes graceful shutdown with exit code 0.
+**Requirement:** 06-REQ-6.2
+**Type:** unit
+**Description:** GetVINForToken returns the correct VIN for a configured token.
 
 **Preconditions:**
-- Service running.
+- Config loaded with token "demo-token-001" mapped to VIN "VIN12345".
 
 **Input:**
-- Send SIGTERM.
+- `cfg.GetVINForToken("demo-token-001")`
+- `cfg.GetVINForToken("unknown-token")`
+
+**Expected:**
+- First returns ("VIN12345", true)
+- Second returns ("", false)
+
+**Assertion pseudocode:**
+```
+vin, ok = cfg.GetVINForToken("demo-token-001")
+ASSERT ok == true
+ASSERT vin == "VIN12345"
+vin, ok = cfg.GetVINForToken("unknown-token")
+ASSERT ok == false
+ASSERT vin == ""
+```
+
+### TS-06-13: Content-Type Header
+
+**Requirement:** 06-REQ-7.1
+**Type:** integration
+**Description:** All REST responses set Content-Type: application/json.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- `GET /health`
+- `POST /vehicles/VIN12345/commands` (with valid auth)
+- `GET /vehicles/VIN12345/commands/nonexistent` (with valid auth)
+
+**Expected:**
+- All responses have `Content-Type: application/json` header.
+
+**Assertion pseudocode:**
+```
+FOR endpoint IN [
+    GET("/health"),
+    POST("/vehicles/VIN12345/commands", valid_auth, valid_body),
+    GET("/vehicles/VIN12345/commands/nonexistent", valid_auth)
+]:
+    ASSERT resp.Header("Content-Type") == "application/json"
+```
+
+### TS-06-14: Graceful Shutdown
+
+**Requirement:** 06-REQ-8.2
+**Type:** integration
+**Description:** On SIGTERM, the service drains NATS and exits with code 0.
+
+**Preconditions:**
+- Service is running as a subprocess.
+
+**Input:**
+- Send SIGTERM to the service process.
 
 **Expected:**
 - Service exits with code 0.
@@ -596,467 +393,469 @@ exitCode = proc.Wait()
 ASSERT exitCode == 0
 ```
 
-### TS-06-26: Content-Type Header
+### TS-06-15: Startup Logging
 
-**Requirement:** 06-REQ-10.1
+**Requirement:** 06-REQ-8.1
 **Type:** integration
-**Description:** All responses set Content-Type: application/json.
+**Description:** On startup, the service logs port, NATS URL, token count.
 
 **Preconditions:**
-- Service running.
+- Service starts with test config.
 
 **Input:**
-- GET /health, POST /vehicles/{vin}/commands, GET /vehicles/{vin}/commands/{id}
+- Capture stdout/stderr during startup.
 
 **Expected:**
-- All have Content-Type: application/json.
+- Log output contains port, NATS URL, and token count.
 
 **Assertion pseudocode:**
 ```
-FOR endpoint IN [healthReq, commandPostReq, statusGetReq]:
-    resp = httptest.Do(endpoint)
-    ASSERT resp.Header("Content-Type") == "application/json"
-```
-
-### TS-06-27: Error Response Format
-
-**Requirement:** 06-REQ-10.2
-**Type:** integration
-**Description:** Error responses use format `{"error":"<message>"}`.
-
-**Preconditions:**
-- Service running.
-
-**Input:**
-- Request without auth → 401.
-
-**Expected:**
-- Body: `{"error":"unauthorized"}`.
-
-**Assertion pseudocode:**
-```
-resp = POST("/vehicles/VIN12345/commands", body, noAuth)
-body = json.Decode(resp.Body)
-ASSERT body.error == "unauthorized"
+output = captureStartupLogs()
+ASSERT "8081" IN output
+ASSERT "nats://" IN output
+ASSERT "token" IN output
 ```
 
 ## Edge Case Tests
 
-### TS-06-E1: Missing Authorization Header
+### TS-06-E1: Invalid Command Payload
 
 **Requirement:** 06-REQ-1.E1
-**Type:** integration
-**Description:** Missing or malformed Authorization header returns HTTP 401.
+**Type:** unit
+**Description:** Missing required fields in command body return HTTP 400.
 
 **Preconditions:**
-- Service running.
+- Handler is wired up with auth bypassed for test.
 
 **Input:**
-- POST with no Authorization header.
-- POST with `Authorization: Basic abc`.
+- POST with body `{}` (missing all fields)
+- POST with body `{"command_id":"x"}` (missing type and doors)
+- POST with body `{"command_id":"x","type":"lock"}` (missing doors)
 
 **Expected:**
-- Both return HTTP 401 with `{"error":"unauthorized"}`.
+- HTTP 400 for all cases
+- Body: `{"error":"invalid command payload"}`
 
 **Assertion pseudocode:**
 ```
-resp1 = POST("/vehicles/VIN12345/commands", body, noAuth)
-ASSERT resp1.StatusCode == 401
-
-resp2 = POST("/vehicles/VIN12345/commands", body, basicAuth)
-ASSERT resp2.StatusCode == 401
+FOR body IN [{}, {"command_id":"x"}, {"command_id":"x","type":"lock"}]:
+    resp = handler.SubmitCommand(body)
+    ASSERT resp.StatusCode == 400
+    ASSERT json.Decode(resp.Body).error == "invalid command payload"
 ```
 
-### TS-06-E2: Token Not Authorized for VIN
+### TS-06-E2: Invalid Command Type
 
 **Requirement:** 06-REQ-1.E2
-**Type:** integration
-**Description:** A valid token used with a VIN it's not authorized for returns HTTP 403.
+**Type:** unit
+**Description:** Command type other than "lock" or "unlock" returns HTTP 400.
 
 **Preconditions:**
-- Token "demo-token-car1" mapped to VIN "VIN12345".
+- Handler is wired up.
 
 **Input:**
-- POST to `/vehicles/VIN99999/commands` with token `demo-token-car1`.
+- POST with body `{"command_id":"x","type":"start","doors":["driver"]}`
 
 **Expected:**
-- HTTP 403 with `{"error":"forbidden"}`.
+- HTTP 400
+- Body: `{"error":"invalid command type"}`
 
 **Assertion pseudocode:**
 ```
-resp = POST("/vehicles/VIN99999/commands", body, "Bearer demo-token-car1")
-ASSERT resp.StatusCode == 403
-```
-
-### TS-06-E3: Invalid Command Payload
-
-**Requirement:** 06-REQ-1.E3
-**Type:** integration
-**Description:** Invalid JSON or missing required fields returns HTTP 400.
-
-**Preconditions:**
-- Service running with valid auth.
-
-**Input:**
-- Body: `{invalid json}`
-- Body: `{"command_id":"c1"}` (missing type and doors)
-
-**Expected:**
-- HTTP 400 with `{"error":"invalid command payload"}`.
-
-**Assertion pseudocode:**
-```
-resp1 = POST(endpoint, "{invalid}", validAuth)
-ASSERT resp1.StatusCode == 400
-
-resp2 = POST(endpoint, '{"command_id":"c1"}', validAuth)
-ASSERT resp2.StatusCode == 400
-```
-
-### TS-06-E4: Invalid Command Type
-
-**Requirement:** 06-REQ-1.E4
-**Type:** integration
-**Description:** A command type other than "lock" or "unlock" returns HTTP 400.
-
-**Preconditions:**
-- Service running with valid auth.
-
-**Input:**
-- Body: `{"command_id":"c1","type":"open","doors":["driver"]}`
-
-**Expected:**
-- HTTP 400 with `{"error":"invalid command payload"}`.
-
-**Assertion pseudocode:**
-```
-resp = POST(endpoint, invalidTypeBody, validAuth)
+resp = handler.SubmitCommand({"command_id":"x","type":"start","doors":["driver"]})
 ASSERT resp.StatusCode == 400
+ASSERT json.Decode(resp.Body).error == "invalid command type"
 ```
 
-### TS-06-E5: Unknown Command ID
+### TS-06-E3: Command Not Found
 
 **Requirement:** 06-REQ-2.E1
 **Type:** integration
-**Description:** Querying a nonexistent command ID returns HTTP 404.
+**Description:** Querying a nonexistent command_id returns HTTP 404.
 
 **Preconditions:**
-- Service running.
+- Service is running. No command "nonexistent" in store.
 
 **Input:**
-- GET `/vehicles/VIN12345/commands/nonexistent-id` with valid auth.
+- `GET /vehicles/VIN12345/commands/nonexistent` with valid bearer token
 
 **Expected:**
-- HTTP 404 with `{"error":"command not found"}`.
+- HTTP 404
+- Body: `{"error":"command not found"}`
 
 **Assertion pseudocode:**
 ```
-resp = GET("/vehicles/VIN12345/commands/nonexistent-id", validAuth)
+resp = httptest.GET("/vehicles/VIN12345/commands/nonexistent",
+    header("Authorization", "Bearer demo-token-001"))
 ASSERT resp.StatusCode == 404
+body = json.Decode(resp.Body)
+ASSERT body.error == "command not found"
 ```
 
-### TS-06-E6: Auth on Status Query
-
-**Requirement:** 06-REQ-2.E2
-**Type:** integration
-**Description:** Status query without valid auth returns 401 or 403.
-
-**Preconditions:**
-- Service running.
-
-**Input:**
-- GET status with no auth → 401.
-- GET status with wrong VIN token → 403.
-
-**Expected:**
-- 401 and 403 respectively.
-
-**Assertion pseudocode:**
-```
-resp1 = GET(statusEndpoint, noAuth)
-ASSERT resp1.StatusCode == 401
-
-resp2 = GET("/vehicles/VIN99999/commands/cmd-001", "Bearer demo-token-car1")
-ASSERT resp2.StatusCode == 403
-```
-
-### TS-06-E7: Invalid NATS Response JSON
+### TS-06-E4: Missing Authorization Header
 
 **Requirement:** 06-REQ-3.E1
-**Type:** integration
-**Description:** Invalid JSON in a NATS response is logged and discarded.
+**Type:** unit
+**Description:** Requests without Authorization header return HTTP 401.
 
 **Preconditions:**
-- Service connected to NATS.
+- Auth middleware is configured.
 
 **Input:**
-- Publish invalid JSON to `vehicles.VIN12345.command_responses`.
+- `POST /vehicles/VIN12345/commands` with no Authorization header
+- `GET /vehicles/VIN12345/commands/x` with no Authorization header
 
 **Expected:**
-- Service logs error, does not crash.
+- HTTP 401
+- Body: `{"error":"unauthorized"}`
 
 **Assertion pseudocode:**
 ```
-nats.Publish("vehicles.VIN12345.command_responses", "{invalid json")
-wait()
-ASSERT service.IsRunning()
-ASSERT logContains("error")
+FOR method IN ["POST", "GET"]:
+    req = httptest.NewRequest(method, "/vehicles/VIN12345/commands", nil)
+    // No Authorization header
+    rec = httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+    ASSERT rec.Code == 401
+    ASSERT json.Decode(rec.Body).error == "unauthorized"
 ```
 
-### TS-06-E8: Unknown Command ID in NATS Response
+### TS-06-E5: Invalid Token
 
-**Requirement:** 06-REQ-3.E2
-**Type:** integration
-**Description:** A NATS response with an unknown command_id is logged and discarded.
+**Requirement:** 06-REQ-3.E1
+**Type:** unit
+**Description:** Requests with an unrecognized token return HTTP 401.
 
 **Preconditions:**
-- Service connected to NATS, store empty.
+- Auth middleware configured with known tokens.
 
 **Input:**
-- Publish response with unknown command_id to NATS.
+- `Authorization: Bearer invalid-token-999`
 
 **Expected:**
-- Service logs warning, does not crash.
+- HTTP 401
+- Body: `{"error":"unauthorized"}`
 
 **Assertion pseudocode:**
 ```
-nats.Publish("vehicles.VIN12345.command_responses", '{"command_id":"unknown","status":"success"}')
-wait()
-ASSERT service.IsRunning()
+req = httptest.NewRequest("POST", "/vehicles/VIN12345/commands", nil)
+req.Header.Set("Authorization", "Bearer invalid-token-999")
+rec = httptest.NewRecorder()
+handler.ServeHTTP(rec, req)
+ASSERT rec.Code == 401
+ASSERT json.Decode(rec.Body).error == "unauthorized"
 ```
 
-### TS-06-E9: Invalid Telemetry JSON
+### TS-06-E6: NATS Connection Retry Exhaustion
 
 **Requirement:** 06-REQ-5.E1
-**Type:** integration
-**Description:** Invalid JSON in telemetry is logged and discarded.
+**Type:** unit
+**Description:** When NATS is unreachable, the client retries with backoff and returns an error after max attempts.
 
 **Preconditions:**
-- Service connected to NATS.
+- No NATS server running on the target URL.
 
 **Input:**
-- Publish invalid JSON to `vehicles.VIN12345.telemetry`.
+- `nats_client.Connect("nats://localhost:19999", 5)`
 
 **Expected:**
-- Service logs warning, does not crash.
+- Returns error after 5 retry attempts.
+- Total elapsed time >= 7s (1+2+4 seconds of backoff between attempts).
 
 **Assertion pseudocode:**
 ```
-nats.Publish("vehicles.VIN12345.telemetry", "not json")
-wait()
-ASSERT service.IsRunning()
+start = time.Now()
+_, err = nats_client.Connect("nats://localhost:19999", 5)
+elapsed = time.Since(start)
+ASSERT err != nil
+ASSERT elapsed >= 7 * time.Second
 ```
 
-### TS-06-E10: Config File Missing
+### TS-06-E7: Config File Missing
 
-**Requirement:** 06-REQ-7.E1
+**Requirement:** 06-REQ-6.E1
 **Type:** unit
-**Description:** Missing config file returns default config with warning.
+**Description:** Missing config file causes LoadConfig to return an error.
 
 **Preconditions:**
-- No config file at path.
+- No file at the specified path.
 
 **Input:**
-- LoadConfig("/nonexistent/config.json").
-
-**Expected:**
-- Returns default config. No error.
-
-**Assertion pseudocode:**
-```
-cfg, err = LoadConfig("/nonexistent/config.json")
-ASSERT err == nil
-ASSERT cfg.Port == 8081
-ASSERT cfg.NatsURL == "nats://localhost:4222"
-```
-
-### TS-06-E11: Config File Invalid JSON
-
-**Requirement:** 06-REQ-7.E2
-**Type:** unit
-**Description:** Invalid JSON config file returns an error.
-
-**Preconditions:**
-- A file containing `{invalid`.
-
-**Input:**
-- LoadConfig(invalidPath).
+- `config.LoadConfig("/nonexistent/config.json")`
 
 **Expected:**
 - Returns non-nil error.
 
 **Assertion pseudocode:**
 ```
-_, err = LoadConfig(invalidJSONPath)
+_, err = config.LoadConfig("/nonexistent/config.json")
 ASSERT err != nil
 ```
 
-### TS-06-E12: NATS Unreachable at Startup
+### TS-06-E8: Config File Invalid JSON
 
-**Requirement:** 06-REQ-8.E1
-**Type:** integration
-**Description:** If NATS is unreachable, the service retries then exits non-zero.
+**Requirement:** 06-REQ-6.E1
+**Type:** unit
+**Description:** Invalid JSON config causes LoadConfig to return an error.
 
 **Preconditions:**
-- No NATS server running on the configured URL.
+- A temporary file containing `{invalid json`.
 
 **Input:**
-- Attempt Connect("nats://localhost:19999", 3).
+- `config.LoadConfig("/tmp/invalid.json")`
 
 **Expected:**
-- Returns error after retries.
+- Returns non-nil error.
 
 **Assertion pseudocode:**
 ```
-_, err = Connect("nats://localhost:19999", 3)
+_, err = config.LoadConfig("/tmp/invalid.json")
 ASSERT err != nil
+```
+
+### TS-06-E9: Error Response Format
+
+**Requirement:** 06-REQ-7.2
+**Type:** integration
+**Description:** All error responses use the format `{"error":"<message>"}`.
+
+**Preconditions:**
+- Service is running.
+
+**Input:**
+- `POST /vehicles/VIN12345/commands` without auth (401)
+- `POST /vehicles/VIN99999/commands` with valid token for VIN12345 (403)
+
+**Expected:**
+- All error responses contain an `"error"` key with a non-empty string.
+
+**Assertion pseudocode:**
+```
+// 401 case
+resp1 = httptest.POST("/vehicles/VIN12345/commands", no_auth)
+ASSERT resp1.StatusCode == 401
+ASSERT json.Decode(resp1.Body).error != ""
+
+// 403 case
+resp2 = httptest.POST("/vehicles/VIN99999/commands",
+    header("Authorization", "Bearer demo-token-001"))
+ASSERT resp2.StatusCode == 403
+ASSERT json.Decode(resp2.Body).error != ""
 ```
 
 ## Property Test Cases
 
-### TS-06-P1: Command Routing Fidelity
+### TS-06-P1: Token-VIN Isolation
 
 **Property:** Property 1 from design.md
-**Validates:** 06-REQ-1.1, 06-REQ-1.3, 06-REQ-1.4
+**Validates:** 06-REQ-3.2
 **Type:** property
-**Description:** For any valid command and authorized token, the command is published to the correct NATS subject with the token in headers, and stored as pending.
+**Description:** For any valid token mapped to VIN V, requests to a different VIN W always return 403.
 
-**For any:** Random command_id (UUID), type in ["lock","unlock"], random VIN, valid token.
-**Invariant:** NATS subject equals `vehicles.{vin}.commands`, header contains token, store has command as pending.
+**For any:** All token-VIN pairs in config, all VINs V != token's VIN.
+**Invariant:** The middleware returns 403.
 
 **Assertion pseudocode:**
 ```
-FOR ANY vin IN random_vins, cmd IN random_commands, token IN valid_tokens:
-    subject = "vehicles." + vin + ".commands"
-    // Verify subject construction
-    ASSERT constructSubject(vin) == subject
-    store.Add(CommandStatus{CommandID: cmd.CommandID, Status: "pending"})
-    cs, _ = store.Get(cmd.CommandID)
-    ASSERT cs.Status == "pending"
+FOR ANY token IN config.Tokens:
+    FOR ANY otherVIN IN all_vins WHERE otherVIN != token.VIN:
+        req = newRequest("POST", "/vehicles/" + otherVIN + "/commands")
+        req.Header.Set("Authorization", "Bearer " + token.Token)
+        rec = httptest.NewRecorder()
+        middleware.ServeHTTP(rec, req)
+        ASSERT rec.Code == 403
 ```
 
-### TS-06-P2: Authentication Enforcement
+### TS-06-P2: Response Store Consistency
 
 **Property:** Property 2 from design.md
-**Validates:** 06-REQ-1.E1, 06-REQ-1.E2, 06-REQ-6.1, 06-REQ-6.3
+**Validates:** 06-REQ-2.1, 06-REQ-2.2
 **Type:** property
-**Description:** For any request, missing/malformed tokens yield 401 and mismatched VINs yield 403.
+**Description:** For any stored response, GetResponse returns the same data.
 
-**For any:** Random header strings (empty, missing "Bearer ", valid format), random token-VIN pairs.
-**Invariant:** ValidateToken returns error for malformed headers; AuthorizeVIN returns false for non-matching VINs.
+**For any:** Random CommandResponse values.
+**Invariant:** StoreResponse followed by GetResponse returns the identical response.
 
 **Assertion pseudocode:**
 ```
-FOR ANY header IN random_strings:
-    token, err = ValidateToken(header)
-    IF NOT header.startsWith("Bearer "):
-        ASSERT err != nil
-    ELSE:
-        ASSERT token == header[7:]
-
-FOR ANY token IN known_tokens, vin IN random_vins:
-    result = auth.AuthorizeVIN(token, vin)
-    IF vin == token_to_vin[token]:
-        ASSERT result == true
-    ELSE:
-        ASSERT result == false
+FOR ANY resp IN random_command_responses:
+    store.StoreResponse(resp)
+    got, found = store.GetResponse(resp.CommandID)
+    ASSERT found == true
+    ASSERT got.CommandID == resp.CommandID
+    ASSERT got.Status == resp.Status
+    ASSERT got.Reason == resp.Reason
 ```
 
-### TS-06-P3: Response Status Update
+### TS-06-P3: Timeout Completeness
 
 **Property:** Property 3 from design.md
-**Validates:** 06-REQ-3.2, 06-REQ-2.1, 06-REQ-2.3
+**Validates:** 06-REQ-1.3
 **Type:** property
-**Description:** For any response with a known command_id, the store is updated to match and subsequent queries return the updated status.
+**Description:** For any command with no response, after the timeout the status is "timeout".
 
-**For any:** Random command_id, status in ["success","failed"], random reason.
-**Invariant:** After UpdateFromResponse, Get returns the updated status.
+**For any:** Random command IDs and short timeout durations.
+**Invariant:** After waiting longer than the timeout, the response exists with status "timeout".
 
 **Assertion pseudocode:**
 ```
-FOR ANY cmdID IN random_ids, status IN ["success","failed"], reason IN random_strings:
-    store.Add(CommandStatus{CommandID: cmdID, Status: "pending"})
-    store.UpdateFromResponse(CommandResponse{CommandID: cmdID, Status: status, Reason: reason})
-    cs, _ = store.Get(cmdID)
-    ASSERT cs.Status == status
-    ASSERT cs.Reason == reason
+FOR ANY cmdID IN random_uuids:
+    store = NewStore()
+    timeout = 50 * time.Millisecond
+    store.StartTimeout(cmdID, timeout)
+    time.Sleep(timeout + 50*time.Millisecond)
+    resp, found = store.GetResponse(cmdID)
+    ASSERT found == true
+    ASSERT resp.Status == "timeout"
 ```
 
-### TS-06-P4: Command Timeout
+### TS-06-P4: Authentication Gate
 
 **Property:** Property 4 from design.md
-**Validates:** 06-REQ-4.1, 06-REQ-4.2
+**Validates:** 06-REQ-3.E1
 **Type:** property
-**Description:** For any command pending longer than the timeout, the status becomes "timeout".
+**Description:** For any request without a valid token, the middleware returns 401.
 
-**For any:** Random timeout durations, random command creation times.
-**Invariant:** If now - createdAt > timeout, status is "timeout" after ExpireTimedOut.
+**For any:** Random invalid token strings.
+**Invariant:** The middleware returns 401.
 
 **Assertion pseudocode:**
 ```
-FOR ANY timeout IN random_durations, age IN random_ages:
-    store.Add(CommandStatus{CommandID: "c", Status: "pending", CreatedAt: now.Add(-age)})
-    store.ExpireTimedOut(timeout)
-    cs, _ = store.Get("c")
-    IF age > timeout:
-        ASSERT cs.Status == "timeout"
-    ELSE:
-        ASSERT cs.Status == "pending"
+FOR ANY token IN random_strings:
+    IF token NOT IN config.validTokens:
+        req = newRequest("GET", "/vehicles/VIN12345/commands/x")
+        req.Header.Set("Authorization", "Bearer " + token)
+        rec = httptest.NewRecorder()
+        middleware.ServeHTTP(rec, req)
+        ASSERT rec.Code == 401
 ```
 
-### TS-06-P5: Payload Validation
-
-**Property:** Property 5 from design.md
-**Validates:** 06-REQ-1.E3, 06-REQ-1.E4
-**Type:** property
-**Description:** For any invalid payload, parsing returns an error.
-
-**For any:** Random JSON objects missing one or more required fields, random invalid type values.
-**Invariant:** parseCommand returns error for all invalid payloads.
-
-**Assertion pseudocode:**
-```
-FOR ANY payload IN random_invalid_payloads:
-    _, err = parseCommand(payload)
-    ASSERT err != nil
-```
-
-### TS-06-P6: Config Defaults
+### TS-06-P5: Timeout Cancellation
 
 **Property:** Property 6 from design.md
-**Validates:** 06-REQ-7.1, 06-REQ-7.3, 06-REQ-7.E1
+**Validates:** 06-REQ-1.3, 06-REQ-2.2
 **Type:** property
-**Description:** For any missing config file, defaults are applied.
+**Description:** For any command that receives a response before timeout, the status is not "timeout".
 
-**For any:** Random nonexistent file paths.
-**Invariant:** LoadConfig returns port=8081, NatsURL=nats://localhost:4222, timeout=30.
+**For any:** Random command IDs with response arriving before timeout.
+**Invariant:** The stored status matches the NATS response, not "timeout".
 
 **Assertion pseudocode:**
 ```
-FOR ANY path IN random_nonexistent_paths:
-    cfg, err = LoadConfig(path)
-    ASSERT err == nil
-    ASSERT cfg.Port == 8081
-    ASSERT cfg.NatsURL == "nats://localhost:4222"
-    ASSERT cfg.CommandTimeout == 30
+FOR ANY cmdID IN random_uuids:
+    store = NewStore()
+    store.StartTimeout(cmdID, 500*time.Millisecond)
+    store.StoreResponse({CommandID: cmdID, Status: "success"})
+    time.Sleep(600 * time.Millisecond)  // wait past timeout
+    resp, _ = store.GetResponse(cmdID)
+    ASSERT resp.Status == "success"  // NOT "timeout"
 ```
 
-### TS-06-P7: NATS Subject Correctness
+### TS-06-P6: NATS Header Propagation
 
-**Property:** Property 7 from design.md
-**Validates:** 06-REQ-1.1, 06-REQ-3.1, 06-REQ-5.1
+**Property:** Property 5 from design.md
+**Validates:** 06-REQ-1.2
 **Type:** property
-**Description:** For any VIN, the command subject is exactly `vehicles.{vin}.commands`.
+**Description:** For any command published to NATS, the message contains the bearer token from the originating REST request in the Authorization header.
 
-**For any:** Random VIN strings.
-**Invariant:** Subject construction produces the correct pattern.
+**For any:** Random valid tokens from config and random valid commands.
+**Invariant:** The NATS message header `Authorization` equals `Bearer <token>` for the token used in the REST request.
 
 **Assertion pseudocode:**
 ```
-FOR ANY vin IN random_vin_strings:
-    ASSERT commandSubject(vin) == "vehicles." + vin + ".commands"
-    ASSERT responseSubject() == "vehicles.*.command_responses"
-    ASSERT telemetrySubject() == "vehicles.*.telemetry"
+FOR ANY token IN config.Tokens:
+    cmd = {CommandID: random_uuid(), Type: "lock", Doors: ["driver"]}
+    nats_client.PublishCommand(token.VIN, cmd, token.Token)
+    msg = nats.Subscribe("vehicles." + token.VIN + ".commands").NextMsg(1s)
+    ASSERT msg.Header.Get("Authorization") == "Bearer " + token.Token
+```
+
+## Integration Smoke Tests
+
+### TS-06-SMOKE-1: End-to-End Command Flow
+
+**Type:** integration (requires NATS)
+**Description:** Full flow: submit command via REST, receive on NATS, publish response on NATS, query status via REST.
+
+**Preconditions:**
+- CLOUD_GATEWAY running and connected to NATS.
+- A test NATS subscriber on `vehicles.VIN12345.commands`.
+
+**Steps:**
+1. Subscribe to `vehicles.VIN12345.commands` on NATS.
+2. POST `/vehicles/VIN12345/commands` with `{"command_id":"smoke-001","type":"lock","doors":["driver"]}`.
+3. Receive the command on NATS subscriber.
+4. Publish response to `vehicles.VIN12345.command_responses`: `{"command_id":"smoke-001","status":"success"}`.
+5. GET `/vehicles/VIN12345/commands/smoke-001`.
+
+**Expected:**
+- Step 2: HTTP 202
+- Step 3: NATS message contains the command with Authorization header
+- Step 5: HTTP 200 with `{"command_id":"smoke-001","status":"success"}`
+
+**Assertion pseudocode:**
+```
+// 1. Subscribe
+sub = nats.Subscribe("vehicles.VIN12345.commands")
+
+// 2. Submit command
+postResp = http.POST("/vehicles/VIN12345/commands",
+    header("Authorization", "Bearer demo-token-001"),
+    body({"command_id":"smoke-001","type":"lock","doors":["driver"]}))
+ASSERT postResp.StatusCode == 202
+
+// 3. Receive on NATS
+msg = sub.NextMsg(2s)
+ASSERT msg != nil
+cmd = json.Decode(msg.Data)
+ASSERT cmd.command_id == "smoke-001"
+ASSERT msg.Header.Get("Authorization") == "Bearer demo-token-001"
+
+// 4. Publish response
+nats.Publish("vehicles.VIN12345.command_responses",
+    {"command_id":"smoke-001","status":"success"})
+time.Sleep(200 * time.Millisecond)
+
+// 5. Query status
+getResp = http.GET("/vehicles/VIN12345/commands/smoke-001",
+    header("Authorization", "Bearer demo-token-001"))
+ASSERT getResp.StatusCode == 200
+result = json.Decode(getResp.Body)
+ASSERT result.command_id == "smoke-001"
+ASSERT result.status == "success"
+```
+
+### TS-06-SMOKE-2: Command Timeout End-to-End
+
+**Type:** integration (requires NATS)
+**Description:** Submit a command, do not send a response, verify timeout status.
+
+**Preconditions:**
+- CLOUD_GATEWAY running with command_timeout_seconds set to 1 (for fast test).
+
+**Steps:**
+1. POST `/vehicles/VIN12345/commands` with `{"command_id":"smoke-002","type":"unlock","doors":["driver"]}`.
+2. Wait 2 seconds (past the 1s timeout).
+3. GET `/vehicles/VIN12345/commands/smoke-002`.
+
+**Expected:**
+- Step 1: HTTP 202
+- Step 3: HTTP 200 with `{"command_id":"smoke-002","status":"timeout"}`
+
+**Assertion pseudocode:**
+```
+postResp = http.POST("/vehicles/VIN12345/commands",
+    header("Authorization", "Bearer demo-token-001"),
+    body({"command_id":"smoke-002","type":"unlock","doors":["driver"]}))
+ASSERT postResp.StatusCode == 202
+
+time.Sleep(2 * time.Second)
+
+getResp = http.GET("/vehicles/VIN12345/commands/smoke-002",
+    header("Authorization", "Bearer demo-token-001"))
+ASSERT getResp.StatusCode == 200
+result = json.Decode(getResp.Body)
+ASSERT result.status == "timeout"
 ```
 
 ## Coverage Matrix
@@ -1064,48 +863,35 @@ FOR ANY vin IN random_vin_strings:
 | Requirement | Test Spec Entry | Type |
 |-------------|-----------------|------|
 | 06-REQ-1.1 | TS-06-1 | integration |
-| 06-REQ-1.2 | TS-06-2 | unit |
-| 06-REQ-1.3 | TS-06-3 | integration |
-| 06-REQ-1.4 | TS-06-4 | unit |
-| 06-REQ-1.E1 | TS-06-E1 | integration |
-| 06-REQ-1.E2 | TS-06-E2 | integration |
-| 06-REQ-1.E3 | TS-06-E3 | integration |
-| 06-REQ-1.E4 | TS-06-E4 | integration |
-| 06-REQ-2.1 | TS-06-5 | integration |
-| 06-REQ-2.2 | TS-06-6 | unit |
-| 06-REQ-2.3 | TS-06-7 | unit |
-| 06-REQ-2.E1 | TS-06-E5 | integration |
-| 06-REQ-2.E2 | TS-06-E6 | integration |
-| 06-REQ-3.1 | TS-06-8 | integration |
-| 06-REQ-3.2 | TS-06-9 | integration |
-| 06-REQ-3.3 | TS-06-10 | unit |
-| 06-REQ-3.E1 | TS-06-E7 | integration |
-| 06-REQ-3.E2 | TS-06-E8 | integration |
-| 06-REQ-4.1 | TS-06-11 | unit |
-| 06-REQ-4.2 | TS-06-12 | unit |
-| 06-REQ-5.1 | TS-06-13 | integration |
-| 06-REQ-5.2 | TS-06-14 | integration |
-| 06-REQ-5.E1 | TS-06-E9 | integration |
-| 06-REQ-6.1 | TS-06-15 | integration |
-| 06-REQ-6.2 | TS-06-16 | unit |
-| 06-REQ-6.3 | TS-06-17 | unit |
-| 06-REQ-7.1 | TS-06-18 | unit |
-| 06-REQ-7.2 | TS-06-19 | unit |
-| 06-REQ-7.3 | TS-06-20 | unit |
-| 06-REQ-7.E1 | TS-06-E10 | unit |
-| 06-REQ-7.E2 | TS-06-E11 | unit |
-| 06-REQ-8.1 | TS-06-21 | integration |
-| 06-REQ-8.2 | TS-06-22 | integration |
-| 06-REQ-8.E1 | TS-06-E12 | integration |
-| 06-REQ-9.1 | TS-06-23 | integration |
-| 06-REQ-9.2 | TS-06-24 | integration |
-| 06-REQ-9.3 | TS-06-25 | integration |
-| 06-REQ-10.1 | TS-06-26 | integration |
-| 06-REQ-10.2 | TS-06-27 | integration |
+| 06-REQ-1.2 | TS-06-2 | integration |
+| 06-REQ-1.3 | TS-06-3 | unit |
+| 06-REQ-1.E1 | TS-06-E1 | unit |
+| 06-REQ-1.E2 | TS-06-E2 | unit |
+| 06-REQ-2.1 | TS-06-4 | integration |
+| 06-REQ-2.2 | TS-06-5 | unit |
+| 06-REQ-2.E1 | TS-06-E3 | integration |
+| 06-REQ-3.1 | TS-06-8 | unit |
+| 06-REQ-3.2 | TS-06-9 | unit |
+| 06-REQ-3.E1 | TS-06-E4, TS-06-E5 | unit |
+| 06-REQ-4.1 | TS-06-10 | integration |
+| 06-REQ-5.1 | TS-06-6 | integration |
+| 06-REQ-5.2 | TS-06-6 | integration |
+| 06-REQ-5.3 | TS-06-7 | integration |
+| 06-REQ-5.E1 | TS-06-E6 | unit |
+| 06-REQ-5.E2 | — (nats.go built-in) | — |
+| 06-REQ-6.1 | TS-06-11 | unit |
+| 06-REQ-6.2 | TS-06-11, TS-06-12 | unit |
+| 06-REQ-6.3 | TS-06-3 | unit |
+| 06-REQ-6.E1 | TS-06-E7, TS-06-E8 | unit |
+| 06-REQ-7.1 | TS-06-13 | integration |
+| 06-REQ-7.2 | TS-06-E9 | integration |
+| 06-REQ-8.1 | TS-06-15 | integration |
+| 06-REQ-8.2 | TS-06-14 | integration |
 | Property 1 | TS-06-P1 | property |
 | Property 2 | TS-06-P2 | property |
 | Property 3 | TS-06-P3 | property |
 | Property 4 | TS-06-P4 | property |
-| Property 5 | TS-06-P5 | property |
-| Property 6 | TS-06-P6 | property |
-| Property 7 | TS-06-P7 | property |
+| Property 5 (NATS header) | TS-06-2, TS-06-P6 | integration, property |
+| Property 6 | TS-06-P5 | property |
+| Smoke (full flow) | TS-06-SMOKE-1 | integration |
+| Smoke (timeout) | TS-06-SMOKE-2 | integration |

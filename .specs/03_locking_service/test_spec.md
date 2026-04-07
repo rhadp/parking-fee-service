@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tests cover command parsing/validation (unit), safety constraint logic (unit), lock state management (unit + integration), response publishing (unit), and end-to-end command processing (integration). Unit tests use mock DATA_BROKER clients. Integration tests require a running Kuksa Databroker container. Property tests use the `proptest` crate for Rust.
+Tests for the LOCKING_SERVICE cover command parsing and validation, safety constraint enforcement, lock state management, response formatting, configurable endpoint, and service lifecycle. Unit tests use `MockBrokerClient` and live in co-located `#[cfg(test)]` modules within the Rust crate. Property tests use proptest and are marked `#[ignore]`. Integration tests live in `tests/locking-service/` as a standalone Go module and require a running DATA_BROKER container (Podman).
 
 ## Test Cases
 
@@ -10,168 +10,164 @@ Tests cover command parsing/validation (unit), safety constraint logic (unit), l
 
 **Requirement:** 03-REQ-1.1
 **Type:** integration
-**Description:** Verify the service subscribes to Vehicle.Command.Door.Lock on startup.
+**Description:** Verify the service subscribes to `Vehicle.Command.Door.Lock` on startup and receives published commands.
 
 **Preconditions:**
 - DATA_BROKER container is running.
+- LOCKING_SERVICE binary is started with correct `DATABROKER_ADDR`.
 
 **Input:**
-- Start locking-service with DATABROKER_ADDR=http://localhost:55556.
+- Publish a lock command JSON to `Vehicle.Command.Door.Lock` via gRPC.
 
 **Expected:**
-- Service connects and subscribes successfully (logs "ready" message).
-- Setting a value on Vehicle.Command.Door.Lock triggers processing.
+- A response appears on `Vehicle.Command.Door.Response` within 5 seconds.
 
 **Assertion pseudocode:**
 ```
+start_databroker()
 start_locking_service()
-ASSERT log_contains("ready")
-set_signal("Vehicle.Command.Door.Lock", valid_lock_command)
-response = get_signal("Vehicle.Command.Door.Response")
+wait_for_log("locking-service ready")
+grpc_set("Vehicle.Command.Door.Lock", valid_lock_json)
+response = grpc_get("Vehicle.Command.Door.Response", timeout=5s)
 ASSERT response != nil
 ```
 
 ### TS-03-2: Command Deserialization
 
-**Requirement:** 03-REQ-1.2
+**Requirement:** 03-REQ-2.1
 **Type:** unit
-**Description:** Verify a valid JSON command payload is deserialized into a LockCommand struct.
+**Description:** Verify a valid lock command JSON is deserialized into a `LockCommand` struct with all fields correctly populated.
 
 **Preconditions:**
-- None.
+- None (pure function test).
 
 **Input:**
-- `{"command_id":"abc-123","action":"lock","doors":["driver"],"source":"companion_app","vin":"WDB123","timestamp":1700000000}`
+- JSON string: `{"command_id":"abc-123","action":"lock","doors":["driver"],"source":"companion_app","vin":"WDB123","timestamp":1700000000}`
 
 **Expected:**
-- Parsed LockCommand with command_id="abc-123", action=Lock, doors=["driver"].
+- `command_id` == "abc-123", `action` == Lock, `doors` == ["driver"], optional fields populated.
 
 **Assertion pseudocode:**
 ```
-cmd = parse_command(json_input)
+cmd = parse_command(json)
 ASSERT cmd.is_ok()
 ASSERT cmd.command_id == "abc-123"
-ASSERT cmd.action == Lock
+ASSERT cmd.action == Action::Lock
 ASSERT cmd.doors == ["driver"]
+ASSERT cmd.source == Some("companion_app")
 ```
 
 ### TS-03-3: Configurable Databroker Address
 
-**Requirement:** 03-REQ-1.3
+**Requirement:** 03-REQ-7.1, 03-REQ-7.2
 **Type:** unit
-**Description:** Verify the service reads DATABROKER_ADDR env var with correct default.
+**Description:** Verify the service reads `DATABROKER_ADDR` from environment with default fallback.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- Case 1: DATABROKER_ADDR not set.
-- Case 2: DATABROKER_ADDR="http://10.0.0.5:55556".
+- Case 1: `DATABROKER_ADDR` not set.
+- Case 2: `DATABROKER_ADDR` set to `http://10.0.0.5:55556`.
 
 **Expected:**
-- Case 1: Address is "http://localhost:55556".
-- Case 2: Address is "http://10.0.0.5:55556".
+- Case 1: returns `http://localhost:55556`.
+- Case 2: returns `http://10.0.0.5:55556`.
 
 **Assertion pseudocode:**
 ```
-// Case 1
 unset_env("DATABROKER_ADDR")
-addr = get_databroker_addr()
-ASSERT addr == "http://localhost:55556"
-
-// Case 2
+ASSERT get_databroker_addr() == "http://localhost:55556"
 set_env("DATABROKER_ADDR", "http://10.0.0.5:55556")
-addr = get_databroker_addr()
-ASSERT addr == "http://10.0.0.5:55556"
+ASSERT get_databroker_addr() == "http://10.0.0.5:55556"
 ```
 
 ### TS-03-4: Validate command_id Required
 
-**Requirement:** 03-REQ-2.1
+**Requirement:** 03-REQ-2.3
 **Type:** unit
-**Description:** Verify command_id must be a non-empty string.
+**Description:** Verify that an empty `command_id` is rejected with reason "invalid_command".
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `{"command_id":"","action":"lock","doors":["driver"]}`
+- JSON: `{"command_id":"","action":"lock","doors":["driver"]}`
 
 **Expected:**
-- Validation fails.
+- Validation fails with reason "invalid_command".
 
 **Assertion pseudocode:**
 ```
-cmd = parse_command(input)
+cmd = parse_command(json).unwrap()
 result = validate_command(cmd)
 ASSERT result.is_err()
-ASSERT result.error == "invalid_command"
+ASSERT result.unwrap_err().reason() == "invalid_command"
 ```
 
 ### TS-03-5: Validate Action Field
 
-**Requirement:** 03-REQ-2.2
+**Requirement:** 03-REQ-2.1
 **Type:** unit
-**Description:** Verify action must be "lock" or "unlock".
+**Description:** Verify that an invalid action value (e.g. "toggle") is rejected.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `{"command_id":"x","action":"toggle","doors":["driver"]}`
+- JSON: `{"command_id":"x","action":"toggle","doors":["driver"]}`
 
 **Expected:**
-- Validation fails.
+- `parse_command` returns error (serde cannot match "toggle" to Action enum).
 
 **Assertion pseudocode:**
 ```
-cmd = parse_command(input)
-ASSERT cmd.is_err() // "toggle" is not a valid action
+result = parse_command(json)
+ASSERT result.is_err()
 ```
 
 ### TS-03-6: Validate Doors Field
 
-**Requirement:** 03-REQ-2.3
+**Requirement:** 03-REQ-2.2
 **Type:** unit
-**Description:** Verify doors array must contain "driver".
+**Description:** Verify that a non-"driver" door value is rejected with reason "unsupported_door".
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `{"command_id":"x","action":"lock","doors":["passenger"]}`
+- JSON: `{"command_id":"x","action":"lock","doors":["passenger"]}`
 
 **Expected:**
 - Validation fails with reason "unsupported_door".
 
 **Assertion pseudocode:**
 ```
-cmd = parse_command(input)
+cmd = parse_command(json).unwrap()
 result = validate_command(cmd)
 ASSERT result.is_err()
-ASSERT result.error == "unsupported_door"
+ASSERT result.unwrap_err().reason() == "unsupported_door"
 ```
 
 ### TS-03-7: Lock Rejected When Vehicle Moving
 
 **Requirement:** 03-REQ-3.1
 **Type:** unit
-**Description:** Verify lock is rejected when Vehicle.Speed >= 1.0.
+**Description:** Verify lock command is rejected with "vehicle_moving" when speed >= 1.0.
 
 **Preconditions:**
-- Mock broker returns Vehicle.Speed = 50.0, IsOpen = false.
+- MockBrokerClient with speed = 50.0, door_open = false.
 
 **Input:**
-- Valid lock command.
+- Call `check_safety(&mock)`.
 
 **Expected:**
-- SafetyResult::VehicleMoving.
+- Returns `SafetyResult::VehicleMoving`.
 
 **Assertion pseudocode:**
 ```
-mock_broker.set_speed(50.0)
-mock_broker.set_door_open(false)
-result = check_safety(&mock_broker)
+mock = MockBrokerClient::new().with_speed(50.0).with_door_open(false)
+result = check_safety(&mock).await
 ASSERT result == SafetyResult::VehicleMoving
 ```
 
@@ -179,22 +175,21 @@ ASSERT result == SafetyResult::VehicleMoving
 
 **Requirement:** 03-REQ-3.2
 **Type:** unit
-**Description:** Verify lock is rejected when door is ajar.
+**Description:** Verify lock command is rejected with "door_open" when door is ajar and vehicle is stationary.
 
 **Preconditions:**
-- Mock broker returns Vehicle.Speed = 0.0, IsOpen = true.
+- MockBrokerClient with speed = 0.0, door_open = true.
 
 **Input:**
-- Valid lock command.
+- Call `check_safety(&mock)`.
 
 **Expected:**
-- SafetyResult::DoorOpen.
+- Returns `SafetyResult::DoorOpen`.
 
 **Assertion pseudocode:**
 ```
-mock_broker.set_speed(0.0)
-mock_broker.set_door_open(true)
-result = check_safety(&mock_broker)
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(true)
+result = check_safety(&mock).await
 ASSERT result == SafetyResult::DoorOpen
 ```
 
@@ -202,22 +197,21 @@ ASSERT result == SafetyResult::DoorOpen
 
 **Requirement:** 03-REQ-3.3
 **Type:** unit
-**Description:** Verify lock is allowed when stationary and door closed.
+**Description:** Verify lock command is allowed when speed < 1.0 and door is closed.
 
 **Preconditions:**
-- Mock broker returns Vehicle.Speed = 0.0, IsOpen = false.
+- MockBrokerClient with speed = 0.0, door_open = false.
 
 **Input:**
-- Valid lock command.
+- Call `check_safety(&mock)`.
 
 **Expected:**
-- SafetyResult::Safe.
+- Returns `SafetyResult::Safe`.
 
 **Assertion pseudocode:**
 ```
-mock_broker.set_speed(0.0)
-mock_broker.set_door_open(false)
-result = check_safety(&mock_broker)
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false)
+result = check_safety(&mock).await
 ASSERT result == SafetyResult::Safe
 ```
 
@@ -225,350 +219,303 @@ ASSERT result == SafetyResult::Safe
 
 **Requirement:** 03-REQ-3.4
 **Type:** unit
-**Description:** Verify unlock proceeds regardless of speed or door state.
+**Description:** Verify unlock succeeds regardless of speed and door state.
 
 **Preconditions:**
-- Mock broker returns Vehicle.Speed = 100.0, IsOpen = true.
+- MockBrokerClient with speed = 100.0, door_open = true, locked = true.
 
 **Input:**
-- Valid unlock command.
+- Process an unlock command.
 
 **Expected:**
-- Command executes successfully (no safety check called for unlock).
+- Response status is "success".
 
 **Assertion pseudocode:**
 ```
-mock_broker.set_speed(100.0)
-mock_broker.set_door_open(true)
-// process_command should succeed for unlock regardless
-result = process_unlock_command(&mock_broker, unlock_cmd)
-ASSERT result.status == "success"
+mock = MockBrokerClient::new().with_speed(100.0).with_door_open(true).with_locked(true)
+lock_state = true
+response = process_command(&mock, unlock_cmd, &mut lock_state).await
+ASSERT parse_json(response)["status"] == "success"
 ```
 
 ### TS-03-11: Lock Sets IsLocked True
 
 **Requirement:** 03-REQ-4.1
 **Type:** unit
-**Description:** Verify successful lock sets IsLocked to true.
+**Description:** Verify that a successful lock command sets IsLocked to true on the broker.
 
 **Preconditions:**
-- Mock broker with safe conditions, IsLocked initially false.
+- MockBrokerClient with speed = 0.0, door_open = false. lock_state = false.
 
 **Input:**
-- Valid lock command.
+- Process a lock command.
 
 **Expected:**
-- mock_broker.set_bool was called with ("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", true).
+- `set_bool` called with (SIGNAL_IS_LOCKED, true). lock_state is true. Response status is "success".
 
 **Assertion pseudocode:**
 ```
-process_command(&mock_broker, lock_cmd)
-ASSERT mock_broker.last_set_bool == ("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", true)
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false)
+lock_state = false
+response = process_command(&mock, lock_cmd, &mut lock_state).await
+ASSERT lock_state == true
+ASSERT mock.set_bool_calls().contains(("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", true))
+ASSERT parse_json(response)["status"] == "success"
 ```
 
 ### TS-03-12: Unlock Sets IsLocked False
 
 **Requirement:** 03-REQ-4.2
 **Type:** unit
-**Description:** Verify successful unlock sets IsLocked to false.
+**Description:** Verify that an unlock command sets IsLocked to false on the broker.
 
 **Preconditions:**
-- Mock broker, IsLocked initially true.
+- MockBrokerClient with locked = true. lock_state = true.
 
 **Input:**
-- Valid unlock command.
+- Process an unlock command.
 
 **Expected:**
-- mock_broker.set_bool was called with ("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", false).
+- `set_bool` called with (SIGNAL_IS_LOCKED, false). lock_state is false. Response status is "success".
 
 **Assertion pseudocode:**
 ```
-process_command(&mock_broker, unlock_cmd)
-ASSERT mock_broker.last_set_bool == ("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", false)
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false).with_locked(true)
+lock_state = true
+response = process_command(&mock, unlock_cmd, &mut lock_state).await
+ASSERT lock_state == false
+ASSERT mock.set_bool_calls().contains(("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", false))
+ASSERT parse_json(response)["status"] == "success"
 ```
 
-### TS-03-13: Initial State Published
+### TS-03-13: Initial State Published on Startup
 
 **Requirement:** 03-REQ-4.3
 **Type:** integration
-**Description:** Verify the service publishes IsLocked=false on startup.
+**Description:** Verify the service publishes IsLocked = false on startup.
 
 **Preconditions:**
-- DATA_BROKER container is running, no prior IsLocked value.
+- DATA_BROKER container is running.
 
 **Input:**
-- Start locking-service.
+- Start LOCKING_SERVICE.
 
 **Expected:**
-- Vehicle.Cabin.Door.Row1.DriverSide.IsLocked is false in DATA_BROKER.
+- `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` is false in DATA_BROKER.
 
 **Assertion pseudocode:**
 ```
+start_databroker()
 start_locking_service()
-wait_for_ready()
-value = get_signal("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
-ASSERT value == false
+wait_for_log("locking-service ready")
+result = grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked")
+ASSERT result.value == false
 ```
 
 ### TS-03-14: Success Response Format
 
-**Requirement:** 03-REQ-5.1
+**Requirement:** 03-REQ-5.1, 03-REQ-5.3
 **Type:** unit
-**Description:** Verify success response JSON contains command_id and status "success".
+**Description:** Verify the success response JSON contains command_id, status "success", timestamp, and no reason field.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- command_id = "abc-123".
+- Call `success_response("abc-123")`.
 
 **Expected:**
-- JSON with command_id="abc-123", status="success", timestamp present.
+- Valid JSON with command_id="abc-123", status="success", timestamp > 0, no reason field.
 
 **Assertion pseudocode:**
 ```
 json = success_response("abc-123")
 parsed = parse_json(json)
-ASSERT parsed.command_id == "abc-123"
-ASSERT parsed.status == "success"
-ASSERT parsed.timestamp > 0
-ASSERT parsed.reason == nil
+ASSERT parsed["command_id"] == "abc-123"
+ASSERT parsed["status"] == "success"
+ASSERT parsed["timestamp"] > 0
+ASSERT parsed["reason"] is null or absent
 ```
 
 ### TS-03-15: Failure Response Format
 
 **Requirement:** 03-REQ-5.2
 **Type:** unit
-**Description:** Verify failure response JSON contains command_id, status "failed", and reason.
+**Description:** Verify the failure response JSON contains command_id, status "failed", reason, and timestamp.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- command_id = "abc-123", reason = "vehicle_moving".
+- Call `failure_response("abc-123", "vehicle_moving")`.
 
 **Expected:**
-- JSON with command_id="abc-123", status="failed", reason="vehicle_moving".
+- Valid JSON with command_id="abc-123", status="failed", reason="vehicle_moving", timestamp > 0.
 
 **Assertion pseudocode:**
 ```
 json = failure_response("abc-123", "vehicle_moving")
 parsed = parse_json(json)
-ASSERT parsed.command_id == "abc-123"
-ASSERT parsed.status == "failed"
-ASSERT parsed.reason == "vehicle_moving"
-ASSERT parsed.timestamp > 0
+ASSERT parsed["command_id"] == "abc-123"
+ASSERT parsed["status"] == "failed"
+ASSERT parsed["reason"] == "vehicle_moving"
+ASSERT parsed["timestamp"] > 0
 ```
 
 ### TS-03-16: Response Timestamp
 
-**Requirement:** 03-REQ-5.3
+**Requirement:** 03-REQ-5.1
 **Type:** unit
-**Description:** Verify response includes a current Unix timestamp.
+**Description:** Verify the response timestamp is a valid Unix timestamp close to current time.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- Generate a success response.
+- Record time before, call `success_response("x")`, record time after.
 
 **Expected:**
-- Timestamp is a reasonable Unix timestamp (within 5 seconds of current time).
+- Timestamp is between before and after.
 
 **Assertion pseudocode:**
 ```
-before = current_unix_timestamp()
+before = unix_timestamp_now()
 json = success_response("x")
-after = current_unix_timestamp()
-parsed = parse_json(json)
-ASSERT parsed.timestamp >= before
-ASSERT parsed.timestamp <= after
-```
-
-### TS-03-17: Graceful Shutdown
-
-**Requirement:** 03-REQ-6.1
-**Type:** integration
-**Description:** Verify the service exits cleanly on SIGTERM.
-
-**Preconditions:**
-- Locking-service is running with active DATA_BROKER subscription.
-
-**Input:**
-- Send SIGTERM to locking-service process.
-
-**Expected:**
-- Process exits with code 0.
-- Log contains shutdown message.
-
-**Assertion pseudocode:**
-```
-proc = start_locking_service()
-wait_for_ready()
-send_signal(proc, SIGTERM)
-exit_code = wait_for_exit(proc, timeout=5s)
-ASSERT exit_code == 0
-```
-
-### TS-03-18: Startup Logging
-
-**Requirement:** 03-REQ-6.2
-**Type:** integration
-**Description:** Verify the service logs version and address on startup.
-
-**Preconditions:**
-- DATA_BROKER container is running.
-
-**Input:**
-- Start locking-service.
-
-**Expected:**
-- Log output contains version string and DATA_BROKER address.
-
-**Assertion pseudocode:**
-```
-output = start_and_capture_logs()
-ASSERT output contains "locking-service"
-ASSERT output contains "localhost:55556" OR DATABROKER_ADDR value
-ASSERT output contains "ready"
+after = unix_timestamp_now()
+ts = parse_json(json)["timestamp"]
+ASSERT ts >= before
+ASSERT ts <= after
 ```
 
 ## Edge Case Tests
 
-### TS-03-E1: Databroker Unreachable on Startup
+### TS-03-E1: DATA_BROKER Connection Retry
 
 **Requirement:** 03-REQ-1.E1
 **Type:** integration
-**Description:** Verify retry behavior when DATA_BROKER is unreachable.
+**Description:** Verify the service retries connection to DATA_BROKER with exponential backoff and exits on failure.
 
 **Preconditions:**
 - No DATA_BROKER running.
 
 **Input:**
-- Start locking-service with DATABROKER_ADDR pointing to a non-listening port.
+- Start LOCKING_SERVICE with `DATABROKER_ADDR` pointing to a non-existent endpoint.
 
 **Expected:**
-- Service retries connection (logs indicate retries).
-- Service exits with non-zero code after max retries.
+- Service exits with non-zero code after retries.
 
 **Assertion pseudocode:**
 ```
-proc = start_locking_service(addr="http://localhost:19999")
-exit_code = wait_for_exit(proc, timeout=30s)
+exit_code = start_locking_service(env={"DATABROKER_ADDR": "http://localhost:99999"})
 ASSERT exit_code != 0
-ASSERT log_contains("retry")
 ```
 
 ### TS-03-E2: Subscription Stream Interrupted
 
 **Requirement:** 03-REQ-1.E2
 **Type:** integration
-**Description:** Verify resubscribe behavior when subscription stream breaks.
+**Description:** Verify the service attempts to resubscribe when the subscription stream is interrupted.
 
 **Preconditions:**
-- Locking-service is running with active subscription.
+- DATA_BROKER is running. LOCKING_SERVICE is connected and subscribed.
 
 **Input:**
-- Restart the DATA_BROKER container while locking-service is running.
+- Restart the DATA_BROKER while LOCKING_SERVICE is running.
 
 **Expected:**
-- Service attempts to resubscribe.
+- Service logs a resubscribe warning.
 
 **Assertion pseudocode:**
 ```
 start_locking_service()
-wait_for_ready()
 restart_databroker()
-// If resubscribe succeeds, service remains running
-// If 3 resubscribe attempts fail, service exits non-zero
+ASSERT logs_contain("resubscribing")
 ```
 
 ### TS-03-E3: Invalid JSON Payload
 
 **Requirement:** 03-REQ-2.E1
 **Type:** unit
-**Description:** Verify invalid JSON is discarded without response.
+**Description:** Verify that non-JSON payloads are discarded without publishing a response.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `"not valid json {{{"`
+- `parse_command("not valid json {{{")`.
 
 **Expected:**
-- parse_command returns error.
-- No response is published (caller should log and skip).
+- Returns `Err(CommandError::InvalidJson(_))`.
 
 **Assertion pseudocode:**
 ```
 result = parse_command("not valid json {{{")
 ASSERT result.is_err()
+ASSERT matches!(result, Err(CommandError::InvalidJson(_)))
 ```
 
 ### TS-03-E4: Missing Required Field
 
 **Requirement:** 03-REQ-2.E2
 **Type:** unit
-**Description:** Verify missing action field produces "invalid_command" error.
+**Description:** Verify that a payload missing the `action` field is rejected.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `{"command_id":"x","doors":["driver"]}`
+- JSON: `{"command_id":"x","doors":["driver"]}`
 
 **Expected:**
-- Parse or validation fails.
+- `parse_command` returns error.
 
 **Assertion pseudocode:**
 ```
-result = parse_command(input)
+result = parse_command(json)
 ASSERT result.is_err()
 ```
 
 ### TS-03-E5: Unsupported Door Value
 
-**Requirement:** 03-REQ-2.E3
+**Requirement:** 03-REQ-2.2
 **Type:** unit
-**Description:** Verify non-"driver" door value produces "unsupported_door".
+**Description:** Verify that a non-"driver" door value results in "unsupported_door" rejection.
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `{"command_id":"x","action":"lock","doors":["rear_left"]}`
+- JSON: `{"command_id":"x","action":"lock","doors":["rear_left"]}`
 
 **Expected:**
-- Validation error with reason "unsupported_door".
+- Validation returns error with reason "unsupported_door".
 
 **Assertion pseudocode:**
 ```
-cmd = parse_command(input)
+cmd = parse_command(json).unwrap()
 result = validate_command(cmd)
-ASSERT result.is_err()
-ASSERT result.error == "unsupported_door"
+ASSERT result.unwrap_err().reason() == "unsupported_door"
 ```
 
 ### TS-03-E6: Speed Signal Unset
 
 **Requirement:** 03-REQ-3.E1
 **Type:** unit
-**Description:** Verify unset speed is treated as 0.0 (stationary).
+**Description:** Verify that an unset speed signal is treated as 0.0 (safe default).
 
 **Preconditions:**
-- Mock broker returns None for Vehicle.Speed, IsOpen = false.
+- MockBrokerClient with speed = None, door_open = false.
 
 **Input:**
-- Valid lock command.
+- Call `check_safety(&mock)`.
 
 **Expected:**
-- SafetyResult::Safe.
+- Returns `SafetyResult::Safe`.
 
 **Assertion pseudocode:**
 ```
-mock_broker.set_speed(None)
-mock_broker.set_door_open(false)
-result = check_safety(&mock_broker)
+mock = MockBrokerClient::new().with_speed(None).with_door_open(Some(false))
+result = check_safety(&mock).await
 ASSERT result == SafetyResult::Safe
 ```
 
@@ -576,69 +523,70 @@ ASSERT result == SafetyResult::Safe
 
 **Requirement:** 03-REQ-3.E2
 **Type:** unit
-**Description:** Verify unset door state is treated as closed (false).
+**Description:** Verify that an unset door signal is treated as closed (safe default).
 
 **Preconditions:**
-- Mock broker returns Vehicle.Speed = 0.0, None for IsOpen.
+- MockBrokerClient with speed = 0.0, door_open = None.
 
 **Input:**
-- Valid lock command.
+- Call `check_safety(&mock)`.
 
 **Expected:**
-- SafetyResult::Safe.
+- Returns `SafetyResult::Safe`.
 
 **Assertion pseudocode:**
 ```
-mock_broker.set_speed(0.0)
-mock_broker.set_door_open(None)
-result = check_safety(&mock_broker)
+mock = MockBrokerClient::new().with_speed(Some(0.0)).with_door_open(None)
+result = check_safety(&mock).await
 ASSERT result == SafetyResult::Safe
 ```
 
-### TS-03-E8: Lock When Already Locked
+### TS-03-E8: Lock When Already Locked (Idempotent)
 
 **Requirement:** 03-REQ-4.E1
 **Type:** unit
-**Description:** Verify locking an already-locked door succeeds idempotently.
+**Description:** Verify locking an already-locked door returns success without changing state.
 
 **Preconditions:**
-- Internal lock state is already true. Safe conditions.
+- MockBrokerClient with speed = 0.0, door_open = false, locked = true. lock_state = true.
 
 **Input:**
-- Valid lock command.
+- Process a lock command.
 
 **Expected:**
-- Success response. No state change published.
+- Response status "success". No `set_bool` calls.
 
 **Assertion pseudocode:**
 ```
-service.lock_state = true
-result = process_command(&mock_broker, lock_cmd)
-ASSERT result.status == "success"
-ASSERT mock_broker.set_bool_calls == 0  // no state change
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false).with_locked(true)
+lock_state = true
+response = process_command(&mock, lock_cmd, &mut lock_state).await
+ASSERT parse_json(response)["status"] == "success"
+ASSERT mock.set_bool_calls().len() == 0
 ```
 
-### TS-03-E9: Unlock When Already Unlocked
+### TS-03-E9: Unlock When Already Unlocked (Idempotent)
 
 **Requirement:** 03-REQ-4.E2
 **Type:** unit
-**Description:** Verify unlocking an already-unlocked door succeeds idempotently.
+**Description:** Verify unlocking an already-unlocked door returns success without changing state.
 
 **Preconditions:**
-- Internal lock state is already false.
+- MockBrokerClient with speed = 0.0, door_open = false. lock_state = false.
 
 **Input:**
-- Valid unlock command.
+- Process an unlock command.
 
 **Expected:**
-- Success response. No state change published.
+- Response status "success". No `set_bool` calls.
 
 **Assertion pseudocode:**
 ```
-service.lock_state = false
-result = process_command(&mock_broker, unlock_cmd)
-ASSERT result.status == "success"
-ASSERT mock_broker.set_bool_calls == 0
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false)
+lock_state = false
+response = process_command(&mock, unlock_cmd, &mut lock_state).await
+ASSERT parse_json(response)["status"] == "success"
+ASSERT mock.set_bool_calls().len() == 0
 ```
 
 ### TS-03-E10: Response Publish Failure
@@ -648,48 +596,23 @@ ASSERT mock_broker.set_bool_calls == 0
 **Description:** Verify the service continues processing after a response publish failure.
 
 **Preconditions:**
-- Mock broker configured to fail on set_string for response signal.
+- MockBrokerClient configured to fail next `set_string` call.
 
 **Input:**
-- Valid lock command, then another valid lock command.
+- Process a lock command (response publish fails).
+- Process a second command.
 
 **Expected:**
-- First command: response publish fails, logged.
-- Second command: processed normally.
+- Second command returns success.
 
 **Assertion pseudocode:**
 ```
-mock_broker.fail_next_set_string()
-process_command(&mock_broker, lock_cmd_1)  // logs error
-process_command(&mock_broker, lock_cmd_2)  // succeeds
-ASSERT mock_broker.commands_processed == 2
-```
-
-### TS-03-E11: SIGTERM During Command
-
-**Requirement:** 03-REQ-6.E1
-**Type:** integration
-**Description:** Verify in-flight command completes before shutdown.
-
-**Preconditions:**
-- Locking-service is running.
-
-**Input:**
-- Send a lock command and SIGTERM nearly simultaneously.
-
-**Expected:**
-- Response is published for the command.
-- Service exits with code 0.
-
-**Assertion pseudocode:**
-```
-proc = start_locking_service()
-send_lock_command()
-send_signal(proc, SIGTERM)
-exit_code = wait_for_exit(proc, timeout=5s)
-ASSERT exit_code == 0
-response = get_signal("Vehicle.Command.Door.Response")
-ASSERT response.status == "success"
+mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false)
+mock.fail_next_set_string()
+lock_state = false
+process_command(&mock, lock_cmd, &mut lock_state).await
+response2 = process_command(&mock, unlock_cmd, &mut lock_state).await
+ASSERT parse_json(response2)["status"] == "success"
 ```
 
 ## Property Test Cases
@@ -697,24 +620,23 @@ ASSERT response.status == "success"
 ### TS-03-P1: Command Validation Completeness
 
 **Property:** Property 1 from design.md
-**Validates:** 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3, 03-REQ-2.E1, 03-REQ-2.E2
+**Validates:** 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3, 03-REQ-2.E1, 03-REQ-2.E2, 03-REQ-2.E3
 **Type:** property
-**Description:** Any string input either parses to a valid command or is rejected.
+**Description:** Any string input either parses to a valid LockCommand or is rejected.
 
-**For any:** Arbitrary string (including valid JSON, invalid JSON, empty string, random bytes)
-**Invariant:** parse_command(input) returns Ok(valid LockCommand) or Err(reason).
+**For any:** arbitrary string input
+**Invariant:** `parse_command` returns `Ok(cmd)` where `validate_command(cmd)` is Ok only if command_id is non-empty, action is Lock or Unlock, and doors contains "driver"; otherwise it returns `Err`.
 
 **Assertion pseudocode:**
 ```
 FOR ANY input IN arbitrary_strings:
-    result = parse_command(input)
-    IF result.is_ok():
-        cmd = result.unwrap()
-        ASSERT cmd.command_id.len() > 0
-        ASSERT cmd.action IN [Lock, Unlock]
-        ASSERT "driver" IN cmd.doors
-    ELSE:
-        ASSERT result.is_err()
+    match parse_command(input):
+        Ok(cmd) => match validate_command(cmd):
+            Ok(()) => ASSERT !cmd.command_id.is_empty()
+                      ASSERT cmd.action IN {Lock, Unlock}
+                      ASSERT "driver" IN cmd.doors
+            Err(_) => pass  // rejected is fine
+        Err(_) => pass  // rejected is fine
 ```
 
 ### TS-03-P2: Safety Gate for Lock
@@ -722,23 +644,19 @@ FOR ANY input IN arbitrary_strings:
 **Property:** Property 2 from design.md
 **Validates:** 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3
 **Type:** property
-**Description:** Lock is allowed iff speed < 1.0 and door closed.
+**Description:** Lock is allowed iff speed < 1.0 and door closed. Speed check takes priority.
 
 **For any:** speed in [0.0, 200.0], door_open in {true, false}
-**Invariant:** check_safety returns Safe iff speed < 1.0 AND !door_open.
+**Invariant:** If speed < 1.0 and !door_open then Safe; if speed >= 1.0 then VehicleMoving; else DoorOpen.
 
 **Assertion pseudocode:**
 ```
-FOR ANY speed IN float_range(0.0, 200.0), door_open IN bool:
-    mock_broker.set_speed(speed)
-    mock_broker.set_door_open(door_open)
-    result = check_safety(&mock_broker)
-    IF speed < 1.0 AND !door_open:
-        ASSERT result == SafetyResult::Safe
-    ELSE IF speed >= 1.0:
-        ASSERT result == SafetyResult::VehicleMoving
-    ELSE:
-        ASSERT result == SafetyResult::DoorOpen
+FOR ANY speed IN 0.0..200.0, door_open IN {true, false}:
+    mock = MockBrokerClient::new().with_speed(speed).with_door_open(door_open)
+    result = check_safety(&mock).await
+    IF speed < 1.0 AND !door_open: ASSERT result == Safe
+    ELSE IF speed >= 1.0: ASSERT result == VehicleMoving
+    ELSE: ASSERT result == DoorOpen
 ```
 
 ### TS-03-P3: Unlock Always Succeeds
@@ -746,18 +664,18 @@ FOR ANY speed IN float_range(0.0, 200.0), door_open IN bool:
 **Property:** Property 3 from design.md
 **Validates:** 03-REQ-3.4
 **Type:** property
-**Description:** Unlock commands always succeed regardless of speed/door state.
+**Description:** Unlock succeeds regardless of speed and door state.
 
 **For any:** speed in [0.0, 200.0], door_open in {true, false}
-**Invariant:** process_unlock always returns success.
+**Invariant:** process_command with unlock action returns status "success".
 
 **Assertion pseudocode:**
 ```
-FOR ANY speed IN float_range(0.0, 200.0), door_open IN bool:
-    mock_broker.set_speed(speed)
-    mock_broker.set_door_open(door_open)
-    result = process_command(&mock_broker, unlock_cmd)
-    ASSERT result.status == "success"
+FOR ANY speed IN 0.0..200.0, door_open IN {true, false}:
+    mock = MockBrokerClient::new().with_speed(speed).with_door_open(door_open).with_locked(true)
+    lock_state = true
+    response = process_command(&mock, unlock_cmd, &mut lock_state).await
+    ASSERT parse_json(response)["status"] == "success"
 ```
 
 ### TS-03-P4: State-Response Consistency
@@ -765,23 +683,21 @@ FOR ANY speed IN float_range(0.0, 200.0), door_open IN bool:
 **Property:** Property 4 from design.md
 **Validates:** 03-REQ-4.1, 03-REQ-4.2, 03-REQ-5.1
 **Type:** property
-**Description:** After a successful command, lock state matches the action.
+**Description:** After a successful command, lock_state matches the requested action.
 
-**For any:** action in {Lock, Unlock}, with safe conditions for lock
-**Invariant:** IsLocked state matches action after success response.
+**For any:** action in {Lock, Unlock} with safety conditions met
+**Invariant:** If lock then lock_state == true; if unlock then lock_state == false. Response status is "success".
 
 **Assertion pseudocode:**
 ```
-FOR ANY action IN [Lock, Unlock]:
-    mock_broker.set_speed(0.0)
-    mock_broker.set_door_open(false)
-    cmd = make_command(action)
-    result = process_command(&mock_broker, cmd)
-    ASSERT result.status == "success"
-    IF action == Lock:
-        ASSERT mock_broker.is_locked == true
-    ELSE:
-        ASSERT mock_broker.is_locked == false
+FOR ANY action_is_lock IN {true, false}:
+    mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false)
+    lock_state = false
+    cmd = make_cmd(if action_is_lock then Lock else Unlock)
+    response = process_command(&mock, cmd, &mut lock_state).await
+    ASSERT parse_json(response)["status"] == "success"
+    IF action_is_lock: ASSERT lock_state == true
+    ELSE: ASSERT lock_state == false
 ```
 
 ### TS-03-P5: Idempotent Operations
@@ -789,21 +705,20 @@ FOR ANY action IN [Lock, Unlock]:
 **Property:** Property 5 from design.md
 **Validates:** 03-REQ-4.E1, 03-REQ-4.E2
 **Type:** property
-**Description:** Repeating the same command produces success without state changes.
+**Description:** Repeating the same command N times results in at most one state write.
 
-**For any:** action in {Lock, Unlock}, repeated N times (N in 1..5)
-**Invariant:** All N responses are "success", state only set once.
+**For any:** action in {Lock, Unlock}, N in [1, 5)
+**Invariant:** All N responses are "success". `set_bool` called at most once.
 
 **Assertion pseudocode:**
 ```
-FOR ANY action IN [Lock, Unlock], n IN 1..5:
-    mock_broker.reset()
-    mock_broker.set_speed(0.0)
-    mock_broker.set_door_open(false)
-    FOR i IN 1..n:
-        result = process_command(&mock_broker, make_command(action))
-        ASSERT result.status == "success"
-    ASSERT mock_broker.set_bool_calls <= 1
+FOR ANY action_is_lock IN {true, false}, n IN 1..5:
+    mock = MockBrokerClient::new().with_speed(0.0).with_door_open(false)
+    lock_state = false
+    FOR i IN 0..n:
+        response = process_command(&mock, cmd, &mut lock_state).await
+        ASSERT parse_json(response)["status"] == "success"
+    ASSERT mock.set_bool_calls().len() <= 1
 ```
 
 ### TS-03-P6: Response Completeness
@@ -813,22 +728,100 @@ FOR ANY action IN [Lock, Unlock], n IN 1..5:
 **Type:** property
 **Description:** Every processed command produces exactly one response with required fields.
 
-**For any:** valid command (lock or unlock) with any safety state
-**Invariant:** Exactly one response with command_id, status, and timestamp.
+**For any:** action in {Lock, Unlock}, speed in {0.0, 50.0}, door_open in {true, false}
+**Invariant:** Response contains command_id, status in {"success", "failed"}, timestamp > 0. Exactly one `set_string` call to SIGNAL_RESPONSE.
 
 **Assertion pseudocode:**
 ```
-FOR ANY action IN [Lock, Unlock], speed IN [0.0, 50.0], door_open IN bool:
-    mock_broker.reset()
-    mock_broker.set_speed(speed)
-    mock_broker.set_door_open(door_open)
-    cmd = make_command(action, command_id="test-id")
-    result = process_command(&mock_broker, cmd)
-    response = parse_json(mock_broker.last_response)
-    ASSERT response.command_id == "test-id"
-    ASSERT response.status IN ["success", "failed"]
-    ASSERT response.timestamp > 0
-    ASSERT mock_broker.response_publish_count == 1
+FOR ANY action, speed, door_open:
+    mock = MockBrokerClient::new().with_speed(speed).with_door_open(door_open)
+    lock_state = false
+    response = process_command(&mock, cmd, &mut lock_state).await
+    parsed = parse_json(response)
+    ASSERT parsed["command_id"] == cmd.command_id
+    ASSERT parsed["status"] IN {"success", "failed"}
+    ASSERT parsed["timestamp"] > 0
+    ASSERT mock.set_string_calls().len() == 1
+```
+
+## Integration Smoke Tests
+
+### TS-03-SMOKE-1: Lock Happy Path
+
+**Type:** integration
+**Description:** End-to-end lock: set speed=0 and door=closed, publish lock command, verify IsLocked=true and success response.
+
+**Preconditions:**
+- DATA_BROKER and LOCKING_SERVICE running.
+
+**Input:**
+- Set Vehicle.Speed = 0.0, Vehicle.Cabin.Door.Row1.DriverSide.IsOpen = false.
+- Publish lock command to Vehicle.Command.Door.Lock.
+
+**Expected:**
+- Vehicle.Cabin.Door.Row1.DriverSide.IsLocked == true.
+- Vehicle.Command.Door.Response contains status "success".
+
+**Assertion pseudocode:**
+```
+grpc_set("Vehicle.Speed", 0.0)
+grpc_set("Vehicle.Cabin.Door.Row1.DriverSide.IsOpen", false)
+grpc_set("Vehicle.Command.Door.Lock", lock_json)
+sleep(1s)
+ASSERT grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked").value == true
+resp = parse_json(grpc_get("Vehicle.Command.Door.Response").value)
+ASSERT resp["status"] == "success"
+```
+
+### TS-03-SMOKE-2: Unlock Happy Path
+
+**Type:** integration
+**Description:** End-to-end unlock after lock: verify IsLocked=false and success response.
+
+**Preconditions:**
+- DATA_BROKER and LOCKING_SERVICE running. Door is locked (from TS-03-SMOKE-1 or setup).
+
+**Input:**
+- Publish unlock command to Vehicle.Command.Door.Lock.
+
+**Expected:**
+- Vehicle.Cabin.Door.Row1.DriverSide.IsLocked == false.
+- Vehicle.Command.Door.Response contains status "success".
+
+**Assertion pseudocode:**
+```
+grpc_set("Vehicle.Command.Door.Lock", unlock_json)
+sleep(1s)
+ASSERT grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked").value == false
+resp = parse_json(grpc_get("Vehicle.Command.Door.Response").value)
+ASSERT resp["status"] == "success"
+```
+
+### TS-03-SMOKE-3: Lock Rejected (Vehicle Moving)
+
+**Type:** integration
+**Description:** End-to-end lock rejection due to vehicle speed.
+
+**Preconditions:**
+- DATA_BROKER and LOCKING_SERVICE running.
+
+**Input:**
+- Set Vehicle.Speed = 50.0.
+- Publish lock command.
+
+**Expected:**
+- Vehicle.Command.Door.Response contains status "failed", reason "vehicle_moving".
+- Vehicle.Cabin.Door.Row1.DriverSide.IsLocked remains false.
+
+**Assertion pseudocode:**
+```
+grpc_set("Vehicle.Speed", 50.0)
+grpc_set("Vehicle.Command.Door.Lock", lock_json)
+sleep(1s)
+resp = parse_json(grpc_get("Vehicle.Command.Door.Response").value)
+ASSERT resp["status"] == "failed"
+ASSERT resp["reason"] == "vehicle_moving"
+ASSERT grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked").value == false
 ```
 
 ## Coverage Matrix
@@ -836,16 +829,17 @@ FOR ANY action IN [Lock, Unlock], speed IN [0.0, 50.0], door_open IN bool:
 | Requirement | Test Spec Entry | Type |
 |-------------|-----------------|------|
 | 03-REQ-1.1 | TS-03-1 | integration |
-| 03-REQ-1.2 | TS-03-2 | unit |
-| 03-REQ-1.3 | TS-03-3 | unit |
+| 03-REQ-1.2 | TS-03-1 | integration |
+| 03-REQ-1.3 | (sequential processing verified via TS-03-SMOKE-1, TS-03-SMOKE-2) | integration |
 | 03-REQ-1.E1 | TS-03-E1 | integration |
 | 03-REQ-1.E2 | TS-03-E2 | integration |
-| 03-REQ-2.1 | TS-03-4 | unit |
-| 03-REQ-2.2 | TS-03-5 | unit |
-| 03-REQ-2.3 | TS-03-6 | unit |
+| 03-REQ-2.1 | TS-03-2, TS-03-5 | unit |
+| 03-REQ-2.2 | TS-03-6, TS-03-E5 | unit |
+| 03-REQ-2.3 | TS-03-4 | unit |
+| 03-REQ-2.4 | TS-03-2 | unit |
 | 03-REQ-2.E1 | TS-03-E3 | unit |
 | 03-REQ-2.E2 | TS-03-E4 | unit |
-| 03-REQ-2.E3 | TS-03-E5 | unit |
+| 03-REQ-2.E3 | TS-03-4 | unit |
 | 03-REQ-3.1 | TS-03-7 | unit |
 | 03-REQ-3.2 | TS-03-8 | unit |
 | 03-REQ-3.3 | TS-03-9 | unit |
@@ -857,13 +851,15 @@ FOR ANY action IN [Lock, Unlock], speed IN [0.0, 50.0], door_open IN bool:
 | 03-REQ-4.3 | TS-03-13 | integration |
 | 03-REQ-4.E1 | TS-03-E8 | unit |
 | 03-REQ-4.E2 | TS-03-E9 | unit |
-| 03-REQ-5.1 | TS-03-14 | unit |
+| 03-REQ-5.1 | TS-03-14, TS-03-16 | unit |
 | 03-REQ-5.2 | TS-03-15 | unit |
-| 03-REQ-5.3 | TS-03-16 | unit |
+| 03-REQ-5.3 | TS-03-14 | unit |
 | 03-REQ-5.E1 | TS-03-E10 | unit |
-| 03-REQ-6.1 | TS-03-17 | integration |
-| 03-REQ-6.2 | TS-03-18 | integration |
-| 03-REQ-6.E1 | TS-03-E11 | integration |
+| 03-REQ-6.1 | (verified via integration test process exit code) | integration |
+| 03-REQ-6.2 | TS-03-1 (startup log) | integration |
+| 03-REQ-6.E1 | (verified via graceful shutdown in integration tests) | integration |
+| 03-REQ-7.1 | TS-03-3 | unit |
+| 03-REQ-7.2 | TS-03-3 | unit |
 | Property 1 | TS-03-P1 | property |
 | Property 2 | TS-03-P2 | property |
 | Property 3 | TS-03-P3 | property |

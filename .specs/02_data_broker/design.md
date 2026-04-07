@@ -1,176 +1,142 @@
-# Design Document: DATA_BROKER
+# Design: DATA_BROKER (Spec 02)
 
 ## Overview
 
-This design covers the configuration and validation of Eclipse Kuksa Databroker as the DATA_BROKER for the SDV Parking Demo. No application code is written — the deliverables are compose.yml updates (dual listeners, version pinning, UDS volume mount) and integration tests that verify signal availability and pub/sub functionality via gRPC. The databroker is a pre-built container image used as-is.
+This design describes the configuration and validation of Eclipse Kuksa Databroker as the DATA_BROKER component. No custom application code is written -- the deliverables are compose.yml updates, VSS overlay validation, and integration tests. The DATA_BROKER is a pre-built container image (`ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`) configured for dual listeners (TCP on port 55555/container, 55556/host, and UDS at `/tmp/kuksa-databroker.sock`) running in permissive mode (no token auth). The VSS overlay file from spec 01 provides 3 custom signals; the remaining 5 standard VSS v5.1 signals are built into the Kuksa image.
 
 ## Architecture
 
 ```mermaid
-flowchart TD
-    subgraph SafetyPartition["RHIVOS Safety Partition"]
-        DB["DATA_BROKER\n(Kuksa Databroker)"]
+flowchart LR
+    subgraph Host["Host / Developer Machine"]
+        Tests["Integration Tests"]
+    end
+
+    subgraph Compose["podman compose"]
+        subgraph DB["DATA_BROKER Container"]
+            Kuksa["Kuksa Databroker 0.5.1"]
+            TCP["TCP Listener\n0.0.0.0:55555"]
+            UDS["UDS Listener\n/tmp/kuksa-databroker.sock"]
+            VSS["VSS Tree\n5 standard + 3 custom"]
+        end
+        Overlay["VSS Overlay File\n(volume mount)"]
+        Socket["UDS Socket Volume\n/tmp/kuksa-databroker.sock"]
+    end
+
+    Overlay -->|"--vss flag"| Kuksa
+    Kuksa --> TCP
+    Kuksa --> UDS
+    UDS --> Socket
+
+    Tests -->|"gRPC TCP\nlocalhost:55556"| TCP
+    Tests -->|"gRPC UDS\nunix:///tmp/..."| UDS
+
+    subgraph Future["Same-Partition Consumers (future specs)"]
         LS["LOCKING_SERVICE"]
         CGC["CLOUD_GATEWAY_CLIENT"]
     end
 
-    subgraph QMPartition["RHIVOS QM Partition"]
+    subgraph FutureNet["Cross-Partition Consumers (future specs)"]
+        PA["PARKING_APP"]
         POA["PARKING_OPERATOR_ADAPTOR"]
     end
 
-    subgraph IVI["Android IVI"]
-        PA["PARKING_APP"]
-    end
-
-    LS <-->|gRPC UDS| DB
-    CGC <-->|gRPC UDS| DB
-    POA <-->|gRPC TCP :55556| DB
-    PA -->|gRPC TCP :55556| DB
+    LS -->|"gRPC UDS"| Socket
+    CGC -->|"gRPC UDS"| Socket
+    PA -->|"gRPC TCP\nport 55556"| TCP
+    POA -->|"gRPC TCP\nport 55556"| TCP
 ```
 
-```mermaid
-sequenceDiagram
-    participant Client as gRPC Client
-    participant TCP as TCP Listener :55555
-    participant UDS as UDS Listener /tmp/kuksa-databroker.sock
-    participant DB as Kuksa Databroker
-    participant VSS as VSS Tree + Overlay
+## Module Responsibilities
 
-    Note over DB,VSS: Startup
-    DB->>VSS: Load standard VSS v5.1 tree
-    DB->>VSS: Load overlay (vss-overlay.json)
-    DB->>TCP: Bind 0.0.0.0:55555
-    DB->>UDS: Bind /tmp/kuksa-databroker.sock
+| Module | Responsibility |
+|--------|---------------|
+| `deployments/compose.yml` | Defines the databroker service with pinned image, dual listener args, port mapping, volume mounts for overlay and UDS socket |
+| `deployments/vss/overlay.vspec` | Declares 3 custom VSS signals (Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response) |
+| `tests/databroker/` | Integration tests verifying connectivity, signal availability, read/write, and cross-transport consistency |
 
-    Note over Client,DB: Set/Get Signal (TCP)
-    Client->>TCP: SetValue(Vehicle.Parking.SessionActive, true)
-    TCP->>DB: Store value
-    DB-->>TCP: OK
-    TCP-->>Client: OK
-    Client->>TCP: GetValue(Vehicle.Parking.SessionActive)
-    TCP->>DB: Read value
-    DB-->>TCP: true
-    TCP-->>Client: true
+## Execution Paths
 
-    Note over Client,DB: Subscribe (UDS)
-    Client->>UDS: Subscribe(Vehicle.Command.Door.Lock)
-    UDS->>DB: Register subscription
-    Note over DB: Another client sets the signal
-    DB->>UDS: Notification(Vehicle.Command.Door.Lock, payload)
-    UDS->>Client: Notification(payload)
-```
+### Path 1: Container startup
 
-### Module Responsibilities
+1. Developer runs `podman compose up databroker`
+2. Compose pulls `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` (if not cached)
+3. Container starts with command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` plus overlay flag
+4. Kuksa loads the default VSS v5.1 tree (5 standard signals)
+5. Kuksa loads the overlay file (3 custom signals)
+6. TCP listener binds to `0.0.0.0:55555`, mapped to host `55556`
+7. UDS listener creates socket at `/tmp/kuksa-databroker.sock`
+8. DATA_BROKER is ready to accept gRPC connections on both transports
 
-1. **Kuksa Databroker container** — Pre-built gRPC server managing VSS signal state, subscriptions, and dual-listener networking.
-2. **deployments/compose.yml** — Container orchestration config defining databroker service with TCP + UDS listeners and VSS overlay volume mount.
-3. **deployments/vss-overlay.json** — Custom signal definitions extending the standard VSS tree (created by spec 01, validated by this spec).
-4. **tests/databroker/** — Integration test module verifying databroker connectivity, signal availability, and pub/sub behavior.
+### Path 2: Signal set/get via TCP
+
+1. Client opens gRPC channel to `localhost:55556`
+2. Client sends SetRequest for a signal (e.g., `Vehicle.Speed = 50.0`)
+3. DATA_BROKER stores the value in its internal signal tree
+4. Client sends GetRequest for the same signal
+5. DATA_BROKER returns the stored value
+
+### Path 3: Signal set/get via UDS
+
+1. Client opens gRPC channel to `unix:///tmp/kuksa-databroker.sock`
+2. Client sends SetRequest for a signal
+3. DATA_BROKER stores the value
+4. Client sends GetRequest and receives the stored value
+
+### Path 4: Cross-transport consistency
+
+1. Client A sets a signal via TCP
+2. Client B reads the same signal via UDS
+3. DATA_BROKER returns the value set by Client A
+4. The reverse direction (UDS write, TCP read) works identically
+
+### Path 5: Signal subscription
+
+1. Client A subscribes to a signal via gRPC (TCP or UDS)
+2. Client B sets the signal via gRPC (either transport)
+3. DATA_BROKER delivers an update notification to Client A's subscription stream
 
 ## Components and Interfaces
 
-### Compose Service Configuration
+### Kuksa Databroker gRPC API (provided by container)
 
-The databroker service in `deployments/compose.yml` is updated from the spec 01 skeleton:
+The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 
-```yaml
-services:
-  databroker:
-    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1
-    ports:
-      - "55556:55555"
-    volumes:
-      - ./vss-overlay.json:/etc/kuksa/vss-overlay.json
-      - kuksa-uds:/tmp
-    command:
-      - "--metadata"
-      - "/etc/kuksa/vss-overlay.json"
-      - "--address"
-      - "0.0.0.0:55555"
-      - "--uds-path"
-      - "/tmp/kuksa-databroker.sock"
+| Method | Description | Used By |
+|--------|-------------|---------|
+| `Set` | Set one or more signal values | All producers (sensors, services) |
+| `Get` | Get current value of one or more signals | All consumers |
+| `Subscribe` | Stream updates for one or more signals | Services watching for state changes |
+| `GetMetadata` | Query signal metadata (type, description, access) | Integration tests, introspection |
 
-volumes:
-  kuksa-uds:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /tmp/kuksa
-```
+### Compose service interface
 
-### Kuksa Databroker gRPC Interface (pre-built, not implemented)
-
-The databroker exposes the `kuksa.val.v1` gRPC API:
-
-| RPC | Description |
-|-----|-------------|
-| `Get(GetRequest)` | Get current value of one or more signals |
-| `Set(SetRequest)` | Set value of one or more signals |
-| `Subscribe(SubscribeRequest)` | Subscribe to value changes of signals |
-| `GetMetadata(GetMetadataRequest)` | Get signal metadata (type, description) |
-
-### Signal Catalog
-
-| Signal Path | Datatype | Source | Custom | Access |
-|-------------|----------|--------|--------|--------|
-| `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` | bool | Standard VSS v5.1 | No | R/W |
-| `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` | bool | Standard VSS v5.1 | No | R/W |
-| `Vehicle.CurrentLocation.Latitude` | double | Standard VSS v5.1 | No | R/W |
-| `Vehicle.CurrentLocation.Longitude` | double | Standard VSS v5.1 | No | R/W |
-| `Vehicle.Speed` | float | Standard VSS v5.1 | No | R/W |
-| `Vehicle.Parking.SessionActive` | bool | VSS overlay | Yes | R/W |
-| `Vehicle.Command.Door.Lock` | string | VSS overlay | Yes | R/W |
-| `Vehicle.Command.Door.Response` | string | VSS overlay | Yes | R/W |
+| Property | Value |
+|----------|-------|
+| Service name | `databroker` |
+| Image | `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` |
+| Ports | `55556:55555` |
+| Volumes | Overlay file (read-only), UDS socket directory (read-write) |
+| Command | `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` + overlay args |
 
 ## Data Models
 
-### VSS Overlay (deployments/vss-overlay.json)
+### VSS Signal Registry
 
-Already created by spec 01. Contains three custom signal definitions:
+| Signal Path | Type | Source | Origin |
+|-------------|------|--------|--------|
+| `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` | bool | Standard VSS v5.1 | Built-in |
+| `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` | bool | Standard VSS v5.1 | Built-in |
+| `Vehicle.CurrentLocation.Latitude` | double | Standard VSS v5.1 | Built-in |
+| `Vehicle.CurrentLocation.Longitude` | double | Standard VSS v5.1 | Built-in |
+| `Vehicle.Speed` | float | Standard VSS v5.1 | Built-in |
+| `Vehicle.Parking.SessionActive` | boolean | Custom overlay | Overlay file |
+| `Vehicle.Command.Door.Lock` | string | Custom overlay | Overlay file |
+| `Vehicle.Command.Door.Response` | string | Custom overlay | Overlay file |
 
-```json
-{
-  "Vehicle": {
-    "type": "branch",
-    "children": {
-      "Parking": {
-        "type": "branch",
-        "children": {
-          "SessionActive": {
-            "type": "sensor",
-            "datatype": "boolean",
-            "description": "Whether a parking session is currently active"
-          }
-        }
-      },
-      "Command": {
-        "type": "branch",
-        "children": {
-          "Door": {
-            "type": "branch",
-            "children": {
-              "Lock": {
-                "type": "actuator",
-                "datatype": "string",
-                "description": "JSON-encoded lock/unlock command request"
-              },
-              "Response": {
-                "type": "sensor",
-                "datatype": "string",
-                "description": "JSON-encoded command execution result"
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
+### Custom Signal Payloads
 
-### Lock Command Payload Schema
-
+**Vehicle.Command.Door.Lock** (JSON string):
 ```json
 {
   "command_id": "<uuid>",
@@ -182,8 +148,7 @@ Already created by spec 01. Contains three custom signal definitions:
 }
 ```
 
-### Command Response Payload Schema
-
+**Vehicle.Command.Door.Response** (JSON string):
 ```json
 {
   "command_id": "<uuid>",
@@ -193,84 +158,94 @@ Already created by spec 01. Contains three custom signal definitions:
 }
 ```
 
-## Operational Readiness
-
-- **Health check:** The databroker exposes its gRPC interface on startup. A simple `grpcurl` or `kuksa-client` call to `Get` verifies readiness.
-- **Startup time:** Kuksa Databroker typically starts in < 2 seconds. Integration tests use a retry loop with 10-second timeout.
-- **Rollback:** Revert compose.yml changes via `git checkout`. No persistent state beyond the container lifecycle.
-- **Logs:** Container logs available via `podman logs databroker`.
-
 ## Correctness Properties
 
-### Property 1: Dual Listener Availability
+### Property 1: Signal completeness
 
-*For any* running instance of the databroker container, the databroker SHALL accept gRPC connections on both the TCP port (55556 from host) and the UDS socket (`/tmp/kuksa-databroker.sock`) simultaneously.
+*For any* valid VSS signal in the set of 8 expected signals, querying the DATA_BROKER metadata SHALL return a valid entry with the correct data type.
 
-**Validates: Requirements 02-REQ-1.1, 02-REQ-1.2, 02-REQ-1.4**
+**Validates:** 02-REQ-5, 02-REQ-6
 
-### Property 2: Custom Signal Completeness
+### Property 2: Cross-transport consistency
 
-*For any* custom signal defined in the VSS overlay (`Vehicle.Parking.SessionActive`, `Vehicle.Command.Door.Lock`, `Vehicle.Command.Door.Response`), the running databroker SHALL expose that signal in its metadata with the correct datatype.
+*For any* signal value written via one transport (TCP or UDS), reading that signal via the other transport SHALL return the identical value.
 
-**Validates: Requirements 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.3**
+**Validates:** 02-REQ-4, 02-REQ-9
 
-### Property 3: Standard Signal Availability
+### Property 3: Write-read idempotency
 
-*For any* standard VSS signal listed in the signal catalog (`Vehicle.Cabin.Door.Row1.DriverSide.IsLocked`, `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen`, `Vehicle.CurrentLocation.Latitude`, `Vehicle.CurrentLocation.Longitude`, `Vehicle.Speed`), the running databroker SHALL expose that signal in its metadata with the correct datatype.
+*For any* signal, setting a value and immediately getting it SHALL return exactly the value that was set, with no transformation or loss.
 
-**Validates: Requirements 02-REQ-4.1, 02-REQ-4.2, 02-REQ-4.3, 02-REQ-4.4, 02-REQ-4.5**
+**Validates:** 02-REQ-8, 02-REQ-9
 
-### Property 4: Set/Get Roundtrip Integrity
+### Property 4: Subscription delivery
 
-*For any* signal in the catalog and any valid value for that signal's datatype, setting the value via gRPC and immediately reading it back SHALL return the identical value.
+*For any* active subscription on a signal, a value change on that signal SHALL be delivered to the subscriber exactly once per change.
 
-**Validates: Requirements 02-REQ-3.4, 02-REQ-5.2, 02-REQ-5.3**
-
-### Property 5: Pub/Sub Notification Delivery
-
-*For any* active subscription on a signal, when a client sets a new value for that signal, the subscriber SHALL receive a notification containing the new value.
-
-**Validates: Requirements 02-REQ-5.1**
+**Validates:** 02-REQ-10
 
 ## Error Handling
 
-| Error Condition | Behavior | Requirement |
+| Error Condition | Handling | Requirement |
 |----------------|----------|-------------|
-| UDS socket file exists from previous run | Databroker overwrites and starts | 02-REQ-1.E1 |
-| Concurrent TCP and UDS clients | Both served independently | 02-REQ-1.E2 |
-| Pinned image not in registry | `podman compose up` fails with pull error | 02-REQ-2.E1 |
-| Malformed VSS overlay JSON | Container fails to start, logs error | 02-REQ-3.E1 |
-| Get on unset custom signal | Returns response with no value | 02-REQ-3.E2 |
-| Query non-existent signal path | Returns NOT_FOUND error | 02-REQ-4.E1 |
-| Subscriber disconnects and reconnects | New subscription accepted | 02-REQ-5.E1 |
+| Image not available (pull failure) | Compose fails with pull error, no fallback | 02-REQ-1.E1 |
+| Port 55556 already in use | Compose fails with port-conflict error | 02-REQ-2.E1 |
+| Stale UDS socket from previous run | Kuksa replaces socket automatically | 02-REQ-3.E2 |
+| Overlay file has syntax error | Kuksa fails to start, logs parse error | 02-REQ-6.E1 |
+| Overlay file missing | Kuksa fails to start, logs file-not-found | 02-REQ-6.E2 |
+| Set non-existent signal | gRPC NOT_FOUND error returned | 02-REQ-8.E1 |
+| UDS disconnection mid-operation | gRPC UNAVAILABLE error to client | 02-REQ-9.E1 |
+| One listener fails to bind | Kuksa exits non-zero, logs error | 02-REQ-4.E1 |
 
 ## Technology Stack
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| Eclipse Kuksa Databroker | 0.5.1 (container) | VSS-compliant vehicle signal broker |
-| Podman Compose | latest | Container orchestration |
-| Go | 1.22+ | Integration test module |
-| gRPC | proto3 | Databroker communication protocol |
-| kuksa-client (or grpcurl) | latest | CLI tool for databroker interaction in tests |
+| Eclipse Kuksa Databroker | 0.5.1 | Vehicle signal broker (pre-built container) |
+| Podman Compose | latest | Container orchestration for local development |
+| gRPC / Protocol Buffers | v2 API | Signal read/write/subscribe interface |
+| COVESA VSS | 5.1 | Vehicle Signal Specification standard |
+| Go | 1.22+ | Integration test implementation |
+| kuksa-client or grpcurl | latest | CLI tools for ad-hoc signal operations |
 
 ## Definition of Done
 
-A task group is complete when ALL of the following are true:
-
-1. All subtasks within the group are checked off (`[x]`)
-2. All spec tests (`test_spec.md` entries) for the task group pass
-3. All property tests for the task group pass
-4. All previously passing tests still pass (no regressions)
-5. No linter warnings or errors introduced
-6. Code is committed on a feature branch and pushed to remote
-7. Feature branch is merged back to `main`
-8. `tasks.md` checkboxes are updated to reflect completion
+1. `deployments/compose.yml` updated with pinned image (`0.5.1`), dual listener args, port mapping (`55556:55555`), and volume mounts (overlay file, UDS socket directory).
+2. VSS overlay file validated: 3 custom signals with correct types loadable by the databroker.
+3. `podman compose up databroker` starts successfully with both TCP and UDS listeners active.
+4. All 8 VSS signals (5 standard + 3 custom) queryable via metadata introspection.
+5. Signal set/get works via TCP (host port 55556).
+6. Signal set/get works via UDS (`/tmp/kuksa-databroker.sock`).
+7. Cross-transport consistency verified (write TCP, read UDS and vice versa).
+8. Signal subscription delivers notifications on value change.
+9. All integration tests pass.
+10. No token authentication required (permissive mode).
 
 ## Testing Strategy
 
-- **Integration tests:** All tests for this spec are integration tests that require a running databroker container. They live in `tests/databroker/` as a standalone Go module.
-- **Container lifecycle:** Tests use `podman compose up -d` to start the databroker, run gRPC assertions, then `podman compose down` to clean up. A shared `TestMain` handles setup/teardown.
-- **gRPC client:** Tests use the Kuksa `kuksa.val.v1` gRPC API directly (generated Go client from Kuksa proto definitions) or shell out to `grpcurl`/`kuksa-client` CLI.
-- **Skip condition:** Tests skip with a clear message if Podman is not available (`testing.Short()` or runtime detection).
-- **UDS tests:** Tests that verify UDS connectivity connect to the socket path exposed via the volume mount at `/tmp/kuksa/kuksa-databroker.sock` on the host.
+Integration tests are the primary verification mechanism since there is no custom application code. Tests are implemented in Go under `tests/databroker/` and use gRPC client libraries to interact with the DATA_BROKER container.
+
+### Test categories
+
+| Category | Scope | Transport |
+|----------|-------|-----------|
+| Connectivity | Verify gRPC channel establishment | TCP, UDS |
+| Metadata | Verify all 8 signals present with correct types | TCP |
+| Read/Write | Verify set/get roundtrip for each signal type | TCP, UDS |
+| Cross-transport | Verify write on one transport, read on other | TCP + UDS |
+| Subscription | Verify subscription notifications delivered | TCP, UDS |
+| Smoke | Quick health check for CI | TCP |
+
+### Test execution
+
+Tests require a running DATA_BROKER container. The test harness starts the container via `podman compose up databroker`, waits for readiness, executes tests, and tears down the container.
+
+## Operational Readiness
+
+| Aspect | Approach |
+|--------|----------|
+| Health check | gRPC connectivity check to TCP port 55556 |
+| Logging | Kuksa Databroker stdout/stderr via `podman compose logs databroker` |
+| Startup verification | Integration tests confirm both listeners and all signals available |
+| Resource cleanup | `podman compose down` removes container and UDS socket |
+| Reproducibility | Pinned image version ensures consistent behavior |

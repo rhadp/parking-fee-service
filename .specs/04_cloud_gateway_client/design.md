@@ -1,294 +1,394 @@
-# Design Document: CLOUD_GATEWAY_CLIENT
+# Design: CLOUD_GATEWAY_CLIENT
 
 ## Overview
 
-The CLOUD_GATEWAY_CLIENT is a Rust binary (`rhivos/cloud-gateway-client`) that bridges the vehicle's DATA_BROKER with the cloud-based CLOUD_GATEWAY. It runs two concurrent async tasks: (1) a command handler that subscribes to NATS commands, validates them, and forwards to DATA_BROKER; (2) a telemetry/response handler that subscribes to DATA_BROKER signals and publishes changes to NATS. Both tasks share a tokio runtime and are managed by a main loop that handles graceful shutdown.
+The CLOUD_GATEWAY_CLIENT is a Rust service running in the RHIVOS safety partition that bridges the vehicle's DATA_BROKER (Eclipse Kuksa Databroker) with the cloud-based CLOUD_GATEWAY via NATS messaging. It implements three data flows: (1) inbound command processing (NATS to DATA_BROKER), (2) outbound command response relay (DATA_BROKER to NATS), and (3) outbound telemetry publishing (DATA_BROKER to NATS).
+
+The service is structured as a single async Rust binary using tokio, with dedicated modules for NATS communication, DATA_BROKER gRPC interaction, command validation, and telemetry aggregation. All inter-service communication within the safety partition goes through DATA_BROKER -- the service never calls LOCKING_SERVICE directly.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Cloud["Cloud"]
-        CG["CLOUD_GATEWAY"]
-        NATS["NATS Server :4222"]
+    subgraph NATS["NATS Server"]
+        CMD_SUB["vehicles.{VIN}.commands"]
+        CMD_RSP["vehicles.{VIN}.command_responses"]
+        TELEM["vehicles.{VIN}.telemetry"]
+        STATUS["vehicles.{VIN}.status"]
     end
 
-    subgraph SafetyPartition["RHIVOS Safety Partition"]
-        CGC["CLOUD_GATEWAY_CLIENT"]
-        DB["DATA_BROKER"]
-        LS["LOCKING_SERVICE"]
+    subgraph CGC["CLOUD_GATEWAY_CLIENT"]
+        CONFIG["config"]
+        NATS_MOD["nats_client"]
+        BROKER["broker_client"]
+        VALIDATOR["command_validator"]
+        TELEMETRY["telemetry"]
+        MAIN["main"]
     end
 
-    CG <-->|NATS| NATS
-    NATS <-->|async-nats| CGC
-    CGC <-->|gRPC UDS/TCP| DB
-    LS <-->|gRPC UDS| DB
+    subgraph DB["DATA_BROKER (Kuksa)"]
+        CMD_SIGNAL["Vehicle.Command.Door.Lock"]
+        RSP_SIGNAL["Vehicle.Command.Door.Response"]
+        LOCK_STATE["Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"]
+        LAT["Vehicle.CurrentLocation.Latitude"]
+        LON["Vehicle.CurrentLocation.Longitude"]
+        PARK["Vehicle.Parking.SessionActive"]
+    end
 
-    CGC -->|"set Vehicle.Command.Door.Lock"| DB
-    DB -->|"subscribe Vehicle.Command.Door.Response"| CGC
-    DB -->|"subscribe IsLocked, Location, SessionActive"| CGC
+    CMD_SUB -->|subscribe| NATS_MOD
+    NATS_MOD -->|validated command| VALIDATOR
+    VALIDATOR -->|SetRequest| BROKER
+    BROKER -->|write| CMD_SIGNAL
+
+    RSP_SIGNAL -->|subscribe stream| BROKER
+    BROKER -->|response JSON| NATS_MOD
+    NATS_MOD -->|publish| CMD_RSP
+
+    LOCK_STATE -->|subscribe stream| BROKER
+    LAT -->|subscribe stream| BROKER
+    LON -->|subscribe stream| BROKER
+    PARK -->|subscribe stream| BROKER
+    BROKER -->|signal change| TELEMETRY
+    TELEMETRY -->|aggregated JSON| NATS_MOD
+    NATS_MOD -->|publish| TELEM
+
+    MAIN -->|startup| NATS_MOD
+    MAIN -->|startup| BROKER
+    NATS_MOD -->|publish| STATUS
+    CONFIG -->|env vars| MAIN
 ```
 
-```mermaid
-sequenceDiagram
-    participant CA as COMPANION_APP
-    participant CG as CLOUD_GATEWAY
-    participant NATS as NATS
-    participant CGC as CLOUD_GATEWAY_CLIENT
-    participant DB as DATA_BROKER
-    participant LS as LOCKING_SERVICE
+## Module Responsibilities
 
-    Note over CGC: Startup
-    CGC->>DB: Connect (gRPC)
-    CGC->>NATS: Connect
-    CGC->>NATS: Publish(vehicles.{VIN}.status, online)
-    CGC->>NATS: Subscribe(vehicles.{VIN}.commands)
-    CGC->>DB: Subscribe(Response, IsLocked, Location, SessionActive)
+### `main` (src/main.rs)
 
-    Note over CA,LS: Lock Command Flow
-    CA->>CG: POST /vehicles/{VIN}/lock
-    CG->>NATS: Publish(vehicles.{VIN}.commands, {command + auth header})
-    NATS->>CGC: Message(command payload + Authorization header)
-    CGC->>CGC: Validate bearer token
-    CGC->>CGC: Validate command JSON
-    CGC->>DB: Set(Vehicle.Command.Door.Lock, command_json)
-    DB->>LS: Notification(command)
-    LS->>DB: Set(IsLocked, true)
-    LS->>DB: Set(Vehicle.Command.Door.Response, success_json)
-    DB->>CGC: Notification(Response changed)
-    CGC->>NATS: Publish(vehicles.{VIN}.command_responses, success_json)
-    NATS->>CG: Message(response)
-    CG->>CA: 200 OK {response}
+Entry point. Reads configuration, orchestrates startup sequence, spawns async tasks for command processing, response relay, and telemetry publishing. Handles graceful shutdown.
 
-    Note over CGC,DB: Telemetry Flow
-    DB->>CGC: Notification(IsLocked changed)
-    CGC->>NATS: Publish(vehicles.{VIN}.telemetry, aggregated_json)
+### `config` (src/config.rs)
+
+Reads and validates environment variables. Returns a typed `Config` struct or exits with code 1 if `VIN` is missing.
+
+### `nats_client` (src/nats_client.rs)
+
+Manages the NATS connection lifecycle: connect with retry, subscribe to commands, publish responses/telemetry/status. Encapsulates all `async-nats` API usage.
+
+### `broker_client` (src/broker_client.rs)
+
+Manages the DATA_BROKER gRPC connection. Provides methods to write command signals, subscribe to telemetry signals, and subscribe to command response signals. Encapsulates all `tonic` gRPC usage.
+
+### `command_validator` (src/command_validator.rs)
+
+Validates bearer tokens and command payload structure. Pure functions with no I/O dependencies.
+
+### `telemetry` (src/telemetry.rs)
+
+Maintains current telemetry state. Accepts signal updates and produces aggregated JSON payloads, omitting fields that have never been set.
+
+## Execution Paths
+
+### Path 1: Startup
+
+```
+main::main()
+  -> config::Config::from_env() -> Result<Config, ConfigError>
+  -> nats_client::NatsClient::connect(&config) -> Result<NatsClient, NatsError>
+     (retries: 1s, 2s, 4s, up to 5 attempts)
+  -> broker_client::BrokerClient::connect(&config) -> Result<BrokerClient, BrokerError>
+  -> nats_client::NatsClient::publish_registration(&self) -> Result<(), NatsError>
+  -> spawn command_loop task
+  -> spawn response_relay task
+  -> spawn telemetry_loop task
 ```
 
-### Module Responsibilities
+### Path 2: Command Processing (inbound)
 
-1. **main** — Entry point: parses config, connects to NATS and DATA_BROKER, spawns command and telemetry tasks, handles shutdown signals.
-2. **config** — Configuration parsing: reads VIN, NATS_URL, DATABROKER_ADDR, BEARER_TOKEN from environment.
-3. **command** — Command handling: validates bearer tokens, parses/validates command JSON, forwards to DATA_BROKER.
-4. **telemetry** — Telemetry aggregation: subscribes to DATA_BROKER signals, builds and publishes aggregated telemetry messages to NATS.
-5. **relay** — Response relay: subscribes to `Vehicle.Command.Door.Response` in DATA_BROKER, publishes changes to NATS.
-6. **broker** — DATA_BROKER client abstraction: wraps tonic-generated kuksa.val.v1 gRPC client (shared with or similar to spec 03's broker module).
-7. **nats_client** — NATS client wrapper: connection management, publish/subscribe helpers, header access.
+```
+nats_client::NatsClient::next_command(&self) -> Option<NatsMessage>
+  -> command_validator::validate_bearer_token(&message, &config) -> Result<(), AuthError>
+  -> command_validator::validate_command_payload(&payload) -> Result<CommandPayload, ValidationError>
+  -> broker_client::BrokerClient::write_command(&self, &payload) -> Result<(), BrokerError>
+```
+
+### Path 3: Command Response Relay (outbound)
+
+```
+broker_client::BrokerClient::subscribe_responses(&self) -> Stream<Result<String, BrokerError>>
+  -> (for each response JSON string)
+  -> nats_client::NatsClient::publish_response(&self, &json) -> Result<(), NatsError>
+```
+
+### Path 4: Telemetry Publishing (outbound)
+
+```
+broker_client::BrokerClient::subscribe_telemetry(&self) -> Stream<Result<SignalUpdate, BrokerError>>
+  -> telemetry::TelemetryState::update(&mut self, signal_update) -> Option<String>
+     (returns Some(json) if state changed, None if duplicate)
+  -> nats_client::NatsClient::publish_telemetry(&self, &json) -> Result<(), NatsError>
+```
 
 ## Components and Interfaces
 
-### CLI Interface
-
-```
-$ cloud-gateway-client
-cloud-gateway-client v0.1.0 - Vehicle-to-cloud NATS bridge
-
-Usage: cloud-gateway-client
-
-Environment:
-  VIN              Vehicle identification number (required)
-  NATS_URL         NATS server URL (default: nats://localhost:4222)
-  DATABROKER_ADDR  DATA_BROKER gRPC address (default: http://localhost:55556)
-  BEARER_TOKEN     Expected bearer token for command auth (default: demo-token)
-```
-
-### Core Data Types
+### Config
 
 ```rust
-struct Config {
-    vin: String,
-    nats_url: String,
-    databroker_addr: String,
-    bearer_token: String,
-}
-
-/// Incoming command from NATS
-struct IncomingCommand {
-    command_id: String,
-    action: String,
-    doors: Option<Vec<String>>,
-    source: Option<String>,
-    vin: Option<String>,
-    timestamp: Option<i64>,
-}
-
-/// Aggregated telemetry published to NATS
-struct TelemetryMessage {
-    vin: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    is_locked: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    latitude: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    longitude: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    parking_active: Option<bool>,
-    timestamp: i64,
-}
-
-/// Registration message published on startup
-struct RegistrationMessage {
-    vin: String,
-    status: String,  // "online"
-    timestamp: i64,
+pub struct Config {
+    pub vin: String,
+    pub nats_url: String,        // default: "nats://localhost:4222"
+    pub databroker_addr: String,  // default: "http://localhost:55556"
+    pub bearer_token: String,     // default: "demo-token"
 }
 ```
 
-### Module Interfaces
+### NatsClient
 
 ```rust
-// config module
-fn load_config() -> Result<Config, ConfigError>;
-
-// command module
-fn validate_bearer_token(header: Option<&str>, expected: &str) -> bool;
-fn parse_and_validate_command(payload: &[u8]) -> Result<IncomingCommand, CommandError>;
-
-// telemetry module
-fn build_telemetry(vin: &str, state: &TelemetryState) -> TelemetryMessage;
-struct TelemetryState {
-    is_locked: Option<bool>,
-    latitude: Option<f64>,
-    longitude: Option<f64>,
-    parking_active: Option<bool>,
-}
-
-// relay module (async)
-async fn relay_responses(broker: &BrokerClient, nats: &NatsClient, vin: &str) -> Result<(), RelayError>;
-
-// nats_client module
-struct NatsClient { /* wraps async_nats::Client */ }
 impl NatsClient {
-    async fn connect(url: &str) -> Result<Self, NatsError>;
-    async fn subscribe(&self, subject: &str) -> Result<Subscription, NatsError>;
-    async fn publish(&self, subject: &str, payload: &[u8]) -> Result<(), NatsError>;
-    async fn publish_with_headers(&self, subject: &str, headers: HeaderMap, payload: &[u8]) -> Result<(), NatsError>;
+    pub async fn connect(config: &Config) -> Result<Self, NatsError>;
+    pub async fn publish_registration(&self) -> Result<(), NatsError>;
+    pub async fn subscribe_commands(&self) -> Result<Subscriber, NatsError>;
+    pub async fn publish_response(&self, json: &str) -> Result<(), NatsError>;
+    pub async fn publish_telemetry(&self, json: &str) -> Result<(), NatsError>;
+}
+```
+
+### BrokerClient
+
+```rust
+impl BrokerClient {
+    pub async fn connect(config: &Config) -> Result<Self, BrokerError>;
+    pub async fn write_command(&self, payload: &str) -> Result<(), BrokerError>;
+    pub async fn subscribe_responses(&self) -> Result<impl Stream<Item = Result<String, BrokerError>>, BrokerError>;
+    pub async fn subscribe_telemetry(&self) -> Result<impl Stream<Item = Result<SignalUpdate, BrokerError>>, BrokerError>;
+}
+```
+
+### CommandValidator
+
+```rust
+pub fn validate_bearer_token(headers: &HeaderMap, expected: &str) -> Result<(), AuthError>;
+pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError>;
+```
+
+### TelemetryState
+
+```rust
+impl TelemetryState {
+    pub fn new(vin: String) -> Self;
+    pub fn update(&mut self, signal: SignalUpdate) -> Option<String>;
 }
 ```
 
 ## Data Models
 
-### Configuration
+### CommandPayload
 
-| Env Var | Default | Required | Description |
-|---------|---------|----------|-------------|
-| `VIN` | — | Yes | Vehicle identification number |
-| `NATS_URL` | `nats://localhost:4222` | No | NATS server URL |
-| `DATABROKER_ADDR` | `http://localhost:55556` | No | DATA_BROKER gRPC endpoint |
-| `BEARER_TOKEN` | `demo-token` | No | Expected bearer token for command auth |
-
-### NATS Subjects
-
-| Subject | Direction | Payload |
-|---------|-----------|---------|
-| `vehicles.{VIN}.commands` | Subscribe | Command JSON (with `Authorization` header) |
-| `vehicles.{VIN}.command_responses` | Publish | Response JSON (verbatim from DATA_BROKER) |
-| `vehicles.{VIN}.telemetry` | Publish | Aggregated telemetry JSON |
-| `vehicles.{VIN}.status` | Publish (once) | Registration JSON |
-
-### Telemetry Payload
-
-```json
-{
-  "vin": "WDB123456789",
-  "is_locked": true,
-  "latitude": 48.8566,
-  "longitude": 2.3522,
-  "parking_active": true,
-  "timestamp": 1700000000
+```rust
+#[derive(Debug, Deserialize)]
+pub struct CommandPayload {
+    pub command_id: String,
+    pub action: String,       // "lock" or "unlock"
+    pub doors: Vec<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 ```
 
-## Operational Readiness
+### CommandResponse
 
-- **Startup logging:** Service logs version, VIN, NATS URL, DATA_BROKER address, and ready status.
-- **Shutdown:** Handles SIGTERM/SIGINT, drains NATS connection, closes gRPC channel.
-- **Health:** Service is healthy if both NATS and DATA_BROKER connections are active. No separate health endpoint.
-- **Rollback:** Revert to skeleton binary via `git checkout`. No persistent state.
+```rust
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CommandResponse {
+    pub command_id: String,
+    pub status: String,       // "success" or "failed"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    pub timestamp: u64,
+}
+```
+
+### TelemetryMessage
+
+```rust
+#[derive(Debug, Serialize)]
+pub struct TelemetryMessage {
+    pub vin: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_locked: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latitude: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub longitude: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parking_active: Option<bool>,
+    pub timestamp: u64,
+}
+```
+
+### RegistrationMessage
+
+```rust
+#[derive(Debug, Serialize)]
+pub struct RegistrationMessage {
+    pub vin: String,
+    pub status: String,  // "online"
+    pub timestamp: u64,
+}
+```
+
+### SignalUpdate
+
+```rust
+pub enum SignalUpdate {
+    IsLocked(bool),
+    Latitude(f64),
+    Longitude(f64),
+    ParkingActive(bool),
+}
+```
+
+### Error Types
+
+```rust
+pub enum ConfigError {
+    MissingVin,
+}
+
+pub enum NatsError {
+    ConnectionFailed(String),
+    RetriesExhausted,
+    PublishFailed(String),
+    SubscribeFailed(String),
+}
+
+pub enum AuthError {
+    MissingHeader,
+    InvalidToken,
+}
+
+pub enum ValidationError {
+    InvalidJson(String),
+    MissingField(String),
+    InvalidAction(String),
+}
+
+pub enum BrokerError {
+    ConnectionFailed(String),
+    WriteFailed(String),
+    SubscribeFailed(String),
+}
+```
 
 ## Correctness Properties
 
-### Property 1: Command Authentication Gate
+### Property 1: Command Authentication Integrity
 
-*For any* NATS message received on `vehicles.{VIN}.commands`, the CLOUD_GATEWAY_CLIENT SHALL forward the command to DATA_BROKER if and only if the `Authorization` header contains a bearer token matching the configured `BEARER_TOKEN`.
+*For any* NATS message received on `vehicles.{VIN}.commands`, the system writes to DATA_BROKER *only if* the message contains an `Authorization` header with a value matching `Bearer <configured_token>`.
 
-**Validates: Requirements 04-REQ-2.1, 04-REQ-2.E1**
+**Validates:** [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
 
-### Property 2: Command Validation Completeness
+### Property 2: Command Structural Validity
 
-*For any* NATS message payload that passes token validation, the CLOUD_GATEWAY_CLIENT SHALL forward it to DATA_BROKER if and only if the payload is valid JSON containing a non-empty `command_id` and an `action` value of `"lock"` or `"unlock"`.
+*For any* command that passes authentication, the system writes to DATA_BROKER *only if* the payload is valid JSON containing a non-empty `command_id`, an `action` of `"lock"` or `"unlock"`, and a `doors` array.
 
-**Validates: Requirements 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.E2, 04-REQ-2.E3**
+**Validates:** [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.3], [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
 
-### Property 3: Response Relay Fidelity
+### Property 3: Command Passthrough Fidelity
 
-*For any* change to `Vehicle.Command.Door.Response` in DATA_BROKER, the CLOUD_GATEWAY_CLIENT SHALL publish the exact same JSON string to `vehicles.{VIN}.command_responses` on NATS.
+*For any* validated command, the payload written to `Vehicle.Command.Door.Lock` in DATA_BROKER is identical to the original payload received from NATS. The service does not modify, enrich, or strip fields.
 
-**Validates: Requirements 04-REQ-3.1, 04-REQ-3.2**
+**Validates:** [04-REQ-6.3], [04-REQ-6.4]
 
-### Property 4: Telemetry Aggregation
+### Property 4: Response Relay Fidelity
 
-*For any* change to a subscribed telemetry signal in DATA_BROKER, the CLOUD_GATEWAY_CLIENT SHALL publish an aggregated telemetry message to NATS containing the VIN, all currently known signal values, and a timestamp.
+*For any* change to `Vehicle.Command.Door.Response` in DATA_BROKER, the JSON value is published verbatim to `vehicles.{VIN}.command_responses` on NATS without modification.
 
-**Validates: Requirements 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3**
+**Validates:** [04-REQ-7.1], [04-REQ-7.2]
 
-### Property 5: VIN Subject Consistency
+### Property 5: Telemetry Completeness
 
-*For any* NATS subject used by the service (commands, command_responses, telemetry, status), the subject SHALL contain the configured VIN.
+*For any* change to a subscribed telemetry signal, the system publishes an aggregated JSON message to NATS that includes all currently known signal values and omits signals that have never been set.
 
-**Validates: Requirements 04-REQ-1.2, 04-REQ-6.1**
+**Validates:** [04-REQ-8.1], [04-REQ-8.2], [04-REQ-8.3]
 
-### Property 6: Graceful Shutdown Completeness
+### Property 6: Startup Determinism
 
-*For any* SIGTERM/SIGINT received by the service, the service SHALL close NATS and DATA_BROKER connections and exit with code 0.
+*For any* execution of the service, initialization proceeds in strict order (config, NATS, DATA_BROKER, registration, processing) and a failure at any step prevents subsequent steps from executing.
 
-**Validates: Requirements 04-REQ-7.1**
+**Validates:** [04-REQ-9.1], [04-REQ-9.2]
 
 ## Error Handling
 
-| Error Condition | Behavior | Requirement |
-|----------------|----------|-------------|
-| NATS unreachable on startup | Retry with exponential backoff, exit after 5 attempts | 04-REQ-1.E1 |
-| NATS connection lost | Reconnect up to 3 times, then exit | 04-REQ-1.E2 |
-| Bearer token missing/invalid | Log rejection, discard command | 04-REQ-2.E1 |
-| Invalid JSON payload | Log error, discard command | 04-REQ-2.E2 |
-| Missing required command field | Log error, discard command | 04-REQ-2.E3 |
-| Response NATS publish fails | Log error, continue | 04-REQ-3.E1 |
-| Telemetry signal never set | Omit field from payload | 04-REQ-4.E1 |
-| Telemetry NATS publish fails | Log error, continue | 04-REQ-4.E2 |
-| DATA_BROKER unreachable on startup | Retry with exponential backoff, exit after 5 attempts | 04-REQ-5.E1 |
-| VIN env var not set | Exit with code 1, log error | 04-REQ-6.E1 |
-| SIGTERM during command processing | Complete in-flight command, then exit 0 | 04-REQ-7.E1 |
+| Error Condition | Handling Strategy | Req ID |
+|----------------|-------------------|--------|
+| `VIN` env var missing | Log error, exit with code 1 | [04-REQ-1.E1] |
+| NATS connection fails | Retry with exponential backoff (1s, 2s, 4s), max 5 attempts | [04-REQ-2.2] |
+| NATS retries exhausted | Log error, exit with code 1 | [04-REQ-2.E1] |
+| DATA_BROKER connection fails | Log error, exit with code 1 | [04-REQ-3.E1] |
+| Missing Authorization header | Log warning, discard message | [04-REQ-5.E1] |
+| Invalid bearer token | Log warning, discard message | [04-REQ-5.E2] |
+| Invalid JSON payload | Log warning, discard message | [04-REQ-6.E1] |
+| Missing required command field | Log warning, discard message | [04-REQ-6.E2] |
+| Invalid action value | Log warning, discard message | [04-REQ-6.E3] |
+| Invalid response JSON from DATA_BROKER | Log error, skip NATS publish | [04-REQ-7.E1] |
+| NATS publish failure (telemetry/response) | Log error, continue processing | [04-REQ-10.4] |
+| DATA_BROKER write failure | Log error, continue processing | [04-REQ-10.4] |
 
 ## Technology Stack
 
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| Rust | edition 2021 | Service implementation |
-| tokio | 1.x | Async runtime |
-| async-nats | 0.33+ | NATS client |
-| tonic | 0.11+ | gRPC client (DATA_BROKER) |
-| prost | 0.12+ | Protocol Buffer code generation |
-| serde / serde_json | 1.x | JSON serialization |
-| tracing | 0.1+ | Structured logging |
-| kuksa.val.v1 proto | — | Kuksa Databroker gRPC API definitions (vendored) |
+| Component | Technology | Version/Notes |
+|-----------|-----------|---------------|
+| Language | Rust | Edition 2021 |
+| Async runtime | tokio | Multi-threaded runtime |
+| NATS client | async-nats | Latest stable |
+| gRPC client | tonic | With UDS support |
+| Serialization | serde, serde_json | JSON payloads |
+| Logging | tracing, tracing-subscriber | Structured logging |
+| Build | Cargo | Part of rhivos workspace |
 
 ## Definition of Done
 
-A task group is complete when ALL of the following are true:
-
-1. All subtasks within the group are checked off (`[x]`)
-2. All spec tests (`test_spec.md` entries) for the task group pass
-3. All property tests for the task group pass
-4. All previously passing tests still pass (no regressions)
-5. No linter warnings or errors introduced
-6. Code is committed on a feature branch and pushed to remote
-7. Feature branch is merged back to `main`
-8. `tasks.md` checkboxes are updated to reflect completion
+1. All unit tests pass (`cargo test -p cloud-gateway-client`).
+2. All integration tests pass with NATS and DATA_BROKER containers running.
+3. Service connects to NATS, subscribes to commands, and publishes to all required subjects.
+4. Service connects to DATA_BROKER via gRPC and reads/writes all required VSS signals.
+5. Bearer token validation rejects invalid/missing tokens.
+6. Command validation enforces required fields and valid action values.
+7. Telemetry publishes on-change with field omission for unset signals.
+8. Command responses are relayed verbatim from DATA_BROKER to NATS.
+9. Self-registration message published on startup.
+10. Exponential backoff retry for NATS connection works correctly.
+11. Structured logging at appropriate levels for all operations.
 
 ## Testing Strategy
 
-- **Unit tests:** The `config`, `command`, and `telemetry` modules are pure functions testable without external services. Tests use `#[test]` with serde_json and mock NATS headers.
-- **Integration tests:** A `tests/cloud-gateway-client/` Go module starts NATS and databroker containers, runs the service binary, sends NATS messages, and verifies responses and telemetry. Requires Podman.
-- **Property tests:** Use `proptest` crate for command validation (arbitrary payloads) and telemetry aggregation (arbitrary signal states).
-- **Mock broker:** Unit tests for the command processing use a mock `BrokerClient` trait (shared pattern with spec 03). Unit tests for NATS use mock message structs with configurable headers.
+### Unit Tests
+
+- `config`: Verify env var parsing, defaults, missing VIN error.
+- `command_validator`: Verify bearer token validation (valid, missing, invalid). Verify command payload validation (valid, invalid JSON, missing fields, invalid action).
+- `telemetry`: Verify state aggregation, field omission, on-change detection.
+
+### Integration Tests
+
+- Start NATS and DATA_BROKER containers.
+- Verify end-to-end command flow: publish command on NATS -> observe write to DATA_BROKER.
+- Verify end-to-end response relay: write response to DATA_BROKER -> observe publish on NATS.
+- Verify end-to-end telemetry: update signal in DATA_BROKER -> observe telemetry publish on NATS.
+- Verify self-registration message on startup.
+- Verify NATS reconnection with exponential backoff.
+
+### Smoke Tests
+
+- Service starts with valid configuration.
+- Service exits with code 1 when VIN is missing.
+- Service publishes registration on startup.
+
+## Operational Readiness
+
+| Aspect | Approach |
+|--------|----------|
+| Configuration | Environment variables with sensible defaults |
+| Logging | Structured JSON via tracing-subscriber, configurable log level via `RUST_LOG` |
+| Health | Self-registration message on `vehicles.{VIN}.status` indicates online status |
+| Failure modes | Exit with code 1 on unrecoverable errors; log and continue on transient errors |
+| Resource usage | Single async binary, minimal memory footprint, no persistent state |
+| Dependencies | NATS server, DATA_BROKER (Kuksa Databroker) |

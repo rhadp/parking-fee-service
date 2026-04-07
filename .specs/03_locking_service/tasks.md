@@ -6,201 +6,214 @@
   implement code to make those tests pass
 - Follow the git-flow: feature branch from main -> implement -> test -> merge to main -> push
 - Update checkbox states as you go: [-] in progress, [x] complete
+- Task group 1 depends on 01_project_setup group 3 (Rust workspace + locking-service skeleton)
+- Integration tests (group 4) depend on 02_data_broker group 2 (configured DATA_BROKER in compose.yml)
 -->
 
 ## Overview
 
-This plan implements the LOCKING_SERVICE as a Rust binary in `rhivos/locking-service/`. The service subscribes to lock/unlock commands from DATA_BROKER, validates safety constraints, and publishes state/response signals. Task group 1 writes failing tests. Groups 2-3 implement core logic (command parsing, safety checks, response building). Group 4 implements the DATA_BROKER client and main loop. Group 5 runs integration tests.
+This plan implements the LOCKING_SERVICE, an ASIL-B rated Rust service that processes lock/unlock commands from DATA_BROKER with safety constraint validation. Task group 1 writes failing unit and property tests. Task groups 2 and 3 implement the core service modules (command parsing, safety checks, state management, response publishing). Task group 4 writes and runs integration tests against a live DATA_BROKER. Task group 5 performs wiring verification.
 
-Ordering: tests first (TDD), then pure-function modules (no external dependencies), then the broker client, then the async main loop, then integration validation.
+The ordering ensures tests are written first (TDD), then implementation makes them pass. Unit tests use `MockBrokerClient` and require no infrastructure. Integration tests require Podman and a running DATA_BROKER container.
 
 ## Test Commands
 
-- Spec tests (unit): `cd rhivos && cargo test -p locking-service`
-- Spec tests (integration): `cd tests/locking-service && go test -v ./...`
-- Property tests: `cd rhivos && cargo test -p locking-service -- --include-ignored proptest`
-- All Rust tests: `cd rhivos && cargo test`
-- Linter: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
+- Unit tests: `cd rhivos/locking-service && cargo test`
+- Property tests: `cd rhivos/locking-service && cargo test -- --ignored`
+- Integration tests: `cd tests/locking-service && go test -v ./...`
+- All Rust tests: `cd rhivos && cargo test --workspace`
+- Linter: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+- All tests: `make test`
 
 ## Tasks
 
 - [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add dependencies to locking-service Cargo.toml
-    - Add: serde, serde_json, tokio, tonic, prost, tracing, tracing-subscriber, proptest (dev)
-    - Vendor kuksa.val.v1 proto definitions into `rhivos/locking-service/proto/` (or `proto/kuksa/`)
-    - Add tonic-build to build.rs for proto code generation
-    - _Test Spec: TS-03-1 through TS-03-18_
-
-  - [ ] 1.2 Write command parsing and validation unit tests
-    - Create `rhivos/locking-service/src/command.rs` with test module
-    - `test_parse_valid_command` — TS-03-2
-    - `test_validate_empty_command_id` — TS-03-4
-    - `test_validate_invalid_action` — TS-03-5
-    - `test_validate_unsupported_door` — TS-03-6
-    - `test_parse_invalid_json` — TS-03-E3
-    - `test_parse_missing_field` — TS-03-E4
-    - `test_validate_non_driver_door` — TS-03-E5
-    - _Test Spec: TS-03-2, TS-03-4, TS-03-5, TS-03-6, TS-03-E3, TS-03-E4, TS-03-E5_
-
-  - [ ] 1.3 Write safety check unit tests
-    - Create `rhivos/locking-service/src/safety.rs` with test module
-    - `test_lock_rejected_vehicle_moving` — TS-03-7
-    - `test_lock_rejected_door_open` — TS-03-8
-    - `test_lock_allowed_safe` — TS-03-9
-    - `test_unlock_bypasses_safety` — TS-03-10
-    - `test_speed_unset_treated_zero` — TS-03-E6
-    - `test_door_unset_treated_closed` — TS-03-E7
-    - _Test Spec: TS-03-7, TS-03-8, TS-03-9, TS-03-10, TS-03-E6, TS-03-E7_
-
-  - [ ] 1.4 Write response builder and state management tests
-    - Create `rhivos/locking-service/src/response.rs` with test module
-    - `test_success_response_format` — TS-03-14
-    - `test_failure_response_format` — TS-03-15
-    - `test_response_timestamp` — TS-03-16
-    - `test_lock_sets_state_true` — TS-03-11
-    - `test_unlock_sets_state_false` — TS-03-12
-    - `test_lock_idempotent` — TS-03-E8
-    - `test_unlock_idempotent` — TS-03-E9
-    - `test_response_publish_failure` — TS-03-E10
-    - _Test Spec: TS-03-11, TS-03-12, TS-03-14, TS-03-15, TS-03-16, TS-03-E8, TS-03-E9, TS-03-E10_
-
-  - [ ] 1.5 Write property tests
-    - Create property tests in relevant modules or `tests/` directory
-    - `proptest_command_validation_completeness` — TS-03-P1
-    - `proptest_safety_gate_lock` — TS-03-P2
-    - `proptest_unlock_always_succeeds` — TS-03-P3
-    - `proptest_state_response_consistency` — TS-03-P4
-    - `proptest_idempotent_operations` — TS-03-P5
-    - `proptest_response_completeness` — TS-03-P6
-    - _Test Spec: TS-03-P1 through TS-03-P6_
-
-  - [ ] 1.6 Write config test
-    - `test_databroker_addr_default` — TS-03-3
-    - `test_databroker_addr_env` — TS-03-3
-    - _Test Spec: TS-03-3_
-
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p locking-service --no-run`
-    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p locking-service 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-
-- [ ] 2. Command parsing and response modules
-  - [ ] 2.1 Implement command module
-    - Define `LockCommand`, `Action` structs/enums with serde Deserialize
-    - Implement `parse_command()`: deserialize JSON, return Result
-    - Implement `validate_command()`: check command_id non-empty, doors contains "driver"
-    - _Requirements: 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3_
-
-  - [ ] 2.2 Implement response module
-    - Define `CommandResponse` struct with serde Serialize
-    - Implement `success_response(command_id)`: returns JSON string
-    - Implement `failure_response(command_id, reason)`: returns JSON string
-    - Timestamps use `std::time::SystemTime::now()` as Unix seconds
-    - _Requirements: 03-REQ-5.1, 03-REQ-5.2, 03-REQ-5.3_
-
-  - [ ] 2.3 Implement config module
-    - Read `DATABROKER_ADDR` from env, default to `http://localhost:55556`
-    - _Requirements: 03-REQ-1.3_
-
-  - [ ] 2.V Verify task group 2
-    - [ ] Command and response tests pass: `cd rhivos && cargo test -p locking-service -- command response config`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] _Test Spec: TS-03-2, TS-03-3, TS-03-4, TS-03-5, TS-03-6, TS-03-14, TS-03-15, TS-03-16, TS-03-E3, TS-03-E4, TS-03-E5_
-
-- [ ] 3. Safety checks and state management
-  - [ ] 3.1 Define BrokerClient trait
-    - Define `BrokerClient` trait with async methods: `get_float`, `get_bool`, `set_bool`, `set_string`, `subscribe`
-    - This trait enables mock testing of safety and state logic
-    - _Requirements: 03-REQ-1.1 (interface)_
-
-  - [ ] 3.2 Implement safety module
-    - Implement `check_safety(broker)`: reads Vehicle.Speed and IsOpen signals
-    - Speed < 1.0 and IsOpen == false → Safe
-    - Speed >= 1.0 → VehicleMoving
-    - IsOpen == true → DoorOpen
-    - None values treated as safe defaults (speed=0.0, door=closed)
-    - _Requirements: 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3, 03-REQ-3.E1, 03-REQ-3.E2_
-
-  - [ ] 3.3 Implement command processor
-    - Implement `process_command(broker, cmd, lock_state)` orchestrating: validate → safety check (lock only) → update state → publish response
-    - Handles idempotent operations (lock when locked, unlock when unlocked)
-    - Unlock bypasses safety checks
-    - _Requirements: 03-REQ-3.4, 03-REQ-4.1, 03-REQ-4.2, 03-REQ-4.E1, 03-REQ-4.E2_
-
-  - [ ] 3.4 Create mock BrokerClient for tests
-    - Implement mock that returns configurable speed/door values
-    - Records set_bool and set_string calls for assertion
+  - [ ] 1.1 Create test helper module
+    - Create `rhivos/locking-service/src/testing.rs` with `MockBrokerClient` implementing `BrokerClient` trait
+    - MockBrokerClient must support configurable return values for `get_float` (speed), `get_bool` (door open, is locked)
+    - MockBrokerClient must record `set_bool` and `set_string` calls for assertion
+    - MockBrokerClient must support `fail_next_set_string()` for error simulation
+    - Register as `#[cfg(test)] pub mod testing` in `src/main.rs`
     - _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10_
 
+  - [ ] 1.2 Write command parsing and validation tests
+    - Create unit tests in `rhivos/locking-service/src/command.rs` `#[cfg(test)]` module
+    - `test_parse_valid_command` -- TS-03-2: deserialise full lock command JSON
+    - `test_parse_valid_unlock_command` -- TS-03-2: deserialise unlock command
+    - `test_validate_empty_command_id` -- TS-03-4: empty command_id rejected
+    - `test_parse_missing_command_id` -- TS-03-4: missing command_id field rejected
+    - `test_validate_invalid_action` -- TS-03-5: invalid action rejected
+    - `test_validate_unsupported_door` -- TS-03-6: non-"driver" door rejected
+    - _Test Spec: TS-03-2, TS-03-4, TS-03-5, TS-03-6_
+
+  - [ ] 1.3 Write edge case tests for command parsing
+    - Add tests in `rhivos/locking-service/src/command.rs` `#[cfg(test)]` module
+    - `test_parse_invalid_json` -- TS-03-E3: invalid JSON returns InvalidJson error
+    - `test_parse_missing_field` -- TS-03-E4: missing action field rejected
+    - `test_validate_non_driver_door` -- TS-03-E5: "rear_left" door rejected
+    - _Test Spec: TS-03-E3, TS-03-E4, TS-03-E5_
+
+  - [ ] 1.4 Write safety constraint tests
+    - Create unit tests in `rhivos/locking-service/src/safety.rs` `#[cfg(test)]` module
+    - `test_lock_rejected_vehicle_moving` -- TS-03-7: speed >= 1.0 returns VehicleMoving
+    - `test_lock_rejected_door_open` -- TS-03-8: door ajar returns DoorOpen
+    - `test_lock_allowed_safe` -- TS-03-9: speed < 1.0 and door closed returns Safe
+    - `test_speed_unset_treated_zero` -- TS-03-E6: None speed treated as 0.0
+    - `test_door_unset_treated_closed` -- TS-03-E7: None door treated as false
+    - _Test Spec: TS-03-7, TS-03-8, TS-03-9, TS-03-E6, TS-03-E7_
+
+  - [ ] 1.5 Write process and response tests
+    - Create unit tests in `rhivos/locking-service/src/process.rs` `#[cfg(test)]` module
+    - `test_lock_sets_state_true` -- TS-03-11: lock sets IsLocked = true
+    - `test_unlock_sets_state_false` -- TS-03-12: unlock sets IsLocked = false
+    - `test_unlock_bypasses_safety` -- TS-03-10: unlock succeeds with high speed and door open
+    - `test_lock_idempotent` -- TS-03-E8: lock already-locked returns success, no state write
+    - `test_unlock_idempotent` -- TS-03-E9: unlock already-unlocked returns success, no state write
+    - `test_response_publish_failure` -- TS-03-E10: service continues after response publish failure
+    - Create unit tests in `rhivos/locking-service/src/response.rs` `#[cfg(test)]` module
+    - `test_success_response_format` -- TS-03-14: success JSON format
+    - `test_failure_response_format` -- TS-03-15: failure JSON format
+    - `test_response_timestamp` -- TS-03-16: timestamp between before/after
+    - _Test Spec: TS-03-10, TS-03-11, TS-03-12, TS-03-14, TS-03-15, TS-03-16, TS-03-E8, TS-03-E9, TS-03-E10_
+
+  - [ ] 1.6 Write property tests and config tests
+    - Create `rhivos/locking-service/src/proptest_cases.rs` with proptest tests (all `#[ignore]`)
+    - `proptest_command_validation_completeness` -- TS-03-P1
+    - `proptest_safety_gate_lock` -- TS-03-P2
+    - `proptest_unlock_always_succeeds` -- TS-03-P3
+    - `proptest_state_response_consistency` -- TS-03-P4
+    - `proptest_idempotent_operations` -- TS-03-P5
+    - `proptest_response_completeness` -- TS-03-P6
+    - Create unit tests in `rhivos/locking-service/src/config.rs` `#[cfg(test)]` module
+    - `test_databroker_addr_default` -- TS-03-3: default address
+    - `test_databroker_addr_env` -- TS-03-3: custom address from env
+    - Register as `#[cfg(test)] pub mod proptest_cases` in `src/main.rs`
+    - _Test Spec: TS-03-3, TS-03-P1 through TS-03-P6_
+
+  - [ ] 1.V Verify task group 1
+    - [ ] All test files compile: `cd rhivos/locking-service && cargo test --no-run`
+    - [ ] Unit tests FAIL (modules not yet implemented): `cd rhivos/locking-service && cargo test 2>&1 | grep -c FAILED`
+    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+
+- [ ] 2. Implement core modules (command, safety, response, config)
+  - [ ] 2.1 Implement config module
+    - Create `rhivos/locking-service/src/config.rs` with `get_databroker_addr()` function
+    - Default: `http://localhost:55556`, override via `DATABROKER_ADDR` env var
+    - _Requirements: 03-REQ-7.1, 03-REQ-7.2_
+
+  - [ ] 2.2 Implement command module
+    - Create `rhivos/locking-service/src/command.rs` with `LockCommand` struct, `Action` enum, `CommandError` enum
+    - Implement `parse_command(json: &str) -> Result<LockCommand, CommandError>`
+    - Implement `validate_command(cmd: &LockCommand) -> Result<(), CommandError>`
+    - Use serde for deserialization; classify JSON syntax errors as InvalidJson, field errors as InvalidCommand
+    - Validate command_id non-empty and doors contain only "driver"
+    - _Requirements: 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3, 03-REQ-2.4, 03-REQ-2.E1, 03-REQ-2.E2, 03-REQ-2.E3_
+
+  - [ ] 2.3 Implement safety module
+    - Create `rhivos/locking-service/src/safety.rs` with `SafetyResult` enum and `check_safety` function
+    - Read Vehicle.Speed: if >= 1.0 return VehicleMoving; if None treat as 0.0
+    - Read Vehicle.Cabin.Door.Row1.DriverSide.IsOpen: if true return DoorOpen; if None treat as false
+    - Otherwise return Safe
+    - _Requirements: 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3, 03-REQ-3.E1, 03-REQ-3.E2_
+
+  - [ ] 2.4 Implement response module
+    - Create `rhivos/locking-service/src/response.rs` with `CommandResponse` struct
+    - Implement `success_response(command_id: &str) -> String`
+    - Implement `failure_response(command_id: &str, reason: &str) -> String`
+    - Success omits reason field via `#[serde(skip_serializing_if = "Option::is_none")]`
+    - _Requirements: 03-REQ-5.1, 03-REQ-5.2, 03-REQ-5.3_
+
+  - [ ] 2.V Verify task group 2
+    - [ ] Command, safety, response, and config unit tests pass: `cd rhivos/locking-service && cargo test`
+    - [ ] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+    - [ ] Requirements 03-REQ-2.*, 03-REQ-3.*, 03-REQ-5.*, 03-REQ-7.* acceptance criteria met
+
+- [ ] 3. Implement broker client, process module, and main
+  - [ ] 3.1 Implement broker module
+    - Create `rhivos/locking-service/src/broker.rs` with `BrokerClient` trait and `GrpcBrokerClient`
+    - Trait methods: `get_float`, `get_bool`, `set_bool`, `set_string`
+    - `GrpcBrokerClient::connect` with exponential backoff (5 attempts)
+    - `GrpcBrokerClient::subscribe` returning `mpsc::Receiver<String>`
+    - Uses tonic-generated kuksa.val.v1 client from vendored proto files
+    - _Requirements: 03-REQ-1.1, 03-REQ-1.E1, 03-REQ-1.E2_
+
+  - [ ] 3.2 Implement process module
+    - Create `rhivos/locking-service/src/process.rs` with `process_command` function
+    - Dispatch lock vs unlock; lock calls `check_safety` then updates state; unlock skips safety
+    - Handle idempotent operations (skip `set_bool` if state already matches)
+    - Publish response via `set_string`; log and continue on failure
+    - _Requirements: 03-REQ-4.1, 03-REQ-4.2, 03-REQ-4.E1, 03-REQ-4.E2, 03-REQ-5.E1_
+
+  - [ ] 3.3 Implement main entry point
+    - Create `rhivos/locking-service/src/main.rs` with startup, subscription loop, and shutdown
+    - Parse CLI args: `serve` subcommand required; no args or `--help` prints usage and exits 0
+    - Initialise tracing; log version and DATABROKER_ADDR on startup
+    - Connect to DATA_BROKER; publish initial state (IsLocked = false)
+    - Subscribe to Vehicle.Command.Door.Lock; process commands sequentially
+    - Handle SIGTERM/SIGINT: complete current command, exit 0
+    - Handle `extract_command_id` for partial JSON payloads
+    - _Requirements: 03-REQ-1.1, 03-REQ-1.2, 03-REQ-1.3, 03-REQ-4.3, 03-REQ-6.1, 03-REQ-6.2, 03-REQ-6.E1_
+
+  - [ ] 3.4 Add build.rs for proto generation
+    - Create `rhivos/locking-service/build.rs` using tonic-build to compile kuksa.val.v1 protos
+    - Ensure proto files are vendored in the workspace
+    - _Requirements: 03-REQ-1.1_
+
   - [ ] 3.V Verify task group 3
-    - [ ] Safety and state tests pass: `cd rhivos && cargo test -p locking-service -- safety process`
-    - [ ] Property tests pass: `cd rhivos && cargo test -p locking-service -- proptest`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10, TS-03-P1 through TS-03-P6_
+    - [ ] All unit tests pass: `cd rhivos/locking-service && cargo test`
+    - [ ] All property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [ ] Binary builds and shows usage: `cd rhivos/locking-service && cargo build && ./target/debug/locking-service`
+    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+    - [ ] All previously passing tests still pass: `make test`
 
-- [ ] 4. Checkpoint - Core Logic Complete
-  - All unit and property tests pass
-  - No integration tests yet (those require live DATA_BROKER)
-  - Ask the user if questions arise
+- [ ] 4. Integration tests (live DATA_BROKER)
+  - [ ] 4.1 Create integration test module
+    - Create `tests/locking-service/` Go module with shared test helpers
+    - Helpers: start/stop databroker (compose), start/stop locking-service binary, gRPC connect, signal set/get
+    - Add `go.work` entry for `./tests/locking-service`
+    - _Test Spec: TS-03-1, TS-03-13_
 
-- [ ] 5. DATA_BROKER gRPC client and main loop
-  - [ ] 5.1 Vendor Kuksa proto definitions
-    - Add `kuksa.val.v1` proto files to `rhivos/locking-service/proto/`
-    - Configure `build.rs` with tonic-build to generate Rust code from protos
-    - _Requirements: 03-REQ-1.1 (gRPC client)_
+  - [ ] 4.2 Write subscription and initial state tests
+    - `TestCommandSubscription` -- TS-03-1: verify service receives commands via subscription
+    - `TestInitialStateFalse` -- TS-03-13: verify IsLocked = false after startup
+    - _Test Spec: TS-03-1, TS-03-13_
 
-  - [ ] 5.2 Implement real BrokerClient
-    - Implement the `BrokerClient` trait using tonic-generated kuksa.val.v1 client
-    - `connect(addr)`: establish gRPC channel
-    - `subscribe(signal)`: create kuksa Subscribe stream
-    - `get_float`, `get_bool`: kuksa Get with type conversion
-    - `set_bool`, `set_string`: kuksa Set with type conversion
-    - _Requirements: 03-REQ-1.1, 03-REQ-1.3_
+  - [ ] 4.3 Write integration smoke tests
+    - `TestSmokeLockHappyPath` -- TS-03-SMOKE-1: end-to-end lock
+    - `TestSmokeUnlockHappyPath` -- TS-03-SMOKE-2: end-to-end unlock
+    - `TestSmokeLockRejectedMoving` -- TS-03-SMOKE-3: lock rejected when vehicle moving
+    - _Test Spec: TS-03-SMOKE-1, TS-03-SMOKE-2, TS-03-SMOKE-3_
 
-  - [ ] 5.3 Implement main loop
-    - Parse config, connect to DATA_BROKER with retry logic
-    - Publish initial lock state (IsLocked = false)
-    - Subscribe to Vehicle.Command.Door.Lock
-    - Process commands sequentially via process_command()
-    - Handle SIGTERM/SIGINT via tokio signal handler
-    - Log version, address, and ready status on startup
-    - _Requirements: 03-REQ-1.1, 03-REQ-1.2, 03-REQ-4.3, 03-REQ-6.1, 03-REQ-6.2_
+  - [ ] 4.4 Write connection retry test
+    - `TestConnectionRetryFailure` -- TS-03-E1: service exits non-zero when DATA_BROKER unreachable
+    - _Test Spec: TS-03-E1_
 
-  - [ ] 5.4 Implement retry logic
-    - Connection retry: exponential backoff 1s, 2s, 4s, up to 5 attempts
-    - Subscription retry: up to 3 resubscribe attempts
-    - Response publish failure: log and continue
-    - _Requirements: 03-REQ-1.E1, 03-REQ-1.E2, 03-REQ-5.E1_
+  - [ ] 4.V Verify task group 4
+    - [ ] All integration tests pass: `cd tests/locking-service && go test -v ./...`
+    - [ ] All unit tests still pass: `cd rhivos/locking-service && cargo test`
+    - [ ] All property tests still pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+    - [ ] All previously passing tests still pass: `make test`
+
+- [ ] 5. Wiring verification
+  - [ ] 5.1 Verify all requirements traced to tests
+    - Confirm every 03-REQ-*.* has at least one passing test (unit, property, or integration)
+    - Review coverage matrix in test_spec.md against actual test results
+    - _Requirements: all 03-REQ-*_
+
+  - [ ] 5.2 Verify all test spec entries implemented
+    - Confirm all TS-03-* entries have corresponding test functions
+    - Confirm all TS-03-P* property tests exist and pass under `--ignored`
+    - Confirm all TS-03-SMOKE-* integration tests exist and pass
+    - _Test Spec: all TS-03-*_
 
   - [ ] 5.V Verify task group 5
-    - [ ] Binary compiles: `cd rhivos && cargo build -p locking-service`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-
-- [ ] 6. Integration test validation
-  - [ ] 6.1 Create integration test module
-    - Create `tests/locking-service/` Go module (or add to existing test structure)
-    - Shared helpers: start/stop databroker, start/stop locking-service, gRPC signal helpers
-    - Add `go.work` entry for `./tests/locking-service`
-    - _Test Spec: TS-03-1, TS-03-13, TS-03-17, TS-03-18_
-
-  - [ ] 6.2 Write and run integration tests
-    - `TestCommandSubscription` — TS-03-1: verify subscription and command processing
-    - `TestInitialState` — TS-03-13: verify IsLocked=false on startup
-    - `TestGracefulShutdown` — TS-03-17: verify clean exit on SIGTERM
-    - `TestStartupLogging` — TS-03-18: verify log output
-    - `TestDatabrokerUnreachable` — TS-03-E1: verify retry behavior
-    - `TestSubscriptionInterrupted` — TS-03-E2: verify resubscribe
-    - `TestSigtermDuringCommand` — TS-03-E11: verify in-flight completion
-    - _Test Spec: TS-03-1, TS-03-13, TS-03-17, TS-03-18, TS-03-E1, TS-03-E2, TS-03-E11_
-
-  - [ ] 6.V Verify task group 6
-    - [ ] All integration tests pass: `cd tests/locking-service && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p locking-service`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p locking-service -- -D warnings`
-    - [ ] All requirements 03-REQ-1 through 03-REQ-6 acceptance criteria met
+    - [ ] Full test suite passes: `make test`
+    - [ ] Integration tests pass: `cd tests/locking-service && go test -v ./...`
+    - [ ] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [ ] No linter warnings across workspace
+    - [ ] All requirements 03-REQ-1 through 03-REQ-7 acceptance criteria verified
 
 ### Checkbox States
 
@@ -216,48 +229,51 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
 
 | Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
 |-------------|-----------------|---------------------|------------------|
-| 03-REQ-1.1 | TS-03-1 | 5.2, 5.3 | tests/locking-service::TestCommandSubscription |
-| 03-REQ-1.2 | TS-03-2 | 2.1 | locking-service::command::test_parse_valid_command |
-| 03-REQ-1.3 | TS-03-3 | 2.3 | locking-service::config::test_databroker_addr_default |
-| 03-REQ-1.E1 | TS-03-E1 | 5.4 | tests/locking-service::TestDatabrokerUnreachable |
-| 03-REQ-1.E2 | TS-03-E2 | 5.4 | tests/locking-service::TestSubscriptionInterrupted |
-| 03-REQ-2.1 | TS-03-4 | 2.1 | locking-service::command::test_validate_empty_command_id |
-| 03-REQ-2.2 | TS-03-5 | 2.1 | locking-service::command::test_validate_invalid_action |
-| 03-REQ-2.3 | TS-03-6 | 2.1 | locking-service::command::test_validate_unsupported_door |
-| 03-REQ-2.E1 | TS-03-E3 | 2.1 | locking-service::command::test_parse_invalid_json |
-| 03-REQ-2.E2 | TS-03-E4 | 2.1 | locking-service::command::test_parse_missing_field |
-| 03-REQ-2.E3 | TS-03-E5 | 2.1 | locking-service::command::test_validate_non_driver_door |
-| 03-REQ-3.1 | TS-03-7 | 3.2 | locking-service::safety::test_lock_rejected_vehicle_moving |
-| 03-REQ-3.2 | TS-03-8 | 3.2 | locking-service::safety::test_lock_rejected_door_open |
-| 03-REQ-3.3 | TS-03-9 | 3.2 | locking-service::safety::test_lock_allowed_safe |
-| 03-REQ-3.4 | TS-03-10 | 3.3 | locking-service::safety::test_unlock_bypasses_safety |
-| 03-REQ-3.E1 | TS-03-E6 | 3.2 | locking-service::safety::test_speed_unset_treated_zero |
-| 03-REQ-3.E2 | TS-03-E7 | 3.2 | locking-service::safety::test_door_unset_treated_closed |
-| 03-REQ-4.1 | TS-03-11 | 3.3 | locking-service::test_lock_sets_state_true |
-| 03-REQ-4.2 | TS-03-12 | 3.3 | locking-service::test_unlock_sets_state_false |
-| 03-REQ-4.3 | TS-03-13 | 5.3 | tests/locking-service::TestInitialState |
-| 03-REQ-4.E1 | TS-03-E8 | 3.3 | locking-service::test_lock_idempotent |
-| 03-REQ-4.E2 | TS-03-E9 | 3.3 | locking-service::test_unlock_idempotent |
-| 03-REQ-5.1 | TS-03-14 | 2.2 | locking-service::response::test_success_response_format |
-| 03-REQ-5.2 | TS-03-15 | 2.2 | locking-service::response::test_failure_response_format |
-| 03-REQ-5.3 | TS-03-16 | 2.2 | locking-service::response::test_response_timestamp |
-| 03-REQ-5.E1 | TS-03-E10 | 5.4 | locking-service::test_response_publish_failure |
-| 03-REQ-6.1 | TS-03-17 | 5.3 | tests/locking-service::TestGracefulShutdown |
-| 03-REQ-6.2 | TS-03-18 | 5.3 | tests/locking-service::TestStartupLogging |
-| 03-REQ-6.E1 | TS-03-E11 | 5.3 | tests/locking-service::TestSigtermDuringCommand |
-| Property 1 | TS-03-P1 | 2.1 | locking-service::proptest_command_validation_completeness |
-| Property 2 | TS-03-P2 | 3.2 | locking-service::proptest_safety_gate_lock |
-| Property 3 | TS-03-P3 | 3.3 | locking-service::proptest_unlock_always_succeeds |
-| Property 4 | TS-03-P4 | 3.3 | locking-service::proptest_state_response_consistency |
-| Property 5 | TS-03-P5 | 3.3 | locking-service::proptest_idempotent_operations |
-| Property 6 | TS-03-P6 | 3.3 | locking-service::proptest_response_completeness |
+| 03-REQ-1.1 | TS-03-1 | 3.1, 3.3 | tests/locking-service::TestCommandSubscription |
+| 03-REQ-1.2 | TS-03-1 | 3.3 | tests/locking-service::TestCommandSubscription |
+| 03-REQ-1.3 | TS-03-SMOKE-1, TS-03-SMOKE-2 | 3.3 | tests/locking-service::TestSmokeLockHappyPath |
+| 03-REQ-1.E1 | TS-03-E1 | 3.1 | tests/locking-service::TestConnectionRetryFailure |
+| 03-REQ-1.E2 | TS-03-E2 | 3.1, 3.3 | (verified via log inspection in integration tests) |
+| 03-REQ-2.1 | TS-03-2, TS-03-5 | 2.2 | command::tests::test_parse_valid_command |
+| 03-REQ-2.2 | TS-03-6, TS-03-E5 | 2.2 | command::tests::test_validate_unsupported_door |
+| 03-REQ-2.3 | TS-03-4 | 2.2 | command::tests::test_validate_empty_command_id |
+| 03-REQ-2.4 | TS-03-2 | 2.2 | command::tests::test_parse_valid_command |
+| 03-REQ-2.E1 | TS-03-E3 | 2.2 | command::tests::test_parse_invalid_json |
+| 03-REQ-2.E2 | TS-03-E4 | 2.2 | command::tests::test_parse_missing_field |
+| 03-REQ-2.E3 | TS-03-4 | 2.2 | command::tests::test_validate_empty_command_id |
+| 03-REQ-3.1 | TS-03-7 | 2.3 | safety::tests::test_lock_rejected_vehicle_moving |
+| 03-REQ-3.2 | TS-03-8 | 2.3 | safety::tests::test_lock_rejected_door_open |
+| 03-REQ-3.3 | TS-03-9 | 2.3 | safety::tests::test_lock_allowed_safe |
+| 03-REQ-3.4 | TS-03-10 | 3.2 | process::tests::test_unlock_bypasses_safety |
+| 03-REQ-3.E1 | TS-03-E6 | 2.3 | safety::tests::test_speed_unset_treated_zero |
+| 03-REQ-3.E2 | TS-03-E7 | 2.3 | safety::tests::test_door_unset_treated_closed |
+| 03-REQ-4.1 | TS-03-11 | 3.2 | process::tests::test_lock_sets_state_true |
+| 03-REQ-4.2 | TS-03-12 | 3.2 | process::tests::test_unlock_sets_state_false |
+| 03-REQ-4.3 | TS-03-13 | 3.3 | tests/locking-service::TestInitialStateFalse |
+| 03-REQ-4.E1 | TS-03-E8 | 3.2 | process::tests::test_lock_idempotent |
+| 03-REQ-4.E2 | TS-03-E9 | 3.2 | process::tests::test_unlock_idempotent |
+| 03-REQ-5.1 | TS-03-14, TS-03-16 | 2.4 | response::tests::test_success_response_format |
+| 03-REQ-5.2 | TS-03-15 | 2.4 | response::tests::test_failure_response_format |
+| 03-REQ-5.3 | TS-03-14 | 2.4 | response::tests::test_success_response_format |
+| 03-REQ-5.E1 | TS-03-E10 | 3.2 | process::tests::test_response_publish_failure |
+| 03-REQ-6.1 | (integration test exit code) | 3.3 | tests/locking-service (process exit verification) |
+| 03-REQ-6.2 | TS-03-1 | 3.3 | tests/locking-service::TestCommandSubscription |
+| 03-REQ-6.E1 | (integration test graceful shutdown) | 3.3 | tests/locking-service (shutdown verification) |
+| 03-REQ-7.1 | TS-03-3 | 2.1 | config::tests::test_databroker_addr_env |
+| 03-REQ-7.2 | TS-03-3 | 2.1 | config::tests::test_databroker_addr_default |
+| Property 1 | TS-03-P1 | 1.6 | proptest_cases::tests::proptest_command_validation_completeness |
+| Property 2 | TS-03-P2 | 1.6 | proptest_cases::tests::proptest_safety_gate_lock |
+| Property 3 | TS-03-P3 | 1.6 | proptest_cases::tests::proptest_unlock_always_succeeds |
+| Property 4 | TS-03-P4 | 1.6 | proptest_cases::tests::proptest_state_response_consistency |
+| Property 5 | TS-03-P5 | 1.6 | proptest_cases::tests::proptest_idempotent_operations |
+| Property 6 | TS-03-P6 | 1.6 | proptest_cases::tests::proptest_response_completeness |
 
 ## Notes
 
-- Unit tests for command, safety, and response modules are pure-function tests with no external dependencies. They use serde_json for payload testing and a mock BrokerClient for safety/state tests.
-- The mock BrokerClient records calls to `set_bool` and `set_string` so tests can assert on side effects without a live DATA_BROKER.
-- Property tests use the `proptest` crate. Annotate with `#[ignore]` if they are slow, and run separately via `cargo test -- --include-ignored proptest`.
-- Integration tests live in `tests/locking-service/` as a Go module (consistent with spec 01 and 02 patterns). They shell out to start/stop the locking-service binary and the databroker container.
-- Integration tests require Podman and skip gracefully when unavailable.
-- The kuksa.val.v1 proto files are vendored into the locking-service crate rather than shared, since Rust proto codegen is crate-local via build.rs (unlike Go, where generated code is shared via gen/go/).
-- Task group 1 has 6 subtasks — at the upper limit. Each subtask creates a focused test file for one module, so they are individually small.
+- Unit tests and property tests live inside the Rust crate (`rhivos/locking-service/src/`) as co-located `#[cfg(test)]` modules. No external infrastructure is needed.
+- Integration tests live in `tests/locking-service/` as a standalone Go module. They require Podman and a running DATA_BROKER container. Tests skip gracefully when Podman is unavailable.
+- Property tests use the proptest crate and are marked `#[ignore]` to separate them from unit tests. Run with `cargo test -- --ignored`.
+- The `MockBrokerClient` in `testing.rs` implements `BrokerClient` with `RefCell`-based interior mutability for call recording. It is not `Send`/`Sync` but works with `#[tokio::test]` in single-threaded mode.
+- Build depends on tonic-build for proto code generation. Proto files are vendored in the workspace from Eclipse Kuksa.
+- Task group 1 depends on spec 01_project_setup group 3 (Rust workspace and locking-service skeleton with Cargo.toml, build.rs, and vendored protos).
+- Task group 4 integration tests depend on spec 02_data_broker group 2 (compose.yml with dual listeners and VSS overlay).

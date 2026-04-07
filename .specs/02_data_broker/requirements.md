@@ -1,95 +1,224 @@
-# Requirements Document
+# Requirements: DATA_BROKER (Spec 02)
 
 ## Introduction
 
-This document specifies the requirements for the DATA_BROKER component (Phase 2.1) of the SDV Parking Demo System. The scope covers configuring Eclipse Kuksa Databroker for dual-listener operation (TCP and UDS), validating the VSS overlay for custom signals, pinning the container image version, and verifying signal accessibility via integration tests. No wrapper code or reimplementation is written — this is purely configuration and validation of a pre-built component.
+This specification defines the requirements for configuring Eclipse Kuksa Databroker as the DATA_BROKER component in the RHIVOS safety partition. The DATA_BROKER is a pre-built binary (no custom wrapper code) that provides a VSS-compliant gRPC pub/sub interface for vehicle signals. This spec configures the existing container from spec 01 for dual listeners (TCP and UDS), validates the VSS overlay for all 8 signals, pins the Kuksa image version, and creates integration tests verifying databroker connectivity and signal operations.
 
 ## Glossary
 
-- **DATA_BROKER:** Eclipse Kuksa Databroker — a VSS-compliant vehicle signal broker providing gRPC pub/sub for vehicle signals. Deployed as a pre-built container image.
-- **VSS:** Vehicle Signal Specification (COVESA standard) — a taxonomy for vehicle data signals.
-- **VSS overlay:** A JSON file that extends the standard VSS tree with custom signals not in the default specification (e.g., `Vehicle.Parking.*`, `Vehicle.Command.*`).
-- **UDS:** Unix Domain Socket — an IPC mechanism for same-host communication, used by same-partition consumers of the databroker.
-- **TCP listener:** A network TCP socket (gRPC over HTTP/2) used by cross-partition and cross-domain consumers.
-- **Dual listener:** Running the databroker with both a UDS and a TCP listener simultaneously.
-- **gRPC:** Google Remote Procedure Call — the protocol used by Kuksa Databroker for signal pub/sub.
-- **Kuksa Databroker:** The Eclipse Kuksa project's VSS-compliant data broker, providing get/set/subscribe operations on vehicle signals.
-- **Permissive mode:** Running Kuksa Databroker without token-based authorization, allowing any client to read/write any signal.
-- **Custom signal:** A VSS signal not in the standard VSS v5.1 tree, defined via the VSS overlay file.
-- **Standard signal:** A VSS signal included in the default Kuksa Databroker image (VSS v5.1).
+| Term | Definition |
+|------|-----------|
+| DATA_BROKER | Eclipse Kuksa Databroker instance serving as the central vehicle signal hub |
+| VSS | COVESA Vehicle Signal Specification, version 5.1 |
+| UDS | Unix Domain Socket, used for same-partition gRPC communication |
+| TCP | Network TCP transport for cross-partition gRPC (HTTP/2) communication |
+| Overlay | A YAML file defining custom VSS signals not present in the standard specification |
+| Permissive mode | Kuksa Databroker running without token-based authorization |
+| Signal | A named data point in the VSS tree (e.g., Vehicle.Speed) with type, access, and metadata |
 
 ## Requirements
 
-### Requirement 1: Dual Listener Configuration
+### 02-REQ-1: Kuksa Databroker image pinning
 
-**User Story:** As a service developer, I want the DATA_BROKER to listen on both TCP and UDS simultaneously, so that same-partition services use UDS for low-latency IPC and cross-partition services use TCP.
+**User Story:** As a developer, I want the Kuksa Databroker container image pinned to a specific version so that builds are reproducible across environments.
 
-#### Acceptance Criteria
+**Requirements:**
 
-1. [02-REQ-1.1] THE `deployments/compose.yml` databroker service SHALL configure the Kuksa Databroker with a TCP listener on address `0.0.0.0:55555` (mapped to host port 55556).
-2. [02-REQ-1.2] THE `deployments/compose.yml` databroker service SHALL configure the Kuksa Databroker with a UDS listener at path `/tmp/kuksa-databroker.sock`.
-3. [02-REQ-1.3] THE `deployments/compose.yml` databroker service SHALL expose the UDS socket to the host via a volume mount so that same-host consumers can connect.
-4. [02-REQ-1.4] WHEN the databroker container is running, THE databroker SHALL accept gRPC connections on both the TCP port (55556 from host) and the UDS socket simultaneously.
+- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
+- [02-REQ-1.2] WHEN a developer runs `podman compose up`, the DATA_BROKER container SHALL start using the pinned image version.
 
-#### Edge Cases
+**Acceptance Criteria:**
 
-1. [02-REQ-1.E1] IF the UDS socket file already exists from a previous run, THEN THE databroker SHALL overwrite it and start successfully.
-2. [02-REQ-1.E2] IF a client connects to the TCP listener while another client is connected via UDS, THEN THE databroker SHALL serve both connections independently.
+1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` for the databroker service.
+2. The running container SHALL report version 0.5.1 in its startup logs.
 
-### Requirement 2: Container Image Version Pinning
+**Edge Cases:**
 
-**User Story:** As a developer, I want the Kuksa Databroker container image pinned to a specific version, so that builds are reproducible and not affected by upstream changes.
+- [02-REQ-1.E1] IF the pinned image is not available in the local cache or remote registry, THEN `podman compose up` SHALL fail with a clear image-pull error rather than falling back to another version.
 
-#### Acceptance Criteria
+---
 
-1. [02-REQ-2.1] THE `deployments/compose.yml` databroker service SHALL use a version-pinned container image (`ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`) instead of `latest`.
+### 02-REQ-2: TCP listener configuration
 
-#### Edge Cases
+**User Story:** As a cross-partition service, I want to connect to the DATA_BROKER over network TCP so that I can read and write vehicle signals from outside the safety partition.
 
-1. [02-REQ-2.E1] IF the pinned image version is not available in the registry, THEN THE `make infra-up` command SHALL fail with a clear image-pull error from Podman.
+**Requirements:**
 
-### Requirement 3: VSS Overlay Validation
+- [02-REQ-2.1] The DATA_BROKER container SHALL listen on TCP address `0.0.0.0:55555` inside the container.
+- [02-REQ-2.2] The compose.yml SHALL map container port 55555 to host port 55556.
 
-**User Story:** As a service developer, I want the custom VSS signals to be accessible in the running databroker, so that downstream services can publish and subscribe to parking and command signals.
+**Acceptance Criteria:**
 
-#### Acceptance Criteria
+1. A gRPC client connecting to `localhost:55556` from the host SHALL receive a successful gRPC channel connection.
+2. The compose.yml SHALL contain port mapping `55556:55555` for the databroker service.
+3. The DATA_BROKER command args SHALL include `--address 0.0.0.0:55555`.
 
-1. [02-REQ-3.1] WHEN the databroker is running with the VSS overlay, THE databroker SHALL expose the custom signal `Vehicle.Parking.SessionActive` with datatype `boolean`.
-2. [02-REQ-3.2] WHEN the databroker is running with the VSS overlay, THE databroker SHALL expose the custom signal `Vehicle.Command.Door.Lock` with datatype `string`.
-3. [02-REQ-3.3] WHEN the databroker is running with the VSS overlay, THE databroker SHALL expose the custom signal `Vehicle.Command.Door.Response` with datatype `string`.
-4. [02-REQ-3.4] WHEN a client sets a value for a custom signal via gRPC, THE databroker SHALL store the value and return it on subsequent get requests.
+**Edge Cases:**
 
-#### Edge Cases
+- [02-REQ-2.E1] IF port 55556 is already in use on the host, THEN `podman compose up` SHALL fail with a port-conflict error.
 
-1. [02-REQ-3.E1] IF the VSS overlay file is malformed JSON, THEN THE databroker container SHALL fail to start and log an error.
-2. [02-REQ-3.E2] IF a client attempts to get a custom signal that has never been set, THEN THE databroker SHALL return a response with no value (not an error).
+---
 
-### Requirement 4: Standard VSS Signal Availability
+### 02-REQ-3: UDS listener configuration
 
-**User Story:** As a service developer, I want the standard VSS v5.1 signals to be available in the databroker, so that vehicle state signals (door lock, location, speed) can be used by all services.
+**User Story:** As a same-partition service (LOCKING_SERVICE, CLOUD_GATEWAY_CLIENT), I want to connect to the DATA_BROKER via Unix Domain Socket so that I can achieve low-latency, partition-local communication.
 
-#### Acceptance Criteria
+**Requirements:**
 
-1. [02-REQ-4.1] WHEN the databroker is running, THE databroker SHALL expose the standard signal `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` with datatype `boolean`.
-2. [02-REQ-4.2] WHEN the databroker is running, THE databroker SHALL expose the standard signal `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` with datatype `boolean`.
-3. [02-REQ-4.3] WHEN the databroker is running, THE databroker SHALL expose the standard signal `Vehicle.CurrentLocation.Latitude` with datatype `double`.
-4. [02-REQ-4.4] WHEN the databroker is running, THE databroker SHALL expose the standard signal `Vehicle.CurrentLocation.Longitude` with datatype `double`.
-5. [02-REQ-4.5] WHEN the databroker is running, THE databroker SHALL expose the standard signal `Vehicle.Speed` with datatype `float`.
+- [02-REQ-3.1] The DATA_BROKER container SHALL listen on UDS path `/tmp/kuksa-databroker.sock`.
+- [02-REQ-3.2] The compose.yml SHALL configure a shared volume mount exposing the UDS socket directory to co-located containers.
 
-#### Edge Cases
+**Acceptance Criteria:**
 
-1. [02-REQ-4.E1] IF a client queries a signal path that does not exist in the VSS tree, THEN THE databroker SHALL return a NOT_FOUND error.
+1. The DATA_BROKER command args SHALL include `--uds-path /tmp/kuksa-databroker.sock`.
+2. The compose.yml SHALL define a named volume or bind mount that makes the UDS socket accessible to same-partition consumer containers.
+3. A gRPC client connecting via `unix:///tmp/kuksa-databroker.sock` from a co-located container SHALL receive a successful gRPC channel connection.
 
-### Requirement 5: Signal Pub/Sub Verification
+**Edge Cases:**
 
-**User Story:** As a service developer, I want to verify that signals can be published and subscribed to via gRPC, so that I know the databroker is functional for downstream component integration.
+- [02-REQ-3.E1] IF the UDS socket file does not exist at startup (first run), THEN the DATA_BROKER SHALL create it automatically.
+- [02-REQ-3.E2] IF a stale UDS socket file exists from a previous run, THEN the DATA_BROKER SHALL replace it and accept new connections.
 
-#### Acceptance Criteria
+---
 
-1. [02-REQ-5.1] WHEN a client subscribes to a signal via gRPC and another client sets a value for that signal, THE subscribing client SHALL receive a notification with the updated value.
-2. [02-REQ-5.2] WHEN a client sets a boolean signal to `true` and then reads it back, THE databroker SHALL return `true`.
-3. [02-REQ-5.3] WHEN a client sets a string signal to a JSON payload and then reads it back, THE databroker SHALL return the exact same JSON string.
+### 02-REQ-4: Dual listener operation
 
-#### Edge Cases
+**User Story:** As a developer, I want the DATA_BROKER to serve both TCP and UDS listeners simultaneously so that both cross-partition and same-partition consumers can connect concurrently.
 
-1. [02-REQ-5.E1] IF a subscriber disconnects and reconnects, THEN THE databroker SHALL allow the new subscription without error.
+**Requirements:**
+
+- [02-REQ-4.1] WHEN the DATA_BROKER container starts, it SHALL activate both the TCP listener (port 55555) and the UDS listener (`/tmp/kuksa-databroker.sock`) simultaneously.
+
+**Acceptance Criteria:**
+
+1. A gRPC client connecting via TCP (`localhost:55556`) and a gRPC client connecting via UDS (`unix:///tmp/kuksa-databroker.sock`) SHALL both be able to read and write signals concurrently.
+2. A signal written via TCP SHALL be readable via UDS, and vice versa.
+
+**Edge Cases:**
+
+- [02-REQ-4.E1] IF one listener fails to bind, THEN the DATA_BROKER SHALL log the error and exit with a non-zero status code rather than running with only one listener.
+
+---
+
+### 02-REQ-5: Standard VSS signal availability
+
+**User Story:** As a vehicle service developer, I want the 5 standard VSS v5.1 signals to be available in the DATA_BROKER so that I can read and write vehicle state data.
+
+**Requirements:**
+
+- [02-REQ-5.1] The DATA_BROKER SHALL include the following standard VSS v5.1 signals in its metadata: `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` (bool), `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` (bool), `Vehicle.CurrentLocation.Latitude` (double), `Vehicle.CurrentLocation.Longitude` (double), `Vehicle.Speed` (float).
+- [02-REQ-5.2] Each standard signal SHALL be retrievable via gRPC GetMetadata or equivalent introspection call.
+
+**Acceptance Criteria:**
+
+1. A metadata query for each of the 5 standard signals SHALL return a valid entry with the correct VSS data type.
+2. Each standard signal SHALL support set and get operations via gRPC.
+
+**Edge Cases:**
+
+- [02-REQ-5.E1] IF a standard signal is missing from the Kuksa Databroker's built-in VSS tree, THEN the integration tests SHALL fail and report the missing signal by name.
+
+---
+
+### 02-REQ-6: Custom VSS signal availability via overlay
+
+**User Story:** As a vehicle service developer, I want the 3 custom VSS signals defined in the overlay to be available in the DATA_BROKER so that parking and command workflows can operate.
+
+**Requirements:**
+
+- [02-REQ-6.1] The VSS overlay file SHALL define `Vehicle.Parking.SessionActive` as type `boolean`.
+- [02-REQ-6.2] The VSS overlay file SHALL define `Vehicle.Command.Door.Lock` as type `string`.
+- [02-REQ-6.3] The VSS overlay file SHALL define `Vehicle.Command.Door.Response` as type `string`.
+- [02-REQ-6.4] The DATA_BROKER SHALL load the VSS overlay file at startup via the appropriate CLI flag or configuration.
+
+**Acceptance Criteria:**
+
+1. A metadata query for `Vehicle.Parking.SessionActive` SHALL return type `boolean`.
+2. A metadata query for `Vehicle.Command.Door.Lock` SHALL return type `string`.
+3. A metadata query for `Vehicle.Command.Door.Response` SHALL return type `string`.
+4. The compose.yml SHALL mount the overlay file into the container and reference it in the databroker command args.
+
+**Edge Cases:**
+
+- [02-REQ-6.E1] IF the overlay file contains a syntax error, THEN the DATA_BROKER SHALL fail to start and log a parse error.
+- [02-REQ-6.E2] IF the overlay file path is missing or inaccessible, THEN the DATA_BROKER SHALL fail to start and log a file-not-found error.
+
+---
+
+### 02-REQ-7: Permissive mode operation
+
+**User Story:** As a demo developer, I want the DATA_BROKER to run without token-based authorization so that integration testing is simplified.
+
+**Requirements:**
+
+- [02-REQ-7.1] The DATA_BROKER SHALL run in permissive mode with no token authentication required.
+
+**Acceptance Criteria:**
+
+1. A gRPC client connecting without any authorization token SHALL be able to read and write all signals.
+2. The DATA_BROKER command args SHALL NOT include any token or authorization flags.
+
+**Edge Cases:**
+
+- [02-REQ-7.E1] IF a client sends a request with an arbitrary or invalid token, THEN the DATA_BROKER in permissive mode SHALL still accept the request.
+
+---
+
+### 02-REQ-8: Signal read/write operations via TCP
+
+**User Story:** As a cross-partition consumer, I want to set and get signal values via the TCP gRPC interface so that I can interact with vehicle data remotely.
+
+**Requirements:**
+
+- [02-REQ-8.1] WHEN a client sets a signal value via TCP gRPC, THEN the DATA_BROKER SHALL store the value and return it on subsequent get requests.
+- [02-REQ-8.2] WHEN a client sets `Vehicle.Parking.SessionActive` to `true` via TCP, THEN a subsequent get request via TCP SHALL return `true`.
+
+**Acceptance Criteria:**
+
+1. Setting `Vehicle.Parking.SessionActive` to `true` via TCP gRPC and then getting it SHALL return `true`.
+2. Setting `Vehicle.Command.Door.Lock` to a JSON string via TCP gRPC and then getting it SHALL return the same JSON string.
+3. Setting `Vehicle.Speed` to `50.0` via TCP gRPC and then getting it SHALL return `50.0`.
+
+**Edge Cases:**
+
+- [02-REQ-8.E1] IF a client attempts to set a signal that does not exist in the VSS tree, THEN the DATA_BROKER SHALL return a gRPC NOT_FOUND error.
+
+---
+
+### 02-REQ-9: Signal read/write operations via UDS
+
+**User Story:** As a same-partition consumer, I want to set and get signal values via the UDS gRPC interface so that I can interact with vehicle data with minimal latency.
+
+**Requirements:**
+
+- [02-REQ-9.1] WHEN a client sets a signal value via UDS gRPC, THEN the DATA_BROKER SHALL store the value and return it on subsequent get requests.
+- [02-REQ-9.2] Signal values written via UDS SHALL be readable via TCP, and vice versa.
+
+**Acceptance Criteria:**
+
+1. Setting `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` to `true` via UDS gRPC and then getting it via UDS SHALL return `true`.
+2. Setting a signal via UDS and getting it via TCP SHALL return the same value.
+3. Setting a signal via TCP and getting it via UDS SHALL return the same value.
+
+**Edge Cases:**
+
+- [02-REQ-9.E1] IF the UDS socket is disconnected mid-operation, THEN the client SHALL receive a gRPC UNAVAILABLE error.
+
+---
+
+### 02-REQ-10: Signal subscription notifications
+
+**User Story:** As a vehicle service, I want to subscribe to signal changes so that I receive real-time notifications when signal values are updated.
+
+**Requirements:**
+
+- [02-REQ-10.1] WHEN a client subscribes to a signal via gRPC (TCP or UDS), THEN the DATA_BROKER SHALL deliver update notifications when the signal value changes.
+
+**Acceptance Criteria:**
+
+1. A client subscribing to `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` via TCP SHALL receive a notification when the signal is set to `true` by another client.
+2. A client subscribing to `Vehicle.Parking.SessionActive` via UDS SHALL receive a notification when the signal is set by another client via TCP.
+
+**Edge Cases:**
+
+- [02-REQ-10.E1] IF a subscriber disconnects and reconnects, THEN the subscriber SHALL be able to re-subscribe and receive subsequent updates without missing the current value.

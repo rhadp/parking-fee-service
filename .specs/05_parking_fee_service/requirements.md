@@ -27,7 +27,7 @@ This document specifies the requirements for the PARKING_FEE_SERVICE component (
 
 1. [05-REQ-1.1] WHEN a GET request is made to `/operators` with query parameters `lat` and `lon`, THE service SHALL return a JSON array of operators whose zones contain or are near the given coordinates.
 2. [05-REQ-1.2] THE service SHALL match coordinates that fall inside a zone's geofence polygon using point-in-polygon ray casting.
-3. [05-REQ-1.3] THE service SHALL match coordinates that are outside a zone's geofence polygon but within the configured proximity threshold distance from the nearest polygon edge.
+3. [05-REQ-1.3] THE service SHALL match coordinates that are outside a zone's geofence polygon but within the configured proximity threshold distance from the nearest polygon edge, using Haversine distance.
 4. [05-REQ-1.4] WHEN multiple operators serve matching zones, THE service SHALL return all matching operators in the response array.
 5. [05-REQ-1.5] WHEN no operators match the given coordinates, THE service SHALL return an empty JSON array `[]` with HTTP 200.
 
@@ -43,7 +43,7 @@ This document specifies the requirements for the PARKING_FEE_SERVICE component (
 
 #### Acceptance Criteria
 
-1. [05-REQ-2.1] WHEN a GET request is made to `/operators/{id}/adapter`, THE service SHALL return a JSON object containing `image_ref`, `checksum_sha256`, and `version` for the specified operator's adapter.
+1. [05-REQ-2.1] WHEN a GET request is made to `/operators/{id}/adapter`, THE service SHALL return a JSON object containing `image_ref` (string), `checksum_sha256` (string), and `version` (string) for the specified operator's adapter.
 2. [05-REQ-2.2] THE response SHALL include HTTP 200 status code on success.
 
 #### Edge Cases
@@ -65,7 +65,7 @@ This document specifies the requirements for the PARKING_FEE_SERVICE component (
 #### Acceptance Criteria
 
 1. [05-REQ-4.1] WHEN the service starts, THE service SHALL load configuration from the file path specified by the `CONFIG_PATH` environment variable, defaulting to `config.json` in the working directory.
-2. [05-REQ-4.2] THE configuration SHALL include a proximity threshold in meters, server port, list of zones with geofence polygons, and list of operators with zone associations and adapter metadata.
+2. [05-REQ-4.2] THE configuration SHALL include a proximity threshold in meters, server port, list of zones with geofence polygons, and list of operators with zone associations, rate information, and adapter metadata.
 3. [05-REQ-4.3] THE service SHALL use the configured proximity threshold for near-zone matching.
 
 #### Edge Cases
@@ -80,7 +80,7 @@ This document specifies the requirements for the PARKING_FEE_SERVICE component (
 #### Acceptance Criteria
 
 1. [05-REQ-5.1] THE service SHALL set `Content-Type: application/json` on all responses.
-2. [05-REQ-5.2] THE operator lookup response SHALL include for each operator: `id`, `name`, `zone_id`, and `rate` (containing `type`, `amount`, `currency`).
+2. [05-REQ-5.2] THE operator lookup response SHALL include for each operator: `id` (string), `name` (string), `zone_id` (string), and `rate` (object containing `type` (string), `amount` (number), `currency` (string)). The `adapter` field SHALL NOT be included in the lookup response.
 3. [05-REQ-5.3] THE error responses SHALL use the format `{"error":"<message>"}`.
 
 ### Requirement 6: Graceful Lifecycle

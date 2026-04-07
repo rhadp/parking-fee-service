@@ -2,7 +2,7 @@
 
 ## Overview
 
-This test specification defines concrete test contracts for the PARKING_FEE_SERVICE, a Go HTTP server providing operator discovery, adapter metadata retrieval, and health check endpoints. Tests are organized into unit tests (geo, config, store, handler packages) and integration tests (httptest-based end-to-end). All tests run via `cd backend && go test -v ./parking-fee-service/...`.
+Tests cover geofence logic (unit), configuration loading (unit), data store lookups (unit), HTTP handlers (integration via httptest), and correctness properties (property tests). All tests run via `cd backend && go test -v ./parking-fee-service/...`. No external services are required -- the PARKING_FEE_SERVICE is self-contained.
 
 ## Test Cases
 
@@ -37,7 +37,7 @@ ASSERT body[0].zone_id == "munich-central"
 
 **Requirement:** 05-REQ-1.2
 **Type:** unit
-**Description:** PointInPolygon correctly identifies coordinates inside a convex polygon using ray casting.
+**Description:** PointInPolygon correctly identifies coordinates inside and outside a convex polygon using ray casting.
 
 **Preconditions:**
 - A square polygon defined by coordinates: (48.14, 11.555), (48.14, 11.565), (48.135, 11.565), (48.135, 11.555).
@@ -216,7 +216,8 @@ ASSERT body.status == "ok"
 
 **Assertion pseudocode:**
 ```
-cfg = config.LoadConfig("/tmp/test-config.json")
+cfg, err = config.LoadConfig("/tmp/test-config.json")
+ASSERT err == nil
 ASSERT cfg.Port == 9090
 ASSERT len(cfg.Zones) == 1
 ASSERT len(cfg.Operators) == 1
@@ -239,7 +240,8 @@ ASSERT len(cfg.Operators) == 1
 
 **Assertion pseudocode:**
 ```
-cfg = config.LoadConfig(path)
+cfg, err = config.LoadConfig(path)
+ASSERT err == nil
 ASSERT cfg.Port > 0
 ASSERT cfg.ProximityThreshold > 0
 ASSERT len(cfg.Zones) > 0
@@ -301,7 +303,7 @@ FOR endpoint IN ["/health", "/operators?lat=48.137&lon=11.575", "/operators/park
 
 **Requirement:** 05-REQ-5.2
 **Type:** integration
-**Description:** Operator lookup response includes id, name, zone_id, and rate (with type, amount, currency) for each operator.
+**Description:** Operator lookup response includes id, name, zone_id, and rate (with type, amount, currency) for each operator. The adapter field is NOT present.
 
 **Preconditions:**
 - Service is running with default config.
@@ -324,7 +326,7 @@ ASSERT op.zone_id != ""
 ASSERT op.rate.type IN ["per-hour", "flat-fee"]
 ASSERT op.rate.amount > 0
 ASSERT op.rate.currency == "EUR"
-ASSERT op.adapter == undefined
+ASSERT "adapter" NOT IN op
 ```
 
 ### TS-05-14: Error Response Format
@@ -702,3 +704,112 @@ FOR ANY path IN random_nonexistent_paths:
 | Property 4 | TS-05-P4 | property |
 | Property 5 | TS-05-P5 | property |
 | Property 6 | TS-05-P6 | property |
+
+## Integration Smoke Tests
+
+### TS-05-SMOKE-1: End-to-End Operator Discovery
+
+**Description:** Start the service binary, query an operator by Munich coordinates, retrieve its adapter metadata, and verify the health endpoint -- all via live HTTP requests.
+
+**Preconditions:**
+- The service binary is built and available.
+- No config file present (service uses built-in defaults).
+
+**Steps:**
+1. Start the service binary as a subprocess on a free port.
+2. Wait for the ready log message.
+3. `GET /health` -- assert HTTP 200, body `{"status":"ok"}`.
+4. `GET /operators?lat=48.1375&lon=11.5600` -- assert HTTP 200, response contains at least one operator with `zone_id: "munich-central"`.
+5. Extract the operator `id` from step 4.
+6. `GET /operators/{id}/adapter` -- assert HTTP 200, response contains non-empty `image_ref`, `checksum_sha256`, `version`.
+7. Send SIGTERM to the subprocess.
+8. Assert the process exits with code 0.
+
+**Assertion pseudocode:**
+```
+proc = startServiceBinary(port=FREE_PORT)
+waitForReady(proc)
+
+resp1 = http.GET("http://localhost:{port}/health")
+ASSERT resp1.StatusCode == 200
+
+resp2 = http.GET("http://localhost:{port}/operators?lat=48.1375&lon=11.5600")
+ASSERT resp2.StatusCode == 200
+operators = json.Decode(resp2.Body)
+ASSERT len(operators) >= 1
+opID = operators[0].id
+
+resp3 = http.GET("http://localhost:{port}/operators/{opID}/adapter")
+ASSERT resp3.StatusCode == 200
+adapter = json.Decode(resp3.Body)
+ASSERT adapter.image_ref != ""
+
+proc.Signal(SIGTERM)
+ASSERT proc.Wait() == 0
+```
+
+### TS-05-SMOKE-2: Custom Config File
+
+**Description:** Start the service with a custom config file via CONFIG_PATH and verify it uses the custom data.
+
+**Preconditions:**
+- A custom config JSON file with a single zone "test-zone" and operator "test-op".
+
+**Steps:**
+1. Write a temporary config file with one custom zone and operator.
+2. Start the service binary with `CONFIG_PATH` set to the temporary file.
+3. `GET /operators?lat={inside-test-zone}&lon={inside-test-zone}` -- assert the response contains `id: "test-op"`.
+4. `GET /operators/test-op/adapter` -- assert HTTP 200 with custom adapter metadata.
+5. Shut down the service.
+
+**Assertion pseudocode:**
+```
+writeConfigFile("/tmp/smoke-config.json", custom_config)
+proc = startServiceBinary(port=FREE_PORT, env={"CONFIG_PATH": "/tmp/smoke-config.json"})
+waitForReady(proc)
+
+resp = http.GET("http://localhost:{port}/operators?lat={test_lat}&lon={test_lon}")
+ASSERT resp.StatusCode == 200
+operators = json.Decode(resp.Body)
+ASSERT operators[0].id == "test-op"
+
+resp2 = http.GET("http://localhost:{port}/operators/test-op/adapter")
+ASSERT resp2.StatusCode == 200
+
+proc.Signal(SIGTERM)
+ASSERT proc.Wait() == 0
+```
+
+### TS-05-SMOKE-3: Error Paths
+
+**Description:** Verify error responses via live HTTP requests against the running service.
+
+**Preconditions:**
+- Service binary is running with defaults.
+
+**Steps:**
+1. `GET /operators` (no params) -- assert HTTP 400.
+2. `GET /operators?lat=999&lon=999` -- assert HTTP 400.
+3. `GET /operators?lat=abc&lon=def` -- assert HTTP 400.
+4. `GET /operators/does-not-exist/adapter` -- assert HTTP 404.
+
+**Assertion pseudocode:**
+```
+proc = startServiceBinary(port=FREE_PORT)
+waitForReady(proc)
+
+resp1 = http.GET("http://localhost:{port}/operators")
+ASSERT resp1.StatusCode == 400
+
+resp2 = http.GET("http://localhost:{port}/operators?lat=999&lon=999")
+ASSERT resp2.StatusCode == 400
+
+resp3 = http.GET("http://localhost:{port}/operators?lat=abc&lon=def")
+ASSERT resp3.StatusCode == 400
+
+resp4 = http.GET("http://localhost:{port}/operators/does-not-exist/adapter")
+ASSERT resp4.StatusCode == 404
+
+proc.Signal(SIGTERM)
+ASSERT proc.Wait() == 0
+```
