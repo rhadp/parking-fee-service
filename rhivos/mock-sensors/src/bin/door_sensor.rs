@@ -28,7 +28,7 @@ async fn main() {
 
     if let Err(e) = publish_datapoint(
         &broker_addr,
-        "Vehicle.Cabin.Door.Row1.Left.IsOpen",
+        "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen",
         DatapointValue::Bool(is_open),
     )
     .await
