@@ -11,9 +11,40 @@ pub enum SafetyResult {
     DoorOpen,
 }
 
+/// Signal path for vehicle speed.
+const SIGNAL_SPEED: &str = "Vehicle.Speed";
+/// Signal path for door open status.
+const SIGNAL_IS_OPEN: &str = "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen";
+
 /// Check safety constraints by reading Vehicle.Speed and door open status.
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("check_safety not yet implemented")
+///
+/// Speed is checked first; if speed >= 1.0 the result is VehicleMoving
+/// regardless of door state. If speed signal is unset, it is treated as 0.0.
+/// If door signal is unset, it is treated as closed (false).
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    // Read speed — treat unset as 0.0 (safe default per 03-REQ-3.E1)
+    let speed = broker
+        .get_float(SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    // Read door open — treat unset as false (safe default per 03-REQ-3.E2)
+    let door_open = broker
+        .get_bool(SIGNAL_IS_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]
