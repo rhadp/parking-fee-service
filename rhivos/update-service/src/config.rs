@@ -48,13 +48,28 @@ impl std::error::Error for ConfigError {}
 ///
 /// If the file does not exist, returns a default configuration.
 /// If the file contains invalid JSON, returns an error.
-pub fn load_config(_path: &str) -> Result<Config, ConfigError> {
-    todo!("load_config not yet implemented")
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    match std::fs::read_to_string(path) {
+        Ok(contents) => {
+            let config: Config = serde_json::from_str(&contents).map_err(ConfigError::Parse)?;
+            Ok(config)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::warn!("Config file not found at {path}, using defaults");
+            Ok(default_config())
+        }
+        Err(e) => Err(ConfigError::Io(e)),
+    }
 }
 
 /// Return the built-in default configuration.
 pub fn default_config() -> Config {
-    todo!("default_config not yet implemented")
+    Config {
+        grpc_port: default_grpc_port(),
+        registry_url: String::new(),
+        inactivity_timeout_secs: default_inactivity_timeout(),
+        container_storage_path: default_container_storage_path(),
+    }
 }
 
 #[cfg(test)]

@@ -38,8 +38,14 @@ pub struct AdapterStateEvent {
 /// Extracts the last path segment and replaces the colon separator with a
 /// hyphen. For example `us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0`
 /// becomes `parkhaus-munich-v1.0.0`.
-pub fn derive_adapter_id(_image_ref: &str) -> String {
-    todo!("derive_adapter_id not yet implemented")
+pub fn derive_adapter_id(image_ref: &str) -> String {
+    // Extract the last path segment (everything after the final '/')
+    let last_segment = image_ref
+        .rsplit('/')
+        .next()
+        .unwrap_or(image_ref);
+    // Replace the colon separator with a hyphen
+    last_segment.replace(':', "-")
 }
 
 #[cfg(test)]
