@@ -152,8 +152,8 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
     - [x] _Test Spec: TS-06-1, TS-06-4, TS-06-10, TS-06-13, TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E9_
 
-- [ ] 5. Main wiring and lifecycle
-  - [ ] 5.1 Implement main package
+- [x] 5. Main wiring and lifecycle
+  - [x] 5.1 Implement main package
     - Read `CONFIG_PATH` env var (default "config.json")
     - Call `config.LoadConfig` -- exit non-zero on error
     - Call `natsclient.Connect` with configured NATS URL and 5 retries -- exit non-zero on failure
@@ -169,18 +169,18 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Use `log/slog` for structured logging
     - _Requirements: 06-REQ-6.1, 06-REQ-6.3, 06-REQ-8.1, 06-REQ-8.2_
 
-  - [ ] 5.2 Create default config.json
+  - [x] 5.2 Create default config.json
     - Port 8081, NATS URL `nats://localhost:4222`, timeout 30s
     - At least one demo token-VIN pair
     - Place in `backend/cloud-gateway/config.json`
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Binary builds: `cd backend && go build ./cloud-gateway/...`
-    - [ ] Startup logging test passes: TS-06-15
-    - [ ] Graceful shutdown test passes: TS-06-14
-    - [ ] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+  - [x] 5.V Verify task group 5
+    - [x] Binary builds: `cd backend && go build ./cloud-gateway/...`
+    - [x] Startup logging test passes: TS-06-15
+    - [x] Graceful shutdown test passes: TS-06-14
+    - [x] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
 - [ ] 6. Wiring verification
   - [ ] 6.1 Run integration smoke tests
