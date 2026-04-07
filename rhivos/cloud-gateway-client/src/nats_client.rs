@@ -14,6 +14,7 @@ use tracing::{error, info, warn};
 /// NATS client wrapping the async-nats connection.
 ///
 /// Stores the underlying connection and the VIN used to construct subject paths.
+#[derive(Clone)]
 pub struct NatsClient {
     client: async_nats::Client,
     vin: String,

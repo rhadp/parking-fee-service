@@ -33,6 +33,7 @@ const SIGNAL_LONGITUDE: &str = "Vehicle.CurrentLocation.Longitude";
 const SIGNAL_PARKING_ACTIVE: &str = "Vehicle.Parking.SessionActive";
 
 /// gRPC client for DATA_BROKER (Eclipse Kuksa Databroker) communication.
+#[derive(Clone)]
 pub struct BrokerClient {
     client: ValClient<Channel>,
 }
