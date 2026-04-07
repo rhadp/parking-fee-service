@@ -129,8 +129,8 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [x] Requirements 03-REQ-2.*, 03-REQ-3.*, 03-REQ-5.*, 03-REQ-7.* acceptance criteria met
 
-- [ ] 3. Implement broker client, process module, and main
-  - [ ] 3.1 Implement broker module
+- [x] 3. Implement broker client, process module, and main
+  - [x] 3.1 Implement broker module
     - Create `rhivos/locking-service/src/broker.rs` with `BrokerClient` trait and `GrpcBrokerClient`
     - Trait methods: `get_float`, `get_bool`, `set_bool`, `set_string`
     - `GrpcBrokerClient::connect` with exponential backoff (5 attempts)
@@ -138,14 +138,14 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - Uses tonic-generated kuksa.val.v1 client from vendored proto files
     - _Requirements: 03-REQ-1.1, 03-REQ-1.E1, 03-REQ-1.E2_
 
-  - [ ] 3.2 Implement process module
+  - [x] 3.2 Implement process module
     - Create `rhivos/locking-service/src/process.rs` with `process_command` function
     - Dispatch lock vs unlock; lock calls `check_safety` then updates state; unlock skips safety
     - Handle idempotent operations (skip `set_bool` if state already matches)
     - Publish response via `set_string`; log and continue on failure
     - _Requirements: 03-REQ-4.1, 03-REQ-4.2, 03-REQ-4.E1, 03-REQ-4.E2, 03-REQ-5.E1_
 
-  - [ ] 3.3 Implement main entry point
+  - [x] 3.3 Implement main entry point
     - Create `rhivos/locking-service/src/main.rs` with startup, subscription loop, and shutdown
     - Parse CLI args: `serve` subcommand required; no args or `--help` prints usage and exits 0
     - Initialise tracing; log version and DATABROKER_ADDR on startup
@@ -155,16 +155,16 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - Handle `extract_command_id` for partial JSON payloads
     - _Requirements: 03-REQ-1.1, 03-REQ-1.2, 03-REQ-1.3, 03-REQ-4.3, 03-REQ-6.1, 03-REQ-6.2, 03-REQ-6.E1_
 
-  - [ ] 3.4 Add build.rs for proto generation
+  - [x] 3.4 Add build.rs for proto generation
     - Create `rhivos/locking-service/build.rs` using tonic-build to compile kuksa.val.v1 protos
     - Ensure proto files are vendored in the workspace
     - _Requirements: 03-REQ-1.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All unit tests pass: `cd rhivos/locking-service && cargo test`
-    - [ ] All property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
-    - [ ] Binary builds and shows usage: `cd rhivos/locking-service && cargo build && ./target/debug/locking-service`
-    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+  - [x] 3.V Verify task group 3
+    - [x] All unit tests pass: `cd rhivos/locking-service && cargo test`
+    - [x] All property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [x] Binary builds and shows usage: `cd rhivos/locking-service && cargo build && ./target/debug/locking-service`
+    - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] All previously passing tests still pass: `make test`
 
 - [ ] 4. Integration tests (live DATA_BROKER)
