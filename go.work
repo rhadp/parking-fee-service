@@ -7,4 +7,5 @@ use (
 	mock/companion-app-cli
 	mock/parking-operator
 	tests/setup
+	tests/mock-apps
 )
