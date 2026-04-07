@@ -99,8 +99,9 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		"session_id": id,
 		"status":     "active",
 		"rate": map[string]any{
-			"amount":   rateAmount,
-			"currency": rateCurrency,
+			"rate_type": "per_hour",
+			"amount":    rateAmount,
+			"currency":  rateCurrency,
 		},
 	})
 }
