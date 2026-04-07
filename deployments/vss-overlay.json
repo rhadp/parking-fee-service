@@ -13,5 +13,20 @@
     "type": "sensor",
     "datatype": "string",
     "description": "Command execution result (JSON payload)"
+  },
+  "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": {
+    "type": "sensor",
+    "datatype": "boolean",
+    "description": "Driver-side door lock status"
+  },
+  "Vehicle.CurrentLocation.Latitude": {
+    "type": "sensor",
+    "datatype": "double",
+    "description": "Current vehicle latitude"
+  },
+  "Vehicle.CurrentLocation.Longitude": {
+    "type": "sensor",
+    "datatype": "double",
+    "description": "Current vehicle longitude"
   }
 }

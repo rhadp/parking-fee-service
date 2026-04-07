@@ -48,13 +48,13 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [x] 7.4 Implement telemetry loop: subscribe DATA_BROKER signals, aggregate, publish to NATS _Requirements:_ [04-REQ-8.1], [04-REQ-8.2]
   - [x] 7.5 Add `tracing-subscriber` initialization and structured logging _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.3], [04-REQ-10.4]
   - [x] 7.V Verify task group 7: `cargo build -p cloud-gateway-client` produces a working binary
-- [ ] 8. Write and run integration tests
-  - [ ] 8.1 Create integration test for end-to-end command flow _Test Spec:_ TS-04-10 _Requirements:_ [04-REQ-2.3], [04-REQ-5.2], [04-REQ-6.3]
-  - [ ] 8.2 Create integration test for end-to-end response relay _Test Spec:_ TS-04-11 _Requirements:_ [04-REQ-7.1], [04-REQ-7.2]
-  - [ ] 8.3 Create integration test for end-to-end telemetry _Test Spec:_ TS-04-12 _Requirements:_ [04-REQ-8.1], [04-REQ-8.2]
-  - [ ] 8.4 Create integration test for self-registration _Test Spec:_ TS-04-13 _Requirements:_ [04-REQ-4.1], [04-REQ-4.2]
-  - [ ] 8.5 Create integration test for command rejection with invalid token _Test Spec:_ TS-04-14 _Requirements:_ [04-REQ-5.E2]
-  - [ ] 8.V Verify task group 8: all integration tests pass with `cargo test -p cloud-gateway-client -- --ignored`
+- [x] 8. Write and run integration tests
+  - [x] 8.1 Create integration test for end-to-end command flow _Test Spec:_ TS-04-10 _Requirements:_ [04-REQ-2.3], [04-REQ-5.2], [04-REQ-6.3]
+  - [x] 8.2 Create integration test for end-to-end response relay _Test Spec:_ TS-04-11 _Requirements:_ [04-REQ-7.1], [04-REQ-7.2]
+  - [x] 8.3 Create integration test for end-to-end telemetry _Test Spec:_ TS-04-12 _Requirements:_ [04-REQ-8.1], [04-REQ-8.2]
+  - [x] 8.4 Create integration test for self-registration _Test Spec:_ TS-04-13 _Requirements:_ [04-REQ-4.1], [04-REQ-4.2]
+  - [x] 8.5 Create integration test for command rejection with invalid token _Test Spec:_ TS-04-14 _Requirements:_ [04-REQ-5.E2]
+  - [-] 8.V Verify task group 8: all integration tests pass with `cargo test -p cloud-gateway-client -- --ignored`
 - [ ] 9. Wiring verification
   - [ ] 9.1 Run smoke test: service starts with valid config _Test Spec:_ TS-04-SMOKE-1 _Requirements:_ [04-REQ-2.1], [04-REQ-3.1]
   - [ ] 9.2 Run smoke test: service exits on missing VIN _Test Spec:_ TS-04-SMOKE-2 _Requirements:_ [04-REQ-1.E1]

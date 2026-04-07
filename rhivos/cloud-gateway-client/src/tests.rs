@@ -1,6 +1,7 @@
-/// Unit and property tests for cloud-gateway-client.
+/// Unit, property, and integration tests for cloud-gateway-client.
 ///
-/// Task Group 1: All tests are expected to FAIL until implementation is complete.
+/// Unit/property tests run without infrastructure.
+/// Integration tests (marked `#[ignore]`) require NATS and DATA_BROKER containers.
 
 #[cfg(test)]
 mod config_tests {
@@ -468,5 +469,533 @@ mod property_tests {
             let json = result.unwrap();
             prop_assert!(json.contains(r#""latitude""#), "Should retain latitude after lon update");
         }
+    }
+}
+
+/// Integration tests requiring NATS and DATA_BROKER containers.
+///
+/// Run with: `cargo test -p cloud-gateway-client -- --ignored`
+///
+/// Prerequisites:
+///   cd deployments && podman-compose up -d
+#[cfg(test)]
+mod integration_tests {
+    use crate::broker_client::BrokerClient;
+    use crate::command_validator::{validate_bearer_token, validate_command_payload};
+    use crate::config::Config;
+    use crate::nats_client::NatsClient;
+    use crate::telemetry::TelemetryState;
+    use futures_util::StreamExt;
+    use std::time::Duration;
+
+    /// Re-include the proto for direct gRPC helpers used by tests.
+    #[allow(clippy::enum_variant_names)]
+    mod kuksa {
+        tonic::include_proto!("kuksa");
+    }
+
+    use kuksa::val_client::ValClient;
+
+    /// Create a test configuration with the given VIN.
+    fn test_config(vin: &str) -> Config {
+        Config {
+            vin: vin.to_string(),
+            nats_url: "nats://localhost:4222".to_string(),
+            databroker_addr: "http://localhost:55556".to_string(),
+            bearer_token: "demo-token".to_string(),
+        }
+    }
+
+    /// Helper: connect a raw gRPC client to DATA_BROKER for test setup/verification.
+    async fn broker_grpc_client() -> ValClient<tonic::transport::Channel> {
+        ValClient::connect("http://localhost:55556")
+            .await
+            .expect("Failed to connect gRPC client to DATA_BROKER for test")
+    }
+
+    /// Helper: read a string signal from DATA_BROKER.
+    async fn get_broker_string(
+        client: &mut ValClient<tonic::transport::Channel>,
+        path: &str,
+    ) -> Option<String> {
+        let resp = client
+            .get(kuksa::GetRequest {
+                paths: vec![path.to_string()],
+            })
+            .await
+            .expect("gRPC get failed");
+        let entry = resp.into_inner().entries.into_iter().next()?;
+        let dp = entry.value?;
+        match dp.value? {
+            kuksa::datapoint::Value::StringValue(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Helper: set a string signal in DATA_BROKER.
+    async fn set_broker_string(
+        client: &mut ValClient<tonic::transport::Channel>,
+        path: &str,
+        value: &str,
+    ) {
+        let resp = client
+            .set(kuksa::SetRequest {
+                entries: vec![kuksa::DataEntry {
+                    path: path.to_string(),
+                    value: Some(kuksa::Datapoint {
+                        timestamp: 0,
+                        value: Some(kuksa::datapoint::Value::StringValue(value.to_string())),
+                    }),
+                }],
+            })
+            .await
+            .expect("gRPC set failed");
+        assert!(resp.into_inner().success, "DATA_BROKER set_string failed");
+    }
+
+    /// Helper: set a boolean signal in DATA_BROKER.
+    async fn set_broker_bool(
+        client: &mut ValClient<tonic::transport::Channel>,
+        path: &str,
+        value: bool,
+    ) {
+        let resp = client
+            .set(kuksa::SetRequest {
+                entries: vec![kuksa::DataEntry {
+                    path: path.to_string(),
+                    value: Some(kuksa::Datapoint {
+                        timestamp: 0,
+                        value: Some(kuksa::datapoint::Value::BoolValue(value)),
+                    }),
+                }],
+            })
+            .await
+            .expect("gRPC set failed");
+        assert!(resp.into_inner().success, "DATA_BROKER set_bool failed");
+    }
+
+    /// Helper: clear a string signal in DATA_BROKER by writing an empty string.
+    async fn clear_broker_string(
+        client: &mut ValClient<tonic::transport::Channel>,
+        path: &str,
+    ) {
+        let _ = client
+            .set(kuksa::SetRequest {
+                entries: vec![kuksa::DataEntry {
+                    path: path.to_string(),
+                    value: Some(kuksa::Datapoint {
+                        timestamp: 0,
+                        value: Some(kuksa::datapoint::Value::StringValue(String::new())),
+                    }),
+                }],
+            })
+            .await;
+    }
+
+    /// TS-04-10: End-to-end command flow
+    ///
+    /// Validates: [04-REQ-5.2], [04-REQ-6.3], [04-REQ-2.3]
+    ///
+    /// Publishes a command to NATS with valid auth, verifies the command payload
+    /// is written to Vehicle.Command.Door.Lock in DATA_BROKER.
+    #[tokio::test]
+    #[ignore]
+    async fn ts_04_10_e2e_command_flow() {
+        let vin = "E2E-VIN-10";
+        let config = test_config(vin);
+
+        // Clear any previous command value.
+        let mut grpc = broker_grpc_client().await;
+        clear_broker_string(&mut grpc, "Vehicle.Command.Door.Lock").await;
+
+        // Connect the service components.
+        let nats_client = NatsClient::connect(&config)
+            .await
+            .expect("NatsClient connect failed");
+        let broker_client = BrokerClient::connect(&config)
+            .await
+            .expect("BrokerClient connect failed");
+
+        // Subscribe to NATS commands subject.
+        let mut cmd_sub = nats_client
+            .subscribe_commands()
+            .await
+            .expect("subscribe_commands failed");
+
+        // Spawn a task that processes exactly one command (mirrors main::command_loop).
+        let bearer = config.bearer_token.clone();
+        let broker = broker_client.clone();
+        let cmd_handle = tokio::spawn(async move {
+            if let Some(msg) = cmd_sub.next().await {
+                let auth = msg
+                    .headers
+                    .as_ref()
+                    .and_then(|h| h.get("Authorization"))
+                    .map(|v| v.as_str());
+                if validate_bearer_token(auth, &bearer).is_err() {
+                    panic!("Bearer token validation unexpectedly failed in test");
+                }
+                let payload = msg.payload.as_ref();
+                if validate_command_payload(payload).is_err() {
+                    panic!("Command validation unexpectedly failed in test");
+                }
+                let payload_str =
+                    std::str::from_utf8(payload).expect("payload should be valid UTF-8");
+                broker
+                    .write_command(payload_str)
+                    .await
+                    .expect("write_command failed");
+            }
+        });
+
+        // Allow subscriber to become ready.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        // Publish a command via a separate NATS connection.
+        let raw_nats = async_nats::connect("nats://localhost:4222")
+            .await
+            .expect("raw NATS connect failed");
+        let mut headers = async_nats::HeaderMap::new();
+        headers.insert("Authorization", "Bearer demo-token");
+        let command_payload = r#"{"command_id":"cmd-1","action":"lock","doors":["driver"],"source":"companion_app","vin":"E2E-VIN","timestamp":1700000000}"#;
+        raw_nats
+            .publish_with_headers(
+                format!("vehicles.{}.commands", vin),
+                headers,
+                command_payload.into(),
+            )
+            .await
+            .expect("NATS publish failed");
+        raw_nats.flush().await.expect("NATS flush failed");
+
+        // Wait for the command to be processed (max 2 seconds).
+        tokio::time::timeout(Duration::from_secs(2), cmd_handle)
+            .await
+            .expect("Timeout waiting for command processing")
+            .expect("Command processing task panicked");
+
+        // Verify the command was written to DATA_BROKER.
+        let stored = get_broker_string(&mut grpc, "Vehicle.Command.Door.Lock").await;
+        assert!(stored.is_some(), "Command should be written to DATA_BROKER");
+        assert_eq!(
+            stored.unwrap(),
+            command_payload,
+            "DATA_BROKER should contain the command payload verbatim"
+        );
+    }
+
+    /// TS-04-11: End-to-end response relay
+    ///
+    /// Validates: [04-REQ-7.1], [04-REQ-7.2]
+    ///
+    /// Sets Vehicle.Command.Door.Response in DATA_BROKER and verifies
+    /// the response JSON is published verbatim to NATS.
+    #[tokio::test]
+    #[ignore]
+    async fn ts_04_11_e2e_response_relay() {
+        let vin = "E2E-VIN-11";
+        let config = test_config(vin);
+
+        // Connect the service components.
+        let nats_client = NatsClient::connect(&config)
+            .await
+            .expect("NatsClient connect failed");
+        let broker_client = BrokerClient::connect(&config)
+            .await
+            .expect("BrokerClient connect failed");
+
+        // Subscribe to NATS response subject.
+        let raw_nats = async_nats::connect("nats://localhost:4222")
+            .await
+            .expect("raw NATS connect failed");
+        let mut response_sub = raw_nats
+            .subscribe(format!("vehicles.{}.command_responses", vin))
+            .await
+            .expect("NATS subscribe failed");
+
+        // Start the response relay: subscribe to DATA_BROKER responses,
+        // then forward to NATS.
+        let mut response_rx = broker_client
+            .subscribe_responses()
+            .await
+            .expect("subscribe_responses failed");
+
+        let nats_for_relay = nats_client.clone();
+        let relay_handle = tokio::spawn(async move {
+            if let Some(json) = response_rx.recv().await {
+                nats_for_relay
+                    .publish_response(&json)
+                    .await
+                    .expect("publish_response failed");
+            }
+        });
+
+        // Allow subscriptions to become ready.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        // Write a response to DATA_BROKER.
+        let response_json =
+            r#"{"command_id":"cmd-1","status":"success","timestamp":1700000001}"#;
+        let mut grpc = broker_grpc_client().await;
+        set_broker_string(&mut grpc, "Vehicle.Command.Door.Response", response_json).await;
+
+        // Wait for relay to complete.
+        tokio::time::timeout(Duration::from_secs(2), relay_handle)
+            .await
+            .expect("Timeout waiting for response relay")
+            .expect("Response relay task panicked");
+
+        // Verify the response was published to NATS.
+        let nats_msg = tokio::time::timeout(Duration::from_secs(2), response_sub.next())
+            .await
+            .expect("Timeout waiting for NATS response message")
+            .expect("No NATS response message received");
+
+        let received = std::str::from_utf8(&nats_msg.payload).expect("payload should be UTF-8");
+        assert_eq!(
+            received, response_json,
+            "NATS should receive the response JSON verbatim"
+        );
+    }
+
+    /// TS-04-12: End-to-end telemetry on signal change
+    ///
+    /// Validates: [04-REQ-8.1], [04-REQ-8.2]
+    ///
+    /// Sets Vehicle.Cabin.Door.Row1.DriverSide.IsLocked to true in DATA_BROKER
+    /// and verifies a telemetry message is published to NATS.
+    #[tokio::test]
+    #[ignore]
+    async fn ts_04_12_e2e_telemetry_on_signal_change() {
+        let vin = "E2E-VIN-12";
+        let config = test_config(vin);
+
+        // Connect the service components.
+        let nats_client = NatsClient::connect(&config)
+            .await
+            .expect("NatsClient connect failed");
+        let broker_client = BrokerClient::connect(&config)
+            .await
+            .expect("BrokerClient connect failed");
+
+        // Subscribe to NATS telemetry subject.
+        let raw_nats = async_nats::connect("nats://localhost:4222")
+            .await
+            .expect("raw NATS connect failed");
+        let mut telem_sub = raw_nats
+            .subscribe(format!("vehicles.{}.telemetry", vin))
+            .await
+            .expect("NATS subscribe failed");
+
+        // Start the telemetry loop: subscribe to DATA_BROKER signals,
+        // aggregate via TelemetryState, forward to NATS.
+        let mut telemetry_rx = broker_client
+            .subscribe_telemetry()
+            .await
+            .expect("subscribe_telemetry failed");
+
+        let nats_for_telem = nats_client.clone();
+        let telem_vin = vin.to_string();
+        let telem_handle = tokio::spawn(async move {
+            let mut state = TelemetryState::new(telem_vin);
+            if let Some(signal_update) = telemetry_rx.recv().await {
+                if let Some(json) = state.update(signal_update) {
+                    nats_for_telem
+                        .publish_telemetry(&json)
+                        .await
+                        .expect("publish_telemetry failed");
+                }
+            }
+        });
+
+        // Allow subscriptions to become ready.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        // Set IsLocked to true in DATA_BROKER.
+        let mut grpc = broker_grpc_client().await;
+        set_broker_bool(
+            &mut grpc,
+            "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
+            true,
+        )
+        .await;
+
+        // Wait for telemetry processing to complete.
+        tokio::time::timeout(Duration::from_secs(2), telem_handle)
+            .await
+            .expect("Timeout waiting for telemetry processing")
+            .expect("Telemetry processing task panicked");
+
+        // Verify the telemetry was published to NATS.
+        let nats_msg = tokio::time::timeout(Duration::from_secs(2), telem_sub.next())
+            .await
+            .expect("Timeout waiting for NATS telemetry message")
+            .expect("No NATS telemetry message received");
+
+        let json: serde_json::Value =
+            serde_json::from_slice(&nats_msg.payload).expect("telemetry should be valid JSON");
+        assert_eq!(json["vin"], vin, "Telemetry should contain correct VIN");
+        assert_eq!(
+            json["is_locked"], true,
+            "Telemetry should contain is_locked: true"
+        );
+    }
+
+    /// TS-04-13: Self-registration on startup
+    ///
+    /// Validates: [04-REQ-4.1], [04-REQ-4.2]
+    ///
+    /// Verifies that NatsClient::publish_registration() sends a correctly
+    /// formatted message to the status subject.
+    #[tokio::test]
+    #[ignore]
+    async fn ts_04_13_self_registration_on_startup() {
+        let vin = "REG-VIN-13";
+        let config = test_config(vin);
+
+        // Subscribe to the status subject before publishing.
+        let raw_nats = async_nats::connect("nats://localhost:4222")
+            .await
+            .expect("raw NATS connect failed");
+        let mut status_sub = raw_nats
+            .subscribe(format!("vehicles.{}.status", vin))
+            .await
+            .expect("NATS subscribe failed");
+
+        // Allow subscription to become ready.
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        // Connect the NatsClient and publish registration.
+        let nats_client = NatsClient::connect(&config)
+            .await
+            .expect("NatsClient connect failed");
+        nats_client
+            .publish_registration()
+            .await
+            .expect("publish_registration failed");
+
+        // Verify the registration message.
+        let nats_msg = tokio::time::timeout(Duration::from_secs(5), status_sub.next())
+            .await
+            .expect("Timeout waiting for registration message")
+            .expect("No registration message received");
+
+        let json: serde_json::Value =
+            serde_json::from_slice(&nats_msg.payload).expect("registration should be valid JSON");
+        assert_eq!(
+            json["vin"], vin,
+            "Registration should contain correct VIN"
+        );
+        assert_eq!(
+            json["status"], "online",
+            "Registration should contain status: online"
+        );
+        assert!(
+            json.get("timestamp").is_some(),
+            "Registration should contain a timestamp"
+        );
+    }
+
+    /// TS-04-14: Command rejected with invalid token
+    ///
+    /// Validates: [04-REQ-5.E2]
+    ///
+    /// Publishes a command with an invalid bearer token and verifies
+    /// that DATA_BROKER is NOT updated.
+    #[tokio::test]
+    #[ignore]
+    async fn ts_04_14_command_rejected_invalid_token() {
+        let vin = "E2E-VIN-14";
+        let config = test_config(vin);
+
+        // Clear any previous command value.
+        let mut grpc = broker_grpc_client().await;
+        clear_broker_string(&mut grpc, "Vehicle.Command.Door.Lock").await;
+
+        // Connect the service components.
+        let nats_client = NatsClient::connect(&config)
+            .await
+            .expect("NatsClient connect failed");
+        let _broker_client = BrokerClient::connect(&config)
+            .await
+            .expect("BrokerClient connect failed");
+
+        // Subscribe to NATS commands subject.
+        let mut cmd_sub = nats_client
+            .subscribe_commands()
+            .await
+            .expect("subscribe_commands failed");
+
+        // Track whether a write to DATA_BROKER was attempted.
+        let broker_for_cmd = _broker_client.clone();
+        let bearer = config.bearer_token.clone();
+        let wrote_to_broker = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let wrote_flag = wrote_to_broker.clone();
+
+        let cmd_handle = tokio::spawn(async move {
+            if let Some(msg) = cmd_sub.next().await {
+                let auth = msg
+                    .headers
+                    .as_ref()
+                    .and_then(|h| h.get("Authorization"))
+                    .map(|v| v.as_str());
+                if validate_bearer_token(auth, &bearer).is_err() {
+                    // Authentication failed; command is discarded (expected).
+                    return;
+                }
+                let payload = msg.payload.as_ref();
+                if validate_command_payload(payload).is_err() {
+                    return;
+                }
+                let payload_str =
+                    std::str::from_utf8(payload).expect("payload should be valid UTF-8");
+                broker_for_cmd
+                    .write_command(payload_str)
+                    .await
+                    .expect("write_command failed");
+                wrote_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
+
+        // Allow subscriber to become ready.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        // Publish a command with INVALID bearer token.
+        let raw_nats = async_nats::connect("nats://localhost:4222")
+            .await
+            .expect("raw NATS connect failed");
+        let mut headers = async_nats::HeaderMap::new();
+        headers.insert("Authorization", "Bearer wrong-token");
+        let command_payload =
+            r#"{"command_id":"cmd-2","action":"lock","doors":["driver"]}"#;
+        raw_nats
+            .publish_with_headers(
+                format!("vehicles.{}.commands", vin),
+                headers,
+                command_payload.into(),
+            )
+            .await
+            .expect("NATS publish failed");
+        raw_nats.flush().await.expect("NATS flush failed");
+
+        // Wait for the command processing task to handle the message.
+        tokio::time::timeout(Duration::from_secs(2), cmd_handle)
+            .await
+            .expect("Timeout waiting for command processing")
+            .expect("Command processing task panicked");
+
+        // Verify no write occurred to DATA_BROKER.
+        assert!(
+            !wrote_to_broker.load(std::sync::atomic::Ordering::SeqCst),
+            "DATA_BROKER should NOT be updated when the bearer token is invalid"
+        );
+
+        // Also verify via gRPC that the command signal is empty/unchanged.
+        let stored = get_broker_string(&mut grpc, "Vehicle.Command.Door.Lock").await;
+        let is_empty = stored.as_ref().map_or(true, |s| s.is_empty());
+        assert!(
+            is_empty,
+            "Vehicle.Command.Door.Lock should not contain a command payload"
+        );
     }
 }
