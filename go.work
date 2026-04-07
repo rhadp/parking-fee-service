@@ -1,13 +1,13 @@
-go 1.23
+go 1.25.0
 
 use (
-	backend/parking-fee-service
 	backend/cloud-gateway
+	backend/parking-fee-service
 	gen/go
-	mock/parking-app-cli
 	mock/companion-app-cli
+	mock/parking-app-cli
 	mock/parking-operator
-	tests/setup
-	tests/mock-apps
 	tests/databroker
+	tests/mock-apps
+	tests/setup
 )
