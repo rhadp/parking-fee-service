@@ -1,6 +1,8 @@
 use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
+use std::collections::HashMap;
 use std::fmt;
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast;
 
 /// Errors from state management operations.
@@ -23,58 +25,118 @@ impl std::error::Error for StateError {}
 
 /// Thread-safe in-memory adapter state store with event broadcasting.
 pub struct StateManager {
-    _tx: broadcast::Sender<AdapterStateEvent>,
+    tx: broadcast::Sender<AdapterStateEvent>,
+    adapters: Mutex<HashMap<String, AdapterEntry>>,
 }
 
 impl StateManager {
     /// Create a new state manager with the given broadcast sender.
     pub fn new(tx: broadcast::Sender<AdapterStateEvent>) -> Self {
-        Self { _tx: tx }
+        Self {
+            tx,
+            adapters: Mutex::new(HashMap::new()),
+        }
     }
 
     /// Subscribe to adapter state events.
     pub fn subscribe(&self) -> broadcast::Receiver<AdapterStateEvent> {
-        self._tx.subscribe()
+        self.tx.subscribe()
     }
 
     /// Insert a new adapter entry.
-    pub fn create_adapter(&self, _entry: AdapterEntry) {
-        todo!("create_adapter not yet implemented")
+    pub fn create_adapter(&self, entry: AdapterEntry) {
+        let mut map = self.adapters.lock().unwrap();
+        map.insert(entry.adapter_id.clone(), entry);
     }
 
     /// Transition an adapter to a new state, emitting an event.
     pub fn transition(
         &self,
-        _adapter_id: &str,
-        _new_state: AdapterState,
-        _error_msg: Option<String>,
+        adapter_id: &str,
+        new_state: AdapterState,
+        error_msg: Option<String>,
     ) -> Result<(), StateError> {
-        todo!("transition not yet implemented")
+        let mut map = self.adapters.lock().unwrap();
+        let entry = map
+            .get_mut(adapter_id)
+            .ok_or_else(|| StateError::NotFound(format!("adapter {adapter_id} not found")))?;
+
+        let old_state = entry.state.clone();
+        entry.state = new_state.clone();
+
+        // Record stopped_at when transitioning to Stopped
+        if new_state == AdapterState::Stopped {
+            entry.stopped_at = Some(Instant::now());
+        }
+
+        // Record error message
+        if let Some(msg) = error_msg {
+            entry.error_message = Some(msg);
+        }
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state,
+            new_state,
+            timestamp,
+        };
+
+        // Ignore send errors (no subscribers is fine per 07-REQ-8.E1)
+        let _ = self.tx.send(event);
+
+        Ok(())
     }
 
     /// Look up an adapter by ID.
-    pub fn get_adapter(&self, _adapter_id: &str) -> Option<AdapterEntry> {
-        todo!("get_adapter not yet implemented")
+    pub fn get_adapter(&self, adapter_id: &str) -> Option<AdapterEntry> {
+        let map = self.adapters.lock().unwrap();
+        map.get(adapter_id).cloned()
     }
 
     /// List all known adapters.
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!("list_adapters not yet implemented")
+        let map = self.adapters.lock().unwrap();
+        map.values().cloned().collect()
     }
 
     /// Remove an adapter from state entirely.
-    pub fn remove_adapter(&self, _adapter_id: &str) -> Result<(), StateError> {
-        todo!("remove_adapter not yet implemented")
+    pub fn remove_adapter(&self, adapter_id: &str) -> Result<(), StateError> {
+        let mut map = self.adapters.lock().unwrap();
+        if map.remove(adapter_id).is_some() {
+            Ok(())
+        } else {
+            Err(StateError::NotFound(format!(
+                "adapter {adapter_id} not found"
+            )))
+        }
     }
 
     /// Return the currently RUNNING adapter, if any.
     pub fn get_running_adapter(&self) -> Option<AdapterEntry> {
-        todo!("get_running_adapter not yet implemented")
+        let map = self.adapters.lock().unwrap();
+        map.values()
+            .find(|e| e.state == AdapterState::Running)
+            .cloned()
     }
 
     /// Return STOPPED adapters whose inactivity exceeds `timeout`.
-    pub fn get_offload_candidates(&self, _timeout: Duration) -> Vec<AdapterEntry> {
-        todo!("get_offload_candidates not yet implemented")
+    pub fn get_offload_candidates(&self, timeout: Duration) -> Vec<AdapterEntry> {
+        let map = self.adapters.lock().unwrap();
+        let now = Instant::now();
+        map.values()
+            .filter(|e| {
+                e.state == AdapterState::Stopped
+                    && e.stopped_at
+                        .map(|t| now.duration_since(t) >= timeout)
+                        .unwrap_or(false)
+            })
+            .cloned()
+            .collect()
     }
 }
 

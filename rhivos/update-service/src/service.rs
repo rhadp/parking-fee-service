@@ -1,4 +1,4 @@
-use crate::adapter::AdapterState;
+use crate::adapter::{derive_adapter_id, AdapterEntry, AdapterState};
 use crate::config::Config;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
@@ -58,28 +58,207 @@ impl UpdateServiceHandler {
     /// then pull/verify/run in a background task.
     pub async fn install_adapter(
         &self,
-        _image_ref: &str,
-        _checksum_sha256: &str,
+        image_ref: &str,
+        checksum_sha256: &str,
     ) -> Result<InstallResponse, ServiceError> {
-        todo!("install_adapter not yet implemented")
+        // Validate inputs
+        if image_ref.is_empty() {
+            return Err(ServiceError::InvalidArgument(
+                "image_ref is required".to_string(),
+            ));
+        }
+        if checksum_sha256.is_empty() {
+            return Err(ServiceError::InvalidArgument(
+                "checksum_sha256 is required".to_string(),
+            ));
+        }
+
+        let adapter_id = derive_adapter_id(image_ref);
+        let job_id = uuid::Uuid::new_v4().to_string();
+
+        // Single adapter constraint: stop any currently running adapter
+        if let Some(running) = self.state_mgr.get_running_adapter() {
+            if running.adapter_id != adapter_id {
+                match self.podman.stop(&running.adapter_id).await {
+                    Ok(()) => {
+                        let _ = self.state_mgr.transition(
+                            &running.adapter_id,
+                            AdapterState::Stopped,
+                            None,
+                        );
+                    }
+                    Err(e) => {
+                        // 07-REQ-2.E1: stop failure -> ERROR, but proceed
+                        let _ = self.state_mgr.transition(
+                            &running.adapter_id,
+                            AdapterState::Error,
+                            Some(e.message.clone()),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Create adapter entry in UNKNOWN state
+        let entry = AdapterEntry {
+            adapter_id: adapter_id.clone(),
+            image_ref: image_ref.to_string(),
+            checksum_sha256: checksum_sha256.to_string(),
+            state: AdapterState::Unknown,
+            job_id: job_id.clone(),
+            stopped_at: None,
+            error_message: None,
+        };
+        self.state_mgr.create_adapter(entry);
+
+        // Transition to DOWNLOADING
+        let _ = self
+            .state_mgr
+            .transition(&adapter_id, AdapterState::Downloading, None);
+
+        let response = InstallResponse {
+            job_id,
+            adapter_id: adapter_id.clone(),
+            state: AdapterState::Downloading,
+        };
+
+        // Spawn async background task for pull/verify/run
+        let state_mgr = self.state_mgr.clone();
+        let podman = self.podman.clone();
+        let image_ref_owned = image_ref.to_string();
+        let checksum_owned = checksum_sha256.to_string();
+        let adapter_id_owned = adapter_id;
+
+        tokio::spawn(async move {
+            Self::do_install(
+                state_mgr,
+                podman,
+                &adapter_id_owned,
+                &image_ref_owned,
+                &checksum_owned,
+            )
+            .await;
+        });
+
+        Ok(response)
+    }
+
+    /// Background install: pull, verify checksum, run container.
+    async fn do_install(
+        state_mgr: Arc<StateManager>,
+        podman: Arc<dyn PodmanExecutor>,
+        adapter_id: &str,
+        image_ref: &str,
+        checksum_sha256: &str,
+    ) {
+        // Step 1: podman pull
+        if let Err(e) = podman.pull(image_ref).await {
+            let _ = state_mgr.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+            return;
+        }
+
+        // Step 2: inspect digest and verify checksum
+        match podman.inspect_digest(image_ref).await {
+            Ok(digest) => {
+                if digest.trim() != checksum_sha256 {
+                    // Checksum mismatch: clean up image and error
+                    let _ = podman.rmi(image_ref).await;
+                    let _ = state_mgr.transition(
+                        adapter_id,
+                        AdapterState::Error,
+                        Some("checksum_mismatch".to_string()),
+                    );
+                    return;
+                }
+            }
+            Err(e) => {
+                let _ = state_mgr.transition(
+                    adapter_id,
+                    AdapterState::Error,
+                    Some(e.message),
+                );
+                return;
+            }
+        }
+
+        // Step 3: transition to INSTALLING
+        let _ = state_mgr.transition(adapter_id, AdapterState::Installing, None);
+
+        // Step 4: podman run
+        if let Err(e) = podman.run(adapter_id, image_ref).await {
+            let _ = state_mgr.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+            return;
+        }
+
+        // Step 5: transition to RUNNING
+        let _ = state_mgr.transition(adapter_id, AdapterState::Running, None);
     }
 
     /// Remove an adapter: stop if running, rm container, rmi image, remove from state.
-    pub async fn remove_adapter(&self, _adapter_id: &str) -> Result<(), ServiceError> {
-        todo!("remove_adapter not yet implemented")
+    pub async fn remove_adapter(&self, adapter_id: &str) -> Result<(), ServiceError> {
+        let entry = self
+            .state_mgr
+            .get_adapter(adapter_id)
+            .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))?;
+
+        // Stop if running
+        if entry.state == AdapterState::Running {
+            if let Err(e) = self.podman.stop(adapter_id).await {
+                let _ = self.state_mgr.transition(
+                    adapter_id,
+                    AdapterState::Error,
+                    Some(e.message.clone()),
+                );
+                return Err(ServiceError::Internal(e.message));
+            }
+        }
+
+        // Remove container
+        if let Err(e) = self.podman.rm(adapter_id).await {
+            let _ = self.state_mgr.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message.clone()),
+            );
+            return Err(ServiceError::Internal(e.message));
+        }
+
+        // Remove image
+        if let Err(e) = self.podman.rmi(&entry.image_ref).await {
+            let _ = self.state_mgr.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message.clone()),
+            );
+            return Err(ServiceError::Internal(e.message));
+        }
+
+        // Remove from state
+        let _ = self.state_mgr.remove_adapter(adapter_id);
+        Ok(())
     }
 
     /// Get the status of a specific adapter.
     pub fn get_adapter_status(
         &self,
-        _adapter_id: &str,
-    ) -> Result<crate::adapter::AdapterEntry, ServiceError> {
-        todo!("get_adapter_status not yet implemented")
+        adapter_id: &str,
+    ) -> Result<AdapterEntry, ServiceError> {
+        self.state_mgr
+            .get_adapter(adapter_id)
+            .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))
     }
 
     /// List all known adapters.
-    pub fn list_adapters(&self) -> Vec<crate::adapter::AdapterEntry> {
-        todo!("list_adapters not yet implemented")
+    pub fn list_adapters(&self) -> Vec<AdapterEntry> {
+        self.state_mgr.list_adapters()
     }
 }
 
