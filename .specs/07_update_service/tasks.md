@@ -24,8 +24,8 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add dependencies to update-service Cargo.toml
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add dependencies to update-service Cargo.toml
     - Add: tonic, prost, tokio (full), serde, serde_json, uuid, tracing, tracing-subscriber, async-trait
     - Add dev: proptest, tokio-test
     - Add tonic-build to build-dependencies
@@ -33,7 +33,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - Add build.rs for proto code generation
     - _Test Spec: TS-07-1 through TS-07-18_
 
-  - [ ] 1.2 Write config and adapter ID unit tests
+  - [x] 1.2 Write config and adapter ID unit tests
     - Create `rhivos/update-service/src/config.rs` with test module
     - Create `rhivos/update-service/src/adapter.rs` with test module
     - `test_load_config_from_file` -- TS-07-14
@@ -42,7 +42,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - `test_derive_adapter_id` -- TS-07-6 (three cases)
     - _Test Spec: TS-07-6, TS-07-14, TS-07-E13, TS-07-E14_
 
-  - [ ] 1.3 Write state manager and event tests
+  - [x] 1.3 Write state manager and event tests
     - Create `rhivos/update-service/src/state.rs` with test module
     - `test_create_and_get_adapter` -- TS-07-11
     - `test_list_adapters_empty` -- TS-07-E9
@@ -56,7 +56,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - `test_subscriber_disconnect` -- TS-07-E7
     - _Test Spec: TS-07-8, TS-07-9, TS-07-10, TS-07-11, TS-07-12, TS-07-E7, TS-07-E8, TS-07-E9, TS-07-E10, TS-07-E15_
 
-  - [ ] 1.4 Write podman executor and install flow tests
+  - [x] 1.4 Write podman executor and install flow tests
     - Create `rhivos/update-service/src/podman.rs` with mock and test module
     - `test_install_calls_podman_pull` -- TS-07-2
     - `test_install_verifies_checksum` -- TS-07-3
@@ -70,7 +70,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - `test_run_failure_error_state` -- TS-07-E5
     - _Test Spec: TS-07-1, TS-07-2, TS-07-3, TS-07-4, TS-07-5, TS-07-E1, TS-07-E2, TS-07-E3, TS-07-E4, TS-07-E5_
 
-  - [ ] 1.5 Write single-adapter, offload, and monitor tests
+  - [x] 1.5 Write single-adapter, offload, and monitor tests
     - `test_single_adapter_stops_running` -- TS-07-7
     - `test_stop_failure_install_proceeds` -- TS-07-E6
     - `test_offload_after_timeout` -- TS-07-13
@@ -81,7 +81,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - `test_removal_failure_internal` -- TS-07-E11
     - _Test Spec: TS-07-7, TS-07-13, TS-07-15, TS-07-16, TS-07-E6, TS-07-E11, TS-07-E12, TS-07-E16_
 
-  - [ ] 1.6 Write property tests
+  - [x] 1.6 Write property tests
     - `proptest_adapter_id_determinism` -- TS-07-P1
     - `proptest_single_adapter_invariant` -- TS-07-P2
     - `proptest_state_transition_validity` -- TS-07-P3
@@ -90,10 +90,10 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - `proptest_offload_timing_correctness` -- TS-07-P6
     - _Test Spec: TS-07-P1 through TS-07-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
-    - [ ] All spec tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos && cargo test -p update-service --no-run`
+    - [x] All spec tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
 - [ ] 2. Config, adapter, and data types
   - [ ] 2.1 Implement adapter module
