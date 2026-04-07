@@ -129,10 +129,7 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	durationSec := req.Timestamp - sess.StartTS
-	if durationSec < 0 {
-		durationSec = 0
-	}
+	durationSec := max(req.Timestamp-sess.StartTS, 0)
 	totalAmount := rateAmount * float64(durationSec) / 3600.0
 
 	writeJSON(w, http.StatusOK, map[string]any{
