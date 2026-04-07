@@ -34,7 +34,7 @@ test: test-rust test-go
 
 test-rust:
 	@echo "Running Rust tests..."
-	cd rhivos && cargo test --workspace
+	cd rhivos && cargo test --workspace -- --test-threads=1
 
 test-go:
 	@echo "Running Go tests..."
@@ -82,7 +82,7 @@ infra-down:
 
 check: build
 	@echo "Running linters..."
-	cd rhivos && cargo clippy --workspace -- -D warnings 2>/dev/null || cd rhivos && cargo check --workspace
+	(cd rhivos && cargo clippy --workspace -- -D warnings 2>/dev/null) || (cd rhivos && cargo check --workspace)
 	@for mod in $(GO_MODULES); do \
 		cd $$mod && go vet ./... && cd $(CURDIR) || exit 1; \
 	done
