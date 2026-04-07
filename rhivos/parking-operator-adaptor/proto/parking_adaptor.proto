@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package parking_adaptor;
+
+// Rate information for a parking session.
+message Rate {
+  string rate_type = 1;   // "per_hour" or "flat_fee"
+  double amount = 2;
+  string currency = 3;
+}
+
+// StartSession begins a new parking session in the given zone.
+message StartSessionRequest {
+  string zone_id = 1;
+}
+
+message StartSessionResponse {
+  string session_id = 1;
+  string status = 2;
+  Rate rate = 3;
+}
+
+// StopSession ends the currently active parking session.
+message StopSessionRequest {}
+
+message StopSessionResponse {
+  string session_id = 1;
+  string status = 2;
+  uint64 duration_seconds = 3;
+  double total_amount = 4;
+  string currency = 5;
+}
+
+// GetStatus returns the current session state.
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  string session_id = 1;
+  bool active = 2;
+  string zone_id = 3;
+  int64 start_time = 4;
+  Rate rate = 5;
+}
+
+// GetRate returns the cached rate from the active session.
+message GetRateRequest {}
+
+message GetRateResponse {
+  string rate_type = 1;
+  double amount = 2;
+  string currency = 3;
+}
+
+// ParkingAdaptorService provides the parking operator adaptor interface.
+service ParkingAdaptorService {
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  rpc GetRate(GetRateRequest) returns (GetRateResponse);
+}
