@@ -31,13 +31,13 @@ pub trait BrokerClient {
     async fn set_string(&self, signal: &str, value: &str) -> Result<(), BrokerError>;
 }
 
-/// Generated gRPC types for kuksa.val.v1.
+/// Generated gRPC types for kuksa.val.v2.
 pub mod kuksa {
-    tonic::include_proto!("kuksa");
+    tonic::include_proto!("kuksa.val.v2");
 }
 
 use kuksa::val_client::ValClient;
-use kuksa::{DataEntry, Datapoint, GetRequest, SetRequest, SubscribeRequest};
+use kuksa::{Datapoint, GetValuesRequest, PublishValueRequest, SignalId, SubscribeRequest, Value};
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
 use tracing::{info, warn};
@@ -90,7 +90,8 @@ impl GrpcBrokerClient {
         signal: &str,
     ) -> Result<mpsc::Receiver<String>, BrokerError> {
         let request = SubscribeRequest {
-            paths: vec![signal.to_string()],
+            signal_paths: vec![signal.to_string()],
+            buffer_size: 0,
         };
 
         let response = self
@@ -104,9 +105,9 @@ impl GrpcBrokerClient {
 
         tokio::spawn(async move {
             while let Ok(Some(msg)) = stream.message().await {
-                for entry in msg.entries {
-                    if let Some(dp) = entry.value {
-                        if let Some(kuksa::datapoint::Value::StringValue(s)) = dp.value {
+                for (_path, dp) in msg.entries {
+                    if let Some(value) = dp.value {
+                        if let Some(kuksa::value::TypedValue::String(s)) = value.typed_value {
                             if tx.send(s).await.is_err() {
                                 return; // receiver dropped
                             }
@@ -122,22 +123,24 @@ impl GrpcBrokerClient {
 
 impl BrokerClient for GrpcBrokerClient {
     async fn get_float(&self, signal: &str) -> Result<Option<f32>, BrokerError> {
-        let request = GetRequest {
-            paths: vec![signal.to_string()],
+        let request = GetValuesRequest {
+            signal_ids: vec![SignalId {
+                signal: Some(kuksa::signal_id::Signal::Path(signal.to_string())),
+            }],
         };
 
         let response = self
             .client
             .clone()
-            .get(request)
+            .get_values(request)
             .await
             .map_err(|e| BrokerError::OperationFailed(format!("get_float failed: {}", e)))?;
 
-        for entry in response.into_inner().entries {
-            if let Some(dp) = entry.value {
-                match dp.value {
-                    Some(kuksa::datapoint::Value::FloatValue(v)) => return Ok(Some(v)),
-                    Some(kuksa::datapoint::Value::DoubleValue(v)) => return Ok(Some(v as f32)),
+        for dp in response.into_inner().data_points {
+            if let Some(value) = dp.value {
+                match value.typed_value {
+                    Some(kuksa::value::TypedValue::Float(v)) => return Ok(Some(v)),
+                    Some(kuksa::value::TypedValue::Double(v)) => return Ok(Some(v as f32)),
                     _ => {}
                 }
             }
@@ -147,20 +150,22 @@ impl BrokerClient for GrpcBrokerClient {
     }
 
     async fn get_bool(&self, signal: &str) -> Result<Option<bool>, BrokerError> {
-        let request = GetRequest {
-            paths: vec![signal.to_string()],
+        let request = GetValuesRequest {
+            signal_ids: vec![SignalId {
+                signal: Some(kuksa::signal_id::Signal::Path(signal.to_string())),
+            }],
         };
 
         let response = self
             .client
             .clone()
-            .get(request)
+            .get_values(request)
             .await
             .map_err(|e| BrokerError::OperationFailed(format!("get_bool failed: {}", e)))?;
 
-        for entry in response.into_inner().entries {
-            if let Some(dp) = entry.value {
-                if let Some(kuksa::datapoint::Value::BoolValue(v)) = dp.value {
+        for dp in response.into_inner().data_points {
+            if let Some(value) = dp.value {
+                if let Some(kuksa::value::TypedValue::Bool(v)) = value.typed_value {
                     return Ok(Some(v));
                 }
             }
@@ -170,59 +175,45 @@ impl BrokerClient for GrpcBrokerClient {
     }
 
     async fn set_bool(&self, signal: &str, value: bool) -> Result<(), BrokerError> {
-        let request = SetRequest {
-            entries: vec![DataEntry {
-                path: signal.to_string(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(kuksa::datapoint::Value::BoolValue(value)),
+        let request = PublishValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(kuksa::signal_id::Signal::Path(signal.to_string())),
+            }),
+            data_point: Some(Datapoint {
+                timestamp: None,
+                value: Some(Value {
+                    typed_value: Some(kuksa::value::TypedValue::Bool(value)),
                 }),
-            }],
+            }),
         };
 
-        let response = self
-            .client
+        self.client
             .clone()
-            .set(request)
+            .publish_value(request)
             .await
             .map_err(|e| BrokerError::OperationFailed(format!("set_bool failed: {}", e)))?;
-
-        let set_resp = response.into_inner();
-        if !set_resp.success {
-            return Err(BrokerError::OperationFailed(format!(
-                "set_bool rejected: {}",
-                set_resp.error
-            )));
-        }
 
         Ok(())
     }
 
     async fn set_string(&self, signal: &str, value: &str) -> Result<(), BrokerError> {
-        let request = SetRequest {
-            entries: vec![DataEntry {
-                path: signal.to_string(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(kuksa::datapoint::Value::StringValue(value.to_string())),
+        let request = PublishValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(kuksa::signal_id::Signal::Path(signal.to_string())),
+            }),
+            data_point: Some(Datapoint {
+                timestamp: None,
+                value: Some(Value {
+                    typed_value: Some(kuksa::value::TypedValue::String(value.to_string())),
                 }),
-            }],
+            }),
         };
 
-        let response = self
-            .client
+        self.client
             .clone()
-            .set(request)
+            .publish_value(request)
             .await
             .map_err(|e| BrokerError::OperationFailed(format!("set_string failed: {}", e)))?;
-
-        let set_resp = response.into_inner();
-        if !set_resp.success {
-            return Err(BrokerError::OperationFailed(format!(
-                "set_string rejected: {}",
-                set_resp.error
-            )));
-        }
 
         Ok(())
     }

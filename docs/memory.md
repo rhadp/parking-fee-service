@@ -3,6 +3,41 @@
 ## Gotchas
 
 - Use regexp.QuoteMeta() when embedding user input into regex patterns to prevent regex injection and ensure literal string matching. _(spec: 01_project_setup, confidence: 0.90)_
+- Clippy may flag doc comment formatting issues in errors.rs; review and fix doc comment style to pass linting. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- Go import paths for local packages should use the full module path prefix (e.g., 'parking-fee-service/backend/parking-fee-service/model') even for intra-module imports. _(spec: 05_parking_fee_service, confidence: 0.60)_
+- Geographic coordinate validation must enforce range constraints: latitude [-90, 90] and longitude [-180, 180], returning HTTP 400 for violations. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Rust test threads should be limited to 1 with `cargo test --workspace -- --test-threads=1` to avoid concurrency issues in integration tests. _(spec: 01_project_setup, confidence: 0.90)_
+- Use parentheses around command chains in Makefiles: `(cd dir && cmd1) || (cd dir && cmd2)` to ensure proper error handling and directory context. _(spec: 01_project_setup, confidence: 0.90)_
+- UUID v4 generation requires setting version and variant bits correctly: version 4 at byte 6, RFC 4122 variant at byte 8. _(spec: 01_project_setup, confidence: 0.90)_
+- Verify container image tags exist in the registry before using them in compose configurations; non-existent tags (e.g., 0.5.1) will cause runtime failures. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker image tag 0.5.1 specified in spec does not exist; use 0.5.0 instead, which is the most recent published tag on ghcr.io/eclipse-kuksa/kuksa-databroker. _(spec: 02_data_broker, confidence: 0.90)_
+- The VAL gRPC API has no GetMetadata RPC; signal existence must be verified using the Get RPC, and type compatibility verified by attempting a Set with a zero value of the expected type. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker 0.5.0 uses --unix-socket flag (not --uds-path) for UDS socket configuration in compose/CLI arguments. _(spec: 02_data_broker, confidence: 0.90)_
+- Project proto packages cannot be cross-module dependencies when the module path lacks a dot in the first element; embed generated proto files locally in the test package instead. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker subscriptions deliver the current signal value immediately upon subscription (initial-value notification); drain this in tests before asserting write-triggered updates. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker 0.5.0 in permissive mode operates without authentication flags, which is suitable for development but not production. _(spec: 02_data_broker, confidence: 0.90)_
+- Client types (NatsClient, BrokerClient) must implement Clone trait to be safely shared across multiple spawned tokio tasks via Arc or direct cloning. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Telemetry VSS signals must be explicitly added to deployment overlays to ensure they are available in the runtime environment. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- Kuksa Databroker 0.5.0 exposes the VAL service at kuksa.val.v2.VAL, not kuksa.VAL, and uses different RPC method names (GetValue, PublishValue instead of Get, Set). _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker 0.5.0 does not include standard VSS signals by default; they must be explicitly added via VSS overlay configuration. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker 0.5.0 uses `kuksa.val.v2.VAL` service with methods `GetValue`, `GetValues`, `PublishValue`, `Subscribe`, `ListMetadata`, and `GetServerInfo`, not the simplified `Get`/`Set` API. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker 0.5.0 does not include a built-in VSS tree; the `--vss` flag specifies the only signal source, so required signals must be provided in the overlay file. _(spec: 02_data_broker, confidence: 0.90)_
+- Unix Domain Socket (UDS) tests cannot connect from the macOS host because the UDS socket is inside a podman VM and sockets do not cross VM boundaries; tests should skip gracefully when the socket is unavailable. _(spec: 02_data_broker, confidence: 0.90)_
+- Container inspection via `podman inspect` requires using the compose-generated container name (e.g., `deployments_kuksa-databroker_1`), not the service name. _(spec: 02_data_broker, confidence: 0.90)_
+- Critical proto API mismatches between client and broker can cause test failures across unit and integration test suites and should be caught during wiring verification phase. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Eclipse Kuksa Databroker 0.5.0 only implements the v2 gRPC API; the v1 API returns Unimplemented errors. This mismatch is discovered late during wiring verification when the service connects but all calls fail. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- The v2 Subscribe API delivers current values immediately upon subscription before sending actual updates, requiring test code to loop and filter for expected messages rather than assuming a single response. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- The v2 Datapoint uses google.protobuf.Timestamp (not an i64 timestamp), requiring prost-types as a dependency to handle serialization correctly. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Eclipse Kuksa Databroker 0.5.0 implements only the v2 gRPC API; v1 RPCs return Unimplemented errors. This must be discovered during integration testing with actual containers. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- The Kuksa v2 Subscribe API immediately delivers current values upon subscription, so integration tests must loop to find expected values rather than assuming a single message. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When using `tokio::test` with async code, add `tokio::time::sleep()` delays after spawning background tasks to allow them to complete before assertions. _(spec: 07_update_service, confidence: 0.90)_
+- CombinedOutput() on a process that successfully connects to NATS and never exits will cause the test to hang indefinitely. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- When spawning a background task to monitor a container after install_adapter, add a brief delay before checking adapter state to allow the install to complete before monitoring begins. _(spec: 09_mock_apps, confidence: 0.60)_
+- When building mock servers, verify that all required response fields (such as rate_type in parking-operator responses) are included in the API contract to match real server behavior. _(spec: 09_mock_apps, confidence: 0.60)_
+- When testing process signals (SIGTERM/SIGINT) in Go, skip tests on Windows since those signals are not supported on that platform. _(spec: 09_mock_apps, confidence: 0.90)_
+- Check http.ErrServerClosed explicitly when reading from ListenAndServe() error channel to distinguish between expected shutdown and actual errors. _(spec: 09_mock_apps, confidence: 0.90)_
+- Proto include mismatches can cause build failures in locking-service; verify proto dependencies and includes when encountering compilation errors in protobuf-based projects. _(spec: 09_mock_apps, confidence: 0.60)_
+- Git merge conflicts in task files indicate concurrent work on specification documents; resolve by choosing upstream or stashed versions, or manually merging task state changes. _(spec: 09_mock_apps, confidence: 0.90)_
 
 ## Patterns
 
@@ -53,10 +88,187 @@
 - Makefile should handle cargo clippy failures gracefully by falling back to cargo check to prevent CI/CD blockage on lint-only issues. _(spec: 03_locking_service, confidence: 0.60)_
 - Task group organization can be used to segment implementation work, with each group containing related modules (e.g., config, command, safety, response in one group; process in another). _(spec: 03_locking_service, confidence: 0.60)_
 - Unit tests and property tests can be run separately and may have different pass rates; failures in one module group don't necessarily block other groups from passing their tests. _(spec: 03_locking_service, confidence: 0.60)_
+- When implementing gRPC clients in Rust with tonic, exponential backoff can be integrated into the client for reliable connection handling and automatic retry logic. _(spec: 03_locking_service, confidence: 0.90)_
+- Lock/unlock operations require explicit safety checks and idempotency guarantees to prevent race conditions and ensure correctness in concurrent systems. _(spec: 03_locking_service, confidence: 0.90)_
+- CLI entry points should handle tracing initialization, subscription loops, and graceful shutdown mechanisms for robust service lifecycle management. _(spec: 03_locking_service, confidence: 0.60)_
+- Response publishing from process modules ensures asynchronous communication and decouples lock operation handling from client notification. _(spec: 03_locking_service, confidence: 0.60)_
+- When writing specification tests before implementation, organize test cases by functional area (config parsing, validation, telemetry, etc.) and use a naming scheme that groups related test IDs (e.g., TS-04-1, TS-04-E1 for error cases, TS-04-P1 for property tests). _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Create stub modules with correct type signatures early in the TDD cycle, even with placeholder implementations, to ensure test infrastructure can import and run against the intended API surface. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Use property-based tests (marked TS-04-P*) alongside example-based tests to validate cross-cutting concerns like command validation and telemetry completeness with wider input coverage. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- When setting up multi-language proto code generation, use go.work integration to properly manage Go module dependencies for generated code alongside existing modules. _(spec: 01_project_setup, confidence: 0.90)_
+- Subprocess-based setup verification tests should include toolchain-skip logic to handle environments where specific build tools may not be available. _(spec: 01_project_setup, confidence: 0.90)_
+- Proto code generation setup should be verified through make targets (make proto) alongside build and test verification to ensure the full pipeline works end-to-end. _(spec: 01_project_setup, confidence: 0.60)_
+- Proto code generation outputs Go packages with separate files for messages (.pb.go) and gRPC services (_grpc.pb.go), using versioned protoc and protoc-gen-go plugins. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Generated Go proto code includes version verification to ensure protoc-gen-go and protoimpl are sufficiently up-to-date using EnforceVersion checks. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Proto message types in Go use protoimpl.MessageState to manage serialization state, with Reset(), String(), ProtoMessage(), and ProtoReflect() methods for all message types. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When implementing a service from failing specs, create stub packages with function signatures returning zero values to allow tests to compile while failing, enabling immediate feedback on test coverage. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Organize service functionality into logical stub packages (model, geo, config, store, handler) before implementation to establish clear separation of concerns and facilitate incremental development. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Use .cargo/config.toml with RUST_TEST_THREADS=1 to prevent environment variable race conditions in unit tests that read from process environment. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Config::from_env() is often a stub requiring explicit implementation even when other model components are already complete. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- Test-first development with failing specs requires writing comprehensive test coverage before implementation, including unit tests, integration tests via httptest, and property-based tests. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- HTTP handler tests should use httptest.Server with http.NewServeMux to test integration including routing, request parsing, and response formatting before implementing handlers. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Configuration should gracefully fall back to sensible defaults when the config file is missing, only returning an error on invalid JSON in an existing file. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Store package should provide indexed lookup methods (GetOperator, GetOperatorsByZoneIDs) rather than raw data access to enable efficient filtering and future optimization. _(spec: 05_parking_fee_service, confidence: 0.60)_
+- Go linter diagnostics can flag if/else constructs that should be replaced with built-in functions like max() for cleaner code. _(spec: 01_project_setup, confidence: 0.90)_
+- Command validation functions (validate_bearer_token and validate_command_payload) for CLOUD_GATEWAY_CLIENT were already implemented in a prior session and persist across sessions; verify existing implementations before re-implementing. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- Telemetry implementation requires comprehensive unit test coverage including specific test cases for telemetry operations (TS-04-7, TS-04-8, TS-04-9) and message format validation (TS-04-P1). _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Bearer token validation should extract the token from 'Bearer ' prefix and compare it exactly with the expected token. _(spec: 01_project_setup, confidence: 0.90)_
+- JSON payload validation should check for required fields, validate field types, and allow extra fields without errors. _(spec: 01_project_setup, confidence: 0.90)_
+- Configuration validation should check for empty strings in required environment variables, not just their presence. _(spec: 01_project_setup, confidence: 0.60)_
+- Telemetry state updates should track changes and only serialize when a value actually changes, returning None for no-ops. _(spec: 01_project_setup, confidence: 0.90)_
+- HTTP servers with session state should use sync.Mutex to protect shared session maps from concurrent access. _(spec: 01_project_setup, confidence: 0.90)_
+- Command-line argument parsing should validate required parameters early and exit with clear error messages if missing. _(spec: 01_project_setup, confidence: 0.90)_
+- NATS client connection uses exponential backoff with delays of 1s, 2s, 4s, 8s over 5 maximum attempts for resilience. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- NatsClient should implement multiple publish methods (publish_registration, publish_response, publish_telemetry) alongside subscribe_commands for a cloud gateway pattern. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When working with gRPC proto files across modules, embed proto files locally rather than relying on cross-module dependencies to avoid issues with malformed module paths. _(spec: 02_data_broker, confidence: 0.90)_
+- For gRPC subscription testing, drain the subscription channel after establishing it to consume the initial-value notification before running assertions. _(spec: 02_data_broker, confidence: 0.90)_
+- Use a drainInitial() helper with a short timeout window (500ms) in subscription tests to consume initial-value notifications before performing test writes and assertions. _(spec: 02_data_broker, confidence: 0.90)_
+- Add test module to go.work file to enable workspace-based multi-module builds and shared dependency management. _(spec: 02_data_broker, confidence: 0.60)_
+- When implementing configuration loading, JSON file parsing with sensible defaults (like Munich demo data) provides both flexibility and usability for testing and development. _(spec: 05_parking_fee_service, confidence: 0.60)_
+- Indexed lookups by multiple keys (zone ID and operator ID) in a Store module improve query performance and support diverse access patterns required by business logic. _(spec: 05_parking_fee_service, confidence: 0.60)_
+- Kuksa Databroker 0.5.0 requires a shared UDS volume mount (kuksa-uds) and overlay mount with --vss flag for proper VSS configuration. _(spec: 02_data_broker, confidence: 0.90)_
+- Ray casting algorithm can be used to implement point-in-polygon detection for geospatial queries. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Haversine distance formula is a standard approach for calculating distances between geographic coordinates on a sphere. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Property-based testing alongside unit tests helps verify geospatial algorithms work correctly across a wide range of inputs. _(spec: 05_parking_fee_service, confidence: 0.60)_
+- When implementing failing specification tests, organize the package structure into logical modules (model, config, auth, store, handler, natsclient) before writing tests to ensure clear separation of concerns and make stub implementations straightforward. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Using panic('not implemented') in stub implementations ensures failing tests fail loudly and explicitly indicate unimplemented functionality rather than silently passing or returning zero values. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- VSS signal definitions should be verified across multiple task groups to ensure consistency between initial definition and later validation stages. _(spec: 02_data_broker, confidence: 0.60)_
+- Use tonic and prost for gRPC client implementation in Rust, with build.rs for proto compilation. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Implement separate subscription handlers for command responses and telemetry signals in gRPC clients, with JSON validation on responses. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Structure gRPC clients as dedicated struct types (e.g., BrokerClient) that encapsulate connection management and provide typed command/subscription methods. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When implementing edge case tests for container lifecycle, organize tests into logical groups (e.g., overlay syntax errors, missing files) rather than scattering them across multiple test functions. _(spec: 02_data_broker, confidence: 0.60)_
+- Integration tests for gRPC services should include graceful skip logic when external dependencies (like databroker) are unavailable, allowing tests to run in isolation. _(spec: 03_locking_service, confidence: 0.90)_
+- Test helpers for gRPC services should encapsulate binary building/starting, signal manipulation, and client connectivity to reduce boilerplate across multiple test cases. _(spec: 03_locking_service, confidence: 0.90)_
+- Tokio async main requires deterministic startup sequencing: initialize config first, then NATS connection, then DATA_BROKER, then registration, and finally spawn tasks to avoid race conditions and uninitialized state. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Bearer token and payload validation should occur during command processing, with payloads written as-is to the DATA_BROKER to maintain data integrity. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- Tracing-subscriber should be initialized with env-filter support to enable dynamic log level configuration via environment variables. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Smoke tests should verify both infrastructure connectivity (TCP responsiveness) and functional correctness (expected data presence like VSS signals). _(spec: 02_data_broker, confidence: 0.90)_
+- When integration tests require external dependencies (like DATA_BROKER), design them to skip gracefully rather than fail, allowing the test suite to run in resource-constrained environments. _(spec: 03_locking_service, confidence: 0.90)_
+- Comprehensive requirements verification should include unit tests, property tests, and integration tests with explicit tracing between requirements, test specs, and implementation tests. _(spec: 03_locking_service, confidence: 0.90)_
+- When a test specification entry lacks a corresponding test implementation, document the gap explicitly in an errata file rather than silently omitting it, noting the implementation status, rationale for deferral, and future recommendations. _(spec: 03_locking_service, confidence: 0.90)_
+- During wiring verification, cross-reference test specifications against actual test implementations to catch unmapped requirements or tests, then document any gaps with context about implementation status. _(spec: 03_locking_service, confidence: 0.90)_
+- Cloud gateway client testing requires comprehensive coverage of command flow, response relay, telemetry publishing, self-registration, and token validation to ensure complete end-to-end functionality. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When updating proto definitions, regenerate the corresponding language bindings (e.g., Go code) and systematically update all dependent test files to match the new API. _(spec: 02_data_broker, confidence: 0.90)_
+- UDS (Unix Domain Sockets) functionality may not be available on macOS; use platform detection to skip UDS-dependent tests on that environment. _(spec: 02_data_broker, confidence: 0.90)_
+- NewOperatorHandler performs geofence-based operator lookup with coordinate validation to determine which operator serves a given location. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- NewAdapterHandler retrieves adapter metadata by operator ID, serving as a lookup mechanism for adapter configuration. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- HTTP handlers in this service are organized as task groups with separate responsibilities (NewOperatorHandler, NewAdapterHandler, HealthHandler). _(spec: 05_parking_fee_service, confidence: 0.60)_
+- The Kuksa proto message structure uses `Value` with a `typed_value` oneof nested inside `Datapoint`, not a flat oneof at the Datapoint level. _(spec: 02_data_broker, confidence: 0.90)_
+- Subscribe responses use `map<string, Datapoint>` to return multiple signals at once, not `repeated DataEntry`. _(spec: 02_data_broker, confidence: 0.90)_
+- Signal identification in the Kuksa v2 API uses `SignalID` with either a numeric `id` or string `path`, not just a string path. _(spec: 02_data_broker, confidence: 0.90)_
+- When testing databroker configuration changes (overlay syntax errors, missing files), stop containers first, then restore the original file, and restart the databroker so subsequent tests have a running instance. _(spec: 02_data_broker, confidence: 0.90)_
+- Backup file paths for test safety should use unique suffixes (e.g., `.syntax-test-bak`, `.missing-test-bak`) to avoid conflicts between multiple tests manipulating the same source file. _(spec: 02_data_broker, confidence: 0.60)_
+- When temporarily modifying files in tests, ensure cleanup also handles the case where podman may have created a directory at the file path by calling `os.RemoveAll` before writing. _(spec: 02_data_broker, confidence: 0.60)_
+- Smoke tests should cover end-to-end scenarios, custom configurations, error paths, and configuration fallback behavior to ensure system wiring is correct. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Go 1.22+ ServeMux supports method-path syntax like 'GET /operators' and path parameters via r.PathValue("id"). _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use json.NewEncoder(w).Encode(v) for HTTP response writing instead of json.Marshal to avoid manual byte handling. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Coordinate validation should check bounds: latitude [-90, 90], longitude [-180, 180] after parsing floats. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use context.WithTimeout for graceful shutdown to enforce a deadline on in-flight requests before force-killing. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- os.signal.Notify with buffered channel (size 1) and syscall.SIGTERM/SIGINT prevents signal loss during startup. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use log/slog for structured logging with key-value pairs instead of fmt.Printf for production services. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Poll health endpoint in tests to detect when server is ready rather than using fixed sleep duration. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use net.Listen with port 0 to get a free port dynamically in tests instead of hardcoding port numbers. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Read environment variables with os.Getenv and provide sensible defaults to avoid hard-coded paths. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- When upgrading gRPC API versions (v1 to v2), broker client implementations and their integration test helpers must be rewritten to match the new API contract to resolve proto mismatches. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- NATS client reconnection logic should implement exponential backoff strategy to handle transient connection failures gracefully. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When switching between proto API versions, maintain a local copy of the proto file in the component directory (e.g., proto/kuksa/val.proto) and update build.rs to compile from the local path to decouple from shared proto definitions. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Integration tests relying on Subscribe should use a deadline loop with repeated message filtering rather than assuming a single blocking receive, to handle the v2 API's immediate delivery of current values. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Config loading should be implemented as a separate LoadConfig function that handles JSON config file parsing, keeping configuration concerns isolated from other modules. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Token-to-VIN mapping should be managed through a dedicated lookup function (GetVINForToken) rather than inline in auth logic, enabling reusable authorization checks. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Bearer token validation and VIN authorization should be implemented together in middleware to enforce authentication before resource access. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- The Kuksa v2 API uses PublishValue (not Set) for writes, GetValue (not Get) for reads, and SubscribeResponse returns a map<string, Datapoint> rather than repeated DataEntry. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- When upgrading gRPC proto versions, maintain a local copy of the proto file in the crate directory and update build.rs to compile from the local path rather than a shared proto location to prevent coupling. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- In v2 proto, Datapoint.timestamp is optional (google.protobuf.Timestamp) and Value uses a nested oneof typed_value rather than a top-level oneof, requiring different pattern matching in client code. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Update tonic_build::compile_protos() calls to tonic_build::configure().compile(&[...], &[...]) when migrating from shared to local proto paths. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Use sync.Mutex-protected maps for thread-safe state management in Go concurrent systems, paired with time.AfterFunc for per-command timeout handling with proper cancellation support. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use `tonic-build` in build-dependencies with a build.rs file to compile protobuf definitions; include proto path relative to workspace root. _(spec: 07_update_service, confidence: 0.90)_
+- Use `broadcast::channel` for pub-sub event distribution; each subscriber gets a separate `Receiver` via `subscribe()`. _(spec: 07_update_service, confidence: 0.90)_
+- Define trait methods with `#[async_trait]` and use `dyn TraitName` for dynamic dispatch of async methods; this allows dependency injection and mocking. _(spec: 07_update_service, confidence: 0.90)_
+- For file-missing errors, distinguish between missing files (return defaults) and parse errors (return error); use `std::io::Error` kinds to detect file not found. _(spec: 07_update_service, confidence: 0.60)_
+- When mocking async functions that need per-call behavior variation, store results in `Arc<Mutex<...>>` or use methods like `set_stop_result_for(adapter_id, result)` to set adapter-specific outcomes. _(spec: 07_update_service, confidence: 0.60)_
+- NATS client connections should implement exponential backoff for resilience, and publish/subscribe operations need proper authorization headers and response handling. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Cloud gateway implementations require health check handlers alongside command submission and status retrieval to enable monitoring. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- NATS subscription patterns benefit from separate channels for different message types (e.g., SubscribeResponses vs SubscribeTelemetry) to segregate concerns. _(spec: 06_cloud_gateway, confidence: 0.60)_
+- When implementing derive_adapter_id(), extract the last path segment and replace colons with hyphens to create a valid identifier. _(spec: 07_update_service, confidence: 0.90)_
+- Implement load_config() with a fallback to default configuration when the config file is not found, combined with explicit error handling for invalid JSON. _(spec: 07_update_service, confidence: 0.90)_
+- Provide a default_config() function that returns built-in default configuration values as a separate implementation from file-based loading. _(spec: 07_update_service, confidence: 0.90)_
+- Go 1.22 introduced improved ServeMux patterns for HTTP route registration, which should be used for modern Go applications instead of third-party routers when simplicity is sufficient. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- NATS connection setup should include retry logic to handle transient connection failures in distributed systems. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Go applications should implement graceful shutdown by listening to SIGTERM and SIGINT signals to allow in-flight requests to complete before terminating. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- When implementing a Rust project with protobuf compilation, use build.rs to handle proto compilation and document any divergence from original specifications in errata notes. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- For complex domain logic like parking operator adaptation, property-based testing complements unit tests by covering edge cases and override mechanisms systematically. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Comprehensive test setup should cover config validation, session state management, REST client behavior, event processing, and override mechanisms before implementation. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Proto definitions may diverge between specs; resolve mismatches by creating local proto files that match the current spec requirements rather than modifying shared proto definitions. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Use tonic-build in build.rs to compile proto files, and include generated types via tonic::include_proto! macro in lib.rs for module organization. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Environment variable configuration with defaults should be tested with both default and custom values, using std::env::set_var/remove_var in tests; be careful to clean up vars to avoid test interference. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Trait-based abstractions for external dependencies (REST clients, gRPC brokers) enable testability with mock implementations and avoid coupling to concrete implementations. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- When testing async code, use #[tokio::test] for single-threaded tests and tokio::runtime::Builder for property-based tests that need full async support. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Mock objects in tests should provide call count tracking and return value configuration (e.g., on_start_return(), start_call_count()) to verify behavior and enable test sequencing. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- REST client retry logic should use exponential backoff (1s, 2s, 4s) and exhaust retries on non-200 status codes; test both success-after-retry and all-retries-exhausted scenarios. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Use error types with variant-specific data (e.g., AlreadyActive(session_id)) rather than generic strings to enable precise error handling and testing of error cases. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- When implementing a config module with environment variable parsing, ensure it includes sensible defaults alongside env var handling to make the module robust and testable. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- A Session module should expose lifecycle management methods (new, start, stop) alongside state query methods (is_active, status) to provide both control and observability. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Implement retry logic with exponential backoff for REST clients to handle transient failures; use intervals like 1s, 2s, 4s with a maximum retry count (e.g., 3 attempts). _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- State manager with HashMap storage requires thread-safe synchronization primitives (likely Arc<Mutex<>> or similar) for concurrent access in Rust. _(spec: 07_update_service, confidence: 0.60)_
+- Broadcast event emission is a useful pattern for decoupling components that need to react to state changes without tight coupling. _(spec: 07_update_service, confidence: 0.90)_
+- RealPodmanExecutor using tokio::process::Command requires async/await patterns and proper error handling for subprocess management. _(spec: 07_update_service, confidence: 0.90)_
+- Spawning async operations (pull/verify/run) in a handler should use task spawning rather than blocking to maintain responsiveness. _(spec: 07_update_service, confidence: 0.90)_
+- When testing a service that needs to be running, use health endpoint polling with retries instead of assuming immediate startup; poll with a timeout loop and check HTTP status before proceeding with assertions. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use getFreePort() to obtain an available port dynamically in tests rather than hardcoding port numbers, avoiding port conflicts in concurrent test execution. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- When testing process termination, send SIGTERM and wait with a timeout before forcefully killing, using a done channel with select to handle potential hangs gracefully. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Capture both stdout and stderr by assigning to cmd.Stdout and cmd.Stderr fields for better debugging and assertion clarity in integration tests. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Background tasks for timer-based operations and container monitoring should be implemented in separate modules (offload.rs and monitor.rs) with dedicated functions like run_offload_check, spawn_offload_timer, and monitor_container. _(spec: 07_update_service, confidence: 0.60)_
+- Idempotent event handling is important in parking operator adaptor event loops to safely process manual start/stop events without duplicate side effects. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- gRPC service implementations should delegate business logic to separate event channels rather than implementing logic directly in RPC handlers. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Broker connection retry logic should be implemented in the KuksaBrokerClient to handle transient connection failures gracefully. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Main entry points should handle full wiring including config loading, broker connection, subscription setup, event loop initialization, gRPC server startup, and graceful shutdown in a coordinated manner. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- When testing a service that starts an HTTP server, use a health endpoint with polling (retry loop with sleep intervals) to verify the service is ready before running assertions, rather than assuming immediate startup. _(spec: 09_mock_apps, confidence: 0.90)_
+- Use getFreePort() to dynamically allocate an unused port in integration tests instead of hardcoding port numbers, avoiding conflicts and improving test reliability. _(spec: 09_mock_apps, confidence: 0.90)_
+- When testing a long-running process via exec.Command, explicitly handle process shutdown using SIGTERM with a timeout before falling back to Kill(), and ensure output capture is configured before starting the process. _(spec: 09_mock_apps, confidence: 0.90)_
+- Capture both stdout and stderr into the same buffer for end-to-end service tests to ensure all log output is available for assertions if the service fails to start. _(spec: 09_mock_apps, confidence: 0.90)_
+- gRPC service implementations using tonic require explicit error mapping to gRPC status codes rather than relying on automatic conversions. _(spec: 07_update_service, confidence: 0.90)_
+- Graceful shutdown in Rust async servers should handle SIGTERM and SIGINT signals to ensure clean termination of spawned tasks and broadcast channels. _(spec: 07_update_service, confidence: 0.90)_
+- Broadcast channels are a suitable pattern for implementing watch/stream endpoints in gRPC services where multiple clients need to receive state updates. _(spec: 07_update_service, confidence: 0.90)_
+- tokio-stream crate provides ReceiverStream wrapper for converting tokio::sync::mpsc::Receiver into a Stream for gRPC server streaming responses. _(spec: 09_mock_apps, confidence: 0.90)_
+- Handle broadcast channel lag in streaming consumers by catching broadcast::error::RecvError::Lagged to warn and continue, preventing subscriber disconnection on temporary lag. _(spec: 09_mock_apps, confidence: 0.90)_
+- Use #[cfg(unix)] and #[cfg(not(unix))] to conditionally handle SIGTERM signal on Unix-like systems while maintaining cross-platform compatibility in main. _(spec: 09_mock_apps, confidence: 0.90)_
+- Use tonic::async_trait macro and async fn in trait implementations to enable async methods in trait definitions for gRPC services. _(spec: 09_mock_apps, confidence: 0.90)_
+- Mock server implementations should support both command-line flags (--port) and environment variables (PORT) for configuration to provide flexibility in different deployment contexts. _(spec: 09_mock_apps, confidence: 0.90)_
+- Mock application servers should implement graceful shutdown handling for SIGTERM/SIGINT signals to ensure clean resource cleanup and proper test teardown. _(spec: 09_mock_apps, confidence: 0.90)_
+- Reusing previously implemented components (session store, HTTP handlers, UUID generation) across task groups reduces duplication and improves code organization in multi-phase implementations. _(spec: 09_mock_apps, confidence: 0.90)_
+- When implementing graceful shutdown in Go HTTP servers, use a buffered error channel to capture server errors in a goroutine, then use select to wait for either a shutdown signal or a server error. _(spec: 09_mock_apps, confidence: 0.90)_
+- Use context.WithTimeout for server shutdown to ensure the shutdown completes within a bounded time (e.g., 5 seconds), preventing indefinite hangs. _(spec: 09_mock_apps, confidence: 0.90)_
+- Port resolution in CLI applications should follow a priority order: explicit flag (--port=N) → environment variable (PORT) → default value (8080). _(spec: 09_mock_apps, confidence: 0.90)_
+- When testing server startup, use net.Listen with port 0 to dynamically allocate a free port, avoiding hardcoded ports that may conflict. _(spec: 09_mock_apps, confidence: 0.90)_
+- When polling for server readiness in tests, use a polling loop with time.Sleep rather than fixed delays to improve test reliability and speed. _(spec: 09_mock_apps, confidence: 0.60)_
+- Integration tests for gRPC services should cover both happy path (autonomous lock/unlock flow) and edge cases (manual override, databroker unreachable, session loss on restart). _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Go integration test modules for adaptor services should validate SessionActive publication on startup and implement graceful shutdown behavior. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Databroker retry behavior and session loss scenarios on service restart are critical integration test cases for adaptor implementations. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Proto compatibility verification should document intentional divergences from specifications rather than treating them as errors, enabling flexibility in implementation while maintaining traceability. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Comprehensive wiring verification should validate multiple test levels (unit, property, integration, smoke) alongside requirements coverage, workspace membership, and operational concerns (logging, shutdown). _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Integration tests should skip gracefully when external dependencies (like DATA_BROKER) are unavailable, rather than failing the test suite. _(spec: 09_mock_apps, confidence: 0.90)_
+- Smoke tests are effective for validating end-to-end workflows across multiple components (e.g., parking-operator lifecycle, CLI flows). _(spec: 09_mock_apps, confidence: 0.90)_
+- Property-based tests are useful for validating CLI argument handling, token enforcement, and data integrity constraints across many input combinations. _(spec: 09_mock_apps, confidence: 0.60)_
+- Bearer token enforcement and session uniqueness should be explicitly tested as security properties rather than assumed. _(spec: 09_mock_apps, confidence: 0.90)_
+- Go workspace files (go.work, go.work.sum) should be updated when adding new Go modules to the workspace to ensure proper dependency resolution across modules. _(spec: 07_update_service, confidence: 0.90)_
+- Helper functions in test files (helpers_test.go) should use the *testing.T parameter consistently with defer cleanup patterns for resource management. _(spec: 07_update_service, confidence: 0.60)_
+- A comprehensive test checkpoint should verify multiple test categories: unit tests, integration tests (including property, smoke, and edge case variants), and linter passes across all language toolchains. _(spec: 09_mock_apps, confidence: 0.90)_
+- Memory documentation should be kept in version control alongside specs to preserve learnings; merge conflicts here indicate need for periodic documentation synchronization. _(spec: 09_mock_apps, confidence: 0.60)_
+- Cross-spec task dependencies (e.g., spec 02_data_broker depends on compose.yml from 01_project_setup) should be explicitly documented in task comments to prevent coordination issues. _(spec: 09_mock_apps, confidence: 0.60)_
 
 ## Decisions
 
 - When testing Go module structure, distinguish between modules that require main.go (executable modules) and those that don't (test/library modules) to avoid false failures. _(spec: 01_project_setup, confidence: 0.90)_
+- Deliberately write a mix of failing and trivially passing tests (21 fail, 4 pass) in the initial spec phase to establish a baseline test suite and gradually reduce failures as implementation progresses. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- API responses should exclude sensitive or internal metadata fields (e.g., adapter details should not appear in operator lookup responses, only in dedicated adapter endpoints). _(spec: 05_parking_fee_service, confidence: 0.90)_
+- For Kuksa Databroker metadata verification, use Get operations instead of GetMetadata endpoints to ensure compatibility and correct signal validation. _(spec: 02_data_broker, confidence: 0.90)_
+- Splitting implementation across multiple task groups with shared dependencies (model package completed in task group 1, used in task group 2) requires careful sequencing to avoid blocking work. _(spec: 05_parking_fee_service, confidence: 0.60)_
+- Connection retry tests can be validated without full infrastructure by testing the retry logic in isolation, separate from happy-path scenarios. _(spec: 03_locking_service, confidence: 0.60)_
+- Gap handling: defer known test coverage gaps (like missing integration tests for specific scenarios) via errata documents rather than blocking verification, enabling traceability while maintaining transparency. _(spec: 03_locking_service, confidence: 0.90)_
+- Subscription stream recovery tests that require infrastructure orchestration (e.g., container restarts) can be deferred if the core retry logic is already covered by other tests and the feature is best-effort rather than safety-critical. _(spec: 03_locking_service, confidence: 0.60)_
+- Kuksa v2 API uses PublishValue (not Set), GetValue (not Get), and SubscribeResponse returns a map of path to Datapoint instead of repeated DataEntry, with subscribe requests using signal_paths instead of paths. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Model package implementation can be completed independently before config and auth modules in a cloud gateway system. _(spec: 06_cloud_gateway, confidence: 0.60)_
+- Install flow orchestration should enforce single-adapter constraint at validation time to prevent invalid state combinations. _(spec: 07_update_service, confidence: 0.90)_
 
 ## Conventions
 
@@ -83,3 +295,67 @@
 - NATS server runs on port 4222 and Kuksa Databroker runs on port 55556 in the Docker Compose infrastructure setup. _(spec: 01_project_setup, confidence: 0.90)_
 - Makefiles should use `.PHONY` declarations for all non-file targets to prevent conflicts with similarly-named files in the directory. _(spec: 03_locking_service, confidence: 0.90)_
 - Compose files should use volume mounts with relative paths (./file) and container-internal paths to allow flexibility in deployment location. _(spec: 03_locking_service, confidence: 0.60)_
+- Protobuf code generation in Rust projects should be handled via build.rs to ensure proto files are compiled during the build process. _(spec: 03_locking_service, confidence: 0.90)_
+- Generated protobuf code should not be manually edited; it is created by protoc and marked with 'Code generated by protoc-gen-go. DO NOT EDIT.' headers. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Generated gRPC server implementations require embedding UnimplementedServiceServer and implementing mustEmbedUnimplemented methods for forward compatibility. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Generated Go proto packages require a go.mod file that declares dependencies on google.golang.org/grpc and google.golang.org/protobuf. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Ensure `go vet` passes cleanly even with stub implementations to catch compile-time issues early and maintain code quality standards throughout TDD cycles. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Missing or invalid required query parameters (lat/lon) should return HTTP 400 with a standardized error format {'error': '<message>'} rather than 4xx codes. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- All JSON API responses should explicitly set Content-Type header to 'application/json' and use consistent field naming (snake_case in JSON tags). _(spec: 05_parking_fee_service, confidence: 0.90)_
+- A complete quality gate check for Go projects typically includes: make clean, make build, make test, make proto, make test-setup, and make check. _(spec: 01_project_setup, confidence: 0.90)_
+- Use clippy in addition to unit and property tests to ensure code quality; all three validation approaches (unit tests, property tests, clippy) should pass before considering a task complete. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- TelemetryState struct implementation with new() and update() methods should be located in src/telemetry.rs, with supporting SignalUpdate and TelemetryMessage models in src/models.rs. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Clippy linter validation should be run as part of telemetry state implementation verification to ensure code quality and idiomatic Rust practices. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Use `//!` for module-level documentation comments in Rust instead of `///` to properly document the module itself. _(spec: 01_project_setup, confidence: 0.90)_
+- Async Rust binaries should use `#[tokio::main]` macro to set up the runtime rather than manually managing executors. _(spec: 01_project_setup, confidence: 0.90)_
+- async-nats 0.35 is a compatible dependency for building NATS clients in Rust with async/await support. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Create errata documentation for spec deviations rather than modifying preserved spec documents; this allows implementation to supersede specs while maintaining historical record. _(spec: 02_data_broker, confidence: 0.90)_
+- Kuksa Databroker version 0.5.0 requires dual listener configuration with both TCP (0.0.0.0:55555) and Unix Domain Socket (--unix-socket) arguments in compose.yml. _(spec: 02_data_broker, confidence: 0.90)_
+- Port mapping in compose.yml for Kuksa Databroker uses 55556:55555 to expose internal TCP listener port 55555. _(spec: 02_data_broker, confidence: 0.90)_
+- Comprehensive test coverage should include multiple test categories (functional TS-*, error handling TS-E*, performance TS-P*, and smoke tests TS-SMOKE-*) to ensure specifications are validated across different scenarios. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- VSS overlay files must define custom signals with correct types (boolean, string, etc.) and maintain well-formed JSON structure for proper validation in Vehicle Signal Specification deployments. _(spec: 02_data_broker, confidence: 0.90)_
+- Track which test cases have already been implemented in earlier task groups to avoid duplication when adding new edge case tests. _(spec: 02_data_broker, confidence: 0.90)_
+- Response relay loops should forward verbatim JSON from DATA_BROKER to NATS without transformation to preserve message fidelity. _(spec: 04_cloud_gateway_client, confidence: 0.60)_
+- Use descriptive test naming conventions that include test ID references (e.g., TS-02-SMOKE-1) to link test code to specification requirements. _(spec: 02_data_broker, confidence: 0.90)_
+- When a full test suite passes but includes unrelated pre-existing failures in other services, explicitly document which failures are unrelated to avoid confusion during verification. _(spec: 03_locking_service, confidence: 0.90)_
+- Integration tests requiring external services (NATS, DATA_BROKER containers) should be marked with #[ignore] to prevent failures in standard test runs. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Main package should include config loading, route registration, structured logging setup, and graceful shutdown handling. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Verification of a completed task group should include checking that all tests pass, go vet passes cleanly, and the binary builds and runs correctly. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Helper test functions should call t.Helper() to exclude themselves from test call stacks in failure reports. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- HTTP error responses should use consistent JSON format: {"error": "<message>"} for all error cases. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Add prost-types as a dependency when using google.protobuf.Timestamp in gRPC proto definitions. _(spec: 04_cloud_gateway_client, confidence: 0.90)_
+- Serde deserialization with `#[serde(default = "function_name")]` requires the default function to be accessible in scope; use module-level functions for complex defaults. _(spec: 07_update_service, confidence: 0.90)_
+- Use `tempfile::tempdir()` in tests for isolated file I/O; files are automatically cleaned up when the `TempDir` is dropped. _(spec: 07_update_service, confidence: 0.90)_
+- Property tests with `proptest` should use `prop_assume!()` to skip cases that don't meet preconditions and `prop_assert_*!()` for assertions. _(spec: 07_update_service, confidence: 0.90)_
+- Use `#[ignore]` on property tests to exclude them from normal test runs; they can be run explicitly with `cargo test -- --ignored`. _(spec: 07_update_service, confidence: 0.90)_
+- Test module organization: place unit tests in `#[cfg(test)] mod tests { ... }` within the same file as the code under test; use helper functions to reduce duplication. _(spec: 07_update_service, confidence: 0.90)_
+- HTTP command submission handlers should return 202 Accepted status to indicate async processing, with a separate endpoint for checking command status. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Use slog (Go's structured logging package) for startup logging in modern Go applications to provide consistent, structured log output. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Configuration files like config.json should include demo/default tokens for local development and testing purposes. _(spec: 06_cloud_gateway, confidence: 0.60)_
+- When working with multiple specification versions (spec 01, spec 08), document proto file divergences explicitly in errata to clarify which version is being implemented. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Property-based tests should be marked #[ignore] when they are slow or resource-intensive, allowing developers to opt-in with --ignored flag rather than blocking test runs. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Document proto divergences and resolutions in errata files to explain why local proto files exist and how they differ from shared definitions. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- Running clippy alongside unit tests helps catch potential issues early and maintains code quality standards during feature implementation. _(spec: 08_parking_operator_adaptor, confidence: 0.60)_
+- REST client implementations should check for both request errors and non-200 HTTP status codes as failure conditions when applying retry logic. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Comprehensive test coverage including unit tests (34 passing) and property tests should be executed alongside clippy linting to ensure code quality before marking a task complete. _(spec: 07_update_service, confidence: 0.90)_
+- Configuration loading, channel setup, timer spawning, and server startup should be orchestrated in main.rs with clear separation of concerns. _(spec: 07_update_service, confidence: 0.60)_
+- Load configuration from CONFIG_PATH environment variable with a default fallback value, and exit early with error logging if configuration loading fails. _(spec: 09_mock_apps, confidence: 0.90)_
+- Proto stubs must be generated for all dependent gRPC services (kuksa.val.v2, custom domain services) when implementing Go adaptor integration tests. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
+- Generated protobuf files (.pb.go) should be committed to version control as they are build artifacts required for compilation and testing. _(spec: 07_update_service, confidence: 0.90)_
+- Integration test packages should be placed in a tests/ directory at the repository root with their own go.mod files and should be registered in the root go.work file. _(spec: 07_update_service, confidence: 0.90)_
+- Test modules should include package-level documentation explaining test purpose, prerequisites (like running containers), and setup instructions. _(spec: 07_update_service, confidence: 0.60)_
+- Task checkbox states follow a consistent syntax: `[ ]` = not started, `[x]` = completed, `[-]` = in progress, `[~]` = queued; maintain this convention across all spec task lists. _(spec: 09_mock_apps, confidence: 0.90)_
+- Test specification references (TS-XX-Y format) should remain consistent across all task files to enable traceability between requirements, tests, and implementation. _(spec: 09_mock_apps, confidence: 0.90)_
+
+## Anti-Patterns
+
+- Avoid making assumptions about timing and startup order in service tests; explicitly verify preconditions (like service readiness) before making assertions about behavior. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- Avoid brittle assertions on external service availability in unit tests (e.g., checking for NATS connection); instead, mock external dependencies or use actual integration test environments with all services running. _(spec: 09_mock_apps, confidence: 0.90)_
+
+## Fragile Areas
+
+- Point-in-polygon and proximity matching are fragile geometric operations sensitive to floating-point precision; property-based tests with randomized convex polygons and interior/exterior points help catch edge cases. _(spec: 05_parking_fee_service, confidence: 0.90)_
+- Dual listener configuration (TCP and UDS) in compose.yml requires explicit setup; without it, socket and connection attempts will fail with 'connection refused' or 'socket not found' errors. _(spec: 02_data_broker, confidence: 0.90)_
+- Weak assertions in test specifications (e.g., only checking for a log line without verifying actual recovery) should be noted during review as areas for future strengthening when infrastructure complexity permits. _(spec: 03_locking_service, confidence: 0.60)_
+- Per-command timeout timers implemented with time.AfterFunc require cancellation support to avoid resource leaks and race conditions in store-like implementations. _(spec: 06_cloud_gateway, confidence: 0.90)_
+- When testing process startup with external service connections (like NATS), ensure the process terminates or use non-blocking I/O methods to avoid test hangs. _(spec: 06_cloud_gateway, confidence: 0.90)_
