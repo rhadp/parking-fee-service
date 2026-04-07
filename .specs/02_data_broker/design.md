@@ -23,7 +23,7 @@ flowchart LR
         Socket["UDS Socket Volume\n/tmp/kuksa-databroker.sock"]
     end
 
-    Overlay -->|"--vss flag"| Kuksa
+    Overlay -->|"--vss"| Kuksa
     Kuksa --> TCP
     Kuksa --> UDS
     UDS --> Socket
@@ -52,16 +52,16 @@ flowchart LR
 | Module | Responsibility |
 |--------|---------------|
 | `deployments/compose.yml` | Defines the databroker service with pinned image, dual listener args, port mapping, volume mounts for overlay and UDS socket |
-| `deployments/vss/overlay.vspec` | Declares 3 custom VSS signals (Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response) |
+| `deployments/vss-overlay.json` | Declares 3 custom VSS signals (Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response) |
 | `tests/databroker/` | Integration tests verifying connectivity, signal availability, read/write, and cross-transport consistency |
 
 ## Execution Paths
 
 ### Path 1: Container startup
 
-1. Developer runs `podman compose up databroker`
+1. Developer runs `podman compose up kuksa-databroker`
 2. Compose pulls `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` (if not cached)
-3. Container starts with command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` plus overlay flag
+3. Container starts with command args: `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss /vss-overlay.json`
 4. Kuksa loads the default VSS v5.1 tree (5 standard signals)
 5. Kuksa loads the overlay file (3 custom signals)
 6. TCP listener binds to `0.0.0.0:55555`, mapped to host `55556`
@@ -113,11 +113,11 @@ The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 
 | Property | Value |
 |----------|-------|
-| Service name | `databroker` |
+| Service name | `kuksa-databroker` |
 | Image | `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` |
 | Ports | `55556:55555` |
 | Volumes | Overlay file (read-only), UDS socket directory (read-write) |
-| Command | `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` + overlay args |
+| Command | `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss /vss-overlay.json` |
 
 ## Data Models
 
@@ -211,8 +211,8 @@ The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 ## Definition of Done
 
 1. `deployments/compose.yml` updated with pinned image (`0.5.1`), dual listener args, port mapping (`55556:55555`), and volume mounts (overlay file, UDS socket directory).
-2. VSS overlay file validated: 3 custom signals with correct types loadable by the databroker.
-3. `podman compose up databroker` starts successfully with both TCP and UDS listeners active.
+2. VSS overlay file (`deployments/vss-overlay.json`) validated: 3 custom signals with correct types loadable by the databroker.
+3. `podman compose up kuksa-databroker` starts successfully with both TCP and UDS listeners active.
 4. All 8 VSS signals (5 standard + 3 custom) queryable via metadata introspection.
 5. Signal set/get works via TCP (host port 55556).
 6. Signal set/get works via UDS (`/tmp/kuksa-databroker.sock`).
@@ -238,14 +238,14 @@ Integration tests are the primary verification mechanism since there is no custo
 
 ### Test execution
 
-Tests require a running DATA_BROKER container. The test harness starts the container via `podman compose up databroker`, waits for readiness, executes tests, and tears down the container.
+Tests require a running DATA_BROKER container. The test harness starts the container via `podman compose up kuksa-databroker`, waits for readiness, executes tests, and tears down the container.
 
 ## Operational Readiness
 
 | Aspect | Approach |
 |--------|----------|
 | Health check | gRPC connectivity check to TCP port 55556 |
-| Logging | Kuksa Databroker stdout/stderr via `podman compose logs databroker` |
+| Logging | Kuksa Databroker stdout/stderr via `podman compose logs kuksa-databroker` |
 | Startup verification | Integration tests confirm both listeners and all signals available |
 | Resource cleanup | `podman compose down` removes container and UDS socket |
 | Reproducibility | Pinned image version ensures consistent behavior |

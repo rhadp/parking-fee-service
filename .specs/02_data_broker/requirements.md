@@ -51,7 +51,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 1. A gRPC client connecting to `localhost:55556` from the host SHALL receive a successful gRPC channel connection.
 2. The compose.yml SHALL contain port mapping `55556:55555` for the databroker service.
-3. The DATA_BROKER command args SHALL include `--address 0.0.0.0:55555`.
+3. The DATA_BROKER command args SHALL include `--address 0.0.0.0 --port 55555`.
 
 **Edge Cases:**
 
@@ -70,7 +70,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 **Acceptance Criteria:**
 
-1. The DATA_BROKER command args SHALL include `--uds-path /tmp/kuksa-databroker.sock`.
+1. The DATA_BROKER command args SHALL include `--unix-socket /tmp/kuksa-databroker.sock`.
 2. The compose.yml SHALL define a named volume or bind mount that makes the UDS socket accessible to same-partition consumer containers.
 3. A gRPC client connecting via `unix:///tmp/kuksa-databroker.sock` from a co-located container SHALL receive a successful gRPC channel connection.
 

@@ -11,7 +11,7 @@ This test specification defines the integration, property, edge case, and smoke 
 - **Requirement:** 02-REQ-2
 - **Type:** Integration
 - **Description:** Verify that a gRPC client can establish a connection to the DATA_BROKER via TCP on host port 55556.
-- **Preconditions:** DATA_BROKER container is running via `podman compose up databroker`.
+- **Preconditions:** DATA_BROKER container is running via `podman compose up kuksa-databroker`.
 - **Input:** gRPC channel open to `localhost:55556`.
 - **Expected:** Channel connects successfully; a simple metadata or get request returns a valid gRPC response (not UNAVAILABLE).
 - **Assertion pseudocode:**
@@ -46,7 +46,7 @@ This test specification defines the integration, property, edge case, and smoke 
 - **Expected:** Image reference matches `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
 - **Assertion pseudocode:**
   ```
-  image = podman_inspect("databroker").image
+  image = podman_inspect("kuksa-databroker").image
   assert image contains "kuksa-databroker:0.5.1"
   ```
 
@@ -322,9 +322,9 @@ This test specification defines the integration, property, edge case, and smoke 
 - **Assertion pseudocode:**
   ```
   replace_overlay_with_invalid_content()
-  exit_code = podman_compose_up("databroker")
+  exit_code = podman_compose_up("kuksa-databroker")
   assert exit_code != 0
-  logs = podman_logs("databroker")
+  logs = podman_logs("kuksa-databroker")
   assert "error" in logs.lower() or "parse" in logs.lower()
   restore_valid_overlay()
   ```
@@ -340,7 +340,7 @@ This test specification defines the integration, property, edge case, and smoke 
 - **Assertion pseudocode:**
   ```
   rename_overlay_to_backup()
-  exit_code = podman_compose_up("databroker")
+  exit_code = podman_compose_up("kuksa-databroker")
   assert exit_code != 0
   restore_overlay_from_backup()
   ```
@@ -368,11 +368,11 @@ This test specification defines the integration, property, edge case, and smoke 
 - **Type:** Smoke
 - **Description:** Quick verification that the DATA_BROKER container starts and accepts TCP connections.
 - **Preconditions:** None (starts container itself).
-- **Input:** `podman compose up -d databroker`, then gRPC connect to `localhost:55556`.
+- **Input:** `podman compose up -d kuksa-databroker`, then gRPC connect to `localhost:55556`.
 - **Expected:** Connection succeeds within 10 seconds of container start.
 - **Assertion pseudocode:**
   ```
-  podman_compose_up("databroker", detached=true)
+  podman_compose_up("kuksa-databroker", detached=true)
   wait_for_port(55556, timeout=10s)
   conn = grpc.Dial("localhost:55556")
   resp = conn.GetMetadata("Vehicle.Speed")

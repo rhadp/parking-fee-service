@@ -54,7 +54,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [ ] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` in `deployments/compose.yml`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
 
-  - [ ] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
+  - [ ] 2.2 Add dual listener command args: `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-2.1, 02-REQ-3.1, 02-REQ-4.1_
 
   - [ ] 2.3 Configure port mapping `55556:55555` for the databroker service
@@ -63,16 +63,16 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [ ] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-3.2_
 
-  - [ ] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
+  - [ ] 2.5 Mount `deployments/vss-overlay.json` into the container and add `--vss /vss-overlay.json` to the command args
     - _Requirements: 02-REQ-6.4_
 
   - [ ] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
     - _Requirements: 02-REQ-7.1_
 
   - [ ] 2.V Verify task group 2
-    - [ ] `podman compose up databroker` starts successfully with both listeners active
+    - [ ] `podman compose up kuksa-databroker` starts successfully with both listeners active
     ```
-    cd deployments && podman compose up -d databroker && sleep 3 && podman compose logs databroker | grep -i "listening" && podman compose down
+    cd deployments && podman compose up -d kuksa-databroker && sleep 3 && podman compose logs kuksa-databroker | grep -i "listening" && podman compose down
     ```
 
 - [ ] 3. Validate VSS overlay
@@ -93,7 +93,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [ ] 3.V Verify task group 3
     - [ ] The databroker loads the overlay and all 3 custom signals are queryable via metadata
     ```
-    cd deployments && podman compose up -d databroker && sleep 3 && echo "Query custom signals via grpcurl or kuksa-client" && podman compose down
+    cd deployments && podman compose up -d kuksa-databroker && sleep 3 && echo "Query custom signals via grpcurl or kuksa-client" && podman compose down
     ```
 
 - [ ] 4. Implement edge case tests
@@ -174,10 +174,10 @@ cd tests/databroker && go test -run "TestEdgeCase" -v ./...
 cd tests/databroker && go test -run "TestConnect" -v ./...
 
 # Start databroker for manual testing
-cd deployments && podman compose up -d databroker
+cd deployments && podman compose up -d kuksa-databroker
 
 # View databroker logs
-cd deployments && podman compose logs -f databroker
+cd deployments && podman compose logs -f kuksa-databroker
 
 # Stop databroker
 cd deployments && podman compose down
