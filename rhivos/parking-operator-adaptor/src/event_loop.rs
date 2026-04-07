@@ -39,14 +39,63 @@ impl std::error::Error for ProcessError {}
 /// - Unlock (is_locked=false) + active session → stop session
 /// - Unlock (is_locked=false) + no active session → no-op
 pub async fn process_lock_event<O: ParkingOperator, B: DataBrokerClient>(
-    _is_locked: bool,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    is_locked: bool,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
 ) -> Result<(), ProcessError> {
-    todo!("process_lock_event not yet implemented")
+    if is_locked {
+        // Lock event
+        if session.is_active() {
+            tracing::info!("lock event received but session already active — no-op");
+            return Ok(());
+        }
+        // Start a new session
+        let resp = operator
+            .start_session(vehicle_id, zone_id)
+            .await
+            .map_err(|e| ProcessError::OperatorFailed(e.to_string()))?;
+
+        session.start(
+            resp.session_id,
+            zone_id.to_string(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64,
+            crate::session::Rate {
+                rate_type: resp.rate.rate_type,
+                amount: resp.rate.amount,
+                currency: resp.rate.currency,
+            },
+        );
+
+        // Publish SessionActive=true, log error on failure
+        if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+            tracing::error!("failed to publish SessionActive=true: {e}");
+        }
+    } else {
+        // Unlock event
+        if !session.is_active() {
+            tracing::info!("unlock event received but no active session — no-op");
+            return Ok(());
+        }
+        let session_id = session.status().unwrap().session_id.clone();
+        operator
+            .stop_session(&session_id)
+            .await
+            .map_err(|e| ProcessError::OperatorFailed(e.to_string()))?;
+
+        session.stop();
+
+        // Publish SessionActive=false, log error on failure
+        if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+            tracing::error!("failed to publish SessionActive=false: {e}");
+        }
+    }
+    Ok(())
 }
 
 /// Process a manual StartSession request.
@@ -54,13 +103,42 @@ pub async fn process_lock_event<O: ParkingOperator, B: DataBrokerClient>(
 /// - If session active → return AlreadyActive error
 /// - Otherwise → start session with operator, update state, publish signal
 pub async fn process_manual_start<O: ParkingOperator, B: DataBrokerClient>(
-    _zone_id: &str,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
+    zone_id: &str,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
 ) -> Result<StartResponse, ProcessError> {
-    todo!("process_manual_start not yet implemented")
+    if session.is_active() {
+        let id = session.status().unwrap().session_id.clone();
+        return Err(ProcessError::AlreadyActive(id));
+    }
+
+    let resp = operator
+        .start_session(vehicle_id, zone_id)
+        .await
+        .map_err(|e| ProcessError::OperatorFailed(e.to_string()))?;
+
+    session.start(
+        resp.session_id.clone(),
+        zone_id.to_string(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64,
+        crate::session::Rate {
+            rate_type: resp.rate.rate_type.clone(),
+            amount: resp.rate.amount,
+            currency: resp.rate.currency.clone(),
+        },
+    );
+
+    // Publish SessionActive=true, log error on failure
+    if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+        tracing::error!("failed to publish SessionActive=true: {e}");
+    }
+
+    Ok(resp)
 }
 
 /// Process a manual StopSession request.
@@ -68,11 +146,28 @@ pub async fn process_manual_start<O: ParkingOperator, B: DataBrokerClient>(
 /// - If no active session → return NoActiveSession error
 /// - Otherwise → stop session with operator, clear state, publish signal
 pub async fn process_manual_stop<O: ParkingOperator, B: DataBrokerClient>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
 ) -> Result<StopResponse, ProcessError> {
-    todo!("process_manual_stop not yet implemented")
+    if !session.is_active() {
+        return Err(ProcessError::NoActiveSession);
+    }
+
+    let session_id = session.status().unwrap().session_id.clone();
+    let resp = operator
+        .stop_session(&session_id)
+        .await
+        .map_err(|e| ProcessError::OperatorFailed(e.to_string()))?;
+
+    session.stop();
+
+    // Publish SessionActive=false, log error on failure
+    if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+        tracing::error!("failed to publish SessionActive=false: {e}");
+    }
+
+    Ok(resp)
 }
 
 #[cfg(test)]
