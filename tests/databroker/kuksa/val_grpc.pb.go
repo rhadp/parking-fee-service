@@ -19,24 +19,26 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VAL_Get_FullMethodName       = "/kuksa.VAL/Get"
-	VAL_Set_FullMethodName       = "/kuksa.VAL/Set"
-	VAL_Subscribe_FullMethodName = "/kuksa.VAL/Subscribe"
+	VAL_GetValue_FullMethodName      = "/kuksa.val.v2.VAL/GetValue"
+	VAL_GetValues_FullMethodName     = "/kuksa.val.v2.VAL/GetValues"
+	VAL_PublishValue_FullMethodName  = "/kuksa.val.v2.VAL/PublishValue"
+	VAL_Subscribe_FullMethodName     = "/kuksa.val.v2.VAL/Subscribe"
+	VAL_ListMetadata_FullMethodName  = "/kuksa.val.v2.VAL/ListMetadata"
+	VAL_GetServerInfo_FullMethodName = "/kuksa.val.v2.VAL/GetServerInfo"
 )
 
 // VALClient is the client API for VAL service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// VAL provides a simplified interface for reading, writing, and subscribing
-// to vehicle signals via the Kuksa Databroker.
+// VAL is the Kuksa Databroker Vehicle Abstraction Layer service.
 type VALClient interface {
-	// Get reads the current value of one or more signals.
-	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
-	// Set writes values to one or more signals.
-	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
-	// Subscribe streams updates for the specified signal paths.
+	GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error)
+	GetValues(ctx context.Context, in *GetValuesRequest, opts ...grpc.CallOption) (*GetValuesResponse, error)
+	PublishValue(ctx context.Context, in *PublishValueRequest, opts ...grpc.CallOption) (*PublishValueResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SubscribeResponse], error)
+	ListMetadata(ctx context.Context, in *ListMetadataRequest, opts ...grpc.CallOption) (*ListMetadataResponse, error)
+	GetServerInfo(ctx context.Context, in *GetServerInfoRequest, opts ...grpc.CallOption) (*GetServerInfoResponse, error)
 }
 
 type vALClient struct {
@@ -47,20 +49,30 @@ func NewVALClient(cc grpc.ClientConnInterface) VALClient {
 	return &vALClient{cc}
 }
 
-func (c *vALClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *vALClient) GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, VAL_Get_FullMethodName, in, out, cOpts...)
+	out := new(GetValueResponse)
+	err := c.cc.Invoke(ctx, VAL_GetValue_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *vALClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+func (c *vALClient) GetValues(ctx context.Context, in *GetValuesRequest, opts ...grpc.CallOption) (*GetValuesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SetResponse)
-	err := c.cc.Invoke(ctx, VAL_Set_FullMethodName, in, out, cOpts...)
+	out := new(GetValuesResponse)
+	err := c.cc.Invoke(ctx, VAL_GetValues_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vALClient) PublishValue(ctx context.Context, in *PublishValueRequest, opts ...grpc.CallOption) (*PublishValueResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishValueResponse)
+	err := c.cc.Invoke(ctx, VAL_PublishValue_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,19 +98,38 @@ func (c *vALClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ..
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VAL_SubscribeClient = grpc.ServerStreamingClient[SubscribeResponse]
 
+func (c *vALClient) ListMetadata(ctx context.Context, in *ListMetadataRequest, opts ...grpc.CallOption) (*ListMetadataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMetadataResponse)
+	err := c.cc.Invoke(ctx, VAL_ListMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vALClient) GetServerInfo(ctx context.Context, in *GetServerInfoRequest, opts ...grpc.CallOption) (*GetServerInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetServerInfoResponse)
+	err := c.cc.Invoke(ctx, VAL_GetServerInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VALServer is the server API for VAL service.
 // All implementations must embed UnimplementedVALServer
 // for forward compatibility.
 //
-// VAL provides a simplified interface for reading, writing, and subscribing
-// to vehicle signals via the Kuksa Databroker.
+// VAL is the Kuksa Databroker Vehicle Abstraction Layer service.
 type VALServer interface {
-	// Get reads the current value of one or more signals.
-	Get(context.Context, *GetRequest) (*GetResponse, error)
-	// Set writes values to one or more signals.
-	Set(context.Context, *SetRequest) (*SetResponse, error)
-	// Subscribe streams updates for the specified signal paths.
+	GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error)
+	GetValues(context.Context, *GetValuesRequest) (*GetValuesResponse, error)
+	PublishValue(context.Context, *PublishValueRequest) (*PublishValueResponse, error)
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[SubscribeResponse]) error
+	ListMetadata(context.Context, *ListMetadataRequest) (*ListMetadataResponse, error)
+	GetServerInfo(context.Context, *GetServerInfoRequest) (*GetServerInfoResponse, error)
 	mustEmbedUnimplementedVALServer()
 }
 
@@ -109,14 +140,23 @@ type VALServer interface {
 // pointer dereference when methods are called.
 type UnimplementedVALServer struct{}
 
-func (UnimplementedVALServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Get not implemented")
+func (UnimplementedVALServer) GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetValue not implemented")
 }
-func (UnimplementedVALServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Set not implemented")
+func (UnimplementedVALServer) GetValues(context.Context, *GetValuesRequest) (*GetValuesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetValues not implemented")
+}
+func (UnimplementedVALServer) PublishValue(context.Context, *PublishValueRequest) (*PublishValueResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PublishValue not implemented")
 }
 func (UnimplementedVALServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[SubscribeResponse]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
+}
+func (UnimplementedVALServer) ListMetadata(context.Context, *ListMetadataRequest) (*ListMetadataResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMetadata not implemented")
+}
+func (UnimplementedVALServer) GetServerInfo(context.Context, *GetServerInfoRequest) (*GetServerInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetServerInfo not implemented")
 }
 func (UnimplementedVALServer) mustEmbedUnimplementedVALServer() {}
 func (UnimplementedVALServer) testEmbeddedByValue()             {}
@@ -139,38 +179,56 @@ func RegisterVALServer(s grpc.ServiceRegistrar, srv VALServer) {
 	s.RegisterService(&VAL_ServiceDesc, srv)
 }
 
-func _VAL_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetRequest)
+func _VAL_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValueRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(VALServer).Get(ctx, in)
+		return srv.(VALServer).GetValue(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: VAL_Get_FullMethodName,
+		FullMethod: VAL_GetValue_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VALServer).Get(ctx, req.(*GetRequest))
+		return srv.(VALServer).GetValue(ctx, req.(*GetValueRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _VAL_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetRequest)
+func _VAL_GetValues_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValuesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(VALServer).Set(ctx, in)
+		return srv.(VALServer).GetValues(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: VAL_Set_FullMethodName,
+		FullMethod: VAL_GetValues_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VALServer).Set(ctx, req.(*SetRequest))
+		return srv.(VALServer).GetValues(ctx, req.(*GetValuesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VAL_PublishValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VALServer).PublishValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VAL_PublishValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VALServer).PublishValue(ctx, req.(*PublishValueRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -186,20 +244,68 @@ func _VAL_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VAL_SubscribeServer = grpc.ServerStreamingServer[SubscribeResponse]
 
+func _VAL_ListMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VALServer).ListMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VAL_ListMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VALServer).ListMetadata(ctx, req.(*ListMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VAL_GetServerInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetServerInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VALServer).GetServerInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VAL_GetServerInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VALServer).GetServerInfo(ctx, req.(*GetServerInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VAL_ServiceDesc is the grpc.ServiceDesc for VAL service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var VAL_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "kuksa.VAL",
+	ServiceName: "kuksa.val.v2.VAL",
 	HandlerType: (*VALServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Get",
-			Handler:    _VAL_Get_Handler,
+			MethodName: "GetValue",
+			Handler:    _VAL_GetValue_Handler,
 		},
 		{
-			MethodName: "Set",
-			Handler:    _VAL_Set_Handler,
+			MethodName: "GetValues",
+			Handler:    _VAL_GetValues_Handler,
+		},
+		{
+			MethodName: "PublishValue",
+			Handler:    _VAL_PublishValue_Handler,
+		},
+		{
+			MethodName: "ListMetadata",
+			Handler:    _VAL_ListMetadata_Handler,
+		},
+		{
+			MethodName: "GetServerInfo",
+			Handler:    _VAL_GetServerInfo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

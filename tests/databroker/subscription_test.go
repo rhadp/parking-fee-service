@@ -30,7 +30,7 @@ func TestSubscriptionViaTCP(t *testing.T) {
 	defer subCancel()
 
 	stream, err := subClient.Subscribe(subCtxVal, &kuksapb.SubscribeRequest{
-		Paths: []string{path},
+		SignalPaths: []string{path},
 	})
 	if err != nil {
 		t.Fatalf("TS-02-10: Subscribe failed: %v", err)
@@ -48,15 +48,15 @@ func TestSubscriptionViaTCP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TS-02-10: Subscribe Recv failed: %v", err)
 	}
-	if len(update.Entries) == 0 {
-		t.Fatal("TS-02-10: received subscription update with no entries")
+	dp, ok := update.Entries[path]
+	if !ok || dp == nil || dp.Value == nil {
+		t.Fatalf("TS-02-10: subscription update missing entry for %s", path)
 	}
-	entry := update.Entries[0]
-	got, ok := entry.Value.Value.(*kuksapb.Datapoint_BoolValue)
+	got, ok := dp.Value.TypedValue.(*kuksapb.Value_Bool)
 	if !ok {
-		t.Fatalf("TS-02-10: expected bool in subscription update, got %T", entry.Value.Value)
+		t.Fatalf("TS-02-10: expected bool in subscription update, got %T", dp.Value.TypedValue)
 	}
-	if !got.BoolValue {
+	if !got.Bool {
 		t.Errorf("TS-02-10: subscription update value: got false, want true")
 	}
 }
@@ -80,7 +80,7 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 	defer subCancel()
 
 	stream, err := udsClient.Subscribe(subCtxVal, &kuksapb.SubscribeRequest{
-		Paths: []string{path},
+		SignalPaths: []string{path},
 	})
 	if err != nil {
 		t.Fatalf("TS-02-11: UDS Subscribe failed: %v", err)
@@ -97,15 +97,15 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TS-02-11: UDS Subscribe Recv failed: %v", err)
 	}
-	if len(update.Entries) == 0 {
-		t.Fatal("TS-02-11: received subscription update with no entries")
+	dp, ok := update.Entries[path]
+	if !ok || dp == nil || dp.Value == nil {
+		t.Fatalf("TS-02-11: subscription update missing entry for %s", path)
 	}
-	entry := update.Entries[0]
-	got, ok := entry.Value.Value.(*kuksapb.Datapoint_BoolValue)
+	got, ok := dp.Value.TypedValue.(*kuksapb.Value_Bool)
 	if !ok {
-		t.Fatalf("TS-02-11: expected bool in subscription update, got %T", entry.Value.Value)
+		t.Fatalf("TS-02-11: expected bool in subscription update, got %T", dp.Value.TypedValue)
 	}
-	if !got.BoolValue {
+	if !got.Bool {
 		t.Errorf("TS-02-11: subscription update value: got false, want true")
 	}
 }
@@ -118,13 +118,7 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 // TestSubscriptionDelivery is a property test verifying that for any signal,
 // a subscription receives an update when the signal value changes, and that
 // the update reflects the new value.
-//
-// Note: The Kuksa Databroker may send an initial value notification immediately
-// upon subscription. This test drains that initial notification (if present)
-// before writing, then expects exactly one update per write.
 func TestSubscriptionDelivery(t *testing.T) {
-	// Use a subset of signals to keep the test runtime bounded.
-	// One representative from each type.
 	testSignals := []signalDef{
 		{path: "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", typeName: "bool"},
 		{path: "Vehicle.Speed", typeName: "float"},
@@ -144,7 +138,7 @@ func TestSubscriptionDelivery(t *testing.T) {
 			defer subCancel()
 
 			stream, err := client.Subscribe(subCtxVal, &kuksapb.SubscribeRequest{
-				Paths: []string{sig.path},
+				SignalPaths: []string{sig.path},
 			})
 			if err != nil {
 				t.Fatalf("TS-02-P4: Subscribe(%q) failed: %v", sig.path, err)
@@ -159,35 +153,22 @@ func TestSubscriptionDelivery(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-				defer cancel()
-				resp, err := client.Set(ctx, &kuksapb.SetRequest{
-					Entries: []*kuksapb.DataEntry{
-						{Path: sig.path, Value: want},
-					},
-				})
-				if err != nil {
-					t.Errorf("TS-02-P4: Set(%q) gRPC error: %v", sig.path, err)
-					return
-				}
-				if !resp.Success {
-					t.Errorf("TS-02-P4: Set(%q) rejected: %s", sig.path, resp.Error)
-				}
+				publishSignal(t, client, sig.path, want)
 			}()
 
-			// Receive the update triggered by the Set above.
+			// Receive the update triggered by the write above.
 			update, err := stream.Recv()
 			wg.Wait()
 			if err != nil {
 				t.Fatalf("TS-02-P4: Subscribe Recv(%q) failed: %v", sig.path, err)
 			}
-			if len(update.Entries) == 0 {
-				t.Fatalf("TS-02-P4: subscription update for %q has no entries", sig.path)
+			dp, ok := update.Entries[sig.path]
+			if !ok || dp == nil || dp.Value == nil {
+				t.Fatalf("TS-02-P4: subscription update for %q has no entry", sig.path)
 			}
-			got := update.Entries[0].Value
-			if !datapointEqual(got, want) {
+			if !valueEqual(dp.Value, want) {
 				t.Errorf("TS-02-P4: subscription update for %q: got %s, want %s",
-					sig.path, datapointString(got), datapointString(want))
+					sig.path, valueString(dp.Value), valueString(want))
 			}
 		})
 	}
@@ -195,13 +176,8 @@ func TestSubscriptionDelivery(t *testing.T) {
 
 // drainInitial attempts to receive and discard one initial-value notification
 // from the stream that Kuksa Databroker sends immediately upon subscription.
-// If no notification arrives within a short window, the drain is a no-op.
-// This prevents the initial notification from interfering with assertions about
-// subsequent writes.
 func drainInitial(t *testing.T, stream kuksapb.VAL_SubscribeClient) {
 	t.Helper()
-	// Use a very short timeout: if Kuksa sends an initial value it arrives
-	// almost immediately; we don't want to wait long if it doesn't.
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

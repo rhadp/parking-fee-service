@@ -1,4 +1,29 @@
 {
+  "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked": {
+    "type": "actuator",
+    "datatype": "boolean",
+    "description": "Is door locked (VSS v5.1 standard signal)"
+  },
+  "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen": {
+    "type": "sensor",
+    "datatype": "boolean",
+    "description": "Is door open (VSS v5.1 standard signal)"
+  },
+  "Vehicle.CurrentLocation.Latitude": {
+    "type": "sensor",
+    "datatype": "double",
+    "description": "Current latitude (VSS v5.1 standard signal)"
+  },
+  "Vehicle.CurrentLocation.Longitude": {
+    "type": "sensor",
+    "datatype": "double",
+    "description": "Current longitude (VSS v5.1 standard signal)"
+  },
+  "Vehicle.Speed": {
+    "type": "sensor",
+    "datatype": "float",
+    "description": "Vehicle speed (VSS v5.1 standard signal)"
+  },
   "Vehicle.Parking.SessionActive": {
     "type": "sensor",
     "datatype": "boolean",

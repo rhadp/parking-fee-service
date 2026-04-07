@@ -53,23 +53,24 @@ The correct flag is `--unix-socket`.
 
 ---
 
-## E02-4: Local gRPC client uses project-internal proto package
+## E02-4: Kuksa v2 API uses different service path and RPC methods
 
 **Affected spec locations:**
 - `design.md` Technology Stack: "kuksa-client or grpcurl … latest"
-- `test_spec.md` (implicitly assumes a standard Kuksa gRPC client)
+- `test_spec.md` (all pseudocode uses `Get`, `Set`, `Subscribe` methods)
+- `proto/kuksa/val.proto` (original spec-derived proto)
 
-**Reality:** The project defines its own simplified `kuksa.VAL` gRPC service in
-`proto/kuksa/val.proto` (generated code in `gen/go/kuksa/`). The integration
-tests use the project's generated Go client rather than an external `kuksa-client`
-tool, because the Go module path `parking-fee-service/gen/go` cannot be required
-by other modules (it lacks a dot in its first path element). The generated
-proto files are embedded locally in `tests/databroker/kuksa/` to avoid the
-cross-module dependency issue.
+**Reality:** Kuksa Databroker 0.5.0 exposes the `kuksa.val.v2.VAL` gRPC service,
+not `kuksa.VAL`. The actual API methods are `GetValue`, `GetValues`,
+`PublishValue`, `Subscribe`, `ListMetadata`, and `GetServerInfo`. The data model
+uses `Value` (with `typed_value` oneof) nested inside `Datapoint`, and
+`SignalID` for signal identification. Subscribe responses use
+`map<string, Datapoint>` instead of `repeated DataEntry`.
 
-**Correction:** Tests import `parking-fee-service/tests/databroker/kuksa` (a local
-copy of the generated proto types) and use `grpc.NewClient` for TCP and UDS
-connections. This is functionally equivalent to using a Kuksa gRPC client.
+**Correction:** The proto file (`proto/kuksa/val.proto`) was rewritten to match
+the actual `kuksa.val.v2` API. Generated Go code in `tests/databroker/kuksa/`
+uses the correct service path and message types. All test helpers were updated:
+`Set` → `PublishValue`, `Get` → `GetValue`, data access via `Value.TypedValue`.
 
 ---
 
@@ -86,3 +87,37 @@ initial-value notification via a `drainInitial()` helper (500 ms window) before
 performing the test write. This prevents false failures from initial-value
 notifications being misidentified as write-triggered updates. The "exactly once"
 assertion is applied only to updates received after the drain.
+
+---
+
+## E02-6: Standard VSS signals are not built-in to Kuksa 0.5.0
+
+**Affected spec locations:**
+- `requirements.md` 02-REQ-5.1: states standard signals are present in the
+  Kuksa built-in VSS tree
+- `design.md` execution path step 4: "Kuksa loads the default VSS v5.1 tree"
+
+**Reality:** Kuksa Databroker 0.5.0 does not include a built-in VSS tree. The
+`--vss` flag specifies the only signal source. If no VSS file is provided, no
+signals are available.
+
+**Correction:** The VSS overlay file (`deployments/vss-overlay.json`) was expanded
+to include all 8 required signals (5 standard + 3 custom). This ensures all
+signals are available when the databroker loads the overlay.
+
+---
+
+## E02-7: UDS tests require Linux or bind-mounted socket volume
+
+**Affected spec locations:**
+- `test_spec.md` TS-02-2, TS-02-7, TS-02-8, TS-02-9, TS-02-11, TS-02-P3:
+  assume UDS socket is accessible at `/tmp/kuksa-databroker.sock` from the host
+
+**Reality:** The UDS socket is inside the `kuksa-uds` named volume, which is
+stored in the podman VM on macOS. Unix domain sockets do not cross VM boundaries,
+so UDS tests cannot connect from the macOS host.
+
+**Correction:** UDS tests skip gracefully when the socket file is not accessible.
+On Linux hosts where the volume is directly accessible, UDS tests run normally.
+The compose.yml correctly configures the shared volume for container-to-container
+UDS communication (the production use case).

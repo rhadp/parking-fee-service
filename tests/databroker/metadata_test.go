@@ -14,8 +14,7 @@ import (
 
 // TestStandardVSSSignalMetadata verifies that all 5 standard VSS v5.1 signals
 // are present in the DATA_BROKER. Signal existence is verified by successfully
-// performing a Get RPC (the VAL API provides no dedicated GetMetadata call;
-// a successful Get proves the signal is registered in the databroker's VSS tree).
+// performing a GetValue RPC.
 func TestStandardVSSSignalMetadata(t *testing.T) {
 	conn := dialTCP(t)
 	client := valClient(conn)
@@ -26,7 +25,9 @@ func TestStandardVSSSignalMetadata(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 			defer cancel()
 
-			_, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{sig.path}})
+			_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+				SignalId: signalID(sig.path),
+			})
 			if err != nil {
 				t.Errorf("TS-02-4: standard signal %q not found in databroker: %v", sig.path, err)
 			}
@@ -35,8 +36,7 @@ func TestStandardVSSSignalMetadata(t *testing.T) {
 }
 
 // TestStandardVSSSignalTypeCompatibility verifies that the 5 standard signals
-// accept values of their declared types by performing a zero-value Set and
-// confirming success. A type mismatch would cause the databroker to reject the write.
+// accept values of their declared types by performing a zero-value PublishValue.
 // Requirement: 02-REQ-5.1, 02-REQ-5.2
 func TestStandardVSSSignalTypeCompatibility(t *testing.T) {
 	conn := dialTCP(t)
@@ -48,19 +48,13 @@ func TestStandardVSSSignalTypeCompatibility(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 			defer cancel()
 
-			resp, err := client.Set(ctx, &kuksapb.SetRequest{
-				Entries: []*kuksapb.DataEntry{
-					{Path: sig.path, Value: zeroValueForType(sig.typeName)},
-				},
+			_, err := client.PublishValue(ctx, &kuksapb.PublishValueRequest{
+				SignalId:  signalID(sig.path),
+				DataPoint: &kuksapb.Datapoint{Value: zeroValueForType(sig.typeName)},
 			})
 			if err != nil {
-				t.Errorf("TS-02-4 type check: Set zero-value for %q (%s) failed: %v",
+				t.Errorf("TS-02-4 type check: PublishValue zero-value for %q (%s) failed: %v",
 					sig.path, sig.typeName, err)
-				return
-			}
-			if !resp.Success {
-				t.Errorf("TS-02-4 type check: Set(%q, %s zero) rejected: %s",
-					sig.path, sig.typeName, resp.Error)
 			}
 		})
 	}
@@ -83,7 +77,9 @@ func TestCustomVSSSignalMetadata(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 			defer cancel()
 
-			_, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{sig.path}})
+			_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+				SignalId: signalID(sig.path),
+			})
 			if err != nil {
 				t.Errorf("TS-02-5: custom signal %q not found in databroker: %v", sig.path, err)
 			}
@@ -104,19 +100,13 @@ func TestCustomVSSSignalTypeCompatibility(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 			defer cancel()
 
-			resp, err := client.Set(ctx, &kuksapb.SetRequest{
-				Entries: []*kuksapb.DataEntry{
-					{Path: sig.path, Value: zeroValueForType(sig.typeName)},
-				},
+			_, err := client.PublishValue(ctx, &kuksapb.PublishValueRequest{
+				SignalId:  signalID(sig.path),
+				DataPoint: &kuksapb.Datapoint{Value: zeroValueForType(sig.typeName)},
 			})
 			if err != nil {
-				t.Errorf("TS-02-5 type check: Set zero-value for %q (%s) failed: %v",
+				t.Errorf("TS-02-5 type check: PublishValue zero-value for %q (%s) failed: %v",
 					sig.path, sig.typeName, err)
-				return
-			}
-			if !resp.Success {
-				t.Errorf("TS-02-5 type check: Set(%q, %s zero) rejected: %s",
-					sig.path, sig.typeName, resp.Error)
 			}
 		})
 	}
@@ -129,7 +119,7 @@ func TestCustomVSSSignalTypeCompatibility(t *testing.T) {
 
 // TestSignalCompleteness is a property test verifying that all 8 expected VSS
 // signals (5 standard + 3 custom) are present in the DATA_BROKER and accept
-// values of their declared types. This is the canonical completeness gate.
+// values of their declared types.
 func TestSignalCompleteness(t *testing.T) {
 	conn := dialTCP(t)
 	client := valClient(conn)
@@ -141,31 +131,27 @@ func TestSignalCompleteness(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 			defer cancel()
 
-			// Step 1: signal exists (Get succeeds)
-			_, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{sig.path}})
+			// Step 1: signal exists (GetValue succeeds)
+			_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+				SignalId: signalID(sig.path),
+			})
 			if err != nil {
 				t.Errorf("TS-02-P1: signal %q missing from databroker: %v", sig.path, err)
 				return
 			}
 			foundCount++
 
-			// Step 2: signal accepts its declared type (Set with zero value succeeds)
+			// Step 2: signal accepts its declared type (PublishValue with zero value succeeds)
 			ctx2, cancel2 := context.WithTimeout(context.Background(), opTimeout)
 			defer cancel2()
 
-			resp, err := client.Set(ctx2, &kuksapb.SetRequest{
-				Entries: []*kuksapb.DataEntry{
-					{Path: sig.path, Value: zeroValueForType(sig.typeName)},
-				},
+			_, err = client.PublishValue(ctx2, &kuksapb.PublishValueRequest{
+				SignalId:  signalID(sig.path),
+				DataPoint: &kuksapb.Datapoint{Value: zeroValueForType(sig.typeName)},
 			})
 			if err != nil {
-				t.Errorf("TS-02-P1: type check for %q (%s) failed with gRPC error: %v",
+				t.Errorf("TS-02-P1: type check for %q (%s) failed: %v",
 					sig.path, sig.typeName, err)
-				return
-			}
-			if !resp.Success {
-				t.Errorf("TS-02-P1: type check for %q (%s) rejected by databroker: %s",
-					sig.path, sig.typeName, resp.Error)
 			}
 		})
 	}

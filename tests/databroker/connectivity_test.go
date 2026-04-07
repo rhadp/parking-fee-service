@@ -13,7 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 // TestTCPConnectivity verifies that a gRPC client can establish a connection to
-// the DATA_BROKER via TCP on host port 55556 and perform a successful Get RPC.
+// the DATA_BROKER via TCP on host port 55556 and perform a successful GetValue RPC.
 func TestTCPConnectivity(t *testing.T) {
 	conn := dialTCP(t)
 	client := valClient(conn)
@@ -21,17 +21,17 @@ func TestTCPConnectivity(t *testing.T) {
 	ctx, cancel := opCtx()
 	defer cancel()
 
-	// A Get for a known standard signal confirms the channel is live and the
+	// A GetValue for a known standard signal confirms the channel is live and the
 	// databroker is responsive. Using Vehicle.Speed (always present in VSS v5.1).
-	resp, err := client.Get(ctx, &kuksapb.GetRequest{
-		Paths: []string{"Vehicle.Speed"},
+	resp, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID("Vehicle.Speed"),
 	})
 	if err != nil {
-		t.Fatalf("TS-02-1: TCP Get(Vehicle.Speed) failed: %v", err)
+		t.Fatalf("TS-02-1: TCP GetValue(Vehicle.Speed) failed: %v", err)
 	}
 	// Any non-error response (even with no value yet set) confirms connectivity.
 	_ = resp
-	t.Logf("TS-02-1: TCP connectivity OK, response entries=%d", len(resp.Entries))
+	t.Log("TS-02-1: TCP connectivity OK")
 }
 
 // ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@ func TestTCPConnectivity(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestUDSConnectivity verifies that a gRPC client can establish a connection to
-// the DATA_BROKER via Unix Domain Socket and perform a successful Get RPC.
+// the DATA_BROKER via Unix Domain Socket and perform a successful GetValue RPC.
 func TestUDSConnectivity(t *testing.T) {
 	conn := dialUDS(t)
 	client := valClient(conn)
@@ -48,14 +48,14 @@ func TestUDSConnectivity(t *testing.T) {
 	ctx, cancel := opCtx()
 	defer cancel()
 
-	resp, err := client.Get(ctx, &kuksapb.GetRequest{
-		Paths: []string{"Vehicle.Speed"},
+	resp, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID("Vehicle.Speed"),
 	})
 	if err != nil {
-		t.Fatalf("TS-02-2: UDS Get(Vehicle.Speed) failed: %v", err)
+		t.Fatalf("TS-02-2: UDS GetValue(Vehicle.Speed) failed: %v", err)
 	}
 	_ = resp
-	t.Logf("TS-02-2: UDS connectivity OK, response entries=%d", len(resp.Entries))
+	t.Log("TS-02-2: UDS connectivity OK")
 }
 
 // ---------------------------------------------------------------------------
@@ -74,19 +74,12 @@ func TestPermissiveMode(t *testing.T) {
 	ctx, cancel := opCtx()
 	defer cancel()
 
-	resp, err := client.Set(ctx, &kuksapb.SetRequest{
-		Entries: []*kuksapb.DataEntry{
-			{
-				Path:  "Vehicle.Speed",
-				Value: &kuksapb.Datapoint{Value: &kuksapb.Datapoint_FloatValue{FloatValue: 10.0}},
-			},
-		},
+	_, err := client.PublishValue(ctx, &kuksapb.PublishValueRequest{
+		SignalId:  signalID("Vehicle.Speed"),
+		DataPoint: &kuksapb.Datapoint{Value: &kuksapb.Value{TypedValue: &kuksapb.Value_Float{Float: 10.0}}},
 	})
 	if err != nil {
-		t.Fatalf("TS-02-12: permissive mode Set failed: %v", err)
-	}
-	if !resp.Success {
-		t.Errorf("TS-02-12: permissive mode Set returned success=false: %s", resp.Error)
+		t.Fatalf("TS-02-12: permissive mode PublishValue failed: %v", err)
 	}
 }
 
@@ -104,13 +97,11 @@ func TestPermissiveModeWithArbitraryToken(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
-	resp, err := client.Get(ctx, &kuksapb.GetRequest{
-		Paths: []string{"Vehicle.Speed"},
+	_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID("Vehicle.Speed"),
 	})
 	if err != nil {
-		t.Fatalf("TS-02-E4: Get with arbitrary token failed: %v", err)
+		t.Fatalf("TS-02-E4: GetValue with arbitrary token failed: %v", err)
 	}
-	// Success means the databroker is running in permissive mode and ignored the token.
-	_ = resp
 	t.Log("TS-02-E4: arbitrary token accepted (permissive mode confirmed)")
 }

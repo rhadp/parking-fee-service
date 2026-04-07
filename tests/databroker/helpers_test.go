@@ -68,6 +68,11 @@ var customSignals = []signalDef{
 // Requirement: 02-REQ-5.1, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3
 var allSignals = append(standardSignals, customSignals...)
 
+// signalID constructs a SignalID from a path string.
+func signalID(path string) *kuksapb.SignalID {
+	return &kuksapb.SignalID{Signal: &kuksapb.SignalID_Path{Path: path}}
+}
+
 // dialTCP returns a gRPC ClientConn connected to the TCP endpoint.
 // The test fails immediately if the endpoint is unreachable.
 // Requirement: 02-REQ-2.1, 02-REQ-2.2
@@ -106,10 +111,22 @@ func dialTCPWithToken(t *testing.T, token string) *grpc.ClientConn {
 	return conn
 }
 
+// udsSocketPath is the host path for the UDS socket. On macOS with podman
+// machine, the socket is inside the VM and not accessible from the host.
+// UDS tests skip gracefully when the socket is unavailable.
+const udsSocketPath = "/tmp/kuksa-databroker.sock"
+
 // dialUDS returns a gRPC ClientConn connected to the Unix Domain Socket endpoint.
+// Skips the test if the UDS socket is not accessible (e.g., running on macOS
+// with podman machine where the named volume is inside the VM).
 // Requirement: 02-REQ-3.1, 02-REQ-3.2
 func dialUDS(t *testing.T) *grpc.ClientConn {
 	t.Helper()
+	// Check if the socket file exists on the host.
+	if _, err := os.Stat(udsSocketPath); err != nil {
+		t.Skipf("UDS socket not accessible at %s (expected when running on macOS with podman machine); "+
+			"UDS tests require Linux or a bind-mounted socket volume: %v", udsSocketPath, err)
+	}
 	conn, err := grpc.NewClient(udsAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -154,213 +171,166 @@ func subCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), subTimeout)
 }
 
-// setSignalBool writes a boolean value to the named VSS signal.
-func setSignalBool(t *testing.T, client kuksapb.VALClient, path string, val bool) {
+// publishSignal writes a value to the named VSS signal using PublishValue.
+func publishSignal(t *testing.T, client kuksapb.VALClient, path string, val *kuksapb.Value) {
 	t.Helper()
 	ctx, cancel := opCtx()
 	defer cancel()
-	resp, err := client.Set(ctx, &kuksapb.SetRequest{
-		Entries: []*kuksapb.DataEntry{
-			{
-				Path:  path,
-				Value: &kuksapb.Datapoint{Value: &kuksapb.Datapoint_BoolValue{BoolValue: val}},
-			},
-		},
+	_, err := client.PublishValue(ctx, &kuksapb.PublishValueRequest{
+		SignalId:  signalID(path),
+		DataPoint: &kuksapb.Datapoint{Value: val},
 	})
 	if err != nil {
-		t.Fatalf("Set(%s, bool=%v): gRPC error: %v", path, val, err)
+		t.Fatalf("PublishValue(%s): %v", path, err)
 	}
-	if !resp.Success {
-		t.Fatalf("Set(%s, bool=%v): databroker error: %s", path, val, resp.Error)
-	}
+}
+
+// setSignalBool writes a boolean value to the named VSS signal.
+func setSignalBool(t *testing.T, client kuksapb.VALClient, path string, val bool) {
+	t.Helper()
+	publishSignal(t, client, path, &kuksapb.Value{TypedValue: &kuksapb.Value_Bool{Bool: val}})
 }
 
 // setSignalFloat writes a float32 value to the named VSS signal.
 func setSignalFloat(t *testing.T, client kuksapb.VALClient, path string, val float32) {
 	t.Helper()
-	ctx, cancel := opCtx()
-	defer cancel()
-	resp, err := client.Set(ctx, &kuksapb.SetRequest{
-		Entries: []*kuksapb.DataEntry{
-			{
-				Path:  path,
-				Value: &kuksapb.Datapoint{Value: &kuksapb.Datapoint_FloatValue{FloatValue: val}},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Set(%s, float=%v): gRPC error: %v", path, val, err)
-	}
-	if !resp.Success {
-		t.Fatalf("Set(%s, float=%v): databroker error: %s", path, val, resp.Error)
-	}
+	publishSignal(t, client, path, &kuksapb.Value{TypedValue: &kuksapb.Value_Float{Float: val}})
 }
 
 // setSignalDouble writes a float64 value to the named VSS signal.
 func setSignalDouble(t *testing.T, client kuksapb.VALClient, path string, val float64) {
 	t.Helper()
-	ctx, cancel := opCtx()
-	defer cancel()
-	resp, err := client.Set(ctx, &kuksapb.SetRequest{
-		Entries: []*kuksapb.DataEntry{
-			{
-				Path:  path,
-				Value: &kuksapb.Datapoint{Value: &kuksapb.Datapoint_DoubleValue{DoubleValue: val}},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Set(%s, double=%v): gRPC error: %v", path, val, err)
-	}
-	if !resp.Success {
-		t.Fatalf("Set(%s, double=%v): databroker error: %s", path, val, resp.Error)
-	}
+	publishSignal(t, client, path, &kuksapb.Value{TypedValue: &kuksapb.Value_Double{Double: val}})
 }
 
 // setSignalString writes a string value to the named VSS signal.
 func setSignalString(t *testing.T, client kuksapb.VALClient, path string, val string) {
 	t.Helper()
-	ctx, cancel := opCtx()
-	defer cancel()
-	resp, err := client.Set(ctx, &kuksapb.SetRequest{
-		Entries: []*kuksapb.DataEntry{
-			{
-				Path:  path,
-				Value: &kuksapb.Datapoint{Value: &kuksapb.Datapoint_StringValue{StringValue: val}},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Set(%s, string=%q): gRPC error: %v", path, val, err)
-	}
-	if !resp.Success {
-		t.Fatalf("Set(%s, string=%q): databroker error: %s", path, val, resp.Error)
-	}
+	publishSignal(t, client, path, &kuksapb.Value{TypedValue: &kuksapb.Value_String_{String_: val}})
 }
 
-// getSignal retrieves the current DataEntry for the named VSS signal.
+// getSignalValue retrieves the current Value for the named VSS signal.
 // The test fails if the signal is not found or the RPC returns an error.
-func getSignal(t *testing.T, client kuksapb.VALClient, path string) *kuksapb.DataEntry {
+func getSignalValue(t *testing.T, client kuksapb.VALClient, path string) *kuksapb.Value {
 	t.Helper()
 	ctx, cancel := opCtx()
 	defer cancel()
-	resp, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{path}})
+	resp, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID(path),
+	})
 	if err != nil {
-		t.Fatalf("Get(%s): gRPC error: %v", path, err)
+		t.Fatalf("GetValue(%s): %v", path, err)
 	}
-	if len(resp.Entries) == 0 {
-		t.Fatalf("Get(%s): no entry returned (signal not found)", path)
+	if resp.DataPoint == nil || resp.DataPoint.Value == nil {
+		t.Fatalf("GetValue(%s): no value returned", path)
 	}
-	return resp.Entries[0]
+	return resp.DataPoint.Value
 }
 
-// getSignalNoFail retrieves the current DataEntry without failing on error.
-// Returns (entry, nil) on success or (nil, err) on any error.
-func getSignalNoFail(client kuksapb.VALClient, path string) (*kuksapb.DataEntry, error) {
+// getSignalValueNoFail retrieves the current Value without failing on error.
+func getSignalValueNoFail(client kuksapb.VALClient, path string) (*kuksapb.Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
-	resp, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{path}})
+	resp, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID(path),
+	})
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Entries) == 0 {
-		return nil, fmt.Errorf("no entry returned for signal %q", path)
+	if resp.DataPoint == nil || resp.DataPoint.Value == nil {
+		return nil, fmt.Errorf("no value returned for signal %q", path)
 	}
-	return resp.Entries[0], nil
+	return resp.DataPoint.Value, nil
 }
 
 // assertSignalExists verifies that the databroker recognises the named signal by
-// attempting a Get and confirming a valid entry is returned. This is the
-// closest equivalent to GetMetadata available in the VAL gRPC API.
+// attempting a GetValue and confirming no error is returned.
 // Requirement: 02-REQ-5.2, 02-REQ-6.4
 func assertSignalExists(t *testing.T, client kuksapb.VALClient, path string) {
 	t.Helper()
-	// A successful Get (even for an unset signal) proves the databroker knows
-	// the signal path. An unrecognised path returns a gRPC error or an empty
-	// response.
 	ctx, cancel := opCtx()
 	defer cancel()
-	_, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{path}})
+	_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID(path),
+	})
 	if err != nil {
 		t.Errorf("assertSignalExists(%s): gRPC error (signal missing?): %v", path, err)
 	}
 }
 
-// zeroValueForType returns a Datapoint holding the zero value for the given
-// type name. Used by metadata property tests to probe type compatibility.
-func zeroValueForType(typeName string) *kuksapb.Datapoint {
+// zeroValueForType returns a Value holding the zero value for the given type name.
+func zeroValueForType(typeName string) *kuksapb.Value {
 	switch typeName {
 	case "bool":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_BoolValue{BoolValue: false}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_Bool{Bool: false}}
 	case "float":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_FloatValue{FloatValue: 0.0}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_Float{Float: 0.0}}
 	case "double":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_DoubleValue{DoubleValue: 0.0}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_Double{Double: 0.0}}
 	case "string":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_StringValue{StringValue: ""}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_String_{String_: ""}}
 	default:
 		panic("zeroValueForType: unknown type " + typeName)
 	}
 }
 
-// testValueForType returns a non-zero Datapoint for the given type name.
-// Used by write-read roundtrip property tests.
-func testValueForType(typeName string) *kuksapb.Datapoint {
+// testValueForType returns a non-zero Value for the given type name.
+func testValueForType(typeName string) *kuksapb.Value {
 	switch typeName {
 	case "bool":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_BoolValue{BoolValue: true}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_Bool{Bool: true}}
 	case "float":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_FloatValue{FloatValue: 42.0}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_Float{Float: 42.0}}
 	case "double":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_DoubleValue{DoubleValue: 48.1351}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_Double{Double: 48.1351}}
 	case "string":
-		return &kuksapb.Datapoint{Value: &kuksapb.Datapoint_StringValue{StringValue: `{"test":"value"}`}}
+		return &kuksapb.Value{TypedValue: &kuksapb.Value_String_{String_: `{"test":"value"}`}}
 	default:
 		panic("testValueForType: unknown type " + typeName)
 	}
 }
 
-// datapointEqual reports whether two Datapoints hold identical values.
-func datapointEqual(a, b *kuksapb.Datapoint) bool {
+// valueEqual reports whether two Values hold identical values.
+func valueEqual(a, b *kuksapb.Value) bool {
 	if a == nil && b == nil {
 		return true
 	}
 	if a == nil || b == nil {
 		return false
 	}
-	switch av := a.Value.(type) {
-	case *kuksapb.Datapoint_BoolValue:
-		bv, ok := b.Value.(*kuksapb.Datapoint_BoolValue)
-		return ok && av.BoolValue == bv.BoolValue
-	case *kuksapb.Datapoint_FloatValue:
-		bv, ok := b.Value.(*kuksapb.Datapoint_FloatValue)
-		return ok && av.FloatValue == bv.FloatValue
-	case *kuksapb.Datapoint_DoubleValue:
-		bv, ok := b.Value.(*kuksapb.Datapoint_DoubleValue)
-		return ok && av.DoubleValue == bv.DoubleValue
-	case *kuksapb.Datapoint_StringValue:
-		bv, ok := b.Value.(*kuksapb.Datapoint_StringValue)
-		return ok && av.StringValue == bv.StringValue
+	switch av := a.TypedValue.(type) {
+	case *kuksapb.Value_Bool:
+		bv, ok := b.TypedValue.(*kuksapb.Value_Bool)
+		return ok && av.Bool == bv.Bool
+	case *kuksapb.Value_Float:
+		bv, ok := b.TypedValue.(*kuksapb.Value_Float)
+		return ok && av.Float == bv.Float
+	case *kuksapb.Value_Double:
+		bv, ok := b.TypedValue.(*kuksapb.Value_Double)
+		return ok && av.Double == bv.Double
+	case *kuksapb.Value_String_:
+		bv, ok := b.TypedValue.(*kuksapb.Value_String_)
+		return ok && av.String_ == bv.String_
 	default:
 		return false
 	}
 }
 
-// datapointString returns a human-readable representation of a Datapoint value.
-func datapointString(dp *kuksapb.Datapoint) string {
-	if dp == nil {
+// valueString returns a human-readable representation of a Value.
+func valueString(v *kuksapb.Value) string {
+	if v == nil {
 		return "<nil>"
 	}
-	switch v := dp.Value.(type) {
-	case *kuksapb.Datapoint_BoolValue:
-		return fmt.Sprintf("bool(%v)", v.BoolValue)
-	case *kuksapb.Datapoint_FloatValue:
-		return fmt.Sprintf("float(%v)", v.FloatValue)
-	case *kuksapb.Datapoint_DoubleValue:
-		return fmt.Sprintf("double(%v)", v.DoubleValue)
-	case *kuksapb.Datapoint_StringValue:
-		return fmt.Sprintf("string(%q)", v.StringValue)
+	switch tv := v.TypedValue.(type) {
+	case *kuksapb.Value_Bool:
+		return fmt.Sprintf("bool(%v)", tv.Bool)
+	case *kuksapb.Value_Float:
+		return fmt.Sprintf("float(%v)", tv.Float)
+	case *kuksapb.Value_Double:
+		return fmt.Sprintf("double(%v)", tv.Double)
+	case *kuksapb.Value_String_:
+		return fmt.Sprintf("string(%q)", tv.String_)
 	default:
-		return fmt.Sprintf("unknown(%T)", dp.Value)
+		return fmt.Sprintf("unknown(%T)", v.TypedValue)
 	}
 }

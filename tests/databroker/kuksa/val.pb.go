@@ -9,6 +9,7 @@ package kuksa
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -21,28 +22,852 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Datapoint represents a single vehicle signal value.
-type Datapoint struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// Types that are valid to be assigned to Value:
+// VSS Data type of a signal.
+type DataType int32
+
+const (
+	DataType_DATA_TYPE_UNSPECIFIED     DataType = 0
+	DataType_DATA_TYPE_STRING          DataType = 1
+	DataType_DATA_TYPE_BOOLEAN         DataType = 2
+	DataType_DATA_TYPE_INT8            DataType = 3
+	DataType_DATA_TYPE_INT16           DataType = 4
+	DataType_DATA_TYPE_INT32           DataType = 5
+	DataType_DATA_TYPE_INT64           DataType = 6
+	DataType_DATA_TYPE_UINT8           DataType = 7
+	DataType_DATA_TYPE_UINT16          DataType = 8
+	DataType_DATA_TYPE_UINT32          DataType = 9
+	DataType_DATA_TYPE_UINT64          DataType = 10
+	DataType_DATA_TYPE_FLOAT           DataType = 11
+	DataType_DATA_TYPE_DOUBLE          DataType = 12
+	DataType_DATA_TYPE_TIMESTAMP       DataType = 13
+	DataType_DATA_TYPE_STRING_ARRAY    DataType = 20
+	DataType_DATA_TYPE_BOOLEAN_ARRAY   DataType = 21
+	DataType_DATA_TYPE_INT8_ARRAY      DataType = 22
+	DataType_DATA_TYPE_INT16_ARRAY     DataType = 23
+	DataType_DATA_TYPE_INT32_ARRAY     DataType = 24
+	DataType_DATA_TYPE_INT64_ARRAY     DataType = 25
+	DataType_DATA_TYPE_UINT8_ARRAY     DataType = 26
+	DataType_DATA_TYPE_UINT16_ARRAY    DataType = 27
+	DataType_DATA_TYPE_UINT32_ARRAY    DataType = 28
+	DataType_DATA_TYPE_UINT64_ARRAY    DataType = 29
+	DataType_DATA_TYPE_FLOAT_ARRAY     DataType = 30
+	DataType_DATA_TYPE_DOUBLE_ARRAY    DataType = 31
+	DataType_DATA_TYPE_TIMESTAMP_ARRAY DataType = 32
+)
+
+// Enum value maps for DataType.
+var (
+	DataType_name = map[int32]string{
+		0:  "DATA_TYPE_UNSPECIFIED",
+		1:  "DATA_TYPE_STRING",
+		2:  "DATA_TYPE_BOOLEAN",
+		3:  "DATA_TYPE_INT8",
+		4:  "DATA_TYPE_INT16",
+		5:  "DATA_TYPE_INT32",
+		6:  "DATA_TYPE_INT64",
+		7:  "DATA_TYPE_UINT8",
+		8:  "DATA_TYPE_UINT16",
+		9:  "DATA_TYPE_UINT32",
+		10: "DATA_TYPE_UINT64",
+		11: "DATA_TYPE_FLOAT",
+		12: "DATA_TYPE_DOUBLE",
+		13: "DATA_TYPE_TIMESTAMP",
+		20: "DATA_TYPE_STRING_ARRAY",
+		21: "DATA_TYPE_BOOLEAN_ARRAY",
+		22: "DATA_TYPE_INT8_ARRAY",
+		23: "DATA_TYPE_INT16_ARRAY",
+		24: "DATA_TYPE_INT32_ARRAY",
+		25: "DATA_TYPE_INT64_ARRAY",
+		26: "DATA_TYPE_UINT8_ARRAY",
+		27: "DATA_TYPE_UINT16_ARRAY",
+		28: "DATA_TYPE_UINT32_ARRAY",
+		29: "DATA_TYPE_UINT64_ARRAY",
+		30: "DATA_TYPE_FLOAT_ARRAY",
+		31: "DATA_TYPE_DOUBLE_ARRAY",
+		32: "DATA_TYPE_TIMESTAMP_ARRAY",
+	}
+	DataType_value = map[string]int32{
+		"DATA_TYPE_UNSPECIFIED":     0,
+		"DATA_TYPE_STRING":          1,
+		"DATA_TYPE_BOOLEAN":         2,
+		"DATA_TYPE_INT8":            3,
+		"DATA_TYPE_INT16":           4,
+		"DATA_TYPE_INT32":           5,
+		"DATA_TYPE_INT64":           6,
+		"DATA_TYPE_UINT8":           7,
+		"DATA_TYPE_UINT16":          8,
+		"DATA_TYPE_UINT32":          9,
+		"DATA_TYPE_UINT64":          10,
+		"DATA_TYPE_FLOAT":           11,
+		"DATA_TYPE_DOUBLE":          12,
+		"DATA_TYPE_TIMESTAMP":       13,
+		"DATA_TYPE_STRING_ARRAY":    20,
+		"DATA_TYPE_BOOLEAN_ARRAY":   21,
+		"DATA_TYPE_INT8_ARRAY":      22,
+		"DATA_TYPE_INT16_ARRAY":     23,
+		"DATA_TYPE_INT32_ARRAY":     24,
+		"DATA_TYPE_INT64_ARRAY":     25,
+		"DATA_TYPE_UINT8_ARRAY":     26,
+		"DATA_TYPE_UINT16_ARRAY":    27,
+		"DATA_TYPE_UINT32_ARRAY":    28,
+		"DATA_TYPE_UINT64_ARRAY":    29,
+		"DATA_TYPE_FLOAT_ARRAY":     30,
+		"DATA_TYPE_DOUBLE_ARRAY":    31,
+		"DATA_TYPE_TIMESTAMP_ARRAY": 32,
+	}
+)
+
+func (x DataType) Enum() *DataType {
+	p := new(DataType)
+	*p = x
+	return p
+}
+
+func (x DataType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DataType) Descriptor() protoreflect.EnumDescriptor {
+	return file_kuksa_val_proto_enumTypes[0].Descriptor()
+}
+
+func (DataType) Type() protoreflect.EnumType {
+	return &file_kuksa_val_proto_enumTypes[0]
+}
+
+func (x DataType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DataType.Descriptor instead.
+func (DataType) EnumDescriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{0}
+}
+
+// Entry type of a signal.
+type EntryType int32
+
+const (
+	EntryType_ENTRY_TYPE_UNSPECIFIED EntryType = 0
+	EntryType_ENTRY_TYPE_ATTRIBUTE   EntryType = 1
+	EntryType_ENTRY_TYPE_SENSOR      EntryType = 2
+	EntryType_ENTRY_TYPE_ACTUATOR    EntryType = 3
+)
+
+// Enum value maps for EntryType.
+var (
+	EntryType_name = map[int32]string{
+		0: "ENTRY_TYPE_UNSPECIFIED",
+		1: "ENTRY_TYPE_ATTRIBUTE",
+		2: "ENTRY_TYPE_SENSOR",
+		3: "ENTRY_TYPE_ACTUATOR",
+	}
+	EntryType_value = map[string]int32{
+		"ENTRY_TYPE_UNSPECIFIED": 0,
+		"ENTRY_TYPE_ATTRIBUTE":   1,
+		"ENTRY_TYPE_SENSOR":      2,
+		"ENTRY_TYPE_ACTUATOR":    3,
+	}
+)
+
+func (x EntryType) Enum() *EntryType {
+	p := new(EntryType)
+	*p = x
+	return p
+}
+
+func (x EntryType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EntryType) Descriptor() protoreflect.EnumDescriptor {
+	return file_kuksa_val_proto_enumTypes[1].Descriptor()
+}
+
+func (EntryType) Type() protoreflect.EnumType {
+	return &file_kuksa_val_proto_enumTypes[1]
+}
+
+func (x EntryType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EntryType.Descriptor instead.
+func (EntryType) EnumDescriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{1}
+}
+
+// Value represents a typed signal value.
+type Value struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to TypedValue:
 	//
-	//	*Datapoint_StringValue
-	//	*Datapoint_BoolValue
-	//	*Datapoint_Int32Value
-	//	*Datapoint_Int64Value
-	//	*Datapoint_Uint32Value
-	//	*Datapoint_Uint64Value
-	//	*Datapoint_FloatValue
-	//	*Datapoint_DoubleValue
-	Value         isDatapoint_Value `protobuf_oneof:"value"`
+	//	*Value_String_
+	//	*Value_Bool
+	//	*Value_Int32
+	//	*Value_Int64
+	//	*Value_Uint32
+	//	*Value_Uint64
+	//	*Value_Float
+	//	*Value_Double
+	//	*Value_StringArray
+	//	*Value_BoolArray
+	//	*Value_Int32Array
+	//	*Value_Int64Array
+	//	*Value_Uint32Array
+	//	*Value_Uint64Array
+	//	*Value_FloatArray
+	//	*Value_DoubleArray
+	TypedValue    isValue_TypedValue `protobuf_oneof:"typed_value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Value) Reset() {
+	*x = Value{}
+	mi := &file_kuksa_val_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Value) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Value) ProtoMessage() {}
+
+func (x *Value) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Value.ProtoReflect.Descriptor instead.
+func (*Value) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Value) GetTypedValue() isValue_TypedValue {
+	if x != nil {
+		return x.TypedValue
+	}
+	return nil
+}
+
+func (x *Value) GetString_() string {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_String_); ok {
+			return x.String_
+		}
+	}
+	return ""
+}
+
+func (x *Value) GetBool() bool {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Bool); ok {
+			return x.Bool
+		}
+	}
+	return false
+}
+
+func (x *Value) GetInt32() int32 {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Int32); ok {
+			return x.Int32
+		}
+	}
+	return 0
+}
+
+func (x *Value) GetInt64() int64 {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Int64); ok {
+			return x.Int64
+		}
+	}
+	return 0
+}
+
+func (x *Value) GetUint32() uint32 {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Uint32); ok {
+			return x.Uint32
+		}
+	}
+	return 0
+}
+
+func (x *Value) GetUint64() uint64 {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Uint64); ok {
+			return x.Uint64
+		}
+	}
+	return 0
+}
+
+func (x *Value) GetFloat() float32 {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Float); ok {
+			return x.Float
+		}
+	}
+	return 0
+}
+
+func (x *Value) GetDouble() float64 {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Double); ok {
+			return x.Double
+		}
+	}
+	return 0
+}
+
+func (x *Value) GetStringArray() *StringArray {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_StringArray); ok {
+			return x.StringArray
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetBoolArray() *BoolArray {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_BoolArray); ok {
+			return x.BoolArray
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetInt32Array() *Int32Array {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Int32Array); ok {
+			return x.Int32Array
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetInt64Array() *Int64Array {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Int64Array); ok {
+			return x.Int64Array
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetUint32Array() *Uint32Array {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Uint32Array); ok {
+			return x.Uint32Array
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetUint64Array() *Uint64Array {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_Uint64Array); ok {
+			return x.Uint64Array
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetFloatArray() *FloatArray {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_FloatArray); ok {
+			return x.FloatArray
+		}
+	}
+	return nil
+}
+
+func (x *Value) GetDoubleArray() *DoubleArray {
+	if x != nil {
+		if x, ok := x.TypedValue.(*Value_DoubleArray); ok {
+			return x.DoubleArray
+		}
+	}
+	return nil
+}
+
+type isValue_TypedValue interface {
+	isValue_TypedValue()
+}
+
+type Value_String_ struct {
+	String_ string `protobuf:"bytes,11,opt,name=string,proto3,oneof"`
+}
+
+type Value_Bool struct {
+	Bool bool `protobuf:"varint,12,opt,name=bool,proto3,oneof"`
+}
+
+type Value_Int32 struct {
+	Int32 int32 `protobuf:"zigzag32,13,opt,name=int32,proto3,oneof"`
+}
+
+type Value_Int64 struct {
+	Int64 int64 `protobuf:"zigzag64,14,opt,name=int64,proto3,oneof"`
+}
+
+type Value_Uint32 struct {
+	Uint32 uint32 `protobuf:"varint,15,opt,name=uint32,proto3,oneof"`
+}
+
+type Value_Uint64 struct {
+	Uint64 uint64 `protobuf:"varint,16,opt,name=uint64,proto3,oneof"`
+}
+
+type Value_Float struct {
+	Float float32 `protobuf:"fixed32,17,opt,name=float,proto3,oneof"`
+}
+
+type Value_Double struct {
+	Double float64 `protobuf:"fixed64,18,opt,name=double,proto3,oneof"`
+}
+
+type Value_StringArray struct {
+	StringArray *StringArray `protobuf:"bytes,21,opt,name=string_array,json=stringArray,proto3,oneof"`
+}
+
+type Value_BoolArray struct {
+	BoolArray *BoolArray `protobuf:"bytes,22,opt,name=bool_array,json=boolArray,proto3,oneof"`
+}
+
+type Value_Int32Array struct {
+	Int32Array *Int32Array `protobuf:"bytes,23,opt,name=int32_array,json=int32Array,proto3,oneof"`
+}
+
+type Value_Int64Array struct {
+	Int64Array *Int64Array `protobuf:"bytes,24,opt,name=int64_array,json=int64Array,proto3,oneof"`
+}
+
+type Value_Uint32Array struct {
+	Uint32Array *Uint32Array `protobuf:"bytes,25,opt,name=uint32_array,json=uint32Array,proto3,oneof"`
+}
+
+type Value_Uint64Array struct {
+	Uint64Array *Uint64Array `protobuf:"bytes,26,opt,name=uint64_array,json=uint64Array,proto3,oneof"`
+}
+
+type Value_FloatArray struct {
+	FloatArray *FloatArray `protobuf:"bytes,27,opt,name=float_array,json=floatArray,proto3,oneof"`
+}
+
+type Value_DoubleArray struct {
+	DoubleArray *DoubleArray `protobuf:"bytes,28,opt,name=double_array,json=doubleArray,proto3,oneof"`
+}
+
+func (*Value_String_) isValue_TypedValue() {}
+
+func (*Value_Bool) isValue_TypedValue() {}
+
+func (*Value_Int32) isValue_TypedValue() {}
+
+func (*Value_Int64) isValue_TypedValue() {}
+
+func (*Value_Uint32) isValue_TypedValue() {}
+
+func (*Value_Uint64) isValue_TypedValue() {}
+
+func (*Value_Float) isValue_TypedValue() {}
+
+func (*Value_Double) isValue_TypedValue() {}
+
+func (*Value_StringArray) isValue_TypedValue() {}
+
+func (*Value_BoolArray) isValue_TypedValue() {}
+
+func (*Value_Int32Array) isValue_TypedValue() {}
+
+func (*Value_Int64Array) isValue_TypedValue() {}
+
+func (*Value_Uint32Array) isValue_TypedValue() {}
+
+func (*Value_Uint64Array) isValue_TypedValue() {}
+
+func (*Value_FloatArray) isValue_TypedValue() {}
+
+func (*Value_DoubleArray) isValue_TypedValue() {}
+
+type StringArray struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringArray) Reset() {
+	*x = StringArray{}
+	mi := &file_kuksa_val_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringArray) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringArray) ProtoMessage() {}
+
+func (x *StringArray) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringArray.ProtoReflect.Descriptor instead.
+func (*StringArray) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *StringArray) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type BoolArray struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []bool                 `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BoolArray) Reset() {
+	*x = BoolArray{}
+	mi := &file_kuksa_val_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BoolArray) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoolArray) ProtoMessage() {}
+
+func (x *BoolArray) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoolArray.ProtoReflect.Descriptor instead.
+func (*BoolArray) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BoolArray) GetValues() []bool {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Int32Array struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []int32                `protobuf:"zigzag32,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Int32Array) Reset() {
+	*x = Int32Array{}
+	mi := &file_kuksa_val_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Int32Array) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Int32Array) ProtoMessage() {}
+
+func (x *Int32Array) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Int32Array.ProtoReflect.Descriptor instead.
+func (*Int32Array) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Int32Array) GetValues() []int32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Int64Array struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []int64                `protobuf:"zigzag64,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Int64Array) Reset() {
+	*x = Int64Array{}
+	mi := &file_kuksa_val_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Int64Array) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Int64Array) ProtoMessage() {}
+
+func (x *Int64Array) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Int64Array.ProtoReflect.Descriptor instead.
+func (*Int64Array) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Int64Array) GetValues() []int64 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Uint32Array struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint32               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Uint32Array) Reset() {
+	*x = Uint32Array{}
+	mi := &file_kuksa_val_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Uint32Array) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Uint32Array) ProtoMessage() {}
+
+func (x *Uint32Array) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Uint32Array.ProtoReflect.Descriptor instead.
+func (*Uint32Array) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Uint32Array) GetValues() []uint32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Uint64Array struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint64               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Uint64Array) Reset() {
+	*x = Uint64Array{}
+	mi := &file_kuksa_val_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Uint64Array) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Uint64Array) ProtoMessage() {}
+
+func (x *Uint64Array) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Uint64Array.ProtoReflect.Descriptor instead.
+func (*Uint64Array) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Uint64Array) GetValues() []uint64 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type FloatArray struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []float32              `protobuf:"fixed32,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FloatArray) Reset() {
+	*x = FloatArray{}
+	mi := &file_kuksa_val_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FloatArray) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FloatArray) ProtoMessage() {}
+
+func (x *FloatArray) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FloatArray.ProtoReflect.Descriptor instead.
+func (*FloatArray) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *FloatArray) GetValues() []float32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type DoubleArray struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []float64              `protobuf:"fixed64,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DoubleArray) Reset() {
+	*x = DoubleArray{}
+	mi := &file_kuksa_val_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DoubleArray) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DoubleArray) ProtoMessage() {}
+
+func (x *DoubleArray) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DoubleArray.ProtoReflect.Descriptor instead.
+func (*DoubleArray) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DoubleArray) GetValues() []float64 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// Datapoint represents a timestamped value.
+type Datapoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Value         *Value                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Datapoint) Reset() {
 	*x = Datapoint{}
-	mi := &file_kuksa_val_proto_msgTypes[0]
+	mi := &file_kuksa_val_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -54,7 +879,7 @@ func (x *Datapoint) String() string {
 func (*Datapoint) ProtoMessage() {}
 
 func (x *Datapoint) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[0]
+	mi := &file_kuksa_val_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -67,171 +892,138 @@ func (x *Datapoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Datapoint.ProtoReflect.Descriptor instead.
 func (*Datapoint) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{0}
+	return file_kuksa_val_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *Datapoint) GetTimestamp() int64 {
+func (x *Datapoint) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Timestamp
 	}
-	return 0
+	return nil
 }
 
-func (x *Datapoint) GetValue() isDatapoint_Value {
+func (x *Datapoint) GetValue() *Value {
 	if x != nil {
 		return x.Value
 	}
 	return nil
 }
 
-func (x *Datapoint) GetStringValue() string {
+// SignalID identifies a signal by numeric ID or string path.
+type SignalID struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Signal:
+	//
+	//	*SignalID_Id
+	//	*SignalID_Path
+	Signal        isSignalID_Signal `protobuf_oneof:"signal"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignalID) Reset() {
+	*x = SignalID{}
+	mi := &file_kuksa_val_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignalID) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignalID) ProtoMessage() {}
+
+func (x *SignalID) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[10]
 	if x != nil {
-		if x, ok := x.Value.(*Datapoint_StringValue); ok {
-			return x.StringValue
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignalID.ProtoReflect.Descriptor instead.
+func (*SignalID) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SignalID) GetSignal() isSignalID_Signal {
+	if x != nil {
+		return x.Signal
+	}
+	return nil
+}
+
+func (x *SignalID) GetId() int32 {
+	if x != nil {
+		if x, ok := x.Signal.(*SignalID_Id); ok {
+			return x.Id
+		}
+	}
+	return 0
+}
+
+func (x *SignalID) GetPath() string {
+	if x != nil {
+		if x, ok := x.Signal.(*SignalID_Path); ok {
+			return x.Path
 		}
 	}
 	return ""
 }
 
-func (x *Datapoint) GetBoolValue() bool {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_BoolValue); ok {
-			return x.BoolValue
-		}
-	}
-	return false
+type isSignalID_Signal interface {
+	isSignalID_Signal()
 }
 
-func (x *Datapoint) GetInt32Value() int32 {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_Int32Value); ok {
-			return x.Int32Value
-		}
-	}
-	return 0
+type SignalID_Id struct {
+	Id int32 `protobuf:"varint,1,opt,name=id,proto3,oneof"`
 }
 
-func (x *Datapoint) GetInt64Value() int64 {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_Int64Value); ok {
-			return x.Int64Value
-		}
-	}
-	return 0
+type SignalID_Path struct {
+	Path string `protobuf:"bytes,2,opt,name=path,proto3,oneof"`
 }
 
-func (x *Datapoint) GetUint32Value() uint32 {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_Uint32Value); ok {
-			return x.Uint32Value
-		}
-	}
-	return 0
-}
+func (*SignalID_Id) isSignalID_Signal() {}
 
-func (x *Datapoint) GetUint64Value() uint64 {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_Uint64Value); ok {
-			return x.Uint64Value
-		}
-	}
-	return 0
-}
+func (*SignalID_Path) isSignalID_Signal() {}
 
-func (x *Datapoint) GetFloatValue() float32 {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_FloatValue); ok {
-			return x.FloatValue
-		}
-	}
-	return 0
-}
-
-func (x *Datapoint) GetDoubleValue() float64 {
-	if x != nil {
-		if x, ok := x.Value.(*Datapoint_DoubleValue); ok {
-			return x.DoubleValue
-		}
-	}
-	return 0
-}
-
-type isDatapoint_Value interface {
-	isDatapoint_Value()
-}
-
-type Datapoint_StringValue struct {
-	StringValue string `protobuf:"bytes,10,opt,name=string_value,json=stringValue,proto3,oneof"`
-}
-
-type Datapoint_BoolValue struct {
-	BoolValue bool `protobuf:"varint,11,opt,name=bool_value,json=boolValue,proto3,oneof"`
-}
-
-type Datapoint_Int32Value struct {
-	Int32Value int32 `protobuf:"varint,12,opt,name=int32_value,json=int32Value,proto3,oneof"`
-}
-
-type Datapoint_Int64Value struct {
-	Int64Value int64 `protobuf:"varint,13,opt,name=int64_value,json=int64Value,proto3,oneof"`
-}
-
-type Datapoint_Uint32Value struct {
-	Uint32Value uint32 `protobuf:"varint,14,opt,name=uint32_value,json=uint32Value,proto3,oneof"`
-}
-
-type Datapoint_Uint64Value struct {
-	Uint64Value uint64 `protobuf:"varint,15,opt,name=uint64_value,json=uint64Value,proto3,oneof"`
-}
-
-type Datapoint_FloatValue struct {
-	FloatValue float32 `protobuf:"fixed32,16,opt,name=float_value,json=floatValue,proto3,oneof"`
-}
-
-type Datapoint_DoubleValue struct {
-	DoubleValue float64 `protobuf:"fixed64,17,opt,name=double_value,json=doubleValue,proto3,oneof"`
-}
-
-func (*Datapoint_StringValue) isDatapoint_Value() {}
-
-func (*Datapoint_BoolValue) isDatapoint_Value() {}
-
-func (*Datapoint_Int32Value) isDatapoint_Value() {}
-
-func (*Datapoint_Int64Value) isDatapoint_Value() {}
-
-func (*Datapoint_Uint32Value) isDatapoint_Value() {}
-
-func (*Datapoint_Uint64Value) isDatapoint_Value() {}
-
-func (*Datapoint_FloatValue) isDatapoint_Value() {}
-
-func (*Datapoint_DoubleValue) isDatapoint_Value() {}
-
-// DataEntry associates a path (VSS signal name) with its current value.
-type DataEntry struct {
+// Metadata describes a signal's schema.
+type Metadata struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Value         *Datapoint             `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Id            int32                  `protobuf:"varint,10,opt,name=id,proto3" json:"id,omitempty"`
+	DataType      DataType               `protobuf:"varint,11,opt,name=data_type,json=dataType,proto3,enum=kuksa.val.v2.DataType" json:"data_type,omitempty"`
+	EntryType     EntryType              `protobuf:"varint,12,opt,name=entry_type,json=entryType,proto3,enum=kuksa.val.v2.EntryType" json:"entry_type,omitempty"`
+	Description   string                 `protobuf:"bytes,13,opt,name=description,proto3" json:"description,omitempty"`
+	Comment       string                 `protobuf:"bytes,14,opt,name=comment,proto3" json:"comment,omitempty"`
+	Deprecation   string                 `protobuf:"bytes,15,opt,name=deprecation,proto3" json:"deprecation,omitempty"`
+	Unit          string                 `protobuf:"bytes,16,opt,name=unit,proto3" json:"unit,omitempty"`
+	AllowedValues *Value                 `protobuf:"bytes,17,opt,name=allowed_values,json=allowedValues,proto3" json:"allowed_values,omitempty"`
+	Min           *Value                 `protobuf:"bytes,18,opt,name=min,proto3" json:"min,omitempty"`
+	Max           *Value                 `protobuf:"bytes,19,opt,name=max,proto3" json:"max,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DataEntry) Reset() {
-	*x = DataEntry{}
-	mi := &file_kuksa_val_proto_msgTypes[1]
+func (x *Metadata) Reset() {
+	*x = Metadata{}
+	mi := &file_kuksa_val_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DataEntry) String() string {
+func (x *Metadata) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DataEntry) ProtoMessage() {}
+func (*Metadata) ProtoMessage() {}
 
-func (x *DataEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[1]
+func (x *Metadata) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,224 +1034,461 @@ func (x *DataEntry) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DataEntry.ProtoReflect.Descriptor instead.
-func (*DataEntry) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{1}
+// Deprecated: Use Metadata.ProtoReflect.Descriptor instead.
+func (*Metadata) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *DataEntry) GetPath() string {
+func (x *Metadata) GetId() int32 {
 	if x != nil {
-		return x.Path
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Metadata) GetDataType() DataType {
+	if x != nil {
+		return x.DataType
+	}
+	return DataType_DATA_TYPE_UNSPECIFIED
+}
+
+func (x *Metadata) GetEntryType() EntryType {
+	if x != nil {
+		return x.EntryType
+	}
+	return EntryType_ENTRY_TYPE_UNSPECIFIED
+}
+
+func (x *Metadata) GetDescription() string {
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
 
-func (x *DataEntry) GetValue() *Datapoint {
+func (x *Metadata) GetComment() string {
 	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-// GetRequest is used to read signal values from the databroker.
-type GetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Paths         []string               `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetRequest) Reset() {
-	*x = GetRequest{}
-	mi := &file_kuksa_val_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetRequest) ProtoMessage() {}
-
-func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
-func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *GetRequest) GetPaths() []string {
-	if x != nil {
-		return x.Paths
-	}
-	return nil
-}
-
-// GetResponse contains the requested signal entries.
-type GetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Entries       []*DataEntry           `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetResponse) Reset() {
-	*x = GetResponse{}
-	mi := &file_kuksa_val_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetResponse) ProtoMessage() {}
-
-func (x *GetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetResponse.ProtoReflect.Descriptor instead.
-func (*GetResponse) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *GetResponse) GetEntries() []*DataEntry {
-	if x != nil {
-		return x.Entries
-	}
-	return nil
-}
-
-// SetRequest is used to write signal values to the databroker.
-type SetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Entries       []*DataEntry           `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SetRequest) Reset() {
-	*x = SetRequest{}
-	mi := &file_kuksa_val_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SetRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SetRequest) ProtoMessage() {}
-
-func (x *SetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SetRequest.ProtoReflect.Descriptor instead.
-func (*SetRequest) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *SetRequest) GetEntries() []*DataEntry {
-	if x != nil {
-		return x.Entries
-	}
-	return nil
-}
-
-// SetResponse indicates the result of a set operation.
-type SetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SetResponse) Reset() {
-	*x = SetResponse{}
-	mi := &file_kuksa_val_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SetResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SetResponse) ProtoMessage() {}
-
-func (x *SetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SetResponse.ProtoReflect.Descriptor instead.
-func (*SetResponse) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *SetResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *SetResponse) GetError() string {
-	if x != nil {
-		return x.Error
+		return x.Comment
 	}
 	return ""
 }
 
-// SubscribeRequest subscribes to changes on specified signal paths.
+func (x *Metadata) GetDeprecation() string {
+	if x != nil {
+		return x.Deprecation
+	}
+	return ""
+}
+
+func (x *Metadata) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *Metadata) GetAllowedValues() *Value {
+	if x != nil {
+		return x.AllowedValues
+	}
+	return nil
+}
+
+func (x *Metadata) GetMin() *Value {
+	if x != nil {
+		return x.Min
+	}
+	return nil
+}
+
+func (x *Metadata) GetMax() *Value {
+	if x != nil {
+		return x.Max
+	}
+	return nil
+}
+
+// GetValueRequest reads a single signal value.
+type GetValueRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SignalId      *SignalID              `protobuf:"bytes,1,opt,name=signal_id,json=signalId,proto3" json:"signal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValueRequest) Reset() {
+	*x = GetValueRequest{}
+	mi := &file_kuksa_val_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValueRequest) ProtoMessage() {}
+
+func (x *GetValueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValueRequest.ProtoReflect.Descriptor instead.
+func (*GetValueRequest) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *GetValueRequest) GetSignalId() *SignalID {
+	if x != nil {
+		return x.SignalId
+	}
+	return nil
+}
+
+// GetValueResponse returns a single signal's data point.
+type GetValueResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DataPoint     *Datapoint             `protobuf:"bytes,1,opt,name=data_point,json=dataPoint,proto3" json:"data_point,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValueResponse) Reset() {
+	*x = GetValueResponse{}
+	mi := &file_kuksa_val_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValueResponse) ProtoMessage() {}
+
+func (x *GetValueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValueResponse.ProtoReflect.Descriptor instead.
+func (*GetValueResponse) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetValueResponse) GetDataPoint() *Datapoint {
+	if x != nil {
+		return x.DataPoint
+	}
+	return nil
+}
+
+// GetValuesRequest reads multiple signal values.
+type GetValuesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SignalIds     []*SignalID            `protobuf:"bytes,1,rep,name=signal_ids,json=signalIds,proto3" json:"signal_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValuesRequest) Reset() {
+	*x = GetValuesRequest{}
+	mi := &file_kuksa_val_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValuesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValuesRequest) ProtoMessage() {}
+
+func (x *GetValuesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValuesRequest.ProtoReflect.Descriptor instead.
+func (*GetValuesRequest) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetValuesRequest) GetSignalIds() []*SignalID {
+	if x != nil {
+		return x.SignalIds
+	}
+	return nil
+}
+
+// GetValuesResponse returns data points for multiple signals.
+type GetValuesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DataPoints    []*Datapoint           `protobuf:"bytes,1,rep,name=data_points,json=dataPoints,proto3" json:"data_points,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValuesResponse) Reset() {
+	*x = GetValuesResponse{}
+	mi := &file_kuksa_val_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValuesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValuesResponse) ProtoMessage() {}
+
+func (x *GetValuesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValuesResponse.ProtoReflect.Descriptor instead.
+func (*GetValuesResponse) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetValuesResponse) GetDataPoints() []*Datapoint {
+	if x != nil {
+		return x.DataPoints
+	}
+	return nil
+}
+
+// PublishValueRequest writes a value to a signal.
+type PublishValueRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SignalId      *SignalID              `protobuf:"bytes,1,opt,name=signal_id,json=signalId,proto3" json:"signal_id,omitempty"`
+	DataPoint     *Datapoint             `protobuf:"bytes,2,opt,name=data_point,json=dataPoint,proto3" json:"data_point,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishValueRequest) Reset() {
+	*x = PublishValueRequest{}
+	mi := &file_kuksa_val_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishValueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishValueRequest) ProtoMessage() {}
+
+func (x *PublishValueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishValueRequest.ProtoReflect.Descriptor instead.
+func (*PublishValueRequest) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *PublishValueRequest) GetSignalId() *SignalID {
+	if x != nil {
+		return x.SignalId
+	}
+	return nil
+}
+
+func (x *PublishValueRequest) GetDataPoint() *Datapoint {
+	if x != nil {
+		return x.DataPoint
+	}
+	return nil
+}
+
+// PublishValueResponse is empty on success.
+type PublishValueResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishValueResponse) Reset() {
+	*x = PublishValueResponse{}
+	mi := &file_kuksa_val_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishValueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishValueResponse) ProtoMessage() {}
+
+func (x *PublishValueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishValueResponse.ProtoReflect.Descriptor instead.
+func (*PublishValueResponse) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{17}
+}
+
+// ListMetadataRequest lists metadata for signals under a root branch.
+type ListMetadataRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Root          string                 `protobuf:"bytes,1,opt,name=root,proto3" json:"root,omitempty"`
+	Filter        string                 `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMetadataRequest) Reset() {
+	*x = ListMetadataRequest{}
+	mi := &file_kuksa_val_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMetadataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMetadataRequest) ProtoMessage() {}
+
+func (x *ListMetadataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMetadataRequest.ProtoReflect.Descriptor instead.
+func (*ListMetadataRequest) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListMetadataRequest) GetRoot() string {
+	if x != nil {
+		return x.Root
+	}
+	return ""
+}
+
+func (x *ListMetadataRequest) GetFilter() string {
+	if x != nil {
+		return x.Filter
+	}
+	return ""
+}
+
+// ListMetadataResponse returns metadata for matching signals.
+type ListMetadataResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Metadata      []*Metadata            `protobuf:"bytes,1,rep,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMetadataResponse) Reset() {
+	*x = ListMetadataResponse{}
+	mi := &file_kuksa_val_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMetadataResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMetadataResponse) ProtoMessage() {}
+
+func (x *ListMetadataResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMetadataResponse.ProtoReflect.Descriptor instead.
+func (*ListMetadataResponse) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListMetadataResponse) GetMetadata() []*Metadata {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// SubscribeRequest subscribes to signal changes by path.
 type SubscribeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Paths         []string               `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
+	SignalPaths   []string               `protobuf:"bytes,1,rep,name=signal_paths,json=signalPaths,proto3" json:"signal_paths,omitempty"`
+	BufferSize    uint32                 `protobuf:"varint,2,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_kuksa_val_proto_msgTypes[6]
+	mi := &file_kuksa_val_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -471,7 +1500,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[6]
+	mi := &file_kuksa_val_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -484,27 +1513,34 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{6}
+	return file_kuksa_val_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *SubscribeRequest) GetPaths() []string {
+func (x *SubscribeRequest) GetSignalPaths() []string {
 	if x != nil {
-		return x.Paths
+		return x.SignalPaths
 	}
 	return nil
 }
 
-// SubscribeResponse streams signal updates.
+func (x *SubscribeRequest) GetBufferSize() uint32 {
+	if x != nil {
+		return x.BufferSize
+	}
+	return 0
+}
+
+// SubscribeResponse streams signal updates as a map of path to Datapoint.
 type SubscribeResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Entries       []*DataEntry           `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	Entries       map[string]*Datapoint  `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubscribeResponse) Reset() {
 	*x = SubscribeResponse{}
-	mi := &file_kuksa_val_proto_msgTypes[7]
+	mi := &file_kuksa_val_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -516,7 +1552,7 @@ func (x *SubscribeResponse) String() string {
 func (*SubscribeResponse) ProtoMessage() {}
 
 func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kuksa_val_proto_msgTypes[7]
+	mi := &file_kuksa_val_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -529,59 +1565,247 @@ func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeResponse.ProtoReflect.Descriptor instead.
 func (*SubscribeResponse) Descriptor() ([]byte, []int) {
-	return file_kuksa_val_proto_rawDescGZIP(), []int{7}
+	return file_kuksa_val_proto_rawDescGZIP(), []int{21}
 }
 
-func (x *SubscribeResponse) GetEntries() []*DataEntry {
+func (x *SubscribeResponse) GetEntries() map[string]*Datapoint {
 	if x != nil {
 		return x.Entries
 	}
 	return nil
 }
 
+// GetServerInfoRequest is empty.
+type GetServerInfoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetServerInfoRequest) Reset() {
+	*x = GetServerInfoRequest{}
+	mi := &file_kuksa_val_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetServerInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetServerInfoRequest) ProtoMessage() {}
+
+func (x *GetServerInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetServerInfoRequest.ProtoReflect.Descriptor instead.
+func (*GetServerInfoRequest) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{22}
+}
+
+// GetServerInfoResponse returns server information.
+type GetServerInfoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetServerInfoResponse) Reset() {
+	*x = GetServerInfoResponse{}
+	mi := &file_kuksa_val_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetServerInfoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetServerInfoResponse) ProtoMessage() {}
+
+func (x *GetServerInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kuksa_val_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetServerInfoResponse.ProtoReflect.Descriptor instead.
+func (*GetServerInfoResponse) Descriptor() ([]byte, []int) {
+	return file_kuksa_val_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *GetServerInfoResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetServerInfoResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
 var File_kuksa_val_proto protoreflect.FileDescriptor
 
 const file_kuksa_val_proto_rawDesc = "" +
 	"\n" +
-	"\x0fkuksa/val.proto\x12\x05kuksa\"\xd0\x02\n" +
-	"\tDatapoint\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12#\n" +
-	"\fstring_value\x18\n" +
-	" \x01(\tH\x00R\vstringValue\x12\x1f\n" +
+	"\x0fkuksa/val.proto\x12\fkuksa.val.v2\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcd\x05\n" +
+	"\x05Value\x12\x18\n" +
+	"\x06string\x18\v \x01(\tH\x00R\x06string\x12\x14\n" +
+	"\x04bool\x18\f \x01(\bH\x00R\x04bool\x12\x16\n" +
+	"\x05int32\x18\r \x01(\x11H\x00R\x05int32\x12\x16\n" +
+	"\x05int64\x18\x0e \x01(\x12H\x00R\x05int64\x12\x18\n" +
+	"\x06uint32\x18\x0f \x01(\rH\x00R\x06uint32\x12\x18\n" +
+	"\x06uint64\x18\x10 \x01(\x04H\x00R\x06uint64\x12\x16\n" +
+	"\x05float\x18\x11 \x01(\x02H\x00R\x05float\x12\x18\n" +
+	"\x06double\x18\x12 \x01(\x01H\x00R\x06double\x12>\n" +
+	"\fstring_array\x18\x15 \x01(\v2\x19.kuksa.val.v2.StringArrayH\x00R\vstringArray\x128\n" +
 	"\n" +
-	"bool_value\x18\v \x01(\bH\x00R\tboolValue\x12!\n" +
-	"\vint32_value\x18\f \x01(\x05H\x00R\n" +
-	"int32Value\x12!\n" +
-	"\vint64_value\x18\r \x01(\x03H\x00R\n" +
-	"int64Value\x12#\n" +
-	"\fuint32_value\x18\x0e \x01(\rH\x00R\vuint32Value\x12#\n" +
-	"\fuint64_value\x18\x0f \x01(\x04H\x00R\vuint64Value\x12!\n" +
-	"\vfloat_value\x18\x10 \x01(\x02H\x00R\n" +
-	"floatValue\x12#\n" +
-	"\fdouble_value\x18\x11 \x01(\x01H\x00R\vdoubleValueB\a\n" +
-	"\x05value\"G\n" +
-	"\tDataEntry\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\x12&\n" +
-	"\x05value\x18\x02 \x01(\v2\x10.kuksa.DatapointR\x05value\"\"\n" +
+	"bool_array\x18\x16 \x01(\v2\x17.kuksa.val.v2.BoolArrayH\x00R\tboolArray\x12;\n" +
+	"\vint32_array\x18\x17 \x01(\v2\x18.kuksa.val.v2.Int32ArrayH\x00R\n" +
+	"int32Array\x12;\n" +
+	"\vint64_array\x18\x18 \x01(\v2\x18.kuksa.val.v2.Int64ArrayH\x00R\n" +
+	"int64Array\x12>\n" +
+	"\fuint32_array\x18\x19 \x01(\v2\x19.kuksa.val.v2.Uint32ArrayH\x00R\vuint32Array\x12>\n" +
+	"\fuint64_array\x18\x1a \x01(\v2\x19.kuksa.val.v2.Uint64ArrayH\x00R\vuint64Array\x12;\n" +
+	"\vfloat_array\x18\x1b \x01(\v2\x18.kuksa.val.v2.FloatArrayH\x00R\n" +
+	"floatArray\x12>\n" +
+	"\fdouble_array\x18\x1c \x01(\v2\x19.kuksa.val.v2.DoubleArrayH\x00R\vdoubleArrayB\r\n" +
+	"\vtyped_value\"%\n" +
+	"\vStringArray\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"#\n" +
+	"\tBoolArray\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\bR\x06values\"$\n" +
 	"\n" +
-	"GetRequest\x12\x14\n" +
-	"\x05paths\x18\x01 \x03(\tR\x05paths\"9\n" +
-	"\vGetResponse\x12*\n" +
-	"\aentries\x18\x01 \x03(\v2\x10.kuksa.DataEntryR\aentries\"8\n" +
+	"Int32Array\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\x11R\x06values\"$\n" +
 	"\n" +
-	"SetRequest\x12*\n" +
-	"\aentries\x18\x01 \x03(\v2\x10.kuksa.DataEntryR\aentries\"=\n" +
-	"\vSetResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"(\n" +
-	"\x10SubscribeRequest\x12\x14\n" +
-	"\x05paths\x18\x01 \x03(\tR\x05paths\"?\n" +
-	"\x11SubscribeResponse\x12*\n" +
-	"\aentries\x18\x01 \x03(\v2\x10.kuksa.DataEntryR\aentries2\xa3\x01\n" +
-	"\x03VAL\x12,\n" +
-	"\x03Get\x12\x11.kuksa.GetRequest\x1a\x12.kuksa.GetResponse\x12,\n" +
-	"\x03Set\x12\x11.kuksa.SetRequest\x1a\x12.kuksa.SetResponse\x12@\n" +
-	"\tSubscribe\x12\x17.kuksa.SubscribeRequest\x1a\x18.kuksa.SubscribeResponse0\x01B\"Z parking-fee-service/gen/go/kuksab\x06proto3"
+	"Int64Array\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\x12R\x06values\"%\n" +
+	"\vUint32Array\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"%\n" +
+	"\vUint64Array\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\x04R\x06values\"$\n" +
+	"\n" +
+	"FloatArray\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\x02R\x06values\"%\n" +
+	"\vDoubleArray\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\x01R\x06values\"p\n" +
+	"\tDatapoint\x128\n" +
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.kuksa.val.v2.ValueR\x05value\"<\n" +
+	"\bSignalID\x12\x10\n" +
+	"\x02id\x18\x01 \x01(\x05H\x00R\x02id\x12\x14\n" +
+	"\x04path\x18\x02 \x01(\tH\x00R\x04pathB\b\n" +
+	"\x06signal\"\x83\x03\n" +
+	"\bMetadata\x12\x0e\n" +
+	"\x02id\x18\n" +
+	" \x01(\x05R\x02id\x123\n" +
+	"\tdata_type\x18\v \x01(\x0e2\x16.kuksa.val.v2.DataTypeR\bdataType\x126\n" +
+	"\n" +
+	"entry_type\x18\f \x01(\x0e2\x17.kuksa.val.v2.EntryTypeR\tentryType\x12 \n" +
+	"\vdescription\x18\r \x01(\tR\vdescription\x12\x18\n" +
+	"\acomment\x18\x0e \x01(\tR\acomment\x12 \n" +
+	"\vdeprecation\x18\x0f \x01(\tR\vdeprecation\x12\x12\n" +
+	"\x04unit\x18\x10 \x01(\tR\x04unit\x12:\n" +
+	"\x0eallowed_values\x18\x11 \x01(\v2\x13.kuksa.val.v2.ValueR\rallowedValues\x12%\n" +
+	"\x03min\x18\x12 \x01(\v2\x13.kuksa.val.v2.ValueR\x03min\x12%\n" +
+	"\x03max\x18\x13 \x01(\v2\x13.kuksa.val.v2.ValueR\x03max\"F\n" +
+	"\x0fGetValueRequest\x123\n" +
+	"\tsignal_id\x18\x01 \x01(\v2\x16.kuksa.val.v2.SignalIDR\bsignalId\"J\n" +
+	"\x10GetValueResponse\x126\n" +
+	"\n" +
+	"data_point\x18\x01 \x01(\v2\x17.kuksa.val.v2.DatapointR\tdataPoint\"I\n" +
+	"\x10GetValuesRequest\x125\n" +
+	"\n" +
+	"signal_ids\x18\x01 \x03(\v2\x16.kuksa.val.v2.SignalIDR\tsignalIds\"M\n" +
+	"\x11GetValuesResponse\x128\n" +
+	"\vdata_points\x18\x01 \x03(\v2\x17.kuksa.val.v2.DatapointR\n" +
+	"dataPoints\"\x82\x01\n" +
+	"\x13PublishValueRequest\x123\n" +
+	"\tsignal_id\x18\x01 \x01(\v2\x16.kuksa.val.v2.SignalIDR\bsignalId\x126\n" +
+	"\n" +
+	"data_point\x18\x02 \x01(\v2\x17.kuksa.val.v2.DatapointR\tdataPoint\"\x16\n" +
+	"\x14PublishValueResponse\"A\n" +
+	"\x13ListMetadataRequest\x12\x12\n" +
+	"\x04root\x18\x01 \x01(\tR\x04root\x12\x16\n" +
+	"\x06filter\x18\x02 \x01(\tR\x06filter\"J\n" +
+	"\x14ListMetadataResponse\x122\n" +
+	"\bmetadata\x18\x01 \x03(\v2\x16.kuksa.val.v2.MetadataR\bmetadata\"V\n" +
+	"\x10SubscribeRequest\x12!\n" +
+	"\fsignal_paths\x18\x01 \x03(\tR\vsignalPaths\x12\x1f\n" +
+	"\vbuffer_size\x18\x02 \x01(\rR\n" +
+	"bufferSize\"\xb0\x01\n" +
+	"\x11SubscribeResponse\x12F\n" +
+	"\aentries\x18\x01 \x03(\v2,.kuksa.val.v2.SubscribeResponse.EntriesEntryR\aentries\x1aS\n" +
+	"\fEntriesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
+	"\x05value\x18\x02 \x01(\v2\x17.kuksa.val.v2.DatapointR\x05value:\x028\x01\"\x16\n" +
+	"\x14GetServerInfoRequest\"E\n" +
+	"\x15GetServerInfoResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion*\xa9\x05\n" +
+	"\bDataType\x12\x19\n" +
+	"\x15DATA_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10DATA_TYPE_STRING\x10\x01\x12\x15\n" +
+	"\x11DATA_TYPE_BOOLEAN\x10\x02\x12\x12\n" +
+	"\x0eDATA_TYPE_INT8\x10\x03\x12\x13\n" +
+	"\x0fDATA_TYPE_INT16\x10\x04\x12\x13\n" +
+	"\x0fDATA_TYPE_INT32\x10\x05\x12\x13\n" +
+	"\x0fDATA_TYPE_INT64\x10\x06\x12\x13\n" +
+	"\x0fDATA_TYPE_UINT8\x10\a\x12\x14\n" +
+	"\x10DATA_TYPE_UINT16\x10\b\x12\x14\n" +
+	"\x10DATA_TYPE_UINT32\x10\t\x12\x14\n" +
+	"\x10DATA_TYPE_UINT64\x10\n" +
+	"\x12\x13\n" +
+	"\x0fDATA_TYPE_FLOAT\x10\v\x12\x14\n" +
+	"\x10DATA_TYPE_DOUBLE\x10\f\x12\x17\n" +
+	"\x13DATA_TYPE_TIMESTAMP\x10\r\x12\x1a\n" +
+	"\x16DATA_TYPE_STRING_ARRAY\x10\x14\x12\x1b\n" +
+	"\x17DATA_TYPE_BOOLEAN_ARRAY\x10\x15\x12\x18\n" +
+	"\x14DATA_TYPE_INT8_ARRAY\x10\x16\x12\x19\n" +
+	"\x15DATA_TYPE_INT16_ARRAY\x10\x17\x12\x19\n" +
+	"\x15DATA_TYPE_INT32_ARRAY\x10\x18\x12\x19\n" +
+	"\x15DATA_TYPE_INT64_ARRAY\x10\x19\x12\x19\n" +
+	"\x15DATA_TYPE_UINT8_ARRAY\x10\x1a\x12\x1a\n" +
+	"\x16DATA_TYPE_UINT16_ARRAY\x10\x1b\x12\x1a\n" +
+	"\x16DATA_TYPE_UINT32_ARRAY\x10\x1c\x12\x1a\n" +
+	"\x16DATA_TYPE_UINT64_ARRAY\x10\x1d\x12\x19\n" +
+	"\x15DATA_TYPE_FLOAT_ARRAY\x10\x1e\x12\x1a\n" +
+	"\x16DATA_TYPE_DOUBLE_ARRAY\x10\x1f\x12\x1d\n" +
+	"\x19DATA_TYPE_TIMESTAMP_ARRAY\x10 *q\n" +
+	"\tEntryType\x12\x1a\n" +
+	"\x16ENTRY_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14ENTRY_TYPE_ATTRIBUTE\x10\x01\x12\x15\n" +
+	"\x11ENTRY_TYPE_SENSOR\x10\x02\x12\x17\n" +
+	"\x13ENTRY_TYPE_ACTUATOR\x10\x032\xf6\x03\n" +
+	"\x03VAL\x12I\n" +
+	"\bGetValue\x12\x1d.kuksa.val.v2.GetValueRequest\x1a\x1e.kuksa.val.v2.GetValueResponse\x12L\n" +
+	"\tGetValues\x12\x1e.kuksa.val.v2.GetValuesRequest\x1a\x1f.kuksa.val.v2.GetValuesResponse\x12U\n" +
+	"\fPublishValue\x12!.kuksa.val.v2.PublishValueRequest\x1a\".kuksa.val.v2.PublishValueResponse\x12N\n" +
+	"\tSubscribe\x12\x1e.kuksa.val.v2.SubscribeRequest\x1a\x1f.kuksa.val.v2.SubscribeResponse0\x01\x12U\n" +
+	"\fListMetadata\x12!.kuksa.val.v2.ListMetadataRequest\x1a\".kuksa.val.v2.ListMetadataResponse\x12X\n" +
+	"\rGetServerInfo\x12\".kuksa.val.v2.GetServerInfoRequest\x1a#.kuksa.val.v2.GetServerInfoResponseB,Z*parking-fee-service/tests/databroker/kuksab\x06proto3"
 
 var (
 	file_kuksa_val_proto_rawDescOnce sync.Once
@@ -595,33 +1819,80 @@ func file_kuksa_val_proto_rawDescGZIP() []byte {
 	return file_kuksa_val_proto_rawDescData
 }
 
-var file_kuksa_val_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_kuksa_val_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_kuksa_val_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_kuksa_val_proto_goTypes = []any{
-	(*Datapoint)(nil),         // 0: kuksa.Datapoint
-	(*DataEntry)(nil),         // 1: kuksa.DataEntry
-	(*GetRequest)(nil),        // 2: kuksa.GetRequest
-	(*GetResponse)(nil),       // 3: kuksa.GetResponse
-	(*SetRequest)(nil),        // 4: kuksa.SetRequest
-	(*SetResponse)(nil),       // 5: kuksa.SetResponse
-	(*SubscribeRequest)(nil),  // 6: kuksa.SubscribeRequest
-	(*SubscribeResponse)(nil), // 7: kuksa.SubscribeResponse
+	(DataType)(0),                 // 0: kuksa.val.v2.DataType
+	(EntryType)(0),                // 1: kuksa.val.v2.EntryType
+	(*Value)(nil),                 // 2: kuksa.val.v2.Value
+	(*StringArray)(nil),           // 3: kuksa.val.v2.StringArray
+	(*BoolArray)(nil),             // 4: kuksa.val.v2.BoolArray
+	(*Int32Array)(nil),            // 5: kuksa.val.v2.Int32Array
+	(*Int64Array)(nil),            // 6: kuksa.val.v2.Int64Array
+	(*Uint32Array)(nil),           // 7: kuksa.val.v2.Uint32Array
+	(*Uint64Array)(nil),           // 8: kuksa.val.v2.Uint64Array
+	(*FloatArray)(nil),            // 9: kuksa.val.v2.FloatArray
+	(*DoubleArray)(nil),           // 10: kuksa.val.v2.DoubleArray
+	(*Datapoint)(nil),             // 11: kuksa.val.v2.Datapoint
+	(*SignalID)(nil),              // 12: kuksa.val.v2.SignalID
+	(*Metadata)(nil),              // 13: kuksa.val.v2.Metadata
+	(*GetValueRequest)(nil),       // 14: kuksa.val.v2.GetValueRequest
+	(*GetValueResponse)(nil),      // 15: kuksa.val.v2.GetValueResponse
+	(*GetValuesRequest)(nil),      // 16: kuksa.val.v2.GetValuesRequest
+	(*GetValuesResponse)(nil),     // 17: kuksa.val.v2.GetValuesResponse
+	(*PublishValueRequest)(nil),   // 18: kuksa.val.v2.PublishValueRequest
+	(*PublishValueResponse)(nil),  // 19: kuksa.val.v2.PublishValueResponse
+	(*ListMetadataRequest)(nil),   // 20: kuksa.val.v2.ListMetadataRequest
+	(*ListMetadataResponse)(nil),  // 21: kuksa.val.v2.ListMetadataResponse
+	(*SubscribeRequest)(nil),      // 22: kuksa.val.v2.SubscribeRequest
+	(*SubscribeResponse)(nil),     // 23: kuksa.val.v2.SubscribeResponse
+	(*GetServerInfoRequest)(nil),  // 24: kuksa.val.v2.GetServerInfoRequest
+	(*GetServerInfoResponse)(nil), // 25: kuksa.val.v2.GetServerInfoResponse
+	nil,                           // 26: kuksa.val.v2.SubscribeResponse.EntriesEntry
+	(*timestamppb.Timestamp)(nil), // 27: google.protobuf.Timestamp
 }
 var file_kuksa_val_proto_depIdxs = []int32{
-	0, // 0: kuksa.DataEntry.value:type_name -> kuksa.Datapoint
-	1, // 1: kuksa.GetResponse.entries:type_name -> kuksa.DataEntry
-	1, // 2: kuksa.SetRequest.entries:type_name -> kuksa.DataEntry
-	1, // 3: kuksa.SubscribeResponse.entries:type_name -> kuksa.DataEntry
-	2, // 4: kuksa.VAL.Get:input_type -> kuksa.GetRequest
-	4, // 5: kuksa.VAL.Set:input_type -> kuksa.SetRequest
-	6, // 6: kuksa.VAL.Subscribe:input_type -> kuksa.SubscribeRequest
-	3, // 7: kuksa.VAL.Get:output_type -> kuksa.GetResponse
-	5, // 8: kuksa.VAL.Set:output_type -> kuksa.SetResponse
-	7, // 9: kuksa.VAL.Subscribe:output_type -> kuksa.SubscribeResponse
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3,  // 0: kuksa.val.v2.Value.string_array:type_name -> kuksa.val.v2.StringArray
+	4,  // 1: kuksa.val.v2.Value.bool_array:type_name -> kuksa.val.v2.BoolArray
+	5,  // 2: kuksa.val.v2.Value.int32_array:type_name -> kuksa.val.v2.Int32Array
+	6,  // 3: kuksa.val.v2.Value.int64_array:type_name -> kuksa.val.v2.Int64Array
+	7,  // 4: kuksa.val.v2.Value.uint32_array:type_name -> kuksa.val.v2.Uint32Array
+	8,  // 5: kuksa.val.v2.Value.uint64_array:type_name -> kuksa.val.v2.Uint64Array
+	9,  // 6: kuksa.val.v2.Value.float_array:type_name -> kuksa.val.v2.FloatArray
+	10, // 7: kuksa.val.v2.Value.double_array:type_name -> kuksa.val.v2.DoubleArray
+	27, // 8: kuksa.val.v2.Datapoint.timestamp:type_name -> google.protobuf.Timestamp
+	2,  // 9: kuksa.val.v2.Datapoint.value:type_name -> kuksa.val.v2.Value
+	0,  // 10: kuksa.val.v2.Metadata.data_type:type_name -> kuksa.val.v2.DataType
+	1,  // 11: kuksa.val.v2.Metadata.entry_type:type_name -> kuksa.val.v2.EntryType
+	2,  // 12: kuksa.val.v2.Metadata.allowed_values:type_name -> kuksa.val.v2.Value
+	2,  // 13: kuksa.val.v2.Metadata.min:type_name -> kuksa.val.v2.Value
+	2,  // 14: kuksa.val.v2.Metadata.max:type_name -> kuksa.val.v2.Value
+	12, // 15: kuksa.val.v2.GetValueRequest.signal_id:type_name -> kuksa.val.v2.SignalID
+	11, // 16: kuksa.val.v2.GetValueResponse.data_point:type_name -> kuksa.val.v2.Datapoint
+	12, // 17: kuksa.val.v2.GetValuesRequest.signal_ids:type_name -> kuksa.val.v2.SignalID
+	11, // 18: kuksa.val.v2.GetValuesResponse.data_points:type_name -> kuksa.val.v2.Datapoint
+	12, // 19: kuksa.val.v2.PublishValueRequest.signal_id:type_name -> kuksa.val.v2.SignalID
+	11, // 20: kuksa.val.v2.PublishValueRequest.data_point:type_name -> kuksa.val.v2.Datapoint
+	13, // 21: kuksa.val.v2.ListMetadataResponse.metadata:type_name -> kuksa.val.v2.Metadata
+	26, // 22: kuksa.val.v2.SubscribeResponse.entries:type_name -> kuksa.val.v2.SubscribeResponse.EntriesEntry
+	11, // 23: kuksa.val.v2.SubscribeResponse.EntriesEntry.value:type_name -> kuksa.val.v2.Datapoint
+	14, // 24: kuksa.val.v2.VAL.GetValue:input_type -> kuksa.val.v2.GetValueRequest
+	16, // 25: kuksa.val.v2.VAL.GetValues:input_type -> kuksa.val.v2.GetValuesRequest
+	18, // 26: kuksa.val.v2.VAL.PublishValue:input_type -> kuksa.val.v2.PublishValueRequest
+	22, // 27: kuksa.val.v2.VAL.Subscribe:input_type -> kuksa.val.v2.SubscribeRequest
+	20, // 28: kuksa.val.v2.VAL.ListMetadata:input_type -> kuksa.val.v2.ListMetadataRequest
+	24, // 29: kuksa.val.v2.VAL.GetServerInfo:input_type -> kuksa.val.v2.GetServerInfoRequest
+	15, // 30: kuksa.val.v2.VAL.GetValue:output_type -> kuksa.val.v2.GetValueResponse
+	17, // 31: kuksa.val.v2.VAL.GetValues:output_type -> kuksa.val.v2.GetValuesResponse
+	19, // 32: kuksa.val.v2.VAL.PublishValue:output_type -> kuksa.val.v2.PublishValueResponse
+	23, // 33: kuksa.val.v2.VAL.Subscribe:output_type -> kuksa.val.v2.SubscribeResponse
+	21, // 34: kuksa.val.v2.VAL.ListMetadata:output_type -> kuksa.val.v2.ListMetadataResponse
+	25, // 35: kuksa.val.v2.VAL.GetServerInfo:output_type -> kuksa.val.v2.GetServerInfoResponse
+	30, // [30:36] is the sub-list for method output_type
+	24, // [24:30] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_kuksa_val_proto_init() }
@@ -630,27 +1901,40 @@ func file_kuksa_val_proto_init() {
 		return
 	}
 	file_kuksa_val_proto_msgTypes[0].OneofWrappers = []any{
-		(*Datapoint_StringValue)(nil),
-		(*Datapoint_BoolValue)(nil),
-		(*Datapoint_Int32Value)(nil),
-		(*Datapoint_Int64Value)(nil),
-		(*Datapoint_Uint32Value)(nil),
-		(*Datapoint_Uint64Value)(nil),
-		(*Datapoint_FloatValue)(nil),
-		(*Datapoint_DoubleValue)(nil),
+		(*Value_String_)(nil),
+		(*Value_Bool)(nil),
+		(*Value_Int32)(nil),
+		(*Value_Int64)(nil),
+		(*Value_Uint32)(nil),
+		(*Value_Uint64)(nil),
+		(*Value_Float)(nil),
+		(*Value_Double)(nil),
+		(*Value_StringArray)(nil),
+		(*Value_BoolArray)(nil),
+		(*Value_Int32Array)(nil),
+		(*Value_Int64Array)(nil),
+		(*Value_Uint32Array)(nil),
+		(*Value_Uint64Array)(nil),
+		(*Value_FloatArray)(nil),
+		(*Value_DoubleArray)(nil),
+	}
+	file_kuksa_val_proto_msgTypes[10].OneofWrappers = []any{
+		(*SignalID_Id)(nil),
+		(*SignalID_Path)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kuksa_val_proto_rawDesc), len(file_kuksa_val_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   8,
+			NumEnums:      2,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_kuksa_val_proto_goTypes,
 		DependencyIndexes: file_kuksa_val_proto_depIdxs,
+		EnumInfos:         file_kuksa_val_proto_enumTypes,
 		MessageInfos:      file_kuksa_val_proto_msgTypes,
 	}.Build()
 	File_kuksa_val_proto = out.File

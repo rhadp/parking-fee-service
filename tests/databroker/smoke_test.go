@@ -14,8 +14,6 @@ import (
 
 // TestSmokeHealthCheck is a quick smoke test verifying that the DATA_BROKER
 // container is running and accepts TCP connections on the expected port.
-// A successful gRPC Get for a known standard signal confirms the databroker
-// is responsive and has loaded its VSS tree.
 func TestSmokeHealthCheck(t *testing.T) {
 	conn := dialTCP(t)
 	client := valClient(conn)
@@ -23,14 +21,11 @@ func TestSmokeHealthCheck(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 
-	resp, err := client.Get(ctx, &kuksapb.GetRequest{
-		Paths: []string{"Vehicle.Speed"},
+	_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+		SignalId: signalID("Vehicle.Speed"),
 	})
 	if err != nil {
-		t.Fatalf("TS-02-SMOKE-1: databroker health check failed — TCP Get(Vehicle.Speed) error: %v", err)
-	}
-	if len(resp.Entries) == 0 {
-		t.Fatal("TS-02-SMOKE-1: databroker health check failed — no entries returned for Vehicle.Speed")
+		t.Fatalf("TS-02-SMOKE-1: databroker health check failed — TCP GetValue(Vehicle.Speed) error: %v", err)
 	}
 	t.Log("TS-02-SMOKE-1: databroker health check passed — TCP connectivity OK")
 }
@@ -42,8 +37,6 @@ func TestSmokeHealthCheck(t *testing.T) {
 
 // TestSmokeSignalInventory is a quick smoke test verifying that all 8 expected
 // VSS signals (5 standard + 3 custom overlay) are present in the DATA_BROKER.
-// Each signal is checked with a simple Get RPC; any missing signal causes the
-// test to fail and report the signal path.
 func TestSmokeSignalInventory(t *testing.T) {
 	conn := dialTCP(t)
 	client := valClient(conn)
@@ -62,16 +55,13 @@ func TestSmokeSignalInventory(t *testing.T) {
 	missing := 0
 	for _, sig := range expectedSignals {
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-		resp, err := client.Get(ctx, &kuksapb.GetRequest{Paths: []string{sig}})
+		_, err := client.GetValue(ctx, &kuksapb.GetValueRequest{
+			SignalId: signalID(sig),
+		})
 		cancel()
 
 		if err != nil {
 			t.Errorf("TS-02-SMOKE-2: signal %q not available: %v", sig, err)
-			missing++
-			continue
-		}
-		if len(resp.Entries) == 0 {
-			t.Errorf("TS-02-SMOKE-2: signal %q returned no entries", sig)
 			missing++
 		}
 	}
