@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package kuksa;
+
+option go_package = "parking-fee-service/gen/go/kuksa";
+
+// Datapoint represents a single vehicle signal value.
+message Datapoint {
+  int64 timestamp = 1;
+
+  oneof value {
+    string string_value = 10;
+    bool bool_value = 11;
+    int32 int32_value = 12;
+    int64 int64_value = 13;
+    uint32 uint32_value = 14;
+    uint64 uint64_value = 15;
+    float float_value = 16;
+    double double_value = 17;
+  }
+}
+
+// DataEntry associates a path (VSS signal name) with its current value.
+message DataEntry {
+  string path = 1;
+  Datapoint value = 2;
+}
+
+// GetRequest is used to read signal values from the databroker.
+message GetRequest {
+  repeated string paths = 1;
+}
+
+// GetResponse contains the requested signal entries.
+message GetResponse {
+  repeated DataEntry entries = 1;
+}
+
+// SetRequest is used to write signal values to the databroker.
+message SetRequest {
+  repeated DataEntry entries = 1;
+}
+
+// SetResponse indicates the result of a set operation.
+message SetResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// SubscribeRequest subscribes to changes on specified signal paths.
+message SubscribeRequest {
+  repeated string paths = 1;
+}
+
+// SubscribeResponse streams signal updates.
+message SubscribeResponse {
+  repeated DataEntry entries = 1;
+}
+
+// VAL provides a simplified interface for reading, writing, and subscribing
+// to vehicle signals via the Kuksa Databroker.
+service VAL {
+  // Get reads the current value of one or more signals.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // Set writes values to one or more signals.
+  rpc Set(SetRequest) returns (SetResponse);
+
+  // Subscribe streams updates for the specified signal paths.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}

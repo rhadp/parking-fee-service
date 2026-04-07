@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package update;
+
+option go_package = "parking-fee-service/gen/go/update";
+
+// Adapter lifecycle states
+enum AdapterState {
+  UNKNOWN = 0;
+  DOWNLOADING = 1;
+  INSTALLING = 2;
+  RUNNING = 3;
+  STOPPED = 4;
+  ERROR = 5;
+  OFFLOADING = 6;
+}
+
+message InstallAdapterRequest {
+  string image_ref = 1;
+  string checksum_sha256 = 2;
+}
+
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  AdapterState state = 3;
+}
+
+message WatchAdapterStatesRequest {
+  string adapter_id = 1;
+}
+
+message AdapterStateEvent {
+  string adapter_id = 1;
+  AdapterState old_state = 2;
+  AdapterState new_state = 3;
+  int64 timestamp = 4;
+}
+
+message ListAdaptersRequest {}
+
+message ListAdaptersResponse {
+  repeated AdapterInfo adapters = 1;
+}
+
+message AdapterInfo {
+  string adapter_id = 1;
+  string image_ref = 2;
+  AdapterState state = 3;
+}
+
+message RemoveAdapterRequest {
+  string adapter_id = 1;
+}
+
+message RemoveAdapterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetAdapterStatusRequest {
+  string adapter_id = 1;
+}
+
+message GetAdapterStatusResponse {
+  AdapterInfo adapter = 1;
+}
+
+// UpdateService manages adapter lifecycle on the vehicle.
+service UpdateService {
+  // InstallAdapter downloads and installs an adapter from a container image.
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+
+  // WatchAdapterStates streams adapter state transitions.
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+
+  // ListAdapters returns all known adapters and their states.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+
+  // RemoveAdapter stops and removes an adapter.
+  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
+
+  // GetAdapterStatus returns the current status of a single adapter.
+  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
+}

@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package adapter;
+
+option go_package = "parking-fee-service/gen/go/adapter";
+
+message StartSessionRequest {
+  string vehicle_id = 1;
+  string zone_id = 2;
+}
+
+message StartSessionResponse {
+  string session_id = 1;
+  bool active = 2;
+  int64 start_time = 3;
+  string zone_id = 4;
+}
+
+message StopSessionRequest {
+  string session_id = 1;
+}
+
+message StopSessionResponse {
+  string session_id = 1;
+  bool active = 2;
+  int64 end_time = 3;
+}
+
+message GetStatusRequest {
+  string session_id = 1;
+}
+
+message SessionStatus {
+  string session_id = 1;
+  bool active = 2;
+  int64 start_time = 3;
+  string zone_id = 4;
+}
+
+message GetRateRequest {
+  string operator_id = 1;
+}
+
+message ParkingRate {
+  string operator_id = 1;
+  string rate_type = 2;  // "per_hour" or "flat_fee"
+  double amount = 3;
+  string currency = 4;
+}
+
+// AdapterService provides the parking operator adaptor interface.
+service AdapterService {
+  // StartSession begins a new parking session.
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+
+  // StopSession ends an active parking session.
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+
+  // GetStatus returns the current status of a parking session.
+  rpc GetStatus(GetStatusRequest) returns (SessionStatus);
+
+  // GetRate returns the parking rate for an operator.
+  rpc GetRate(GetRateRequest) returns (ParkingRate);
+}
