@@ -75,23 +75,23 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd deployments && podman compose up -d kuksa-databroker && sleep 3 && podman compose logs kuksa-databroker | grep -i "listening" && podman compose down
     ```
 
-- [ ] 3. Validate VSS overlay
+- [x] 3. Validate VSS overlay
   - Validate and complete the VSS overlay file to ensure all 3 custom signals are correctly defined and loadable by the databroker.
 
-  - [ ] 3.1 Verify `Vehicle.Parking.SessionActive` is defined as type `boolean` in the overlay file
+  - [x] 3.1 Verify `Vehicle.Parking.SessionActive` is defined as type `boolean` in the overlay file
     - _Requirements: 02-REQ-6.1_
 
-  - [ ] 3.2 Verify `Vehicle.Command.Door.Lock` is defined as type `string` in the overlay file
+  - [x] 3.2 Verify `Vehicle.Command.Door.Lock` is defined as type `string` in the overlay file
     - _Requirements: 02-REQ-6.2_
 
-  - [ ] 3.3 Verify `Vehicle.Command.Door.Response` is defined as type `string` in the overlay file
+  - [x] 3.3 Verify `Vehicle.Command.Door.Response` is defined as type `string` in the overlay file
     - _Requirements: 02-REQ-6.3_
 
-  - [ ] 3.4 Fix any issues found in the overlay file (incorrect types, missing entries, syntax errors)
+  - [x] 3.4 Fix any issues found in the overlay file (incorrect types, missing entries, syntax errors)
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] The databroker loads the overlay and all 3 custom signals are queryable via metadata
+  - [x] 3.V Verify task group 3
+    - [x] The databroker loads the overlay and all 3 custom signals are queryable via metadata
     ```
     cd deployments && podman compose up -d kuksa-databroker && sleep 3 && echo "Query custom signals via grpcurl or kuksa-client" && podman compose down
     ```
