@@ -34,13 +34,13 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [x] 5.3 Implement `NatsClient::publish_registration()`, `publish_response()`, `publish_telemetry()` for outbound NATS messages _Requirements:_ [04-REQ-4.1], [04-REQ-4.2], [04-REQ-7.1], [04-REQ-8.1]
   - [x] 5.4 Add `tracing` instrumentation to all NATS operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.3], [04-REQ-10.4]
   - [x] 5.V Verify task group 5: `cargo build -p cloud-gateway-client` compiles without errors
-- [ ] 6. Implement DATA_BROKER client
-  - [ ] 6.1 Implement `BrokerClient::connect()` for gRPC connection to DATA_BROKER _Requirements:_ [04-REQ-3.1], [04-REQ-3.E1]
-  - [ ] 6.2 Implement `BrokerClient::write_command()` to write to `Vehicle.Command.Door.Lock` _Requirements:_ [04-REQ-6.3]
-  - [ ] 6.3 Implement `BrokerClient::subscribe_responses()` to observe `Vehicle.Command.Door.Response` _Requirements:_ [04-REQ-3.3], [04-REQ-7.1], [04-REQ-7.2], [04-REQ-7.E1]
-  - [ ] 6.4 Implement `BrokerClient::subscribe_telemetry()` to observe IsLocked, Latitude, Longitude, SessionActive signals _Requirements:_ [04-REQ-3.2]
-  - [ ] 6.5 Add `tracing` instrumentation to all DATA_BROKER operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.4]
-  - [ ] 6.V Verify task group 6: `cargo build -p cloud-gateway-client` compiles without errors
+- [x] 6. Implement DATA_BROKER client
+  - [x] 6.1 Implement `BrokerClient::connect()` for gRPC connection to DATA_BROKER _Requirements:_ [04-REQ-3.1], [04-REQ-3.E1]
+  - [x] 6.2 Implement `BrokerClient::write_command()` to write to `Vehicle.Command.Door.Lock` _Requirements:_ [04-REQ-6.3]
+  - [x] 6.3 Implement `BrokerClient::subscribe_responses()` to observe `Vehicle.Command.Door.Response` _Requirements:_ [04-REQ-3.3], [04-REQ-7.1], [04-REQ-7.2], [04-REQ-7.E1]
+  - [x] 6.4 Implement `BrokerClient::subscribe_telemetry()` to observe IsLocked, Latitude, Longitude, SessionActive signals _Requirements:_ [04-REQ-3.2]
+  - [x] 6.5 Add `tracing` instrumentation to all DATA_BROKER operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.4]
+  - [x] 6.V Verify task group 6: `cargo build -p cloud-gateway-client` compiles without errors
 - [ ] 7. Implement main and wiring
   - [ ] 7.1 Implement `main()` with startup sequencing: config -> NATS -> DATA_BROKER -> registration -> spawn tasks _Requirements:_ [04-REQ-9.1], [04-REQ-9.2]
   - [ ] 7.2 Implement command processing loop: receive from NATS, validate, write to DATA_BROKER _Requirements:_ [04-REQ-5.2], [04-REQ-6.3]

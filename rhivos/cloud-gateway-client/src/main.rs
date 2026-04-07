@@ -1,3 +1,4 @@
+pub mod broker_client;
 pub mod command_validator;
 pub mod config;
 pub mod errors;
