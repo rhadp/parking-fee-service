@@ -20,26 +20,60 @@ import (
 func TestStartupLogging(t *testing.T) {
 	binary := buildTestBinary(t)
 
-	cfgPath := writeTestConfig(t, 0, "nats://localhost:4222")
+	port := getFreePort(t)
+	cfgPath := writeTestConfig(t, port, "nats://localhost:4222")
 
 	cmd := exec.Command(binary)
 	cmd.Env = append(os.Environ(), "CONFIG_PATH="+cfgPath)
 
-	output, err := cmd.CombinedOutput()
-	// The binary will fail to connect to NATS (no server running in this test),
-	// but startup logging happens before NATS connection, so we check what was logged.
-	// Actually NATS connect happens after config load, so it will log config info
-	// then fail on NATS. Let's just verify the output contains key startup info.
-	_ = err // expected non-zero exit (NATS unreachable)
+	var outBuf strings.Builder
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &outBuf
 
-	out := string(output)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start service: %v", err)
+	}
+
+	// Wait for the service to be ready by polling the health endpoint.
+	healthURL := fmt.Sprintf("http://localhost:%d/health", port)
+	ready := false
+	for i := 0; i < 50; i++ {
+		resp, err := http.Get(healthURL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				ready = true
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !ready {
+		cmd.Process.Kill()
+		t.Fatalf("service did not become ready; output: %s", outBuf.String())
+	}
+
+	// Kill the process and capture output.
+	cmd.Process.Signal(syscall.SIGTERM)
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		cmd.Process.Kill()
+	}
+
+	out := outBuf.String()
 
 	// Verify startup logs contain port, NATS URL, and token info.
-	// The service logs config info before attempting NATS connection,
-	// but with the retry logic it may or may not have logged before failing.
-	// We check for what we can.
 	if !strings.Contains(out, "nats://") && !strings.Contains(out, "4222") {
 		t.Errorf("startup log missing NATS URL, got: %s", out)
+	}
+	if !strings.Contains(out, fmt.Sprintf("%d", port)) {
+		t.Errorf("startup log missing port %d, got: %s", port, out)
+	}
+	if !strings.Contains(out, "token") {
+		t.Errorf("startup log missing token info, got: %s", out)
 	}
 }
 
