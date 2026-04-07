@@ -82,34 +82,115 @@ pub trait ParkingOperator {
     async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError>;
 }
 
+/// Maximum number of retries after the initial attempt.
+const MAX_RETRIES: usize = 3;
+
+/// Backoff delays for retries: 1s, 2s, 4s.
+const BACKOFF_DELAYS_MS: [u64; 3] = [1000, 2000, 4000];
+
 /// HTTP-backed PARKING_OPERATOR REST client.
 pub struct OperatorClient {
-    _client: reqwest::Client,
-    _base_url: String,
+    client: reqwest::Client,
+    base_url: String,
 }
 
 impl OperatorClient {
     /// Create a new OperatorClient targeting the given base URL.
     pub fn new(base_url: &str) -> Self {
         Self {
-            _client: reqwest::Client::new(),
-            _base_url: base_url.to_string(),
+            client: reqwest::Client::new(),
+            base_url: base_url.trim_end_matches('/').to_string(),
         }
+    }
+
+    /// Execute an HTTP POST with JSON body and retry logic.
+    ///
+    /// Retries up to `MAX_RETRIES` times with exponential backoff on
+    /// connection errors, timeouts, or non-200 HTTP status codes.
+    async fn post_with_retry<Req, Resp>(
+        &self,
+        path: &str,
+        body: &Req,
+    ) -> Result<Resp, OperatorError>
+    where
+        Req: Serialize + ?Sized,
+        Resp: serde::de::DeserializeOwned,
+    {
+        let url = format!("{}{}", self.base_url, path);
+        let mut last_error = String::new();
+
+        for attempt in 0..=MAX_RETRIES {
+            if attempt > 0 {
+                let delay_ms = BACKOFF_DELAYS_MS[attempt - 1];
+                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+            }
+
+            let result = self.client.post(&url).json(body).send().await;
+
+            match result {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        return response.json::<Resp>().await.map_err(|e| {
+                            OperatorError::ParseError(format!(
+                                "failed to parse response: {e}"
+                            ))
+                        });
+                    }
+                    // Non-200 status — treat as failure, retry
+                    last_error = format!(
+                        "non-200 status {} from {path}",
+                        response.status()
+                    );
+                    tracing::warn!(
+                        attempt = attempt + 1,
+                        status = %response.status(),
+                        "operator REST call failed, will retry"
+                    );
+                }
+                Err(e) => {
+                    last_error = format!("HTTP error: {e}");
+                    tracing::warn!(
+                        attempt = attempt + 1,
+                        error = %e,
+                        "operator REST call failed, will retry"
+                    );
+                }
+            }
+        }
+
+        Err(OperatorError::RetriesExhausted(last_error))
     }
 }
 
 impl ParkingOperator for OperatorClient {
     async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!("OperatorClient::start_session not yet implemented")
+        let request = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp: chrono_timestamp(),
+        };
+        self.post_with_retry("/parking/start", &request).await
     }
 
-    async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        todo!("OperatorClient::stop_session not yet implemented")
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let request = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp: chrono_timestamp(),
+        };
+        self.post_with_retry("/parking/stop", &request).await
     }
+}
+
+/// Returns the current Unix timestamp in seconds.
+fn chrono_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 #[cfg(test)]
