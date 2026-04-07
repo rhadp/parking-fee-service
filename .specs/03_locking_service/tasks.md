@@ -167,33 +167,33 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] All previously passing tests still pass: `make test`
 
-- [ ] 4. Integration tests (live DATA_BROKER)
-  - [ ] 4.1 Create integration test module
+- [x] 4. Integration tests (live DATA_BROKER)
+  - [x] 4.1 Create integration test module
     - Create `tests/locking-service/` Go module with shared test helpers
     - Helpers: start/stop databroker (compose), start/stop locking-service binary, gRPC connect, signal set/get
     - Add `go.work` entry for `./tests/locking-service`
     - _Test Spec: TS-03-1, TS-03-13_
 
-  - [ ] 4.2 Write subscription and initial state tests
+  - [x] 4.2 Write subscription and initial state tests
     - `TestCommandSubscription` -- TS-03-1: verify service receives commands via subscription
     - `TestInitialStateFalse` -- TS-03-13: verify IsLocked = false after startup
     - _Test Spec: TS-03-1, TS-03-13_
 
-  - [ ] 4.3 Write integration smoke tests
+  - [x] 4.3 Write integration smoke tests
     - `TestSmokeLockHappyPath` -- TS-03-SMOKE-1: end-to-end lock
     - `TestSmokeUnlockHappyPath` -- TS-03-SMOKE-2: end-to-end unlock
     - `TestSmokeLockRejectedMoving` -- TS-03-SMOKE-3: lock rejected when vehicle moving
     - _Test Spec: TS-03-SMOKE-1, TS-03-SMOKE-2, TS-03-SMOKE-3_
 
-  - [ ] 4.4 Write connection retry test
+  - [x] 4.4 Write connection retry test
     - `TestConnectionRetryFailure` -- TS-03-E1: service exits non-zero when DATA_BROKER unreachable
     - _Test Spec: TS-03-E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All integration tests pass: `cd tests/locking-service && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos/locking-service && cargo test`
-    - [ ] All property tests still pass: `cd rhivos/locking-service && cargo test -- --ignored`
-    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+  - [x] 4.V Verify task group 4
+    - [x] All integration tests pass: `cd tests/locking-service && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos/locking-service && cargo test`
+    - [x] All property tests still pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] All previously passing tests still pass: `make test`
 
 - [ ] 5. Wiring verification
