@@ -1,3 +1,12 @@
+pub mod command_validator;
+pub mod config;
+pub mod errors;
+pub mod models;
+pub mod telemetry;
+
+#[cfg(test)]
+mod tests;
+
 use std::env;
 use std::process;
 
@@ -11,10 +20,3 @@ fn main() {
     println!("cloud-gateway-client v0.1.0");
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_compiles() {
-        assert!(true);
-    }
-}
