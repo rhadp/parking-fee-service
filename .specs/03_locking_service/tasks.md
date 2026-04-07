@@ -196,24 +196,26 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] All previously passing tests still pass: `make test`
 
-- [ ] 5. Wiring verification
-  - [ ] 5.1 Verify all requirements traced to tests
+- [x] 5. Wiring verification
+  - [x] 5.1 Verify all requirements traced to tests
     - Confirm every 03-REQ-*.* has at least one passing test (unit, property, or integration)
     - Review coverage matrix in test_spec.md against actual test results
     - _Requirements: all 03-REQ-*_
+    - **Note:** 03-REQ-1.E2 (TS-03-E2) has no test — gap documented in `docs/errata/03_subscription_stream_interrupted_test_gap.md`
 
-  - [ ] 5.2 Verify all test spec entries implemented
+  - [x] 5.2 Verify all test spec entries implemented
     - Confirm all TS-03-* entries have corresponding test functions
     - Confirm all TS-03-P* property tests exist and pass under `--ignored`
     - Confirm all TS-03-SMOKE-* integration tests exist and pass
     - _Test Spec: all TS-03-*_
+    - **Note:** TS-03-E2 has no corresponding test function — gap documented in errata
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Full test suite passes: `make test`
-    - [ ] Integration tests pass: `cd tests/locking-service && go test -v ./...`
-    - [ ] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
-    - [ ] No linter warnings across workspace
-    - [ ] All requirements 03-REQ-1 through 03-REQ-7 acceptance criteria verified
+  - [x] 5.V Verify task group 5
+    - [x] Full test suite passes: `make test` (pre-existing failure in parking-fee-service/handler unrelated to locking-service; all locking-service tests pass)
+    - [x] Integration tests pass: `cd tests/locking-service && go test -v ./...`
+    - [x] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
+    - [x] No linter warnings across workspace
+    - [x] All requirements 03-REQ-1 through 03-REQ-7 acceptance criteria verified (except 03-REQ-1.E2 — see errata)
 
 ### Checkbox States
 
