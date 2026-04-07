@@ -40,7 +40,29 @@ impl std::error::Error for ConfigError {}
 ///
 /// Returns `ConfigError::InvalidGrpcPort` if `GRPC_PORT` is non-numeric.
 pub fn load_config() -> Result<Config, ConfigError> {
-    todo!("load_config not yet implemented")
+    let parking_operator_url = std::env::var("PARKING_OPERATOR_URL")
+        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+
+    let data_broker_addr = std::env::var("DATA_BROKER_ADDR")
+        .unwrap_or_else(|_| "http://localhost:55556".to_string());
+
+    let grpc_port_str = std::env::var("GRPC_PORT").unwrap_or_else(|_| "50053".to_string());
+    let grpc_port: u16 = grpc_port_str
+        .parse()
+        .map_err(|_| ConfigError::InvalidGrpcPort(grpc_port_str))?;
+
+    let vehicle_id =
+        std::env::var("VEHICLE_ID").unwrap_or_else(|_| "DEMO-VIN-001".to_string());
+
+    let zone_id = std::env::var("ZONE_ID").unwrap_or_else(|_| "zone-demo-1".to_string());
+
+    Ok(Config {
+        parking_operator_url,
+        data_broker_addr,
+        grpc_port,
+        vehicle_id,
+        zone_id,
+    })
 }
 
 #[cfg(test)]

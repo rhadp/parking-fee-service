@@ -88,24 +88,24 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [ ] 2. Config and session state modules
-  - [ ] 2.1 Implement config module
+- [x] 2. Config and session state modules
+  - [x] 2.1 Implement config module
     - Read all 5 env vars with defaults: PARKING_OPERATOR_URL, DATA_BROKER_ADDR, GRPC_PORT, VEHICLE_ID, ZONE_ID
     - Validate GRPC_PORT is a valid u16
     - Return Config struct or error
     - _Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.3, 08-REQ-7.4, 08-REQ-7.5, 08-REQ-7.E1_
 
-  - [ ] 2.2 Implement session module
+  - [x] 2.2 Implement session module
     - Define `SessionState`, `Rate`, `Session` structs
     - Implement `Session::new()`, `start()`, `stop()`, `is_active()`, `status()`, `rate()`
     - start() populates all fields, stop() clears them
     - _Requirements: 08-REQ-6.1, 08-REQ-6.2, 08-REQ-6.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and session tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- config session`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
+  - [x] 2.V Verify task group 2
+    - [x] Config and session tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- config session`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
 
 - [ ] 3. Operator REST client
   - [ ] 3.1 Implement operator module

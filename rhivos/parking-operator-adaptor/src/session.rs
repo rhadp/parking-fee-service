@@ -21,45 +21,52 @@ pub struct SessionState {
 /// Wraps an `Option<SessionState>`. When no session is active,
 /// the inner value is `None`.
 pub struct Session {
-    #[allow(dead_code)]
     state: Option<SessionState>,
 }
 
 impl Session {
     /// Create a new Session with no active session.
     pub fn new() -> Self {
-        todo!("Session::new not yet implemented")
+        Self { state: None }
     }
 
     /// Returns `true` if a session is currently active.
     pub fn is_active(&self) -> bool {
-        todo!("Session::is_active not yet implemented")
+        self.state.as_ref().is_some_and(|s| s.active)
     }
 
     /// Start a new session with the given fields.
     pub fn start(
         &mut self,
-        _session_id: String,
-        _zone_id: String,
-        _start_time: i64,
-        _rate: Rate,
+        session_id: String,
+        zone_id: String,
+        start_time: i64,
+        rate: Rate,
     ) {
-        todo!("Session::start not yet implemented")
+        self.state = Some(SessionState {
+            session_id,
+            zone_id,
+            start_time,
+            rate,
+            active: true,
+        });
     }
 
     /// Stop the current session. Returns the session_id if was active.
     pub fn stop(&mut self) -> Option<String> {
-        todo!("Session::stop not yet implemented")
+        let session_id = self.state.as_ref().map(|s| s.session_id.clone());
+        self.state = None;
+        session_id
     }
 
     /// Get the current session state, if active.
     pub fn status(&self) -> Option<&SessionState> {
-        todo!("Session::status not yet implemented")
+        self.state.as_ref().filter(|s| s.active)
     }
 
     /// Get the current rate, if a session is active.
     pub fn rate(&self) -> Option<&Rate> {
-        todo!("Session::rate not yet implemented")
+        self.state.as_ref().filter(|s| s.active).map(|s| &s.rate)
     }
 }
 
