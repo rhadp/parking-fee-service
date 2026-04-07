@@ -1,4 +1,4 @@
-/// Configuration module for reading and validating environment variables.
+//! Configuration module for reading and validating environment variables.
 use crate::errors::ConfigError;
 
 /// Service configuration parsed from environment variables.
@@ -17,13 +17,15 @@ impl Config {
     /// Applies defaults for optional variables.
     pub fn from_env() -> Result<Config, ConfigError> {
         let vin = std::env::var("VIN").map_err(|_| ConfigError::MissingVin)?;
-        let nats_url = std::env::var("NATS_URL")
-            .unwrap_or_else(|_| "nats://localhost:4222".to_string());
+        if vin.is_empty() {
+            return Err(ConfigError::MissingVin);
+        }
+        let nats_url =
+            std::env::var("NATS_URL").unwrap_or_else(|_| "nats://localhost:4222".to_string());
         let databroker_addr = std::env::var("DATABROKER_ADDR")
             .unwrap_or_else(|_| "http://localhost:55556".to_string());
-        let bearer_token = std::env::var("BEARER_TOKEN")
-            .unwrap_or_else(|_| "demo-token".to_string());
-
+        let bearer_token =
+            std::env::var("BEARER_TOKEN").unwrap_or_else(|_| "demo-token".to_string());
         Ok(Config {
             vin,
             nats_url,

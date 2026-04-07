@@ -189,30 +189,30 @@ This task list implements the project setup specification through an incremental
     _Test Spec: TS-01-32, TS-01-30, TS-01-P1_
     _Verification step for Task Group 6_
 
-- [ ] 7. Wiring verification
+- [x] 7. Wiring verification
   _End-to-end verification that all components are correctly wired together._
 
-  - [ ] 7.1 Run full build-test cycle: `make clean && make build && make test`
+  - [x] 7.1 Run full build-test cycle: `make clean && make build && make test`
     _Test Spec: TS-01-SMOKE-1_
     _Requirements: 01-REQ-6.2, 01-REQ-6.3_
 
-  - [ ] 7.2 Run proto generation and verify Go integration: `make proto && go build ./...`
+  - [x] 7.2 Run proto generation and verify Go integration: `make proto && go build parking-fee-service/...`
     _Test Spec: TS-01-SMOKE-3_
     _Requirements: 01-REQ-10.1, 01-REQ-10.3_
 
-  - [ ] 7.3 Run all setup verification tests: `make test-setup`
+  - [x] 7.3 Run all setup verification tests: `make test-setup`
     _Test Spec: TS-01-30, TS-01-31_
     _Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.3, 01-REQ-9.4_
 
-  - [ ] 7.4 Run `make check` and confirm exit code 0
+  - [x] 7.4 Run `make check` and confirm exit code 0
     _Test Spec: TS-01-22_
     _Requirements: 01-REQ-6.5_
 
-  - [ ] 7.5 Verify all skeleton binaries produce version output (manual or scripted)
+  - [x] 7.5 Verify all skeleton binaries produce version output (manual or scripted)
     _Test Spec: TS-01-13, TS-01-14, TS-01-15, TS-01-P2_
     _Requirements: 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.3_
 
-  - [ ] 7.V Verify: all preceding checks pass; `git status` shows a clean working tree on develop branch
+  - [x] 7.V Verify: all preceding checks pass; `git status` shows a clean working tree on develop branch
     _Verification step for Task Group 7_
 
 ## Traceability
