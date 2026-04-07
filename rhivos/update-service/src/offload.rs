@@ -7,21 +7,60 @@ use std::time::Duration;
 /// timeout and clean them up (transition to OFFLOADING, rm, rmi, remove from
 /// state).
 pub async fn run_offload_check(
-    _state_mgr: &Arc<StateManager>,
-    _podman: &Arc<dyn PodmanExecutor>,
-    _inactivity_timeout: Duration,
+    state_mgr: &Arc<StateManager>,
+    podman: &Arc<dyn PodmanExecutor>,
+    inactivity_timeout: Duration,
 ) {
-    todo!("run_offload_check not yet implemented")
+    use crate::adapter::AdapterState;
+
+    let candidates = state_mgr.get_offload_candidates(inactivity_timeout);
+
+    for candidate in candidates {
+        // Transition to OFFLOADING
+        let _ = state_mgr.transition(
+            &candidate.adapter_id,
+            AdapterState::Offloading,
+            None,
+        );
+
+        // Remove container
+        if let Err(e) = podman.rm(&candidate.adapter_id).await {
+            let _ = state_mgr.transition(
+                &candidate.adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+            continue;
+        }
+
+        // Remove image
+        if let Err(e) = podman.rmi(&candidate.image_ref).await {
+            let _ = state_mgr.transition(
+                &candidate.adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+            continue;
+        }
+
+        // Remove from in-memory state
+        let _ = state_mgr.remove_adapter(&candidate.adapter_id);
+    }
 }
 
 /// Spawn a background task that periodically runs offload checks.
 pub fn spawn_offload_timer(
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
-    _inactivity_timeout: Duration,
-    _check_interval: Duration,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
+    inactivity_timeout: Duration,
+    check_interval: Duration,
 ) -> tokio::task::JoinHandle<()> {
-    todo!("spawn_offload_timer not yet implemented")
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(check_interval).await;
+            run_offload_check(&state_mgr, &podman, inactivity_timeout).await;
+        }
+    })
 }
 
 #[cfg(test)]

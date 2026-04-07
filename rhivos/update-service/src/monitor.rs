@@ -9,11 +9,36 @@ use std::sync::Arc;
 /// - Exit code non-zero -> transition to ERROR.
 /// - Wait failure -> transition to ERROR.
 pub async fn monitor_container(
-    _adapter_id: &str,
-    _state_mgr: &Arc<StateManager>,
-    _podman: &Arc<dyn PodmanExecutor>,
+    adapter_id: &str,
+    state_mgr: &Arc<StateManager>,
+    podman: &Arc<dyn PodmanExecutor>,
 ) {
-    todo!("monitor_container not yet implemented")
+    match podman.wait(adapter_id).await {
+        Ok(0) => {
+            // Clean exit: transition to STOPPED
+            let _ = state_mgr.transition(
+                adapter_id,
+                crate::adapter::AdapterState::Stopped,
+                None,
+            );
+        }
+        Ok(exit_code) => {
+            // Non-zero exit: transition to ERROR
+            let _ = state_mgr.transition(
+                adapter_id,
+                crate::adapter::AdapterState::Error,
+                Some(format!("container exited with code {exit_code}")),
+            );
+        }
+        Err(e) => {
+            // Wait failure: transition to ERROR
+            let _ = state_mgr.transition(
+                adapter_id,
+                crate::adapter::AdapterState::Error,
+                Some(e.message),
+            );
+        }
+    }
 }
 
 #[cfg(test)]
