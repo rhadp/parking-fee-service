@@ -1,0 +1,7 @@
+# Workspace-level Cargo configuration.
+#
+# RUST_TEST_THREADS=1 is required because the cloud-gateway-client unit tests
+# for config module manipulate process-wide environment variables (VIN,
+# NATS_URL, etc.) and are not safe to run concurrently.
+[env]
+RUST_TEST_THREADS = "1"

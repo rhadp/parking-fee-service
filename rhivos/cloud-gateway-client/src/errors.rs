@@ -1,4 +1,4 @@
-/// Error types for the cloud-gateway-client service.
+//! Error types for the cloud-gateway-client service.
 
 /// Configuration errors.
 #[derive(Debug, PartialEq)]
