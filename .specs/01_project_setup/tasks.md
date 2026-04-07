@@ -89,26 +89,26 @@ This task list implements the project setup specification through an incremental
   - [x] 2.V Verify: run `go test -v ./...` in `tests/setup/` and confirm directory structure and workspace tests pass
     _Verification step for Task Group 2_
 
-- [ ] 3. Implement skeleton binaries and placeholder tests
+- [x] 3. Implement skeleton binaries and placeholder tests
   _Add version printing, flag handling, and placeholder tests to all skeletons._
 
-  - [ ] 3.1 Implement Rust skeleton `main.rs` for each crate: print `"{component-name} v0.1.0"` to stdout, exit 0; handle unknown flags with usage message to stderr, exit non-zero
+  - [x] 3.1 Implement Rust skeleton `main.rs` for each crate: print `"{component-name} v0.1.0"` to stdout, exit 0; handle unknown flags with usage message to stderr, exit non-zero
     _Test Spec: TS-01-13, TS-01-15_
     _Requirements: 01-REQ-4.1, 01-REQ-4.3, 01-REQ-4.4, 01-REQ-4.E1_
 
-  - [ ] 3.2 Add placeholder `#[test]` to each Rust crate (`it_compiles` test)
+  - [x] 3.2 Add placeholder `#[test]` to each Rust crate (`it_compiles` test)
     _Test Spec: TS-01-26_
     _Requirements: 01-REQ-8.1_
 
-  - [ ] 3.3 Implement Go skeleton `main.go` for each module: print `"{component-name} v0.1.0"` to stdout, exit 0
+  - [x] 3.3 Implement Go skeleton `main.go` for each module: print `"{component-name} v0.1.0"` to stdout, exit 0
     _Test Spec: TS-01-14_
     _Requirements: 01-REQ-4.2, 01-REQ-4.4_
 
-  - [ ] 3.4 Add placeholder test to each Go module (`TestMain` or `TestCompiles`)
+  - [x] 3.4 Add placeholder test to each Go module (`TestMain` or `TestCompiles`)
     _Test Spec: TS-01-27_
     _Requirements: 01-REQ-8.2_
 
-  - [ ] 3.V Verify: run `cargo test --workspace` in `rhivos/` and `go test ./...` from repo root; confirm all tests pass
+  - [x] 3.V Verify: run `cargo test --workspace` in `rhivos/` and `go test ./...` from repo root; confirm all tests pass
     _Test Spec: TS-01-9, TS-01-12, TS-01-28, TS-01-29_
     _Verification step for Task Group 3_
 
