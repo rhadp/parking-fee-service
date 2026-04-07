@@ -490,8 +490,9 @@ mod integration_tests {
 
     /// Re-include the proto for direct gRPC helpers used by tests.
     #[allow(clippy::enum_variant_names)]
+    #[allow(clippy::doc_lazy_continuation)]
     mod kuksa {
-        tonic::include_proto!("kuksa");
+        tonic::include_proto!("kuksa.val.v2");
     }
 
     use kuksa::val_client::ValClient;
@@ -504,6 +505,13 @@ mod integration_tests {
             databroker_addr: "http://localhost:55556".to_string(),
             bearer_token: "demo-token".to_string(),
         }
+    }
+
+    /// Helper: create a SignalID from a path string.
+    fn signal_id(path: &str) -> Option<kuksa::SignalId> {
+        Some(kuksa::SignalId {
+            signal: Some(kuksa::signal_id::Signal::Path(path.to_string())),
+        })
     }
 
     /// Helper: connect a raw gRPC client to DATA_BROKER for test setup/verification.
@@ -519,15 +527,15 @@ mod integration_tests {
         path: &str,
     ) -> Option<String> {
         let resp = client
-            .get(kuksa::GetRequest {
-                paths: vec![path.to_string()],
+            .get_value(kuksa::GetValueRequest {
+                signal_id: signal_id(path),
             })
             .await
-            .expect("gRPC get failed");
-        let entry = resp.into_inner().entries.into_iter().next()?;
-        let dp = entry.value?;
-        match dp.value? {
-            kuksa::datapoint::Value::StringValue(s) => Some(s),
+            .expect("gRPC get_value failed");
+        let dp = resp.into_inner().data_point?;
+        let value = dp.value?;
+        match value.typed_value? {
+            kuksa::value::TypedValue::String(s) => Some(s),
             _ => None,
         }
     }
@@ -538,19 +546,20 @@ mod integration_tests {
         path: &str,
         value: &str,
     ) {
-        let resp = client
-            .set(kuksa::SetRequest {
-                entries: vec![kuksa::DataEntry {
-                    path: path.to_string(),
-                    value: Some(kuksa::Datapoint {
-                        timestamp: 0,
-                        value: Some(kuksa::datapoint::Value::StringValue(value.to_string())),
+        client
+            .publish_value(kuksa::PublishValueRequest {
+                signal_id: signal_id(path),
+                data_point: Some(kuksa::Datapoint {
+                    timestamp: None,
+                    value: Some(kuksa::Value {
+                        typed_value: Some(kuksa::value::TypedValue::String(
+                            value.to_string(),
+                        )),
                     }),
-                }],
+                }),
             })
             .await
-            .expect("gRPC set failed");
-        assert!(resp.into_inner().success, "DATA_BROKER set_string failed");
+            .expect("gRPC publish_value (string) failed");
     }
 
     /// Helper: set a boolean signal in DATA_BROKER.
@@ -559,19 +568,18 @@ mod integration_tests {
         path: &str,
         value: bool,
     ) {
-        let resp = client
-            .set(kuksa::SetRequest {
-                entries: vec![kuksa::DataEntry {
-                    path: path.to_string(),
-                    value: Some(kuksa::Datapoint {
-                        timestamp: 0,
-                        value: Some(kuksa::datapoint::Value::BoolValue(value)),
+        client
+            .publish_value(kuksa::PublishValueRequest {
+                signal_id: signal_id(path),
+                data_point: Some(kuksa::Datapoint {
+                    timestamp: None,
+                    value: Some(kuksa::Value {
+                        typed_value: Some(kuksa::value::TypedValue::Bool(value)),
                     }),
-                }],
+                }),
             })
             .await
-            .expect("gRPC set failed");
-        assert!(resp.into_inner().success, "DATA_BROKER set_bool failed");
+            .expect("gRPC publish_value (bool) failed");
     }
 
     /// Helper: clear a string signal in DATA_BROKER by writing an empty string.
@@ -580,14 +588,16 @@ mod integration_tests {
         path: &str,
     ) {
         let _ = client
-            .set(kuksa::SetRequest {
-                entries: vec![kuksa::DataEntry {
-                    path: path.to_string(),
-                    value: Some(kuksa::Datapoint {
-                        timestamp: 0,
-                        value: Some(kuksa::datapoint::Value::StringValue(String::new())),
+            .publish_value(kuksa::PublishValueRequest {
+                signal_id: signal_id(path),
+                data_point: Some(kuksa::Datapoint {
+                    timestamp: None,
+                    value: Some(kuksa::Value {
+                        typed_value: Some(kuksa::value::TypedValue::String(
+                            String::new(),
+                        )),
                     }),
-                }],
+                }),
             })
             .await;
     }
@@ -714,7 +724,9 @@ mod integration_tests {
             .expect("NATS subscribe failed");
 
         // Start the response relay: subscribe to DATA_BROKER responses,
-        // then forward to NATS.
+        // then forward to NATS.  The v2 Subscribe API sends current values
+        // immediately on subscription.  We forward all of them so we can
+        // filter on the NATS side for the specific message we care about.
         let mut response_rx = broker_client
             .subscribe_responses()
             .await
@@ -722,7 +734,8 @@ mod integration_tests {
 
         let nats_for_relay = nats_client.clone();
         let relay_handle = tokio::spawn(async move {
-            if let Some(json) = response_rx.recv().await {
+            // Forward multiple messages (initial value + actual update).
+            while let Some(json) = response_rx.recv().await {
                 nats_for_relay
                     .publish_response(&json)
                     .await
@@ -739,23 +752,27 @@ mod integration_tests {
         let mut grpc = broker_grpc_client().await;
         set_broker_string(&mut grpc, "Vehicle.Command.Door.Response", response_json).await;
 
-        // Wait for relay to complete.
-        tokio::time::timeout(Duration::from_secs(2), relay_handle)
-            .await
-            .expect("Timeout waiting for response relay")
-            .expect("Response relay task panicked");
-
-        // Verify the response was published to NATS.
-        let nats_msg = tokio::time::timeout(Duration::from_secs(2), response_sub.next())
-            .await
-            .expect("Timeout waiting for NATS response message")
-            .expect("No NATS response message received");
-
-        let received = std::str::from_utf8(&nats_msg.payload).expect("payload should be UTF-8");
-        assert_eq!(
-            received, response_json,
-            "NATS should receive the response JSON verbatim"
-        );
+        // Verify the expected response was published to NATS.
+        // The v2 API may deliver an initial value first, so we loop until
+        // we find the expected message or time out.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        let mut found = false;
+        while tokio::time::Instant::now() < deadline {
+            match tokio::time::timeout(Duration::from_secs(1), response_sub.next()).await {
+                Ok(Some(nats_msg)) => {
+                    let received =
+                        std::str::from_utf8(&nats_msg.payload).expect("payload should be UTF-8");
+                    if received == response_json {
+                        found = true;
+                        break;
+                    }
+                    // Skip stale/initial values
+                }
+                _ => break,
+            }
+        }
+        assert!(found, "NATS should receive the response JSON verbatim");
+        relay_handle.abort();
     }
 
     /// TS-04-12: End-to-end telemetry on signal change
@@ -798,7 +815,8 @@ mod integration_tests {
         let telem_vin = vin.to_string();
         let telem_handle = tokio::spawn(async move {
             let mut state = TelemetryState::new(telem_vin);
-            if let Some(signal_update) = telemetry_rx.recv().await {
+            // Process all incoming signal updates (initial + actual changes).
+            while let Some(signal_update) = telemetry_rx.recv().await {
                 if let Some(json) = state.update(signal_update) {
                     nats_for_telem
                         .publish_telemetry(&json)
@@ -820,25 +838,28 @@ mod integration_tests {
         )
         .await;
 
-        // Wait for telemetry processing to complete.
-        tokio::time::timeout(Duration::from_secs(2), telem_handle)
-            .await
-            .expect("Timeout waiting for telemetry processing")
-            .expect("Telemetry processing task panicked");
-
         // Verify the telemetry was published to NATS.
-        let nats_msg = tokio::time::timeout(Duration::from_secs(2), telem_sub.next())
-            .await
-            .expect("Timeout waiting for NATS telemetry message")
-            .expect("No NATS telemetry message received");
-
-        let json: serde_json::Value =
-            serde_json::from_slice(&nats_msg.payload).expect("telemetry should be valid JSON");
-        assert_eq!(json["vin"], vin, "Telemetry should contain correct VIN");
-        assert_eq!(
-            json["is_locked"], true,
-            "Telemetry should contain is_locked: true"
-        );
+        // The v2 API may deliver initial values first, so we loop until
+        // we find a message with is_locked: true or time out.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        let mut found = false;
+        while tokio::time::Instant::now() < deadline {
+            match tokio::time::timeout(Duration::from_secs(1), telem_sub.next()).await {
+                Ok(Some(nats_msg)) => {
+                    let json: serde_json::Value =
+                        serde_json::from_slice(&nats_msg.payload)
+                            .expect("telemetry should be valid JSON");
+                    if json["vin"] == vin && json["is_locked"] == true {
+                        found = true;
+                        break;
+                    }
+                    // Skip telemetry from initial/stale values
+                }
+                _ => break,
+            }
+        }
+        assert!(found, "NATS should receive telemetry with is_locked: true");
+        telem_handle.abort();
     }
 
     /// TS-04-13: Self-registration on startup

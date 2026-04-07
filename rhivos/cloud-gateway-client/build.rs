@@ -1,4 +1,4 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tonic_build::compile_protos("../../proto/kuksa/val.proto")?;
+    tonic_build::configure().compile(&["proto/kuksa/val.proto"], &["proto"])?;
     Ok(())
 }

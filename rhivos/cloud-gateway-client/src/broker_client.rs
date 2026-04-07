@@ -3,6 +3,8 @@
 //! Manages the DATA_BROKER gRPC connection. Provides methods to write command
 //! signals, subscribe to telemetry signals, and subscribe to command response
 //! signals. Encapsulates all tonic gRPC usage.
+//!
+//! Uses the Kuksa Databroker v2 gRPC API (kuksa.val.v2.VAL).
 
 use crate::config::Config;
 use crate::errors::BrokerError;
@@ -10,14 +12,17 @@ use crate::models::SignalUpdate;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
-/// Generated gRPC types for kuksa.val.
+/// Generated gRPC types for kuksa.val.v2.
 #[allow(clippy::enum_variant_names)]
+#[allow(clippy::doc_lazy_continuation)]
 mod kuksa {
-    tonic::include_proto!("kuksa");
+    tonic::include_proto!("kuksa.val.v2");
 }
 
 use kuksa::val_client::ValClient;
-use kuksa::{DataEntry, Datapoint, SetRequest, SubscribeRequest};
+use kuksa::{
+    Datapoint, PublishValueRequest, SignalId, SubscribeRequest, Value,
+};
 use tonic::transport::Channel;
 
 /// VSS signal path for lock/unlock command input.
@@ -31,6 +36,13 @@ const SIGNAL_IS_LOCKED: &str = "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked";
 const SIGNAL_LATITUDE: &str = "Vehicle.CurrentLocation.Latitude";
 const SIGNAL_LONGITUDE: &str = "Vehicle.CurrentLocation.Longitude";
 const SIGNAL_PARKING_ACTIVE: &str = "Vehicle.Parking.SessionActive";
+
+/// Helper to create a SignalID from a path string.
+fn signal_id(path: &str) -> Option<SignalId> {
+    Some(SignalId {
+        signal: Some(kuksa::signal_id::Signal::Path(path.to_string())),
+    })
+}
 
 /// gRPC client for DATA_BROKER (Eclipse Kuksa Databroker) communication.
 #[derive(Clone)]
@@ -66,42 +78,31 @@ impl BrokerClient {
 
     /// Write a command payload to `Vehicle.Command.Door.Lock` in DATA_BROKER.
     ///
-    /// The payload is written as a string value via gRPC SetRequest. The
-    /// original JSON is passed through without modification.
+    /// The payload is written as a string value via gRPC PublishValueRequest.
+    /// The original JSON is passed through without modification.
     ///
     /// Implements: [04-REQ-6.3]
     pub async fn write_command(&self, payload: &str) -> Result<(), BrokerError> {
-        let request = SetRequest {
-            entries: vec![DataEntry {
-                path: SIGNAL_COMMAND_DOOR_LOCK.to_string(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(kuksa::datapoint::Value::StringValue(payload.to_string())),
+        let request = PublishValueRequest {
+            signal_id: signal_id(SIGNAL_COMMAND_DOOR_LOCK),
+            data_point: Some(Datapoint {
+                timestamp: None,
+                value: Some(Value {
+                    typed_value: Some(kuksa::value::TypedValue::String(
+                        payload.to_string(),
+                    )),
                 }),
-            }],
+            }),
         };
 
-        let response = self
-            .client
+        self.client
             .clone()
-            .set(request)
+            .publish_value(request)
             .await
             .map_err(|e| {
                 error!("Failed to write command to DATA_BROKER: {}", e);
-                BrokerError::WriteFailed(format!("set command failed: {}", e))
+                BrokerError::WriteFailed(format!("publish_value command failed: {}", e))
             })?;
-
-        let set_resp = response.into_inner();
-        if !set_resp.success {
-            error!(
-                "DATA_BROKER rejected command write: {}",
-                set_resp.error
-            );
-            return Err(BrokerError::WriteFailed(format!(
-                "DATA_BROKER rejected write: {}",
-                set_resp.error
-            )));
-        }
 
         info!(
             "Command written to {} in DATA_BROKER",
@@ -121,7 +122,8 @@ impl BrokerClient {
         &self,
     ) -> Result<mpsc::Receiver<String>, BrokerError> {
         let request = SubscribeRequest {
-            paths: vec![SIGNAL_COMMAND_DOOR_RESPONSE.to_string()],
+            signal_paths: vec![SIGNAL_COMMAND_DOOR_RESPONSE.to_string()],
+            buffer_size: 0,
         };
 
         let response = self
@@ -150,9 +152,12 @@ impl BrokerClient {
 
         tokio::spawn(async move {
             while let Ok(Some(msg)) = stream.message().await {
-                for entry in msg.entries {
-                    if let Some(dp) = entry.value {
-                        if let Some(kuksa::datapoint::Value::StringValue(s)) = dp.value {
+                for (path, dp) in msg.entries {
+                    if path != SIGNAL_COMMAND_DOOR_RESPONSE {
+                        continue;
+                    }
+                    if let Some(value) = dp.value {
+                        if let Some(kuksa::value::TypedValue::String(s)) = value.typed_value {
                             // Validate that the value is valid JSON before relaying
                             // Implements: [04-REQ-7.E1]
                             if serde_json::from_str::<serde_json::Value>(&s).is_err() {
@@ -194,12 +199,13 @@ impl BrokerClient {
         &self,
     ) -> Result<mpsc::Receiver<SignalUpdate>, BrokerError> {
         let request = SubscribeRequest {
-            paths: vec![
+            signal_paths: vec![
                 SIGNAL_IS_LOCKED.to_string(),
                 SIGNAL_LATITUDE.to_string(),
                 SIGNAL_LONGITUDE.to_string(),
                 SIGNAL_PARKING_ACTIVE.to_string(),
             ],
+            buffer_size: 0,
         };
 
         let response = self
@@ -225,75 +231,76 @@ impl BrokerClient {
 
         tokio::spawn(async move {
             while let Ok(Some(msg)) = stream.message().await {
-                for entry in msg.entries {
-                    if let Some(dp) = entry.value {
-                        let update = match entry.path.as_str() {
-                            p if p == SIGNAL_IS_LOCKED => {
-                                if let Some(kuksa::datapoint::Value::BoolValue(v)) = dp.value {
-                                    Some(SignalUpdate::IsLocked(v))
-                                } else {
-                                    warn!(
-                                        "Unexpected value type for {}: {:?}",
-                                        SIGNAL_IS_LOCKED, dp.value
-                                    );
-                                    None
-                                }
+                for (path, dp) in msg.entries {
+                    let typed_value = dp.value.and_then(|v| v.typed_value);
+                    let update = match path.as_str() {
+                        p if p == SIGNAL_IS_LOCKED => match typed_value {
+                            Some(kuksa::value::TypedValue::Bool(v)) => {
+                                Some(SignalUpdate::IsLocked(v))
                             }
-                            p if p == SIGNAL_LATITUDE => match dp.value {
-                                Some(kuksa::datapoint::Value::DoubleValue(v)) => {
-                                    Some(SignalUpdate::Latitude(v))
-                                }
-                                Some(kuksa::datapoint::Value::FloatValue(v)) => {
-                                    Some(SignalUpdate::Latitude(v as f64))
-                                }
-                                _ => {
-                                    warn!(
-                                        "Unexpected value type for {}: {:?}",
-                                        SIGNAL_LATITUDE, dp.value
-                                    );
-                                    None
-                                }
-                            },
-                            p if p == SIGNAL_LONGITUDE => match dp.value {
-                                Some(kuksa::datapoint::Value::DoubleValue(v)) => {
-                                    Some(SignalUpdate::Longitude(v))
-                                }
-                                Some(kuksa::datapoint::Value::FloatValue(v)) => {
-                                    Some(SignalUpdate::Longitude(v as f64))
-                                }
-                                _ => {
-                                    warn!(
-                                        "Unexpected value type for {}: {:?}",
-                                        SIGNAL_LONGITUDE, dp.value
-                                    );
-                                    None
-                                }
-                            },
-                            p if p == SIGNAL_PARKING_ACTIVE => {
-                                if let Some(kuksa::datapoint::Value::BoolValue(v)) = dp.value {
-                                    Some(SignalUpdate::ParkingActive(v))
-                                } else {
-                                    warn!(
-                                        "Unexpected value type for {}: {:?}",
-                                        SIGNAL_PARKING_ACTIVE, dp.value
-                                    );
-                                    None
-                                }
-                            }
-                            other => {
-                                warn!("Received update for unknown signal: {}", other);
+                            _ => {
+                                warn!(
+                                    "Unexpected value type for {}: {:?}",
+                                    SIGNAL_IS_LOCKED, typed_value
+                                );
                                 None
                             }
-                        };
-
-                        if let Some(signal_update) = update {
-                            info!("Telemetry signal update: {:?}", signal_update);
-                            if tx.send(signal_update).await.is_err() {
-                                warn!(
-                                    "Telemetry channel closed, stopping telemetry subscription"
-                                );
-                                return;
+                        },
+                        p if p == SIGNAL_LATITUDE => match typed_value {
+                            Some(kuksa::value::TypedValue::Double(v)) => {
+                                Some(SignalUpdate::Latitude(v))
                             }
+                            Some(kuksa::value::TypedValue::Float(v)) => {
+                                Some(SignalUpdate::Latitude(v as f64))
+                            }
+                            _ => {
+                                warn!(
+                                    "Unexpected value type for {}: {:?}",
+                                    SIGNAL_LATITUDE, typed_value
+                                );
+                                None
+                            }
+                        },
+                        p if p == SIGNAL_LONGITUDE => match typed_value {
+                            Some(kuksa::value::TypedValue::Double(v)) => {
+                                Some(SignalUpdate::Longitude(v))
+                            }
+                            Some(kuksa::value::TypedValue::Float(v)) => {
+                                Some(SignalUpdate::Longitude(v as f64))
+                            }
+                            _ => {
+                                warn!(
+                                    "Unexpected value type for {}: {:?}",
+                                    SIGNAL_LONGITUDE, typed_value
+                                );
+                                None
+                            }
+                        },
+                        p if p == SIGNAL_PARKING_ACTIVE => match typed_value {
+                            Some(kuksa::value::TypedValue::Bool(v)) => {
+                                Some(SignalUpdate::ParkingActive(v))
+                            }
+                            _ => {
+                                warn!(
+                                    "Unexpected value type for {}: {:?}",
+                                    SIGNAL_PARKING_ACTIVE, typed_value
+                                );
+                                None
+                            }
+                        },
+                        other => {
+                            warn!("Received update for unknown signal: {}", other);
+                            None
+                        }
+                    };
+
+                    if let Some(signal_update) = update {
+                        info!("Telemetry signal update: {:?}", signal_update);
+                        if tx.send(signal_update).await.is_err() {
+                            warn!(
+                                "Telemetry channel closed, stopping telemetry subscription"
+                            );
+                            return;
                         }
                     }
                 }
