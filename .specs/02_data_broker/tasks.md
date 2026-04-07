@@ -125,19 +125,19 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd tests/databroker && go test -run "TestEdgeCase|TestImageVersion" -v ./...
     ```
 
-- [ ] 5. Implement smoke tests
+- [x] 5. Implement smoke tests
   - Add smoke tests for CI/CD quick verification.
 
-  - [ ] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
+  - [x] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
 
-  - [ ] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
+  - [x] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
     - _Test Spec: TS-02-SMOKE-2_
     - _Requirements: 02-REQ-5.1, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All smoke tests pass
+  - [x] 5.V Verify task group 5
+    - [x] All smoke tests pass
     ```
     cd tests/databroker && go test -run "TestSmoke" -v ./...
     ```
