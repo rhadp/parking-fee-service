@@ -1,14 +1,9 @@
 # Environment
 .env
 
-# agent-fox
-.agent-fox/
-!.agent-fox/memory.jsonl
-!.agent-fox/config.toml
-.claude/
-
 hack.md
 stuff.md
+stuff.json
 **/mcp.json
 hack/**
 
@@ -19,6 +14,7 @@ Cargo.lock
 
 # Go build artifacts
 **/bin/
+
 # Allow Rust source bin directories
 !**/src/bin/
 backend/parking-fee-service/parking-fee-service
@@ -46,5 +42,3 @@ logs/
 **/*.iml
 **/.pub-cache/
 **/.pub/
-.agent-fox/*
-!.agent-fox/state.jsonl
