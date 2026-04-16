@@ -2,3 +2,22 @@
 name = "cloud-gateway-client"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "cloud-gateway-client"
+path = "src/main.rs"
+
+[lib]
+name = "cloud_gateway_client"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+async-nats = "0.37"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json"] }
+
+[dev-dependencies]
+proptest = "1"
