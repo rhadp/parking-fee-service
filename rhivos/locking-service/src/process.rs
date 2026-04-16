@@ -3,8 +3,10 @@
 //! `process_command` dispatches to lock or unlock handling, enforces safety
 //! constraints for lock, manages idempotent state, and publishes responses.
 
-use crate::broker::BrokerClient;
-use crate::command::LockCommand;
+use crate::broker::{BrokerClient, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
+use crate::command::{Action, LockCommand};
+use crate::response::{failure_response, success_response};
+use crate::safety::{check_safety, SafetyResult};
 
 /// Process a validated `LockCommand`.
 ///
@@ -17,11 +19,82 @@ use crate::command::LockCommand;
 ///
 /// Returns the JSON response string.
 pub async fn process_command<B: BrokerClient>(
-    _broker: &B,
-    _cmd: &LockCommand,
-    _lock_state: &mut bool,
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
 ) -> String {
-    todo!("Implement process_command in task group 3")
+    let response_json = match cmd.action {
+        Action::Lock => process_lock(broker, cmd, lock_state).await,
+        Action::Unlock => process_unlock(broker, cmd, lock_state).await,
+    };
+
+    // Publish response to DATA_BROKER; log and continue on failure (03-REQ-5.E1).
+    if let Err(e) = broker.set_string(SIGNAL_RESPONSE, &response_json).await {
+        tracing::error!(
+            command_id = %cmd.command_id,
+            error = ?e,
+            "Failed to publish command response to DATA_BROKER"
+        );
+    }
+
+    response_json
+}
+
+/// Handle a lock action.
+///
+/// Checks idempotency first, then runs safety validation before updating state.
+async fn process_lock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Idempotent: already locked — return success without a state write (03-REQ-4.E1).
+    if *lock_state {
+        return success_response(&cmd.command_id);
+    }
+
+    // Safety check required for lock commands (03-REQ-3.1, 03-REQ-3.2).
+    match check_safety(broker).await {
+        SafetyResult::Safe => {
+            // Write lock state to DATA_BROKER (03-REQ-4.1).
+            if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, true).await {
+                tracing::error!(
+                    command_id = %cmd.command_id,
+                    error = ?e,
+                    "Failed to write IsLocked=true to DATA_BROKER"
+                );
+            }
+            *lock_state = true;
+            success_response(&cmd.command_id)
+        }
+        SafetyResult::VehicleMoving => failure_response(&cmd.command_id, "vehicle_moving"),
+        SafetyResult::DoorOpen => failure_response(&cmd.command_id, "door_open"),
+    }
+}
+
+/// Handle an unlock action.
+///
+/// Safety constraints are NOT checked for unlock commands (03-REQ-3.4).
+async fn process_unlock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Idempotent: already unlocked — return success without a state write (03-REQ-4.E2).
+    if !*lock_state {
+        return success_response(&cmd.command_id);
+    }
+
+    // Write lock state to DATA_BROKER (03-REQ-4.2).
+    if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, false).await {
+        tracing::error!(
+            command_id = %cmd.command_id,
+            error = ?e,
+            "Failed to write IsLocked=false to DATA_BROKER"
+        );
+    }
+    *lock_state = false;
+    success_response(&cmd.command_id)
 }
 
 #[cfg(test)]
