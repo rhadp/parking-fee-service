@@ -1,6 +1,6 @@
 # PRD: CLOUD_GATEWAY_CLIENT (Phase 2.1)
 
-> Extracted from the master PRD at `.specs/prd.md`. This spec covers the CLOUD_GATEWAY_CLIENT component of Phase 2.1: RHIVOS Safety Partition.
+> Extracted from the master PRD at `.agent-fox/specs/prd.md`. This spec covers the CLOUD_GATEWAY_CLIENT component of Phase 2.1: RHIVOS Safety Partition.
 
 ## Scope
 

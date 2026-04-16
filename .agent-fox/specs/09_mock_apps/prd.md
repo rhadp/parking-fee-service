@@ -1,6 +1,6 @@
 # PRD: Mock Apps (Phase 1.2 / 2.1 / 2.3)
 
-> Extracted from the master PRD at `.specs/prd.md`. This spec covers all mock/demo tools: mock CLI apps (Go) and mock sensors (Rust).
+> Extracted from the master PRD at `.agent-fox/specs/prd.md`. This spec covers all mock/demo tools: mock CLI apps (Go) and mock sensors (Rust).
 
 ## Scope
 

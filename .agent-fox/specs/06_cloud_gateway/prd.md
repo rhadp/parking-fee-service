@@ -1,6 +1,6 @@
 # PRD: CLOUD_GATEWAY (Phase 2.2)
 
-> Extracted from the master PRD at `.specs/prd.md`. This spec covers Phase 2.2: Vehicle-to-Cloud Connectivity.
+> Extracted from the master PRD at `.agent-fox/specs/prd.md`. This spec covers Phase 2.2: Vehicle-to-Cloud Connectivity.
 
 ## Scope
 

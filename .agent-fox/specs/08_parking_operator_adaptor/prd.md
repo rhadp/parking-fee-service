@@ -1,6 +1,6 @@
 # PRD: PARKING_OPERATOR_ADAPTOR (Phase 2.3)
 
-> Extracted from the master PRD at `.specs/prd.md`. This spec covers the PARKING_OPERATOR_ADAPTOR component of Phase 2.3.
+> Extracted from the master PRD at `.agent-fox/specs/prd.md`. This spec covers the PARKING_OPERATOR_ADAPTOR component of Phase 2.3.
 
 ## Scope
 

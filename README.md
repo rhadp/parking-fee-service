@@ -94,7 +94,7 @@ parking-fee-service/
 │
 ├── Makefile                        # Top-level build orchestration
 ├── go.work                         # Go workspace linking all Go modules
-└── .specs/                         # Specification documents
+└── .agent-fox/specs/               # Specification documents
 ```
 
 ## Local Development Ports
@@ -125,7 +125,7 @@ Cross-partition communication uses gRPC over TCP. Same-partition services
 communicate via Unix Domain Sockets. Vehicle signal state is brokered through
 the Eclipse Kuksa Databroker using the Vehicle Signal Specification (VSS).
 
-For full product requirements, see [`.specs/prd.md`](.specs/prd.md).
+For full product requirements, see [`.agent-fox/specs/prd.md`](.agent-fox/specs/prd.md).
 
 ## License
 

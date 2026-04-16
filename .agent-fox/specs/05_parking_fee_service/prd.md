@@ -1,6 +1,6 @@
 # PRD: PARKING_FEE_SERVICE (Phase 2.4)
 
-> Extracted from the master PRD at `.specs/prd.md`. This spec covers Phase 2.4.
+> Extracted from the master PRD at `.agent-fox/specs/prd.md`. This spec covers Phase 2.4.
 
 ## Scope
 

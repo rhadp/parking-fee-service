@@ -1,6 +1,6 @@
 # PRD: UPDATE_SERVICE (Phase 2.3)
 
-> Extracted from the master PRD at `.specs/prd.md`. This spec covers the UPDATE_SERVICE component of Phase 2.3: RHIVOS QM Partition.
+> Extracted from the master PRD at `.agent-fox/specs/prd.md`. This spec covers the UPDATE_SERVICE component of Phase 2.3: RHIVOS QM Partition.
 
 ## Scope
 
