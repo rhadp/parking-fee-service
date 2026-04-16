@@ -17,6 +17,9 @@ Cargo.lock
 **/bin/
 **/*.test
 
+# Proto generated code
+gen/
+
 # Allow Rust source bin directories
 !**/src/bin/
 backend/parking-fee-service/parking-fee-service

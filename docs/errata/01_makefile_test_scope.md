@@ -33,6 +33,17 @@ unimplemented tests that panic with `todo!()`:
 | Module | Reason excluded |
 |--------|----------------|
 | `mock/parking-operator` | 6 spec-09 tests failing (stub HTTP server) |
+| `backend/parking-fee-service/config` | spec-05 task group 1 stub tests |
+| `backend/parking-fee-service/geo` | spec-05 task group 1 stub tests |
+| `backend/parking-fee-service/handler` | spec-05 task group 1 stub tests |
+| `backend/parking-fee-service/model` | spec-05 task group 1 stub tests |
+| `backend/parking-fee-service/store` | spec-05 task group 1 stub tests |
+| `backend/cloud-gateway/auth` | spec-06 task group 1 stub tests |
+| `backend/cloud-gateway/config` | spec-06 task group 1 stub tests |
+| `backend/cloud-gateway/handler` | spec-06 task group 1 stub tests |
+| `backend/cloud-gateway/model` | spec-06 task group 1 stub tests |
+| `backend/cloud-gateway/natsclient` | spec-06 task group 1 stub tests |
+| `backend/cloud-gateway/store` | spec-06 task group 1 stub tests |
 
 ## Resolution
 
@@ -40,10 +51,13 @@ unimplemented tests that panic with `todo!()`:
 - `cargo test -p update-service -p parking-operator-adaptor` (only placeholder tests, pass)
 - `cargo test -p mock-sensors --lib` (only spec-01 lib placeholder test, pass)
 
-`test-go` runs modules explicitly:
-- `backend/parking-fee-service`, `backend/cloud-gateway`
-- `mock/parking-app-cli`, `mock/companion-app-cli`
-- `tests/setup`
+`test-go` runs modules explicitly (root packages only, without `...` recursion
+for the two backend modules that now have failing sub-packages from spec 05 and
+spec 06 task group 1 stubs):
+- `backend/parking-fee-service` (root only — spec-05 sub-packages have stub tests)
+- `backend/cloud-gateway` (root only — spec-06 sub-packages have stub tests)
+- `mock/parking-app-cli/...`, `mock/companion-app-cli/...`
+- `tests/setup/...`
 
 ## Impact
 

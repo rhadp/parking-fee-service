@@ -25,8 +25,8 @@ test-rust:
 
 test-go:
 	go test \
-		parking-fee-service/backend/parking-fee-service/... \
-		parking-fee-service/backend/cloud-gateway/... \
+		parking-fee-service/backend/parking-fee-service \
+		parking-fee-service/backend/cloud-gateway \
 		parking-fee-service/mock/parking-app-cli/... \
 		parking-fee-service/mock/companion-app-cli/... \
 		parking-fee-service/tests/setup/...
