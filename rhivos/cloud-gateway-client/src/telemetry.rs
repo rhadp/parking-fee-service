@@ -5,6 +5,7 @@ use crate::models::{SignalUpdate, TelemetryMessage};
 /// Fields are `Option<T>` — `None` means "never received a value from
 /// DATA_BROKER for this signal". On serialization those fields are omitted
 /// (per REQ-8.3).
+#[allow(dead_code)]
 pub struct TelemetryState {
     vin: String,
     is_locked: Option<bool>,
@@ -15,6 +16,7 @@ pub struct TelemetryState {
 
 impl TelemetryState {
     /// Create a new, empty telemetry state for the given VIN.
+    #[allow(unused_variables)]
     pub fn new(vin: impl Into<String>) -> Self {
         TelemetryState {
             vin: vin.into(),

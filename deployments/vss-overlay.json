@@ -1,0 +1,17 @@
+{
+  "Vehicle.Parking.SessionActive": {
+    "type": "sensor",
+    "datatype": "boolean",
+    "description": "Adapter-managed parking session state. True when an active parking session is in progress."
+  },
+  "Vehicle.Command.Door.Lock": {
+    "type": "actuator",
+    "datatype": "string",
+    "description": "Lock/unlock command request (JSON payload). Contains command_id, action (lock|unlock), and door identifiers."
+  },
+  "Vehicle.Command.Door.Response": {
+    "type": "sensor",
+    "datatype": "string",
+    "description": "Command execution result (JSON payload). Contains command_id, status (success|failed), and reason."
+  }
+}

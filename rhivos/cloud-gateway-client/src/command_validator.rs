@@ -9,7 +9,8 @@ use async_nats::HeaderMap;
 /// common practice; see docs/errata for rationale on case-sensitivity choice).
 ///
 /// Returns `Ok(())` if the token matches, or an appropriate `AuthError`.
-pub fn validate_bearer_token(_headers: &HeaderMap, _expected: &str) -> Result<(), AuthError> {
+#[allow(unused_variables)]
+pub fn validate_bearer_token(headers: &HeaderMap, expected: &str) -> Result<(), AuthError> {
     todo!("validate_bearer_token not yet implemented")
 }
 
@@ -22,7 +23,8 @@ pub fn validate_bearer_token(_headers: &HeaderMap, _expected: &str) -> Result<()
 /// 4. `doors` is present and is a JSON array.
 ///
 /// Individual `doors` values are NOT validated (REQ-6.4).
-pub fn validate_command_payload(_payload: &[u8]) -> Result<CommandPayload, ValidationError> {
+#[allow(unused_variables)]
+pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError> {
     todo!("validate_command_payload not yet implemented")
 }
 

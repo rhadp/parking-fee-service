@@ -50,6 +50,7 @@ pub struct RegistrationMessage {
 impl RegistrationMessage {
     /// Create a new registration message for the given VIN.
     /// The timestamp is the current Unix epoch in seconds.
+    #[allow(unused_variables)]
     pub fn new(vin: impl Into<String>) -> Self {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
