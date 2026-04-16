@@ -164,32 +164,33 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 5_
     _Note: test-rust and test-go scoped to spec-01 passing crates; pre-existing failures from other specs documented in docs/errata/01_makefile_test_scope.md_
 
-- [ ] 6. Proto code generation and setup verification tests
+- [x] 6. Proto code generation and setup verification tests
   _Configure proto codegen and finalize setup verification tests._
 
-  - [ ] 6.1 Implement `make proto` target to generate Go code from proto definitions using protoc
+  - [x] 6.1 Implement `make proto` target to generate Go code from proto definitions using protoc
     _Test Spec: TS-01-32_
     _Requirements: 01-REQ-10.1, 01-REQ-10.2, 01-REQ-10.3_
 
-  - [ ] 6.2 Add protoc-not-installed error handling to `make proto`
+  - [x] 6.2 Add protoc-not-installed error handling to `make proto`
     _Test Spec: TS-01-E11_
     _Requirements: 01-REQ-10.E1_
 
-  - [ ] 6.3 Write build-command-based setup verification tests in `tests/setup/`: TestRustBuild, TestGoBuild, TestProtoValidation
+  - [x] 6.3 Write build-command-based setup verification tests in `tests/setup/`: TestRustBuild, TestGoBuild, TestProtoValidation
     _Test Spec: TS-01-30, TS-01-31_
     _Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.4_
 
-  - [ ] 6.4 Add toolchain-skip logic to setup tests (skip when cargo/go/protoc not on PATH)
+  - [x] 6.4 Add toolchain-skip logic to setup tests (skip when cargo/go/protoc not on PATH)
     _Test Spec: TS-01-E10_
     _Requirements: 01-REQ-9.E1_
 
-  - [ ] 6.5 Add `make test-setup` target to Makefile
+  - [x] 6.5 Add `make test-setup` target to Makefile
     _Test Spec: TS-01-30_
     _Requirements: 01-REQ-9.3_
 
-  - [ ] 6.V Verify: run `make proto`, `make test-setup`, and `make check`; confirm all pass
+  - [x] 6.V Verify: run `make proto`, `make test-setup`, and `make check`; confirm all pass
     _Test Spec: TS-01-32, TS-01-30, TS-01-P1_
     _Verification step for Task Group 6_
+    _Note: 6.1/6.2/6.5 were already implemented in task group 5 (Makefile). 6.3/6.4 implemented build_verification_test.go; all tests pass via make check._
 
 - [ ] 7. Wiring verification
   _End-to-end verification that all components are correctly wired together._
