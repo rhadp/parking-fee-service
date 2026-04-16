@@ -18,3 +18,11 @@ pub async fn publish_datapoint(
     // TODO: implement gRPC client in task group 2
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_compiles() {
+        assert!(true);
+    }
+}

@@ -1,14 +1,9 @@
 // companion-app-cli simulates the COMPANION_APP sending lock/unlock commands
-// to CLOUD_GATEWAY. Stub — full implementation in task group 4.
+// to CLOUD_GATEWAY. Stub — full implementation in a future spec.
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 func main() {
-	// Stub: always exits 0 without processing args or making HTTP calls.
-	fmt.Fprintln(os.Stderr, "stub: not implemented")
-	os.Exit(0)
+	fmt.Println("companion-app-cli v0.1.0")
 }
