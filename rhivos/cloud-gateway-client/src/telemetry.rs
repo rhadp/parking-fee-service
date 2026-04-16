@@ -1,4 +1,4 @@
-use crate::models::SignalUpdate;
+use crate::models::{SignalUpdate, TelemetryMessage};
 
 /// Maintains the current aggregated telemetry state for a vehicle.
 ///
@@ -16,13 +16,40 @@ pub struct TelemetryState {
 impl TelemetryState {
     /// Create a new, empty telemetry state for the given VIN.
     pub fn new(vin: impl Into<String>) -> Self {
-        todo!("TelemetryState::new not yet implemented")
+        TelemetryState {
+            vin: vin.into(),
+            is_locked: None,
+            latitude: None,
+            longitude: None,
+            parking_active: None,
+        }
     }
 
-    /// Apply a signal update and return the serialized JSON telemetry payload
-    /// if the state changed, or `None` if the value is unchanged.
+    /// Apply a signal update and return the serialized JSON telemetry payload.
+    /// Always returns `Some(json)` after any update (REQ-8.1).
     pub fn update(&mut self, signal: SignalUpdate) -> Option<String> {
-        todo!("TelemetryState::update not yet implemented")
+        match signal {
+            SignalUpdate::IsLocked(v) => self.is_locked = Some(v),
+            SignalUpdate::Latitude(v) => self.latitude = Some(v),
+            SignalUpdate::Longitude(v) => self.longitude = Some(v),
+            SignalUpdate::ParkingActive(v) => self.parking_active = Some(v),
+        }
+
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let msg = TelemetryMessage {
+            vin: self.vin.clone(),
+            is_locked: self.is_locked,
+            latitude: self.latitude,
+            longitude: self.longitude,
+            parking_active: self.parking_active,
+            timestamp,
+        };
+
+        serde_json::to_string(&msg).ok()
     }
 }
 

@@ -51,7 +51,15 @@ impl RegistrationMessage {
     /// Create a new registration message for the given VIN.
     /// The timestamp is the current Unix epoch in seconds.
     pub fn new(vin: impl Into<String>) -> Self {
-        todo!("RegistrationMessage::new not yet implemented")
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        RegistrationMessage {
+            vin: vin.into(),
+            status: "online".to_string(),
+            timestamp,
+        }
     }
 }
 

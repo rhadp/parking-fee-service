@@ -18,7 +18,14 @@ impl Config {
     ///
     /// Returns `Err(ConfigError::MissingVin)` if `VIN` is not set.
     pub fn from_env() -> Result<Self, ConfigError> {
-        todo!("Config::from_env not yet implemented")
+        let vin = std::env::var("VIN").map_err(|_| ConfigError::MissingVin)?;
+        let nats_url = std::env::var("NATS_URL")
+            .unwrap_or_else(|_| "nats://localhost:4222".to_string());
+        let databroker_addr = std::env::var("DATABROKER_ADDR")
+            .unwrap_or_else(|_| "http://localhost:55556".to_string());
+        let bearer_token = std::env::var("BEARER_TOKEN")
+            .unwrap_or_else(|_| "demo-token".to_string());
+        Ok(Config { vin, nats_url, databroker_addr, bearer_token })
     }
 }
 
@@ -26,14 +33,15 @@ impl Config {
 mod tests {
     use super::*;
 
-    // NOTE: env var tests can be flaky when run in parallel because they share
-    // the process environment. A mutex-based isolation strategy should be added
-    // in task group 2 when the implementation is provided.
+    // Serialize env-var tests: all tests that touch process-global environment
+    // variables must hold this lock for the duration of the test to prevent
+    // race conditions when the test suite runs in parallel.
+    static ENV_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     // TS-04-E1: Config fails when VIN is missing
     #[test]
     fn ts_04_e1_config_fails_when_vin_missing() {
-        // Remove VIN from environment to simulate missing env var
+        let _guard = ENV_MUTEX.lock().unwrap();
         std::env::remove_var("VIN");
         let result = Config::from_env();
         assert_eq!(
@@ -46,6 +54,7 @@ mod tests {
     // TS-04-1: Config reads VIN from environment and uses defaults
     #[test]
     fn ts_04_1_config_reads_vin_from_env() {
+        let _guard = ENV_MUTEX.lock().unwrap();
         std::env::set_var("VIN", "TEST-VIN-001");
         std::env::remove_var("NATS_URL");
         std::env::remove_var("DATABROKER_ADDR");
@@ -63,6 +72,7 @@ mod tests {
     // TS-04-2: Config reads all custom environment variables
     #[test]
     fn ts_04_2_config_reads_all_custom_env_vars() {
+        let _guard = ENV_MUTEX.lock().unwrap();
         std::env::set_var("VIN", "MY-VIN");
         std::env::set_var("NATS_URL", "nats://custom:9222");
         std::env::set_var("DATABROKER_ADDR", "http://custom:55557");
