@@ -53,16 +53,34 @@ impl CommandError {
 ///
 /// Returns `Err(CommandError::InvalidJson)` for malformed JSON.
 /// Returns `Err(CommandError::InvalidCommand)` for missing/invalid required fields.
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!("Implement parse_command in task group 2")
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    serde_json::from_str(json).map_err(|e| {
+        if e.is_data() {
+            // Missing required field, unknown enum variant, wrong type, etc.
+            CommandError::InvalidCommand(e.to_string())
+        } else {
+            // Syntax errors, unexpected EOF, IO errors → malformed JSON
+            CommandError::InvalidJson(e.to_string())
+        }
+    })
 }
 
 /// Validate semantic constraints on a parsed `LockCommand`.
 ///
 /// - `command_id` must be non-empty.
 /// - `doors` must contain only "driver".
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!("Implement validate_command in task group 2")
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id must not be empty".to_owned(),
+        ));
+    }
+    if cmd.doors.iter().any(|d| d != "driver") {
+        return Err(CommandError::UnsupportedDoor(
+            "doors array contains an unsupported value; only \"driver\" is allowed".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

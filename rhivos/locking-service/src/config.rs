@@ -10,7 +10,7 @@ pub const DEFAULT_DATABROKER_ADDR: &str = "http://localhost:55556";
 /// Reads from the `DATABROKER_ADDR` environment variable.
 /// Falls back to `http://localhost:55556` if the variable is absent (03-REQ-7.2).
 pub fn get_databroker_addr() -> String {
-    todo!("Implement get_databroker_addr in task group 2")
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| DEFAULT_DATABROKER_ADDR.to_owned())
 }
 
 #[cfg(test)]

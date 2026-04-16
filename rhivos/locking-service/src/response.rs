@@ -3,6 +3,8 @@
 //! `success_response` and `failure_response` produce the JSON strings that
 //! LOCKING_SERVICE publishes to `Vehicle.Command.Door.Response`.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use serde::Serialize;
 
 /// Serialisable representation of a command response.
@@ -18,15 +20,39 @@ pub struct CommandResponse {
 /// Build a success response JSON string for `command_id`.
 ///
 /// The `reason` field is absent in success responses (03-REQ-5.3).
-pub fn success_response(_command_id: &str) -> String {
-    todo!("Implement success_response in task group 2")
+pub fn success_response(command_id: &str) -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let response = CommandResponse {
+        command_id: command_id.to_owned(),
+        status: "success".to_owned(),
+        reason: None,
+        timestamp,
+    };
+
+    serde_json::to_string(&response).expect("CommandResponse serialisation must not fail")
 }
 
 /// Build a failure response JSON string for `command_id` with the given `reason`.
 ///
 /// Valid reasons: "vehicle_moving", "door_open", "unsupported_door", "invalid_command".
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("Implement failure_response in task group 2")
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let response = CommandResponse {
+        command_id: command_id.to_owned(),
+        status: "failed".to_owned(),
+        reason: Some(reason.to_owned()),
+        timestamp,
+    };
+
+    serde_json::to_string(&response).expect("CommandResponse serialisation must not fail")
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@
 //! from DATA_BROKER and returns a `SafetyResult`.  Speed is checked first
 //! (design.md Property 2).
 
-use crate::broker::BrokerClient;
+use crate::broker::{BrokerClient, SIGNAL_IS_OPEN, SIGNAL_SPEED};
 
 /// Outcome of the safety constraint check.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,8 +22,30 @@ pub enum SafetyResult {
 /// Speed is checked before door state (Property 2 of design.md).
 /// - Speed signal absent → treated as 0.0 (safe default, 03-REQ-3.E1)
 /// - Door signal absent  → treated as false (closed, safe default, 03-REQ-3.E2)
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("Implement check_safety in task group 2")
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    // Check speed first — it takes priority over door state (03-REQ-3.1, design.md Property 2).
+    let speed = broker
+        .get_float(SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    // Check door state (03-REQ-3.2).
+    let door_open = broker
+        .get_bool(SIGNAL_IS_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]
