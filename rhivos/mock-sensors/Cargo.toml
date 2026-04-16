@@ -14,3 +14,9 @@ path = "src/bin/speed_sensor.rs"
 [[bin]]
 name = "door-sensor"
 path = "src/bin/door_sensor.rs"
+
+[dependencies]
+
+[build-dependencies]
+
+[dev-dependencies]
