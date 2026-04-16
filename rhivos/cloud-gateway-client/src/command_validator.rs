@@ -9,9 +9,19 @@ use async_nats::HeaderMap;
 /// common practice; see docs/errata for rationale on case-sensitivity choice).
 ///
 /// Returns `Ok(())` if the token matches, or an appropriate `AuthError`.
-#[allow(unused_variables)]
 pub fn validate_bearer_token(headers: &HeaderMap, expected: &str) -> Result<(), AuthError> {
-    todo!("validate_bearer_token not yet implemented")
+    let auth_value = headers.get("Authorization").ok_or(AuthError::MissingHeader)?;
+
+    let token = auth_value
+        .as_str()
+        .strip_prefix("Bearer ")
+        .ok_or(AuthError::InvalidToken)?;
+
+    if token == expected {
+        Ok(())
+    } else {
+        Err(AuthError::InvalidToken)
+    }
 }
 
 /// Validate a raw command payload (JSON bytes) from NATS.
@@ -23,9 +33,38 @@ pub fn validate_bearer_token(headers: &HeaderMap, expected: &str) -> Result<(), 
 /// 4. `doors` is present and is a JSON array.
 ///
 /// Individual `doors` values are NOT validated (REQ-6.4).
-#[allow(unused_variables)]
 pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError> {
-    todo!("validate_command_payload not yet implemented")
+    // Step 1: Parse as JSON Value for field-level validation.
+    let value: serde_json::Value = serde_json::from_slice(payload)
+        .map_err(|e| ValidationError::InvalidJson(e.to_string()))?;
+
+    // Step 2: Validate command_id — must be a non-empty string.
+    match value.get("command_id") {
+        Some(serde_json::Value::String(s)) if !s.is_empty() => {}
+        _ => return Err(ValidationError::MissingField("command_id".to_string())),
+    }
+
+    // Step 3: Validate action — must be present, and must be "lock" or "unlock".
+    match value.get("action") {
+        None => return Err(ValidationError::MissingField("action".to_string())),
+        Some(serde_json::Value::String(s)) => {
+            if s != "lock" && s != "unlock" {
+                return Err(ValidationError::InvalidAction(s.clone()));
+            }
+        }
+        Some(_) => return Err(ValidationError::MissingField("action".to_string())),
+    }
+
+    // Step 4: Validate doors — must be present and be a JSON array.
+    // Individual door values are NOT validated here (REQ-6.4).
+    match value.get("doors") {
+        Some(serde_json::Value::Array(_)) => {}
+        _ => return Err(ValidationError::MissingField("doors".to_string())),
+    }
+
+    // Step 5: Deserialize into CommandPayload from the original bytes so that
+    // #[serde(flatten)] captures extra fields correctly.
+    serde_json::from_slice(payload).map_err(|e| ValidationError::InvalidJson(e.to_string()))
 }
 
 #[cfg(test)]

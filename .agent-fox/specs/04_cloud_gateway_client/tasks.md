@@ -19,10 +19,10 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [x] 2.2 Implement data model structs (`CommandPayload`, `CommandResponse`, `TelemetryMessage`, `RegistrationMessage`, `SignalUpdate`) in `src/models.rs` _Requirements:_ [04-REQ-6.1], [04-REQ-8.2], [04-REQ-4.1]
   - [x] 2.3 Implement error types (`ConfigError`, `AuthError`, `ValidationError`, `NatsError`, `BrokerError`) in `src/errors.rs`
   - [x] 2.V Verify task group 2: unit tests for config (TS-04-1, TS-04-2, TS-04-E1) pass
-- [ ] 3. Implement command validation
-  - [ ] 3.1 Implement `validate_bearer_token()` in `src/command_validator.rs` _Requirements:_ [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
-  - [ ] 3.2 Implement `validate_command_payload()` in `src/command_validator.rs` _Requirements:_ [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.3], [04-REQ-6.4], [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
-  - [ ] 3.V Verify task group 3: unit tests for command validation (TS-04-3, TS-04-E2, TS-04-E3, TS-04-E4, TS-04-4, TS-04-5, TS-04-E5 through TS-04-E10, TS-04-6) pass
+- [x] 3. Implement command validation
+  - [x] 3.1 Implement `validate_bearer_token()` in `src/command_validator.rs` _Requirements:_ [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
+  - [x] 3.2 Implement `validate_command_payload()` in `src/command_validator.rs` _Requirements:_ [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.3], [04-REQ-6.4], [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
+  - [x] 3.V Verify task group 3: unit tests for command validation (TS-04-3, TS-04-E2, TS-04-E3, TS-04-E4, TS-04-4, TS-04-5, TS-04-E5 through TS-04-E10, TS-04-6) pass
 - [ ] 4. Implement telemetry state
   - [ ] 4.1 Implement `TelemetryState::new()` and `TelemetryState::update()` in `src/telemetry.rs` _Requirements:_ [04-REQ-8.1], [04-REQ-8.2], [04-REQ-8.3]
   - [ ] 4.2 Verify unit tests for telemetry (TS-04-7, TS-04-8, TS-04-9) pass
