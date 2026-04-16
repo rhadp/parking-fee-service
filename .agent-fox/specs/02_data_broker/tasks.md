@@ -14,36 +14,36 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
+- [x] 1. Write failing spec tests
   - Write integration tests that verify DATA_BROKER connectivity, signal availability, read/write operations, and subscriptions. All tests will fail initially since the compose.yml is not yet configured for dual listeners.
 
-  - [ ] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
+  - [x] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
     - Set up Go module and initial test file structure
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
 
-  - [ ] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
+  - [x] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
     - _Test Spec: TS-02-1_
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
 
-  - [ ] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
+  - [x] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
     - _Test Spec: TS-02-2_
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2_
 
-  - [ ] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
+  - [x] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
     - _Test Spec: TS-02-4, TS-02-P1_
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
 
-  - [ ] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
+  - [x] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
     - _Test Spec: TS-02-5, TS-02-P1_
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
 
-  - [ ] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
+  - [x] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
     - _Test Spec: TS-02-6, TS-02-7, TS-02-8, TS-02-9, TS-02-10, TS-02-11, TS-02-P4_
     - _Requirements: 02-REQ-4.1, 02-REQ-8.1, 02-REQ-8.2, 02-REQ-9.1, 02-REQ-9.2, 02-REQ-10.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
     ```
     cd tests/databroker && go test -run TestCompile ./... 2>&1 || echo "Tests compile but fail as expected"
     ```

@@ -7,6 +7,7 @@ use (
 	./mock/companion-app-cli
 	./mock/parking-app-cli
 	./mock/parking-operator
+	./tests/databroker
 	./tests/mock-apps
 	./tests/setup
 )
