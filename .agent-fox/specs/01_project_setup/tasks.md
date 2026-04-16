@@ -113,30 +113,30 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 3_
     _Note: 3 pre-existing spec 09 sensor_tests.rs failures remain (see docs/errata/01_skeleton_vs_spec09_sensors.md). All spec 01 tests pass._
 
-- [ ] 4. Create proto definitions
+- [x] 4. Create proto definitions
   _Create shared .proto files with full message and service definitions._
 
-  - [ ] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
+  - [x] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
 
-  - [ ] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
+  - [x] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
 
-  - [ ] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
+  - [x] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
 
-  - [ ] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
+  - [x] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
 
-  - [ ] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
+  - [x] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
     _Test Spec: TS-01-16, TS-01-17_
     _Requirements: 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
 
-  - [ ] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
+  - [x] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
     _Test Spec: TS-01-17, TS-01-P5_
     _Verification step for Task Group 4_
 
