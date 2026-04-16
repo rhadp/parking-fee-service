@@ -1,0 +1,16 @@
+[package]
+name = "mock-sensors"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "location-sensor"
+path = "src/bin/location_sensor.rs"
+
+[[bin]]
+name = "speed-sensor"
+path = "src/bin/speed_sensor.rs"
+
+[[bin]]
+name = "door-sensor"
+path = "src/bin/door_sensor.rs"
