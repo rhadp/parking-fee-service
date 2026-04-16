@@ -1,18 +1,7 @@
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    for arg in &args[1..] {
-        if arg.starts_with('-') {
-            eprintln!("Usage: update-service");
-            std::process::exit(1);
-        }
-    }
-    println!("update-service v0.1.0");
-}
+// UPDATE_SERVICE — gRPC server for containerized adapter lifecycle management.
+// TODO (task group 5): full implementation with gRPC server, signal handling,
+// config loading, broadcaster, state manager, podman executor, offload timer.
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_compiles() {
-        assert!(true);
-    }
+fn main() {
+    println!("update-service v0.1.0 — implementation pending (task group 5)");
 }
