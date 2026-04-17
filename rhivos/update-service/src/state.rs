@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast;
 
 use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
@@ -19,9 +19,33 @@ impl std::fmt::Display for StateError {
 impl std::error::Error for StateError {}
 
 pub struct StateManager {
-    #[allow(dead_code)]
     inner: Mutex<HashMap<String, AdapterEntry>>,
     broadcaster: broadcast::Sender<AdapterStateEvent>,
+}
+
+/// Check whether a state transition is permitted by the state machine.
+fn is_valid_transition(from: &AdapterState, to: &AdapterState) -> bool {
+    matches!(
+        (from, to),
+        (AdapterState::Unknown, AdapterState::Downloading)
+            | (AdapterState::Downloading, AdapterState::Installing)
+            | (AdapterState::Downloading, AdapterState::Error)
+            | (AdapterState::Installing, AdapterState::Running)
+            | (AdapterState::Installing, AdapterState::Error)
+            | (AdapterState::Running, AdapterState::Stopped)
+            | (AdapterState::Running, AdapterState::Error)
+            | (AdapterState::Stopped, AdapterState::Running)
+            | (AdapterState::Stopped, AdapterState::Offloading)
+            | (AdapterState::Offloading, AdapterState::Error)
+    )
+}
+
+/// Timestamp: seconds since Unix epoch.
+fn now_unix_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 impl StateManager {
@@ -32,39 +56,120 @@ impl StateManager {
         }
     }
 
-    pub fn create_adapter(&self, _entry: AdapterEntry) {
-        todo!("implement create_adapter")
+    /// Insert a new adapter entry into the in-memory store.
+    pub fn create_adapter(&self, entry: AdapterEntry) {
+        let mut map = self.inner.lock().unwrap();
+        map.insert(entry.adapter_id.clone(), entry);
     }
 
+    /// Perform a validated state transition, update metadata, and emit an event.
     pub fn transition(
         &self,
-        _adapter_id: &str,
-        _new_state: AdapterState,
-        _error_msg: Option<String>,
+        adapter_id: &str,
+        new_state: AdapterState,
+        error_msg: Option<String>,
     ) -> Result<(), StateError> {
-        todo!("implement transition")
+        let mut map = self.inner.lock().unwrap();
+        let entry = map.get_mut(adapter_id).ok_or_else(|| StateError {
+            message: format!("adapter not found: {adapter_id}"),
+        })?;
+
+        let old_state = entry.state.clone();
+        if !is_valid_transition(&old_state, &new_state) {
+            return Err(StateError {
+                message: format!(
+                    "invalid transition {old_state:?} -> {new_state:?} for adapter {adapter_id}"
+                ),
+            });
+        }
+
+        entry.state = new_state.clone();
+        if let Some(msg) = error_msg {
+            entry.error_message = Some(msg);
+        }
+        if new_state == AdapterState::Stopped {
+            entry.stopped_at = Some(Instant::now());
+        }
+
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state,
+            new_state,
+            timestamp: now_unix_secs(),
+        };
+        // Ignore send error — no receivers is expected during tests / no subscribers.
+        let _ = self.broadcaster.send(event);
+        Ok(())
     }
 
-    pub fn get_adapter(&self, _adapter_id: &str) -> Option<AdapterEntry> {
-        todo!("implement get_adapter")
+    /// Force the adapter into ERROR state, bypassing transition validation.
+    /// Use this when the adapter may be in any state and needs to record an error.
+    pub fn force_error(&self, adapter_id: &str, error_msg: &str) {
+        let mut map = self.inner.lock().unwrap();
+        if let Some(entry) = map.get_mut(adapter_id) {
+            let old_state = entry.state.clone();
+            entry.state = AdapterState::Error;
+            entry.error_message = Some(error_msg.to_string());
+
+            let event = AdapterStateEvent {
+                adapter_id: adapter_id.to_string(),
+                old_state,
+                new_state: AdapterState::Error,
+                timestamp: now_unix_secs(),
+            };
+            let _ = self.broadcaster.send(event);
+        }
     }
 
+    /// Get a clone of the adapter entry, or None if not found.
+    pub fn get_adapter(&self, adapter_id: &str) -> Option<AdapterEntry> {
+        let map = self.inner.lock().unwrap();
+        map.get(adapter_id).cloned()
+    }
+
+    /// Return clones of all known adapter entries.
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!("implement list_adapters")
+        let map = self.inner.lock().unwrap();
+        map.values().cloned().collect()
     }
 
-    pub fn remove_adapter(&self, _adapter_id: &str) -> Result<(), StateError> {
-        todo!("implement remove_adapter")
+    /// Remove an adapter from state entirely. Returns error if not found.
+    pub fn remove_adapter(&self, adapter_id: &str) -> Result<(), StateError> {
+        let mut map = self.inner.lock().unwrap();
+        if map.remove(adapter_id).is_none() {
+            return Err(StateError {
+                message: format!("adapter not found: {adapter_id}"),
+            });
+        }
+        Ok(())
     }
 
+    /// Return the single adapter currently in RUNNING state, if any.
     pub fn get_running_adapter(&self) -> Option<AdapterEntry> {
-        todo!("implement get_running_adapter")
+        let map = self.inner.lock().unwrap();
+        map.values()
+            .find(|e| e.state == AdapterState::Running)
+            .cloned()
     }
 
-    pub fn get_offload_candidates(&self, _timeout: Duration) -> Vec<AdapterEntry> {
-        todo!("implement get_offload_candidates")
+    /// Return all adapters that have been in STOPPED state for longer than `timeout`.
+    pub fn get_offload_candidates(&self, timeout: Duration) -> Vec<AdapterEntry> {
+        let map = self.inner.lock().unwrap();
+        map.values()
+            .filter(|e| {
+                if e.state != AdapterState::Stopped {
+                    return false;
+                }
+                match e.stopped_at {
+                    Some(stopped_at) => stopped_at.elapsed() >= timeout,
+                    None => false,
+                }
+            })
+            .cloned()
+            .collect()
     }
 
+    /// Subscribe to state transition events.
     pub fn subscribe(&self) -> broadcast::Receiver<AdapterStateEvent> {
         self.broadcaster.subscribe()
     }

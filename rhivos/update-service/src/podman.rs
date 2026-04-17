@@ -34,38 +34,61 @@ pub trait PodmanExecutor: Send + Sync {
     async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError>;
 }
 
-/// Real podman executor that shells out to the podman CLI.
-#[allow(dead_code)]
+/// Real podman executor that shells out to the podman CLI via tokio::process::Command.
 pub struct RealPodmanExecutor;
+
+/// Run a podman command and return Ok(stdout) on success or Err with stderr on non-zero exit.
+async fn run_podman(args: &[&str]) -> Result<String, PodmanError> {
+    let output = tokio::process::Command::new("podman")
+        .args(args)
+        .output()
+        .await
+        .map_err(|e| PodmanError::new(&format!("failed to spawn podman: {e}")))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(PodmanError::new(&stderr))
+    }
+}
 
 #[async_trait]
 impl PodmanExecutor for RealPodmanExecutor {
-    async fn pull(&self, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("implement RealPodmanExecutor::pull")
+    async fn pull(&self, image_ref: &str) -> Result<(), PodmanError> {
+        run_podman(&["pull", image_ref]).await.map(|_| ())
     }
 
-    async fn inspect_digest(&self, _image_ref: &str) -> Result<String, PodmanError> {
-        todo!("implement RealPodmanExecutor::inspect_digest")
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, PodmanError> {
+        run_podman(&["image", "inspect", "--format", "{{.Digest}}", image_ref]).await
     }
 
-    async fn run(&self, _adapter_id: &str, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("implement RealPodmanExecutor::run")
+    async fn run(&self, adapter_id: &str, image_ref: &str) -> Result<(), PodmanError> {
+        run_podman(&[
+            "run", "-d", "--name", adapter_id, "--network=host", image_ref,
+        ])
+        .await
+        .map(|_| ())
     }
 
-    async fn stop(&self, _adapter_id: &str) -> Result<(), PodmanError> {
-        todo!("implement RealPodmanExecutor::stop")
+    async fn stop(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        run_podman(&["stop", adapter_id]).await.map(|_| ())
     }
 
-    async fn rm(&self, _adapter_id: &str) -> Result<(), PodmanError> {
-        todo!("implement RealPodmanExecutor::rm")
+    async fn rm(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        run_podman(&["rm", adapter_id]).await.map(|_| ())
     }
 
-    async fn rmi(&self, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("implement RealPodmanExecutor::rmi")
+    async fn rmi(&self, image_ref: &str) -> Result<(), PodmanError> {
+        run_podman(&["rmi", image_ref]).await.map(|_| ())
     }
 
-    async fn wait(&self, _adapter_id: &str) -> Result<i32, PodmanError> {
-        todo!("implement RealPodmanExecutor::wait")
+    async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
+        let output = run_podman(&["wait", adapter_id]).await?;
+        output
+            .trim()
+            .parse::<i32>()
+            .map_err(|e| PodmanError::new(&format!("failed to parse exit code '{output}': {e}")))
     }
 }
 
