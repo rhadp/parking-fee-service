@@ -1,9 +1,21 @@
 {
+  "Vehicle.Parking": {
+    "type": "branch",
+    "description": "Parking-related signals for the parking-fee-service demo."
+  },
   "Vehicle.Parking.SessionActive": {
     "type": "sensor",
     "datatype": "boolean",
     "description": "Adapter-managed parking session state. True when a parking session is active.",
     "comment": "Custom signal for parking-fee-service demo"
+  },
+  "Vehicle.Command": {
+    "type": "branch",
+    "description": "Command and control signals for the parking-fee-service demo."
+  },
+  "Vehicle.Command.Door": {
+    "type": "branch",
+    "description": "Door lock command and response signals."
   },
   "Vehicle.Command.Door.Lock": {
     "type": "actuator",
