@@ -1,3 +1,4 @@
+mod broker_client;
 mod command_validator;
 mod config;
 mod errors;
