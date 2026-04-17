@@ -118,37 +118,40 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd deployments && podman compose up -d databroker && sleep 3 && echo "Query custom signals via grpcurl or kuksa-client" && podman compose down
     ```
 
-- [ ] 4. Implement edge case tests
+- [x] 4. Implement edge case tests
   - Add edge case tests for error scenarios: non-existent signals, overlay errors, and permissive mode behavior.
 
-  - [ ] 4.1 Implement test for setting a non-existent signal (expect NOT_FOUND error)
+  - [x] 4.1 Implement test for setting a non-existent signal (expect NOT_FOUND error)
     - _Test Spec: TS-02-E1_
     - _Requirements: 02-REQ-8.E1_
     - `TestEdgeCaseNonExistentSignal` in tests/databroker/edge_test.go
 
-  - [ ] 4.2 Implement test for overlay with syntax error (expect container failure)
+  - [x] 4.2 Implement test for overlay with syntax error (expect container failure)
     - _Test Spec: TS-02-E2_
     - _Requirements: 02-REQ-6.E1_
-    - `TestEdgeCaseOverlaySyntaxError` in tests/databroker/edge_test.go; writes invalid JSON to overlay, runs `podman compose up` synchronously with 20s timeout, asserts non-zero exit code
+    - `TestEdgeCaseOverlaySyntaxError` in tests/databroker/edge_test.go; writes invalid JSON to a temp file, runs `podman run --rm` with the temp file as overlay (20s timeout), asserts non-zero exit code
+    - Uses `podman run --rm` (not compose) to avoid restart policy interference; passes on first run (verified: broker exits 1 with ParseError)
 
-  - [ ] 4.3 Implement test for missing overlay file (expect container failure)
+  - [x] 4.3 Implement test for missing overlay file (expect container failure)
     - _Test Spec: TS-02-E3_
     - _Requirements: 02-REQ-6.E2_
-    - `TestEdgeCaseMissingOverlay` in tests/databroker/edge_test.go; renames overlay to .bak, runs `podman compose up` synchronously, asserts non-zero exit code
+    - `TestEdgeCaseMissingOverlay` in tests/databroker/edge_test.go; runs `podman run --rm` without mounting the overlay (20s timeout), asserts non-zero exit code
+    - Broker exits 1 with Os { code: 2, kind: NotFound, message: "No such file or directory" }
 
-  - [ ] 4.4 Implement test for permissive mode with arbitrary token (expect success)
+  - [x] 4.4 Implement test for permissive mode with arbitrary token (expect success)
     - _Test Spec: TS-02-E4_
     - _Requirements: 02-REQ-7.E1_
-    - `TestPermissiveModeWithArbitraryToken` in tests/databroker/pubsub_test.go; sends gRPC request with `Authorization: Bearer invalid-token-12345`, asserts success
+    - `TestPermissiveModeWithArbitraryToken` in tests/databroker/pubsub_test.go; sends gRPC request with `Authorization: Bearer invalid-token-12345`, asserts success (no PERMISSION_DENIED)
 
-  - [ ] 4.5 Implement pinned image version verification test
+  - [x] 4.5 Implement pinned image version verification test
     - _Test Spec: TS-02-3_
     - _Requirements: 02-REQ-1.1_
     - Static: `TestComposePinnedImage` in tests/databroker/compose_test.go (verifies compose.yml contains :0.5.0)
-    - Live: `TestImageVersion` in tests/databroker/edge_test.go (inspects running container via podman ps)
+    - Live: `TestImageVersion` in tests/databroker/edge_test.go (inspects running container via podman ps; skips when no container running)
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All edge case tests compile and pass (SKIP when Podman/databroker unavailable; PASS for static checks)
+  - [x] 4.V Verify task group 4
+    - [x] All edge case tests compile and pass (SKIP when Podman/databroker unavailable; PASS for static checks)
+    - Result: TestEdgeCaseNonExistentSignal PASS, TestEdgeCaseOverlaySyntaxError PASS, TestEdgeCaseMissingOverlay PASS, TestPermissiveModeWithArbitraryToken PASS, TestImageVersion SKIP (no running container in CI)
     ```
     cd tests/databroker && go test -run "TestEdgeCase|TestImageVersion" -v ./...
     ```

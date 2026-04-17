@@ -42,6 +42,33 @@ func TestSubscriptionViaTCP(t *testing.T) {
 	}
 }
 
+// TestPermissiveModeWithArbitraryToken verifies that the DATA_BROKER accepts gRPC
+// requests even when an invalid authorization token is provided (TS-02-E4,
+// 02-REQ-7.E1).
+//
+// In permissive mode the broker ignores token metadata entirely; any bearer
+// token (including garbage) must not cause a PERMISSION_DENIED error.
+func TestPermissiveModeWithArbitraryToken(t *testing.T) {
+	requireTCPReachable(t)
+	requireGrpcurl(t)
+
+	// Send a GetValue request with a bogus bearer token.
+	// grpcurlTCPWithHeaders calls t.Fatalf on non-zero exit, so reaching the
+	// assertion below confirms the request succeeded (not PERMISSION_DENIED).
+	out := grpcurlTCPWithHeaders(t,
+		"kuksa.val.v2.VAL/GetValue",
+		`{"signal_id": {"path": "Vehicle.Speed"}}`,
+		map[string]string{"Authorization": "Bearer invalid-token-12345"},
+	)
+
+	// A valid response contains a dataPoint or an empty but well-formed JSON
+	// object. Any non-empty response without "PermissionDenied" is acceptable.
+	if strings.Contains(strings.ToLower(out), "permissiondenied") ||
+		strings.Contains(strings.ToLower(out), "permission_denied") {
+		t.Errorf("expected permissive mode to ignore invalid token; got PERMISSION_DENIED:\n%s", out)
+	}
+}
+
 // TestSubscriptionCrossTransport verifies that a UDS subscriber receives a
 // notification when a signal is set via TCP (TS-02-11, 02-REQ-10.1, 02-REQ-4.1).
 func TestSubscriptionCrossTransport(t *testing.T) {
