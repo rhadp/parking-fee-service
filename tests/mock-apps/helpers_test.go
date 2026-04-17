@@ -4,6 +4,7 @@
 package mock_apps
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -14,6 +15,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	adaptorpb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/adaptor"
+	updatepb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/update"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // repoRoot returns the absolute path to the repository root.
@@ -98,8 +104,7 @@ func startMockHTTPServerWithCapture(t *testing.T, responseBody any, statusCode i
 }
 
 // startMockTCPListener starts a plain TCP listener on a random local port.
-// This is used as a placeholder for gRPC mock servers in task group 1.
-// Task group 4 will replace this with real proto-based gRPC mock servers.
+// Deprecated: use startMockUpdateServer or startMockAdaptorServer for gRPC tests.
 func startMockTCPListener(t *testing.T) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -108,6 +113,115 @@ func startMockTCPListener(t *testing.T) string {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 	return ln.Addr().String()
+}
+
+// ── gRPC mock server types ────────────────────────────────────────────────────
+
+// mockUpdateServer implements UpdateService for testing.
+type mockUpdateServer struct {
+	updatepb.UnimplementedUpdateServiceServer
+}
+
+func (m *mockUpdateServer) InstallAdapter(_ context.Context, req *updatepb.InstallAdapterRequest) (*updatepb.InstallAdapterResponse, error) {
+	return &updatepb.InstallAdapterResponse{
+		JobId:     "j1",
+		AdapterId: "a1",
+		State:     updatepb.AdapterState_ADAPTER_STATE_DOWNLOADING,
+	}, nil
+}
+
+func (m *mockUpdateServer) ListAdapters(_ context.Context, _ *updatepb.ListAdaptersRequest) (*updatepb.ListAdaptersResponse, error) {
+	return &updatepb.ListAdaptersResponse{
+		Adapters: []*updatepb.AdapterInfo{
+			{AdapterId: "a1", ImageRef: "registry/adapter:v1", State: updatepb.AdapterState_ADAPTER_STATE_RUNNING},
+		},
+	}, nil
+}
+
+func (m *mockUpdateServer) WatchAdapterStates(_ *updatepb.WatchAdapterStatesRequest, stream updatepb.UpdateService_WatchAdapterStatesServer) error {
+	// Send one event then close.
+	_ = stream.Send(&updatepb.AdapterStateEvent{
+		AdapterId: "a1",
+		OldState:  updatepb.AdapterState_ADAPTER_STATE_DOWNLOADING,
+		NewState:  updatepb.AdapterState_ADAPTER_STATE_RUNNING,
+		Timestamp: 0,
+	})
+	return nil
+}
+
+func (m *mockUpdateServer) GetAdapterStatus(_ context.Context, req *updatepb.GetAdapterStatusRequest) (*updatepb.GetAdapterStatusResponse, error) {
+	return &updatepb.GetAdapterStatusResponse{
+		Adapter: &updatepb.AdapterInfo{
+			AdapterId: req.AdapterId,
+			ImageRef:  "registry/adapter:v1",
+			State:     updatepb.AdapterState_ADAPTER_STATE_RUNNING,
+		},
+	}, nil
+}
+
+func (m *mockUpdateServer) RemoveAdapter(_ context.Context, _ *updatepb.RemoveAdapterRequest) (*updatepb.RemoveAdapterResponse, error) {
+	return &updatepb.RemoveAdapterResponse{}, nil
+}
+
+// mockAdaptorServer implements ParkingAdaptor for testing.
+type mockAdaptorServer struct {
+	adaptorpb.UnimplementedParkingAdaptorServer
+}
+
+func (m *mockAdaptorServer) StartSession(_ context.Context, req *adaptorpb.StartSessionRequest) (*adaptorpb.StartSessionResponse, error) {
+	return &adaptorpb.StartSessionResponse{
+		SessionId: "s1",
+		Status:    "active",
+	}, nil
+}
+
+func (m *mockAdaptorServer) StopSession(_ context.Context, _ *adaptorpb.StopSessionRequest) (*adaptorpb.StopSessionResponse, error) {
+	return &adaptorpb.StopSessionResponse{
+		SessionId:       "s1",
+		Status:          "stopped",
+		DurationSeconds: 3600,
+		TotalAmount:     2.50,
+		Currency:        "EUR",
+	}, nil
+}
+
+// startMockUpdateServer starts a gRPC server implementing UpdateService and returns its address.
+func startMockUpdateServer(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	srv := grpc.NewServer()
+	updatepb.RegisterUpdateServiceServer(srv, &mockUpdateServer{})
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { srv.GracefulStop() })
+	return ln.Addr().String()
+}
+
+// startMockAdaptorServer starts a gRPC server implementing ParkingAdaptor and returns its address.
+func startMockAdaptorServer(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	srv := grpc.NewServer()
+	adaptorpb.RegisterParkingAdaptorServer(srv, &mockAdaptorServer{})
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { srv.GracefulStop() })
+	return ln.Addr().String()
+}
+
+// dialGRPC creates a gRPC client connection for testing (insecure).
+func dialGRPC(t *testing.T, addr string) *grpc.ClientConn {
+	t.Helper()
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("failed to dial gRPC: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
 }
 
 // runCmd executes the binary with the given args and environment overrides.

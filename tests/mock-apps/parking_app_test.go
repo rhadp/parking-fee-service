@@ -55,13 +55,10 @@ func TestAdapterInfo(t *testing.T) {
 }
 
 // TS-09-7: parking-app-cli install calls InstallAdapter RPC on UPDATE_SERVICE.
-// The mock gRPC server is a placeholder (TCP listener); the real gRPC mock is added in task group 4.
 func TestInstall(t *testing.T) {
 	binary := findBinary(t, "parking-app-cli")
 
-	// Placeholder gRPC server — binary will fail to connect.
-	// In task group 4, this will be replaced with a real proto-based gRPC mock.
-	grpcAddr := startMockTCPListener(t)
+	grpcAddr := startMockUpdateServer(t)
 
 	stdout, _, exitCode := runCmd(t, binary,
 		[]string{"install", "--image-ref=registry/adapter:v1", "--checksum=sha256:abc",
@@ -80,7 +77,7 @@ func TestInstall(t *testing.T) {
 // TS-09-8: parking-app-cli list calls ListAdapters RPC on UPDATE_SERVICE.
 func TestList(t *testing.T) {
 	binary := findBinary(t, "parking-app-cli")
-	grpcAddr := startMockTCPListener(t)
+	grpcAddr := startMockUpdateServer(t)
 
 	stdout, _, exitCode := runCmd(t, binary,
 		[]string{"list", "--update-addr=" + grpcAddr},
@@ -96,7 +93,7 @@ func TestList(t *testing.T) {
 // TS-09-9: parking-app-cli start-session calls StartSession RPC on PARKING_OPERATOR_ADAPTOR.
 func TestStartSession(t *testing.T) {
 	binary := findBinary(t, "parking-app-cli")
-	grpcAddr := startMockTCPListener(t)
+	grpcAddr := startMockAdaptorServer(t)
 
 	stdout, _, exitCode := runCmd(t, binary,
 		[]string{"start-session", "--zone-id=zone-demo-1", "--adaptor-addr=" + grpcAddr},
@@ -106,13 +103,15 @@ func TestStartSession(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
-	_ = stdout
+	if !strings.Contains(stdout, "s1") {
+		t.Errorf("expected session_id 's1' in stdout, got %q", stdout)
+	}
 }
 
 // TS-09-10: parking-app-cli stop-session calls StopSession RPC on PARKING_OPERATOR_ADAPTOR.
 func TestStopSession(t *testing.T) {
 	binary := findBinary(t, "parking-app-cli")
-	grpcAddr := startMockTCPListener(t)
+	grpcAddr := startMockAdaptorServer(t)
 
 	stdout, _, exitCode := runCmd(t, binary,
 		[]string{"stop-session", "--adaptor-addr=" + grpcAddr},
@@ -122,7 +121,9 @@ func TestStopSession(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
-	_ = stdout
+	if !strings.Contains(stdout, "stopped") {
+		t.Errorf("expected 'stopped' in stdout, got %q", stdout)
+	}
 }
 
 // TS-09-E10: parking-app-cli install exits 1 when UPDATE_SERVICE is unreachable.

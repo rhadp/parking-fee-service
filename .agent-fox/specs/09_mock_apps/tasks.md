@@ -137,39 +137,41 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [x] No linter warnings: `cd mock && go vet ./...`
     - [x] _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-17, TS-09-E7, TS-09-E8, TS-09-E9_
 
-- [ ] 4. Go mock CLI apps (parking-app-cli, companion-app-cli)
-  - [ ] 4.1 Implement companion-app-cli
+- [x] 4. Go mock CLI apps (parking-app-cli, companion-app-cli)
+  - [x] 4.1 Implement companion-app-cli
     - Subcommands: `lock`, `unlock`, `status`
     - HTTP client with bearer token from `--token` or `CLOUD_GATEWAY_TOKEN`
     - Target address from `--gateway-addr` or `CLOUD_GATEWAY_ADDR` (default: `http://localhost:8081`)
     - Print JSON response to stdout, errors to stderr
     - _Requirements: 09-REQ-7.1, 09-REQ-7.2, 09-REQ-7.3, 09-REQ-7.4, 09-REQ-7.5, 09-REQ-7.E1, 09-REQ-7.E2, 09-REQ-7.E3_
 
-  - [ ] 4.2 Implement parking-app-cli REST subcommands
+  - [x] 4.2 Implement parking-app-cli REST subcommands
     - Subcommands: `lookup`, `adapter-info`
     - HTTP client targeting PARKING_FEE_SERVICE from `--service-addr` or `PARKING_FEE_SERVICE_ADDR` (default: `http://localhost:8080`)
     - Print JSON response to stdout, errors to stderr
     - _Requirements: 09-REQ-4.1, 09-REQ-4.2, 09-REQ-4.3, 09-REQ-4.E1, 09-REQ-4.E2_
 
-  - [ ] 4.3 Implement parking-app-cli gRPC subcommands (UPDATE_SERVICE)
+  - [x] 4.3 Implement parking-app-cli gRPC subcommands (UPDATE_SERVICE)
     - Subcommands: `install`, `watch`, `list`, `remove`, `status`
     - gRPC client targeting UPDATE_SERVICE from `--update-addr` or `UPDATE_SERVICE_ADDR` (default: `localhost:50052`)
     - `watch` streams events until EOF or SIGINT
     - Print responses to stdout, errors to stderr
+    - Generated Go proto stubs in `mock/parking-app-cli/pb/update/` and `tests/mock-apps/pb/update/`
     - _Requirements: 09-REQ-5.1, 09-REQ-5.2, 09-REQ-5.3, 09-REQ-5.4, 09-REQ-5.5, 09-REQ-5.6, 09-REQ-5.E1, 09-REQ-5.E2_
 
-  - [ ] 4.4 Implement parking-app-cli session override subcommands
+  - [x] 4.4 Implement parking-app-cli session override subcommands
     - Subcommands: `start-session`, `stop-session`
     - gRPC client targeting PARKING_OPERATOR_ADAPTOR from `--adaptor-addr` or `ADAPTOR_ADDR` (default: `localhost:50053`)
     - Print responses to stdout, errors to stderr
+    - Generated Go proto stubs in `mock/parking-app-cli/pb/adaptor/` and `tests/mock-apps/pb/adaptor/`
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3, 09-REQ-6.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Both CLIs build: `cd mock && go build ./parking-app-cli/... && go build ./companion-app-cli/...`
-    - [ ] CLI tests pass: `cd mock && go test -v ./...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd mock && go vet ./...`
-    - [ ] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
+  - [x] 4.V Verify task group 4
+    - [x] Both CLIs build: `cd mock && go build ./parking-app-cli/... && go build ./companion-app-cli/...`
+    - [x] CLI tests pass: `cd mock && go test -v ./...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd mock && go vet ./...`
+    - [x] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
 
 - [ ] 5. Wiring verification
   - [ ] 5.1 Run mock sensor integration tests against DATA_BROKER
