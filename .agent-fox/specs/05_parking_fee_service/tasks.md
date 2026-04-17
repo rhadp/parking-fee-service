@@ -76,14 +76,14 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - [x] All spec tests FAIL (red): `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep FAIL`
     - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
 
-- [ ] 2. Model, config, and store modules
-  - [ ] 2.1 Implement model package
+- [x] 2. Model, config, and store modules
+  - [x] 2.1 Implement model package
     - Define types: `Coordinate`, `Zone`, `Rate`, `AdapterMeta`, `Operator`, `Config`
     - Add JSON struct tags for all fields
     - Define `OperatorResponse` struct (excludes `Adapter` field) for lookup responses
     - _Requirements: 05-REQ-5.2_
 
-  - [ ] 2.2 Implement config package
+  - [x] 2.2 Implement config package
     - `LoadConfig(path string) (*model.Config, error)`: read JSON file, unmarshal into Config
     - `DefaultConfig() *model.Config`: built-in Munich demo data (2 zones, 2 operators)
     - If file not found: return DefaultConfig(), log warning
@@ -92,7 +92,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Support `CONFIG_PATH` env var in main
     - _Requirements: 05-REQ-4.1, 05-REQ-4.2, 05-REQ-4.3, 05-REQ-4.E1, 05-REQ-4.E2_
 
-  - [ ] 2.3 Implement store package
+  - [x] 2.3 Implement store package
     - `NewStore(zones []model.Zone, operators []model.Operator) *Store`
     - `GetZone(id string) (*model.Zone, bool)` -- lookup by zone ID
     - `GetOperator(id string) (*model.Operator, bool)` -- lookup by operator ID
@@ -100,11 +100,11 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Index zones by ID, operators by ID, operators by zone ID
     - _Requirements: 05-REQ-1.4, 05-REQ-2.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and store tests pass: `cd backend && go test -v ./parking-fee-service/config/... ./parking-fee-service/store/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
-    - [ ] _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6, TS-05-P3, TS-05-P5, TS-05-P6_
+  - [x] 2.V Verify task group 2
+    - [x] Config and store tests pass: `cd backend && go test -v ./parking-fee-service/config/... ./parking-fee-service/store/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+    - [x] _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6, TS-05-P3, TS-05-P5, TS-05-P6_
 
 - [ ] 3. Geo module
   - [ ] 3.1 Implement PointInPolygon

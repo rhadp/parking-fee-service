@@ -13,14 +13,26 @@ type Store struct {
 }
 
 // NewStore creates a Store indexed from the given zones and operators slices.
-//
-// This is a stub — returns a zero-value store. Full implementation is in task group 2.
+// Zones are indexed by ID; operators are indexed both by ID and by zone_id.
 func NewStore(zones []model.Zone, operators []model.Operator) *Store {
-	return &Store{
-		zones:     make(map[string]*model.Zone),
-		operators: make(map[string]*model.Operator),
+	s := &Store{
+		zones:     make(map[string]*model.Zone, len(zones)),
+		operators: make(map[string]*model.Operator, len(operators)),
 		byZone:    make(map[string][]*model.Operator),
 	}
+
+	for i := range zones {
+		z := &zones[i]
+		s.zones[z.ID] = z
+	}
+
+	for i := range operators {
+		op := &operators[i]
+		s.operators[op.ID] = op
+		s.byZone[op.ZoneID] = append(s.byZone[op.ZoneID], op)
+	}
+
+	return s
 }
 
 // GetZone returns the zone with the given ID, or (nil, false) if not found.
@@ -36,6 +48,8 @@ func (s *Store) GetOperator(id string) (*model.Operator, bool) {
 }
 
 // GetOperatorsByZoneIDs returns all operators whose zone_id is in zoneIDs.
+// The order is deterministic: zone IDs are iterated in the order provided,
+// and within each zone operators are returned in insertion order.
 func (s *Store) GetOperatorsByZoneIDs(zoneIDs []string) []model.Operator {
 	var result []model.Operator
 	for _, id := range zoneIDs {
