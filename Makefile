@@ -28,9 +28,10 @@ test-go:
 	go test \
 		parking-fee-service/backend/parking-fee-service \
 		parking-fee-service/backend/cloud-gateway \
-		parking-fee-service/mock/parking-app-cli/... \
-		parking-fee-service/mock/companion-app-cli/... \
-		parking-fee-service/tests/setup/...
+		github.com/sdv-demo/mock/companion-app-cli \
+		github.com/sdv-demo/mock/parking-app-cli \
+		github.com/sdv-demo/mock/parking-operator \
+		github.com/sdv-demo/tests/mock-apps
 
 test-setup:
 	go test -v parking-fee-service/tests/setup/...
@@ -43,6 +44,7 @@ lint-rust:
 
 lint-go:
 	go vet parking-fee-service/...
+	go vet github.com/sdv-demo/mock/... github.com/sdv-demo/tests/mock-apps/...
 
 # ── Check (lint + test) ───────────────────────────────────────────────────────
 check: lint test

@@ -1,3 +1,3 @@
-module parking-fee-service/mock/parking-operator
+module github.com/sdv-demo/mock/parking-operator
 
 go 1.22

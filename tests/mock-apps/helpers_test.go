@@ -4,10 +4,13 @@
 // startMockHTTPServer starts a local HTTP server that captures requests and
 // returns a configured response — used to verify the correct HTTP calls are
 // made by CLI tools.
-// startTCPListener starts a bare TCP listener suitable as a fake gRPC endpoint.
+// startTCPListener starts a gRPC server with mock implementations of
+// UpdateService and AdapterService, suitable as a fake gRPC endpoint for
+// parking-app-cli integration tests.
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -18,6 +21,11 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	adapterpb "github.com/sdv-demo/tests/mock-apps/pb/adapter"
+	updatepb "github.com/sdv-demo/tests/mock-apps/pb/update"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // buildBinary compiles the Go binary at the given import path (e.g.
@@ -48,9 +56,9 @@ type capturedRequest struct {
 // mockServer wraps httptest.Server and captures the last request.
 type mockServer struct {
 	*httptest.Server
-	mu      sync.Mutex
-	last    *capturedRequest
-	status  int
+	mu       sync.Mutex
+	last     *capturedRequest
+	status   int
 	respBody string
 }
 
@@ -89,24 +97,82 @@ func (ms *mockServer) lastRequest() *capturedRequest {
 	return ms.last
 }
 
-// startTCPListener opens a TCP listener on a random port.  It accepts
-// connections and closes them immediately, simulating an unreachable / stub
-// gRPC server (the gRPC client will connect but fail the handshake).
+// ── Mock gRPC implementations ────────────────────────────────────────────────
+
+// mockUpdateServer implements UpdateServiceServer returning canned responses.
+type mockUpdateServer struct {
+	updatepb.UnimplementedUpdateServiceServer
+}
+
+func (m *mockUpdateServer) InstallAdapter(_ context.Context, req *updatepb.InstallAdapterRequest) (*updatepb.InstallAdapterResponse, error) {
+	return &updatepb.InstallAdapterResponse{
+		JobId:     "job_id-mock",
+		AdapterId: "adapter-mock",
+		State:     updatepb.AdapterState_ADAPTER_STATE_DOWNLOADING,
+	}, nil
+}
+
+func (m *mockUpdateServer) ListAdapters(_ context.Context, _ *updatepb.ListAdaptersRequest) (*updatepb.ListAdaptersResponse, error) {
+	return &updatepb.ListAdaptersResponse{
+		Adapters: []*updatepb.AdapterInfo{
+			{AdapterId: "adapter-1", ImageRef: "mock-image:v1", State: updatepb.AdapterState_ADAPTER_STATE_RUNNING},
+		},
+	}, nil
+}
+
+func (m *mockUpdateServer) GetAdapterStatus(_ context.Context, req *updatepb.GetAdapterStatusRequest) (*updatepb.AdapterInfo, error) {
+	return &updatepb.AdapterInfo{
+		AdapterId: req.AdapterId,
+		State:     updatepb.AdapterState_ADAPTER_STATE_RUNNING,
+	}, nil
+}
+
+func (m *mockUpdateServer) RemoveAdapter(_ context.Context, _ *updatepb.RemoveAdapterRequest) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+// mockAdapterServer implements AdapterServiceServer returning canned responses.
+type mockAdapterServer struct {
+	adapterpb.UnimplementedAdapterServiceServer
+}
+
+func (m *mockAdapterServer) StartSession(_ context.Context, req *adapterpb.StartSessionRequest) (*adapterpb.StartSessionResponse, error) {
+	return &adapterpb.StartSessionResponse{
+		SessionId: "session-mock",
+		Active:    true,
+		ZoneId:    req.ZoneId,
+	}, nil
+}
+
+func (m *mockAdapterServer) StopSession(_ context.Context, _ *adapterpb.StopSessionRequest) (*adapterpb.SessionStatus, error) {
+	return &adapterpb.SessionStatus{
+		SessionId: "session-mock",
+		Active:    false,
+	}, nil
+}
+
+// startTCPListener starts a real gRPC server with mock implementations of
+// UpdateService and AdapterService. It returns the listener address in
+// "host:port" form. The server is shut down at test cleanup.
 func startTCPListener(t *testing.T) string {
 	t.Helper()
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("startTCPListener: %v", err)
 	}
-	t.Cleanup(func() { lis.Close() })
+
+	s := grpc.NewServer()
+	updatepb.RegisterUpdateServiceServer(s, &mockUpdateServer{})
+	adapterpb.RegisterAdapterServiceServer(s, &mockAdapterServer{})
+
+	t.Cleanup(func() {
+		s.GracefulStop()
+		lis.Close()
+	})
+
 	go func() {
-		for {
-			conn, err := lis.Accept()
-			if err != nil {
-				return
-			}
-			conn.Close()
-		}
+		_ = s.Serve(lis)
 	}()
+
 	return lis.Addr().String()
 }

@@ -13,19 +13,22 @@ import (
 )
 
 func main() {
-	port := flag.String("port", "", "port to listen on (default 8080, env PORT)")
-	flag.Parse()
+	if len(os.Args) < 2 || os.Args[1] != "serve" {
+		fmt.Fprintln(os.Stderr, "usage: parking-operator serve [--port=<port>]")
+		os.Exit(1)
+	}
+
+	// Parse flags from arguments after the "serve" subcommand.
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	fs.SetOutput(os.Stderr)
+	port := fs.String("port", "", "port to listen on (default 8080, env PORT)")
+	fs.Parse(os.Args[2:]) //nolint:errcheck
 
 	if *port == "" {
 		*port = os.Getenv("PORT")
 	}
 	if *port == "" {
 		*port = "8080"
-	}
-
-	if flag.Arg(0) != "serve" {
-		fmt.Fprintln(os.Stderr, "usage: parking-operator serve [--port=<port>]")
-		os.Exit(1)
 	}
 
 	s := newServer()
