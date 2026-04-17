@@ -26,6 +26,11 @@ const MAX_ATTEMPTS: u32 = 5;
 const BACKOFF_DELAYS_SECS: [u64; 4] = [1, 2, 4, 8];
 
 /// Wraps an `async_nats::Client` together with the VIN used to scope subjects.
+///
+/// `Clone` is derived because `async_nats::Client` is cheaply cloneable (it
+/// wraps a shared connection internally).  This lets callers hand out per-task
+/// copies without an extra `Arc`.
+#[derive(Clone)]
 pub struct NatsClient {
     client: Client,
     vin: String,

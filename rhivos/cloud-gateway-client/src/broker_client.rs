@@ -69,6 +69,10 @@ const SIGNAL_PARKING_ACTIVE: &str = "Vehicle.Parking.SessionActive";
 /// Wraps a `ValClient<Channel>` tonic client. All RPC methods clone the
 /// underlying `Channel` before calling async methods, since `ValClient` wraps
 /// a shared `Channel` and cloning is cheap.
+///
+/// `Clone` is derived because tonic clients wrap a shared `Channel` internally
+/// and cloning is cheap.  This allows per-task copies without an extra `Arc`.
+#[derive(Clone)]
 pub struct BrokerClient {
     client: ValClient<Channel>,
 }
