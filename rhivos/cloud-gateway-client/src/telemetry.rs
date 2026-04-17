@@ -17,16 +17,67 @@ pub struct TelemetryState {
 
 impl TelemetryState {
     /// Create a new, empty telemetry state for the given VIN.
-    pub fn new(_vin: String) -> Self {
-        todo!("implement in task group 4")
+    pub fn new(vin: String) -> Self {
+        TelemetryState {
+            vin,
+            is_locked: None,
+            latitude: None,
+            longitude: None,
+            parking_active: None,
+        }
     }
 
     /// Apply a signal update and return the aggregated telemetry JSON.
     ///
     /// Returns `Some(json)` with all currently-known field values, or `None`
     /// when the incoming value is identical to the previously stored value.
-    pub fn update(&mut self, _signal: SignalUpdate) -> Option<String> {
-        todo!("implement in task group 4")
+    pub fn update(&mut self, signal: SignalUpdate) -> Option<String> {
+        let changed = match signal {
+            SignalUpdate::IsLocked(v) => {
+                let changed = self.is_locked != Some(v);
+                self.is_locked = Some(v);
+                changed
+            }
+            SignalUpdate::Latitude(v) => {
+                // Use bitwise comparison for f64 to avoid NaN != NaN surprises
+                let changed = self.latitude.map(|prev| prev.to_bits()) != Some(v.to_bits());
+                self.latitude = Some(v);
+                changed
+            }
+            SignalUpdate::Longitude(v) => {
+                let changed = self.longitude.map(|prev| prev.to_bits()) != Some(v.to_bits());
+                self.longitude = Some(v);
+                changed
+            }
+            SignalUpdate::ParkingActive(v) => {
+                let changed = self.parking_active != Some(v);
+                self.parking_active = Some(v);
+                changed
+            }
+        };
+
+        if !changed {
+            return None;
+        }
+
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let msg = crate::models::TelemetryMessage {
+            vin: self.vin.clone(),
+            is_locked: self.is_locked,
+            latitude: self.latitude,
+            longitude: self.longitude,
+            parking_active: self.parking_active,
+            timestamp,
+        };
+
+        Some(
+            serde_json::to_string(&msg)
+                .expect("TelemetryMessage serialization must not fail"),
+        )
     }
 }
 
