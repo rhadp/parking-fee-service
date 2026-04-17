@@ -14,36 +14,49 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
+- [x] 1. Write failing spec tests
   - Write integration tests that verify DATA_BROKER connectivity, signal availability, read/write operations, and subscriptions. All tests will fail initially since the compose.yml is not yet configured for dual listeners.
 
-  - [ ] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
+  - [x] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
     - Set up Go module and initial test file structure
+    - go.mod created at tests/databroker/go.mod; module added to go.work
+    - helpers_test.go: repoRoot, requireTCPReachable, requireUDSSocket, requireGrpcurl, grpcurl helpers, readComposeYML
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
 
-  - [ ] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
+  - [x] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
+    - TestTCPConnectivity in signal_test.go; 6 static compose tests in compose_test.go (FAIL as expected with current compose.yml)
+    - compose_test.go: TestComposePinnedImage, TestComposeTCPPort, TestComposeTCPListener, TestComposeUDSSocket, TestComposeUDSVolume, TestComposeVSSOverlay, TestComposePermissiveMode
     - _Test Spec: TS-02-1_
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
 
-  - [ ] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
+  - [x] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
+    - TestUDSConnectivity in signal_test.go; skips on macOS+Podman (socket inside VM)
     - _Test Spec: TS-02-2_
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2_
 
-  - [ ] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
+  - [x] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
+    - TestStandardVSSSignalMetadata in signal_test.go; TestSignalCompleteness in property_test.go
+    - API: kuksa.val.v2.VAL/ListMetadata with {"root": "<path>"}; type hint DATA_TYPE_BOOLEAN/FLOAT/DOUBLE
     - _Test Spec: TS-02-4, TS-02-P1_
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
 
-  - [ ] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
+  - [x] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
+    - TestCustomVSSSignalMetadata in signal_test.go; all allSignals in property_test.go
     - _Test Spec: TS-02-5, TS-02-P1_
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
 
-  - [ ] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
+  - [x] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
+    - TestSignalSetGetTCP, TestSignalSetGetUDS, TestCrossTransportTCPToUDS, TestCrossTransportUDSToTCP, TestPermissiveModeNoAuth in signal_test.go
+    - TestSubscriptionViaTCP, TestSubscriptionCrossTransport in pubsub_test.go
+    - TestWriteReadRoundtrip, TestCrossTransportEquivalence in property_test.go
+    - API: PublishValue with {"data_point": {"value": {"float|bool|double|string": ...}}}; Subscribe with {"signal_paths": [...]}
     - _Test Spec: TS-02-6, TS-02-7, TS-02-8, TS-02-9, TS-02-10, TS-02-11, TS-02-P4_
     - _Requirements: 02-REQ-4.1, 02-REQ-8.1, 02-REQ-8.2, 02-REQ-9.1, 02-REQ-9.2, 02-REQ-10.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
+    - Result: 6 compose static tests FAIL (compose.yml: wrong image/port/no UDS/no VSS tree); 9 live tests PASS (against cgc-test-broker); 6 SKIP (UDS macOS+Podman); make check GREEN
     ```
     cd tests/databroker && go test -run TestCompile ./... 2>&1 || echo "Tests compile but fail as expected"
     ```
