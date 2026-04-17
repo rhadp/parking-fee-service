@@ -1,8 +1,20 @@
 {
+  "Vehicle.Parking": {
+    "type": "branch",
+    "description": "Parking-related vehicle data and commands."
+  },
   "Vehicle.Parking.SessionActive": {
     "type": "sensor",
     "datatype": "boolean",
     "description": "Adapter-managed parking session state. True when an active parking session is in progress."
+  },
+  "Vehicle.Command": {
+    "type": "branch",
+    "description": "Vehicle command interface for remote service operations."
+  },
+  "Vehicle.Command.Door": {
+    "type": "branch",
+    "description": "Door-related command interface."
   },
   "Vehicle.Command.Door.Lock": {
     "type": "actuator",

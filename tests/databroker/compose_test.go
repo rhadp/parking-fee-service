@@ -8,6 +8,8 @@
 package databroker_test
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -115,6 +117,92 @@ func TestComposeVSSOverlay(t *testing.T) {
 	}
 	if !strings.Contains(compose, "--vss") {
 		t.Error("compose.yml databroker command does not include the --vss flag for the overlay")
+	}
+}
+
+// TestVSSOverlayFormat verifies that the VSS overlay file (deployments/vss-overlay.json)
+// is valid JSON and contains all 3 required custom signals with their correct
+// data types.  Also verifies that intermediate branch nodes are defined so the
+// overlay can be loaded by kuksa-databroker without errors.
+//
+// This is a static test — no running container required.
+//
+// Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4
+func TestVSSOverlayFormat(t *testing.T) {
+	root := repoRoot(t)
+	overlayPath := root + "/deployments/vss-overlay.json"
+	data, err := os.ReadFile(overlayPath)
+	if err != nil {
+		t.Fatalf("cannot read %s: %v", overlayPath, err)
+	}
+
+	// Validate JSON syntax.
+	var overlay map[string]map[string]string
+	if err := json.Unmarshal(data, &overlay); err != nil {
+		t.Fatalf("vss-overlay.json is not valid JSON: %v", err)
+	}
+
+	// 02-REQ-6.1: Vehicle.Parking.SessionActive must be type boolean.
+	t.Run("Vehicle.Parking.SessionActive/boolean", func(t *testing.T) {
+		node, ok := overlay["Vehicle.Parking.SessionActive"]
+		if !ok {
+			t.Fatal("Vehicle.Parking.SessionActive is missing from overlay")
+		}
+		dt := strings.ToLower(node["datatype"])
+		if dt != "boolean" && dt != "bool" {
+			t.Errorf("Vehicle.Parking.SessionActive: expected datatype boolean, got %q", node["datatype"])
+		}
+	})
+
+	// 02-REQ-6.2: Vehicle.Command.Door.Lock must be type string.
+	t.Run("Vehicle.Command.Door.Lock/string", func(t *testing.T) {
+		node, ok := overlay["Vehicle.Command.Door.Lock"]
+		if !ok {
+			t.Fatal("Vehicle.Command.Door.Lock is missing from overlay")
+		}
+		if strings.ToLower(node["datatype"]) != "string" {
+			t.Errorf("Vehicle.Command.Door.Lock: expected datatype string, got %q", node["datatype"])
+		}
+	})
+
+	// 02-REQ-6.3: Vehicle.Command.Door.Response must be type string.
+	t.Run("Vehicle.Command.Door.Response/string", func(t *testing.T) {
+		node, ok := overlay["Vehicle.Command.Door.Response"]
+		if !ok {
+			t.Fatal("Vehicle.Command.Door.Response is missing from overlay")
+		}
+		if strings.ToLower(node["datatype"]) != "string" {
+			t.Errorf("Vehicle.Command.Door.Response: expected datatype string, got %q", node["datatype"])
+		}
+	})
+
+	// Verify intermediate branch nodes are defined so kuksa-databroker can load
+	// the overlay without missing-parent errors.
+	for _, branchPath := range []string{"Vehicle.Parking", "Vehicle.Command", "Vehicle.Command.Door"} {
+		t.Run(branchPath+"/branch", func(t *testing.T) {
+			node, ok := overlay[branchPath]
+			if !ok {
+				t.Errorf("intermediate branch node %q is missing from overlay; kuksa-databroker may fail to load it", branchPath)
+				return
+			}
+			if strings.ToLower(node["type"]) != "branch" {
+				t.Errorf("%q: expected type=branch, got %q", branchPath, node["type"])
+			}
+		})
+	}
+
+	// All 3 custom leaf signals must have a description.
+	for _, path := range []string{
+		"Vehicle.Parking.SessionActive",
+		"Vehicle.Command.Door.Lock",
+		"Vehicle.Command.Door.Response",
+	} {
+		t.Run(path+"/description", func(t *testing.T) {
+			node := overlay[path]
+			if node["description"] == "" {
+				t.Errorf("%q: missing description field (required by kuksa-databroker)", path)
+			}
+		})
 	}
 }
 
