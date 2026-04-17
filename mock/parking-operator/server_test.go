@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -255,5 +256,94 @@ func TestMalformedRequestStop(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for malformed body, got %d", rr.Code)
+	}
+}
+
+// ── TS-09-P3: Session Integrity Property ──────────────────────────────────
+
+// TestSessionIntegrityProperty verifies that for any start-stop pair,
+// duration_seconds == stop_timestamp - start_timestamp and
+// total_amount ≈ 2.50 * duration_hours.
+//
+// Property: Property 4 from design.md
+// Test Spec: TS-09-P3
+// Requirements: 09-REQ-8.2, 09-REQ-8.3, 09-REQ-8.5
+func TestSessionIntegrityProperty(t *testing.T) {
+	cases := []struct {
+		startTS   int64
+		durationS int64
+	}{
+		{1700000000, 3600},  // 1 hour
+		{1700000000, 1800},  // 30 minutes
+		{1700000000, 7200},  // 2 hours
+		{1700000000, 60},    // 1 minute
+		{1700000000, 86400}, // 24 hours
+		{1699999999, 3601},  // non-round timestamps
+		{1000000000, 12345}, // arbitrary
+		{1700000000, 1},     // 1 second
+		{1700000000, 100},   // ~1.67 minutes
+		{1700000000, 10800}, // 3 hours
+	}
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("start=%d_dur=%d", tc.startTS, tc.durationS), func(t *testing.T) {
+			s := newTestServer()
+			stopTS := tc.startTS + tc.durationS
+
+			// Create session.
+			startBody, _ := json.Marshal(map[string]any{
+				"vehicle_id": "VIN001",
+				"zone_id":    "zone-1",
+				"timestamp":  tc.startTS,
+			})
+			startReq := httptest.NewRequest(http.MethodPost, "/parking/start", bytes.NewBuffer(startBody))
+			startReq.Header.Set("Content-Type", "application/json")
+			startRR := httptest.NewRecorder()
+			s.handleStart(startRR, startReq)
+			if startRR.Code != http.StatusOK {
+				t.Fatalf("handleStart: expected 200, got %d", startRR.Code)
+			}
+
+			var startResp map[string]any
+			json.NewDecoder(startRR.Body).Decode(&startResp) //nolint
+			sessionID, _ := startResp["session_id"].(string)
+			if sessionID == "" {
+				t.Fatal("handleStart: no session_id in response")
+			}
+
+			// Stop session.
+			stopBody, _ := json.Marshal(map[string]any{
+				"session_id": sessionID,
+				"timestamp":  stopTS,
+			})
+			stopReq := httptest.NewRequest(http.MethodPost, "/parking/stop", bytes.NewBuffer(stopBody))
+			stopReq.Header.Set("Content-Type", "application/json")
+			stopRR := httptest.NewRecorder()
+			s.handleStop(stopRR, stopReq)
+			if stopRR.Code != http.StatusOK {
+				t.Fatalf("handleStop: expected 200, got %d", stopRR.Code)
+			}
+
+			var stopResp map[string]any
+			json.NewDecoder(stopRR.Body).Decode(&stopResp) //nolint
+
+			// Verify duration.
+			dur, _ := stopResp["duration_seconds"].(float64)
+			if int64(dur) != tc.durationS {
+				t.Errorf("duration_seconds: expected %d, got %v", tc.durationS, dur)
+			}
+
+			// Verify total_amount = 2.50 * duration_hours (within 1 cent).
+			amt, _ := stopResp["total_amount"].(float64)
+			expected := 2.50 * float64(tc.durationS) / 3600.0
+			if amt < expected-0.01 || amt > expected+0.01 {
+				t.Errorf("total_amount: expected ≈%.4f, got %v", expected, amt)
+			}
+
+			// Verify currency.
+			if stopResp["currency"] != "EUR" {
+				t.Errorf("currency: expected EUR, got %v", stopResp["currency"])
+			}
+		})
 	}
 }
