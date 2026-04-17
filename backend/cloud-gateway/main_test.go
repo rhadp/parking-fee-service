@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -40,6 +41,27 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(m.Run())
+}
+
+// safeBuf is a thread-safe bytes.Buffer suitable for capturing subprocess output
+// while being read concurrently from the test goroutine.
+type safeBuf struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+// Write implements io.Writer in a thread-safe way.
+func (s *safeBuf) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+// String returns the accumulated output as a string in a thread-safe way.
+func (s *safeBuf) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
 }
 
 // checkNATSAvailable tries a TCP dial to localhost:4222.
@@ -76,7 +98,7 @@ func writeTestConfig(t *testing.T, port int) string {
 
 // waitForOutput polls buf until it contains substr or the deadline is exceeded.
 // Returns true if substr was found within the deadline.
-func waitForOutput(buf *bytes.Buffer, substr string, deadline time.Duration) bool {
+func waitForOutput(buf *safeBuf, substr string, deadline time.Duration) bool {
 	end := time.Now().Add(deadline)
 	for time.Now().Before(end) {
 		if strings.Contains(buf.String(), substr) {
@@ -102,7 +124,7 @@ func TestStartupLogging(t *testing.T) {
 
 	cfgPath := writeTestConfig(t, 18081)
 
-	var out bytes.Buffer
+	var out safeBuf
 	cmd := exec.Command(binaryPath)
 	cmd.Env = append(os.Environ(), "CONFIG_PATH="+cfgPath)
 	cmd.Stdout = &out
@@ -146,7 +168,7 @@ func TestGracefulShutdown(t *testing.T) {
 
 	cfgPath := writeTestConfig(t, 18082)
 
-	var out bytes.Buffer
+	var out safeBuf
 	cmd := exec.Command(binaryPath)
 	cmd.Env = append(os.Environ(), "CONFIG_PATH="+cfgPath)
 	cmd.Stdout = &out
