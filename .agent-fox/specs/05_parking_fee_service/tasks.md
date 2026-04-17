@@ -176,33 +176,33 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
     - [x] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
 
-- [ ] 5. Wiring verification
-  - [ ] 5.1 Run full test suite
+- [x] 5. Wiring verification
+  - [x] 5.1 Run full test suite
     - All unit, integration, and property tests pass: `cd backend && go test -v ./parking-fee-service/...`
     - All tests in the repo pass: `cd backend && go test -v ./...`
     - _Test Spec: TS-05-1 through TS-05-16, TS-05-E1 through TS-05-E6, TS-05-P1 through TS-05-P6_
 
-  - [ ] 5.2 Run smoke tests
+  - [x] 5.2 Run smoke tests
     - Build binary: `cd backend && go build -o parking-fee-service ./parking-fee-service/cmd/`
     - Start service, verify `/health`, `/operators?lat=48.1375&lon=11.5600`, `/operators/parkhaus-munich/adapter` via curl or test harness
     - Verify SIGTERM graceful shutdown
     - _Test Spec: TS-05-SMOKE-1, TS-05-SMOKE-2, TS-05-SMOKE-3_
 
-  - [ ] 5.3 Verify lint and vet
+  - [x] 5.3 Verify lint and vet
     - `cd backend && go vet ./parking-fee-service/...`
     - No warnings or errors
     - _Requirements: all_
 
-  - [ ] 5.4 Verify config fallback
+  - [x] 5.4 Verify config fallback
     - Start service without config file, verify it uses built-in Munich demo data
     - Start service with `CONFIG_PATH=/tmp/custom.json`, verify it uses custom data
     - _Test Spec: TS-05-SMOKE-2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Zero test failures: `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep -c FAIL` returns 0
-    - [ ] Binary starts and serves traffic on port 8080
-    - [ ] Binary shuts down cleanly on SIGTERM
-    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+  - [x] 5.V Verify task group 5
+    - [x] Zero test failures: `cd backend && go test -v ./parking-fee-service/... 2>&1 | grep -c FAIL` returns 0
+    - [x] Binary starts and serves traffic on port 8080
+    - [x] Binary shuts down cleanly on SIGTERM
+    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
 
 ### Checkbox States
 
