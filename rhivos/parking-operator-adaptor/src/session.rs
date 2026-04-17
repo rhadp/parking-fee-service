@@ -43,29 +43,37 @@ impl Session {
     /// Start a new session, populating all fields (08-REQ-6.2).
     pub fn start(
         &mut self,
-        _session_id: String,
-        _zone_id: String,
-        _start_time: i64,
-        _rate: Rate,
+        session_id: String,
+        zone_id: String,
+        start_time: i64,
+        rate: Rate,
     ) {
-        todo!("implement Session::start — populate state and set active=true")
+        self.state = Some(SessionState {
+            session_id,
+            zone_id,
+            start_time,
+            rate,
+            active: true,
+        });
     }
 
     /// Stop the active session: set active=false and clear state (08-REQ-6.3).
     ///
     /// Returns the `session_id` if a session was active, `None` otherwise.
     pub fn stop(&mut self) -> Option<String> {
-        todo!("implement Session::stop — clear state and return session_id")
+        let session_id = self.state.as_ref().map(|s| s.session_id.clone());
+        self.state = None;
+        session_id
     }
 
     /// Return the current session state, or `None` if no session is active.
     pub fn status(&self) -> Option<&SessionState> {
-        todo!("implement Session::status — return reference to active state")
+        self.state.as_ref()
     }
 
     /// Return the current rate, or `None` if no session is active.
     pub fn rate(&self) -> Option<&Rate> {
-        todo!("implement Session::rate — return reference to active rate")
+        self.state.as_ref().map(|s| &s.rate)
     }
 }
 
