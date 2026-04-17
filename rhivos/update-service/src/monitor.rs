@@ -1,19 +1,39 @@
 use std::sync::Arc;
 
+use crate::adapter::AdapterState;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
 /// Monitor a running container for exit events via `podman wait`.
 /// On exit 0: transition to STOPPED. On non-zero: transition to ERROR.
 /// On wait failure: transition to ERROR.
-#[allow(dead_code)]
 pub async fn monitor_container<P: PodmanExecutor + Send + Sync + 'static>(
-    _adapter_id: String,
+    adapter_id: String,
     _image_ref: String,
-    _state: Arc<StateManager>,
-    _podman: Arc<P>,
+    state: Arc<StateManager>,
+    podman: Arc<P>,
 ) {
-    todo!("implement monitor_container")
+    match podman.wait(&adapter_id).await {
+        Ok(0) => {
+            // Clean container exit: transition to STOPPED and record stopped_at for offload timer.
+            // Ignore the result — adapter may have been removed or explicitly stopped already.
+            let _ = state.transition(&adapter_id, AdapterState::Stopped, None);
+        }
+        Ok(exit_code) => {
+            // Non-zero exit code: container crashed — transition to ERROR.
+            state.force_error(
+                &adapter_id,
+                &format!("container exited with non-zero code {exit_code}"),
+            );
+        }
+        Err(e) => {
+            // podman wait itself failed — transition to ERROR.
+            state.force_error(
+                &adapter_id,
+                &format!("podman wait failed: {}", e.message),
+            );
+        }
+    }
 }
 
 #[cfg(test)]

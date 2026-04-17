@@ -1,29 +1,77 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::adapter::AdapterState;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
 /// Spawn a background task that periodically offloads unused STOPPED adapters.
-#[allow(dead_code)]
+///
+/// The task fires every `poll_interval` (waiting before the first check) and calls
+/// `offload_expired` each time. Returns the `JoinHandle` so the caller can abort it
+/// on shutdown.
 pub async fn spawn_offload_timer<P: PodmanExecutor + Send + Sync + 'static>(
-    _state: Arc<StateManager>,
-    _podman: Arc<P>,
-    _inactivity_timeout: Duration,
-    _poll_interval: Duration,
+    state: Arc<StateManager>,
+    podman: Arc<P>,
+    inactivity_timeout: Duration,
+    poll_interval: Duration,
 ) -> tokio::task::JoinHandle<()> {
-    todo!("implement spawn_offload_timer")
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(poll_interval).await;
+            offload_expired(state.clone(), podman.clone(), inactivity_timeout).await;
+        }
+    })
 }
 
 /// Offload all adapters that have been STOPPED longer than `inactivity_timeout`.
-/// Called directly by tests with short timeouts.
-#[allow(dead_code)]
+///
+/// For each expired adapter:
+/// 1. Transition to OFFLOADING (emits event to subscribers).
+/// 2. Remove the container via `podman rm`.
+/// 3. Remove the image via `podman rmi`.
+/// 4. On success: remove the adapter from in-memory state.
+/// 5. On any failure: leave the adapter in ERROR state.
 pub async fn offload_expired<P: PodmanExecutor + Send + Sync + 'static>(
-    _state: Arc<StateManager>,
-    _podman: Arc<P>,
-    _inactivity_timeout: Duration,
+    state: Arc<StateManager>,
+    podman: Arc<P>,
+    inactivity_timeout: Duration,
 ) {
-    todo!("implement offload_expired")
+    let candidates = state.get_offload_candidates(inactivity_timeout);
+    for entry in candidates {
+        let adapter_id = entry.adapter_id.clone();
+        let image_ref = entry.image_ref.clone();
+
+        // Transition to OFFLOADING and emit the state event.
+        if state
+            .transition(&adapter_id, AdapterState::Offloading, None)
+            .is_err()
+        {
+            // Adapter was removed between get_offload_candidates and now; skip.
+            continue;
+        }
+
+        // Remove the container.
+        if let Err(e) = podman.rm(&adapter_id).await {
+            state.force_error(
+                &adapter_id,
+                &format!("offload rm failed: {}", e.message),
+            );
+            continue;
+        }
+
+        // Remove the image.
+        if let Err(e) = podman.rmi(&image_ref).await {
+            state.force_error(
+                &adapter_id,
+                &format!("offload rmi failed: {}", e.message),
+            );
+            continue;
+        }
+
+        // Both commands succeeded — drop the adapter from in-memory state entirely.
+        let _ = state.remove_adapter(&adapter_id);
+    }
 }
 
 #[cfg(test)]
