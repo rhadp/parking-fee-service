@@ -59,34 +59,34 @@ This task list implements the project setup specification through an incremental
   - [x] 1.V Verify: run `go test -v ./...` in `tests/setup/` and confirm all tests fail (expected — structure does not exist yet)
     _Verification step for Task Group 1_
 
-- [ ] 2. Create monorepo directory structure
+- [x] 2. Create monorepo directory structure
   _Create all directories, placeholder files, and workspace configurations._
 
-  - [ ] 2.1 Create `rhivos/` Cargo workspace: root `Cargo.toml` with workspace members, each member with `Cargo.toml` and `src/main.rs`
+  - [x] 2.1 Create `rhivos/` Cargo workspace: root `Cargo.toml` with workspace members, each member with `Cargo.toml` and `src/main.rs`
     _Test Spec: TS-01-1, TS-01-7_
     _Requirements: 01-REQ-1.1, 01-REQ-2.1, 01-REQ-2.2_
 
-  - [ ] 2.2 Create `rhivos/mock-sensors/` with three binary targets (`location-sensor`, `speed-sensor`, `door-sensor`) sharing common crate structure
+  - [x] 2.2 Create `rhivos/mock-sensors/` with three binary targets (`location-sensor`, `speed-sensor`, `door-sensor`) sharing common crate structure
     _Test Spec: TS-01-8_
     _Requirements: 01-REQ-2.3_
 
-  - [ ] 2.3 Create `backend/` Go modules: `parking-fee-service/` and `cloud-gateway/`, each with `go.mod`, `main.go`, and `main_test.go`
+  - [x] 2.3 Create `backend/` Go modules: `parking-fee-service/` and `cloud-gateway/`, each with `go.mod`, `main.go`, and `main_test.go`
     _Test Spec: TS-01-2, TS-01-11, TS-01-27_
     _Requirements: 01-REQ-1.2, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-8.2_
 
-  - [ ] 2.4 Create `mock/` Go modules: `parking-app-cli/`, `companion-app-cli/`, `parking-operator/`, each with `go.mod`, `main.go`, and `main_test.go`
+  - [x] 2.4 Create `mock/` Go modules: `parking-app-cli/`, `companion-app-cli/`, `parking-operator/`, each with `go.mod`, `main.go`, and `main_test.go`
     _Test Spec: TS-01-4, TS-01-11, TS-01-27_
     _Requirements: 01-REQ-1.5, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-8.2_
 
-  - [ ] 2.5 Create `android/README.md` and `mobile/README.md` placeholder directories
+  - [x] 2.5 Create `android/README.md` and `mobile/README.md` placeholder directories
     _Test Spec: TS-01-3_
     _Requirements: 01-REQ-1.3, 01-REQ-1.4_
 
-  - [ ] 2.6 Create `go.work` file referencing all Go modules
+  - [x] 2.6 Create `go.work` file referencing all Go modules
     _Test Spec: TS-01-10_
     _Requirements: 01-REQ-3.1_
 
-  - [ ] 2.V Verify: run `go test -v ./...` in `tests/setup/` and confirm directory structure and workspace tests pass
+  - [x] 2.V Verify: run `go test -v ./...` in `tests/setup/` and confirm directory structure and workspace tests pass
     _Verification step for Task Group 2_
 
 - [ ] 3. Implement skeleton binaries and placeholder tests
