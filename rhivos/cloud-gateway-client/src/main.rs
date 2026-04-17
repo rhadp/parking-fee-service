@@ -26,6 +26,16 @@ use cloud_gateway_client::telemetry::TelemetryState;
 
 #[tokio::main]
 async fn main() {
+    // ── 01-REQ-4.E1: Reject unknown CLI flag arguments ──────────────────────
+    // This service is configured entirely via environment variables.
+    // Any argument starting with '-' is an unknown flag and must be rejected.
+    for arg in std::env::args().skip(1) {
+        if arg.starts_with('-') {
+            eprintln!("Error: unknown flag '{arg}'; this service is configured via environment variables");
+            process::exit(1);
+        }
+    }
+
     // ── Task 7.5: Initialize structured logging ─────────────────────────────
     // Respects RUST_LOG env var; defaults to INFO when unset or invalid.
     // [04-REQ-10.1]
