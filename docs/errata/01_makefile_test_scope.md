@@ -32,11 +32,11 @@ The `test-rust` target runs:
 
 | Module | Reason |
 |--------|--------|
+| `backend/parking-fee-service` | Failing tests from spec 05 task group 1 stubs |
 | `mock/parking-operator` | Multiple failing tests from spec 09 task group 1 stubs |
 | `tests/mock-apps` | Requires pre-built binaries from `make build` + PATH setup |
 
 The `test-go` target runs root-package tests for:
-- `backend/parking-fee-service`
 - `backend/cloud-gateway`
 - `mock/companion-app-cli`
 - `mock/parking-app-cli`

@@ -8,9 +8,10 @@ GO_APP_MODULES := backend/parking-fee-service backend/cloud-gateway \
                   mock/companion-app-cli mock/parking-app-cli mock/parking-operator
 
 # Go modules that have only spec-01 passing tests
-# (excludes mock/parking-operator and tests/mock-apps whose stubs fail per errata
+# (excludes backend/parking-fee-service with spec-05 task-group-1 stubs,
+#  mock/parking-operator and tests/mock-apps whose stubs fail per errata
 #  docs/errata/01_makefile_test_scope.md)
-GO_PASSING_MODULES := backend/parking-fee-service backend/cloud-gateway \
+GO_PASSING_MODULES := backend/cloud-gateway \
                       mock/companion-app-cli mock/parking-app-cli
 
 ## build: compile all components
