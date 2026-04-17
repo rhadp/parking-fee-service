@@ -25,14 +25,14 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Set up Go module and test file structure
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Set up Go module and test file structure
     - Ensure `backend/cloud-gateway/` has `go.mod` (or is part of Go workspace)
     - Create package directories: `model/`, `config/`, `auth/`, `store/`, `handler/`, `natsclient/`
     - Create test files: `config/config_test.go`, `auth/auth_test.go`, `store/store_test.go`, `handler/handler_test.go`, `natsclient/natsclient_test.go`
     - Add `nats.go` dependency: `go get github.com/nats-io/nats.go`
 
-  - [x] 1.2 Write config and auth package tests
+  - [ ] 1.2 Write config and auth package tests
     - `TestLoadConfigFromFile` -- TS-06-11
     - `TestConfigTokenVINLookup` -- TS-06-12
     - `TestBearerTokenValidation` -- TS-06-8
@@ -43,12 +43,12 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestConfigFileInvalidJSON` -- TS-06-E8
     - _Test Spec: TS-06-8, TS-06-9, TS-06-11, TS-06-12, TS-06-E4, TS-06-E5, TS-06-E7, TS-06-E8_
 
-  - [x] 1.3 Write store package tests
+  - [ ] 1.3 Write store package tests
     - `TestCommandTimeout` -- TS-06-3
     - `TestResponseStoreThreadSafety` -- TS-06-5
     - _Test Spec: TS-06-3, TS-06-5_
 
-  - [x] 1.4 Write handler integration tests (httptest)
+  - [ ] 1.4 Write handler integration tests (httptest)
     - `TestCommandSubmissionSuccess` -- TS-06-1 (handler-level, mock NATS)
     - `TestCommandStatusQuerySuccess` -- TS-06-4
     - `TestHealthCheck` -- TS-06-10
@@ -59,7 +59,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestErrorResponseFormat` -- TS-06-E9
     - _Test Spec: TS-06-1, TS-06-4, TS-06-10, TS-06-13, TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E9_
 
-  - [x] 1.5 Write property tests
+  - [ ] 1.5 Write property tests
     - `TestPropertyTokenVINIsolation` -- TS-06-P1
     - `TestPropertyResponseStoreConsistency` -- TS-06-P2
     - `TestPropertyTimeoutCompleteness` -- TS-06-P3
@@ -68,25 +68,25 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `TestPropertyNATSHeaderPropagation` -- TS-06-P6
     - _Test Spec: TS-06-P1 through TS-06-P6_
 
-  - [x] 1.V Verify task group 1
-    - [x] All test files compile: `cd backend && go test -v ./cloud-gateway/... -run NONE`
-    - [x] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
-    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+  - [ ] 1.V Verify task group 1
+    - [ ] All test files compile: `cd backend && go test -v ./cloud-gateway/... -run NONE`
+    - [ ] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [x] 2. Model and config modules
-  - [x] 2.1 Implement model package
+- [ ] 2. Model and config modules
+  - [ ] 2.1 Implement model package
     - Define types: `Config`, `TokenMapping`, `Command`, `CommandResponse`
     - Add JSON struct tags for all fields
     - `CommandResponse.Reason` uses `omitempty` tag
     - _Requirements: 06-REQ-6.2, 06-REQ-7.2_
 
-  - [x] 2.2 Implement config package
+  - [ ] 2.2 Implement config package
     - `LoadConfig(path string) (*Config, error)`: read JSON file, unmarshal into Config
     - `(c *Config) GetVINForToken(token string) (string, bool)`: lookup VIN by token
     - If file not found or invalid JSON: return error
     - _Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.E1_
 
-  - [x] 2.3 Implement auth middleware
+  - [ ] 2.3 Implement auth middleware
     - `Middleware(cfg *Config) func(http.Handler) http.Handler`
     - Extract `Authorization: Bearer <token>` from header
     - Validate token via `cfg.GetVINForToken(token)` -- return 401 if not found
@@ -95,14 +95,14 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Set `Content-Type: application/json` on error responses
     - _Requirements: 06-REQ-3.1, 06-REQ-3.2, 06-REQ-3.E1_
 
-  - [x] 2.V Verify task group 2
-    - [x] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [x] _Test Spec: TS-06-8, TS-06-9, TS-06-11, TS-06-12, TS-06-E4, TS-06-E5, TS-06-E7, TS-06-E8, TS-06-P1, TS-06-P4_
+  - [ ] 2.V Verify task group 2
+    - [ ] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] _Test Spec: TS-06-8, TS-06-9, TS-06-11, TS-06-12, TS-06-E4, TS-06-E5, TS-06-E7, TS-06-E8, TS-06-P1, TS-06-P4_
 
-- [x] 3. Store module
-  - [x] 3.1 Implement store package
+- [ ] 3. Store module
+  - [ ] 3.1 Implement store package
     - `NewStore() *Store`: initialize empty response map and timer map with mutex
     - `StoreResponse(resp CommandResponse)`: store response, cancel timer if exists
     - `GetResponse(commandID string) (*CommandResponse, bool)`: lookup by command ID
@@ -110,15 +110,15 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Timeout timer is cancelled when a real response arrives via `StoreResponse`
     - _Requirements: 06-REQ-1.3, 06-REQ-2.2_
 
-  - [x] 3.V Verify task group 3
-    - [x] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
-    - [x] Race detection clean: `cd backend && go test -race -v ./cloud-gateway/store/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [x] _Test Spec: TS-06-3, TS-06-5, TS-06-P2, TS-06-P3, TS-06-P5_
+  - [ ] 3.V Verify task group 3
+    - [ ] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
+    - [ ] Race detection clean: `cd backend && go test -race -v ./cloud-gateway/store/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] _Test Spec: TS-06-3, TS-06-5, TS-06-P2, TS-06-P3, TS-06-P5_
 
-- [x] 4. NATS client and HTTP handlers
-  - [x] 4.1 Implement natsclient package
+- [ ] 4. NATS client and HTTP handlers
+  - [ ] 4.1 Implement natsclient package
     - `Connect(url string, maxRetries int) (*NATSClient, error)`: connect with exponential backoff (1s, 2s, 4s), up to maxRetries attempts
     - `PublishCommand(vin string, cmd Command, token string) error`: publish to `vehicles.{vin}.commands` with `Authorization` header
     - `SubscribeResponses(store *Store) error`: subscribe to `vehicles.*.command_responses`, parse JSON, store via `store.StoreResponse`
@@ -126,7 +126,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `Drain() error`: drain NATS connection for graceful shutdown
     - _Requirements: 06-REQ-1.2, 06-REQ-5.1, 06-REQ-5.2, 06-REQ-5.3, 06-REQ-5.E1, 06-REQ-5.E2_
 
-  - [x] 4.2 Implement handler package
+  - [ ] 4.2 Implement handler package
     - `NewSubmitCommandHandler(nc *NATSClient, store *Store, timeout time.Duration) http.HandlerFunc`:
       - Parse JSON body into Command
       - Validate required fields (command_id, type, doors) -- 400 if missing
@@ -145,15 +145,15 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Set `Content-Type: application/json` on all responses
     - _Requirements: 06-REQ-1.1, 06-REQ-1.E1, 06-REQ-1.E2, 06-REQ-2.1, 06-REQ-2.E1, 06-REQ-4.1, 06-REQ-7.1, 06-REQ-7.2_
 
-  - [x] 4.V Verify task group 4
-    - [x] Handler tests pass: `cd backend && go test -v ./cloud-gateway/handler/...`
-    - [x] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [x] _Test Spec: TS-06-1, TS-06-4, TS-06-10, TS-06-13, TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E9_
+  - [ ] 4.V Verify task group 4
+    - [ ] Handler tests pass: `cd backend && go test -v ./cloud-gateway/handler/...`
+    - [ ] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [ ] _Test Spec: TS-06-1, TS-06-4, TS-06-10, TS-06-13, TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E9_
 
-- [x] 5. Main wiring and lifecycle
-  - [x] 5.1 Implement main package
+- [ ] 5. Main wiring and lifecycle
+  - [ ] 5.1 Implement main package
     - Read `CONFIG_PATH` env var (default "config.json")
     - Call `config.LoadConfig` -- exit non-zero on error
     - Call `natsclient.Connect` with configured NATS URL and 5 retries -- exit non-zero on failure
@@ -169,36 +169,36 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Use `log/slog` for structured logging
     - _Requirements: 06-REQ-6.1, 06-REQ-6.3, 06-REQ-8.1, 06-REQ-8.2_
 
-  - [x] 5.2 Create default config.json
+  - [ ] 5.2 Create default config.json
     - Port 8081, NATS URL `nats://localhost:4222`, timeout 30s
     - At least one demo token-VIN pair
     - Place in `backend/cloud-gateway/config.json`
 
-  - [x] 5.V Verify task group 5
-    - [x] Binary builds: `cd backend && go build ./cloud-gateway/...`
-    - [x] Startup logging test passes: TS-06-15
-    - [x] Graceful shutdown test passes: TS-06-14 (skips when NATS unavailable)
-    - [x] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
-    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+  - [ ] 5.V Verify task group 5
+    - [ ] Binary builds: `cd backend && go build ./cloud-gateway/...`
+    - [ ] Startup logging test passes: TS-06-15
+    - [ ] Graceful shutdown test passes: TS-06-14 (skips when NATS unavailable)
+    - [ ] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [x] 6. Wiring verification
-  - [x] 6.1 Run integration smoke tests
+- [ ] 6. Wiring verification
+  - [ ] 6.1 Run integration smoke tests
     - Start NATS server (from compose.yml, spec 01_project_setup group 7)
     - Run TS-06-SMOKE-1: end-to-end command flow
     - Run TS-06-SMOKE-2: command timeout end-to-end
     - `cd backend && go test -v ./cloud-gateway/... -tags=integration`
 
-  - [x] 6.2 Run full regression
+  - [ ] 6.2 Run full regression
     - `cd backend && go test -v ./...`
     - `cd backend && go test -race -v ./cloud-gateway/...`
     - `cd backend && go vet ./cloud-gateway/...`
 
-  - [x] 6.V Verify task group 6
-    - [x] All smoke tests pass: TS-06-SMOKE-1, TS-06-SMOKE-2
-    - [x] All property tests pass: `cd backend && go test -v ./cloud-gateway/... -run Property`
-    - [x] Race detector clean: `cd backend && go test -race -v ./cloud-gateway/...`
-    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+  - [ ] 6.V Verify task group 6
+    - [ ] All smoke tests pass: TS-06-SMOKE-1, TS-06-SMOKE-2
+    - [ ] All property tests pass: `cd backend && go test -v ./cloud-gateway/... -run Property`
+    - [ ] Race detector clean: `cd backend && go test -race -v ./cloud-gateway/...`
+    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
 
 ### Checkbox States
 

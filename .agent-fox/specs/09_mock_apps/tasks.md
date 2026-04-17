@@ -26,19 +26,19 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Set up Rust test infrastructure for mock sensors
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Set up Rust test infrastructure for mock sensors
     - Ensure `rhivos/mock-sensors/` has `src/lib.rs` with module declarations and stub `publish_datapoint` function
     - Add dev-dependencies: `tokio` (test features)
     - Create argument validation tests for each sensor binary (exit code checks)
     - _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
 
-  - [x] 1.2 Set up Go test infrastructure for mock apps
+  - [ ] 1.2 Set up Go test infrastructure for mock apps
     - Create `tests/mock-apps/` Go module with test helpers (mock HTTP server, mock gRPC server, process runner)
     - Add `go.work` entry for `./tests/mock-apps`
     - _Test Spec: TS-09-5 through TS-09-17_
 
-  - [x] 1.3 Write parking-operator unit tests
+  - [ ] 1.3 Write parking-operator unit tests
     - `TestStartSession` — TS-09-14: POST /parking/start returns session with UUID and rate
     - `TestStopSession` — TS-09-15: POST /parking/stop returns duration and total_amount
     - `TestSessionStatus` — TS-09-16: GET /parking/status returns session state
@@ -47,7 +47,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestMalformedRequest` — TS-09-E9: malformed body returns 400
     - _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-E7, TS-09-E8, TS-09-E9, TS-09-P5_
 
-  - [x] 1.4 Write companion-app-cli tests
+  - [ ] 1.4 Write companion-app-cli tests
     - `TestLockCommand` — TS-09-11: lock sends correct POST with auth header
     - `TestUnlockCommand` — TS-09-12: unlock sends correct POST
     - `TestStatusCommand` — TS-09-13: status sends correct GET
@@ -55,7 +55,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestMissingVIN` — TS-09-E6: exits 1 without VIN
     - _Test Spec: TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-P6_
 
-  - [x] 1.5 Write parking-app-cli tests
+  - [ ] 1.5 Write parking-app-cli tests
     - `TestLookup` — TS-09-5: lookup queries PARKING_FEE_SERVICE
     - `TestAdapterInfo` — TS-09-6: adapter-info queries metadata
     - `TestInstall` — TS-09-7: install calls InstallAdapter RPC
@@ -64,132 +64,132 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestStopSession` — TS-09-10: stop-session calls StopSession RPC
     - _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10_
 
-  - [x] 1.V Verify task group 1
-    - [x] Rust test files compile: `cd rhivos && cargo test -p mock-sensors --no-run`
-    - [x] Go test files compile: `cd tests/mock-apps && go test -c ./...`
-    - [x] All spec tests FAIL (red phase)
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+  - [ ] 1.V Verify task group 1
+    - [ ] Rust test files compile: `cd rhivos && cargo test -p mock-sensors --no-run`
+    - [ ] Go test files compile: `cd tests/mock-apps && go test -c ./...`
+    - [ ] All spec tests FAIL (red phase)
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
 
-- [x] 2. Rust mock sensors
-  - [x] 2.1 Vendor kuksa.val.v1 proto files
+- [ ] 2. Rust mock sensors
+  - [ ] 2.1 Vendor kuksa.val.v1 proto files
     - Copy kuksa.val.v1 proto files into `rhivos/mock-sensors/proto/`
     - Create `build.rs` for tonic-build code generation
     - Add dependencies: `tonic`, `prost`, `tokio`, `clap`
     - _Requirements: 09-REQ-10.1_
 
-  - [x] 2.2 Implement shared publish_datapoint helper
+  - [ ] 2.2 Implement shared publish_datapoint helper
     - Implement `publish_datapoint(broker_addr, path, value)` in `src/lib.rs`
     - Connect to DATA_BROKER via tonic gRPC
     - Call kuksa.val.v1 `Set` RPC with target VSS path and value
     - Support `DatapointValue` enum: Double, Float, Bool
     - _Requirements: 09-REQ-10.2_
 
-  - [x] 2.3 Implement location-sensor binary
+  - [ ] 2.3 Implement location-sensor binary
     - Parse `--lat`, `--lon`, `--broker-addr` with clap
     - Call `publish_datapoint` for Latitude and Longitude
     - Exit 0 on success, stderr + exit 1 on failure
     - _Requirements: 09-REQ-1.1, 09-REQ-1.2, 09-REQ-1.E1, 09-REQ-1.E2_
 
-  - [x] 2.4 Implement speed-sensor binary
+  - [ ] 2.4 Implement speed-sensor binary
     - Parse `--speed`, `--broker-addr` with clap
     - Call `publish_datapoint` for Vehicle.Speed
     - Exit 0 on success, stderr + exit 1 on failure
     - _Requirements: 09-REQ-2.1, 09-REQ-2.2, 09-REQ-2.E1, 09-REQ-2.E2_
 
-  - [x] 2.5 Implement door-sensor binary
+  - [ ] 2.5 Implement door-sensor binary
     - Parse `--open`/`--closed`, `--broker-addr` with clap
     - Call `publish_datapoint` for IsOpen
     - Exit 0 on success, stderr + exit 1 on failure
     - _Requirements: 09-REQ-3.1, 09-REQ-3.2, 09-REQ-3.E1, 09-REQ-3.E2_
 
-  - [x] 2.V Verify task group 2
-    - [x] All sensor binaries build: `cd rhivos && cargo build -p mock-sensors`
-    - [x] Argument validation tests pass: `cd rhivos && cargo test -p mock-sensors`
-    - [x] All existing tests still pass: `cd rhivos && cargo test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
-    - [x] _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
+  - [ ] 2.V Verify task group 2
+    - [ ] All sensor binaries build: `cd rhivos && cargo build -p mock-sensors`
+    - [ ] Argument validation tests pass: `cd rhivos && cargo test -p mock-sensors`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+    - [ ] _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
 
-- [x] 3. Mock parking-operator server
-  - [x] 3.1 Implement session store
+- [ ] 3. Mock parking-operator server
+  - [ ] 3.1 Implement session store
     - In-memory `map[string]*Session` with mutex
     - UUID generation for session_id
     - Start: store session with status "active", hardcoded rate {per_hour, 2.50, EUR}
     - Stop: calculate duration = stop_timestamp - start_timestamp, total_amount = 2.50 * (duration / 3600.0)
     - _Requirements: 09-REQ-8.5, 09-REQ-8.2, 09-REQ-8.3_
 
-  - [x] 3.2 Implement HTTP handlers
+  - [ ] 3.2 Implement HTTP handlers
     - `POST /parking/start` — parse JSON body, create session, return JSON
     - `POST /parking/stop` — parse JSON body, stop session, return JSON
     - `GET /parking/status/{session_id}` — lookup session, return JSON
     - Error responses: 404 for unknown sessions, 400 for malformed requests
     - _Requirements: 09-REQ-8.2, 09-REQ-8.3, 09-REQ-8.4, 09-REQ-8.E1, 09-REQ-8.E2, 09-REQ-8.E3_
 
-  - [x] 3.3 Implement serve subcommand
+  - [ ] 3.3 Implement serve subcommand
     - Parse `--port` flag with default 8080
     - Start HTTP server with graceful shutdown on SIGTERM/SIGINT
     - Log listening address to stderr
     - _Requirements: 09-REQ-8.1_
 
-  - [x] 3.V Verify task group 3
-    - [x] parking-operator builds: `cd mock && go build ./parking-operator/...`
-    - [x] Session management tests pass: `cd mock && go test -v ./parking-operator/...`
-    - [x] All existing tests still pass: `make test`
-    - [x] No linter warnings: `cd mock && go vet ./...`
-    - [x] _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-17, TS-09-E7, TS-09-E8, TS-09-E9_
+  - [ ] 3.V Verify task group 3
+    - [ ] parking-operator builds: `cd mock && go build ./parking-operator/...`
+    - [ ] Session management tests pass: `cd mock && go test -v ./parking-operator/...`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd mock && go vet ./...`
+    - [ ] _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-17, TS-09-E7, TS-09-E8, TS-09-E9_
 
-- [x] 4. Go mock CLI apps (parking-app-cli, companion-app-cli)
-  - [x] 4.1 Implement companion-app-cli
+- [ ] 4. Go mock CLI apps (parking-app-cli, companion-app-cli)
+  - [ ] 4.1 Implement companion-app-cli
     - Subcommands: `lock`, `unlock`, `status`
     - HTTP client with bearer token from `--token` or `CLOUD_GATEWAY_TOKEN`
     - Target address from `--gateway-addr` or `CLOUD_GATEWAY_ADDR` (default: `http://localhost:8081`)
     - Print JSON response to stdout, errors to stderr
     - _Requirements: 09-REQ-7.1, 09-REQ-7.2, 09-REQ-7.3, 09-REQ-7.4, 09-REQ-7.5, 09-REQ-7.E1, 09-REQ-7.E2, 09-REQ-7.E3_
 
-  - [x] 4.2 Implement parking-app-cli REST subcommands
+  - [ ] 4.2 Implement parking-app-cli REST subcommands
     - Subcommands: `lookup`, `adapter-info`
     - HTTP client targeting PARKING_FEE_SERVICE from `--service-addr` or `PARKING_FEE_SERVICE_ADDR` (default: `http://localhost:8080`)
     - Print JSON response to stdout, errors to stderr
     - _Requirements: 09-REQ-4.1, 09-REQ-4.2, 09-REQ-4.3, 09-REQ-4.E1, 09-REQ-4.E2_
 
-  - [x] 4.3 Implement parking-app-cli gRPC subcommands (UPDATE_SERVICE)
+  - [ ] 4.3 Implement parking-app-cli gRPC subcommands (UPDATE_SERVICE)
     - Subcommands: `install`, `watch`, `list`, `remove`, `status`
     - gRPC client targeting UPDATE_SERVICE from `--update-addr` or `UPDATE_SERVICE_ADDR` (default: `localhost:50052`)
     - `watch` streams events until EOF or SIGINT
     - Print responses to stdout, errors to stderr
     - _Requirements: 09-REQ-5.1, 09-REQ-5.2, 09-REQ-5.3, 09-REQ-5.4, 09-REQ-5.5, 09-REQ-5.6, 09-REQ-5.E1, 09-REQ-5.E2_
 
-  - [x] 4.4 Implement parking-app-cli session override subcommands
+  - [ ] 4.4 Implement parking-app-cli session override subcommands
     - Subcommands: `start-session`, `stop-session`
     - gRPC client targeting PARKING_OPERATOR_ADAPTOR from `--adaptor-addr` or `ADAPTOR_ADDR` (default: `localhost:50053`)
     - Print responses to stdout, errors to stderr
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3, 09-REQ-6.E1_
 
-  - [x] 4.V Verify task group 4
-    - [x] Both CLIs build: `cd mock && go build ./parking-app-cli/... && go build ./companion-app-cli/...`
-    - [x] CLI tests pass: `cd mock && go test -v ./...`
-    - [x] All existing tests still pass: `make test`
-    - [x] No linter warnings: `cd mock && go vet ./...`
-    - [x] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
+  - [ ] 4.V Verify task group 4
+    - [ ] Both CLIs build: `cd mock && go build ./parking-app-cli/... && go build ./companion-app-cli/...`
+    - [ ] CLI tests pass: `cd mock && go test -v ./...`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] No linter warnings: `cd mock && go vet ./...`
+    - [ ] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
 
-- [x] 5. Wiring verification
-  - [x] 5.1 Run mock sensor integration tests against DATA_BROKER
+- [ ] 5. Wiring verification
+  - [ ] 5.1 Run mock sensor integration tests against DATA_BROKER
     - Added TestLocationSensor, TestSpeedSensor, TestDoorSensorOpen, TestDoorSensorClosed
       to tests/mock-apps/sensor_test.go. Tests skip when DATA_BROKER is unreachable or
       does not expose kuksa.VALService (the real kuksa-databroker v0.5.0 uses kuksa.val.v2.VAL;
       see docs/errata/09_mock_apps_sensor_proto_compat.md).
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-SMOKE-1_
 
-  - [x] 5.2 Run parking-operator smoke test
+  - [ ] 5.2 Run parking-operator smoke test
     - Added TestParkingOperatorSmoke to tests/mock-apps/smoke_test.go:
       starts server binary, runs full start→stop lifecycle via HTTP, sends SIGTERM.
     - _Test Spec: TS-09-SMOKE-2_
 
-  - [x] 5.3 Run companion-app-cli smoke test against CLOUD_GATEWAY
+  - [ ] 5.3 Run companion-app-cli smoke test against CLOUD_GATEWAY
     - Added TestCompanionAppSmoke to tests/mock-apps/smoke_test.go:
       lock → get command_id → status sequence against a mock CLOUD_GATEWAY.
     - _Test Spec: TS-09-SMOKE-3_
 
-  - [x] 5.4 Run property tests
+  - [ ] 5.4 Run property tests
     - Parking operator session integrity (TS-09-P3): Added TestSessionIntegrityProperty
       to mock/parking-operator/server_test.go with 10 timestamp/duration combinations.
     - Parking operator session uniqueness (TS-09-P4/P5): Already covered by
@@ -200,14 +200,14 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
       TestInstallMissingArgs, TestMissingToken, TestMissingVIN in tests/mock-apps/.
     - _Test Spec: TS-09-P2, TS-09-P3, TS-09-P4, TS-09-P5, TS-09-P6_
 
-  - [x] 5.V Verify task group 5
-    - [x] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
-    - [x] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
-    - [x] All existing tests still pass: `make test`
-    - [x] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
+  - [ ] 5.V Verify task group 5
+    - [ ] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
+    - [ ] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
+    - [ ] All existing tests still pass: `make test`
+    - [ ] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
           (sensor tests skip cleanly against v2 DATA_BROKER; all other tests pass)
 
-- [x] 6. Checkpoint - All Tests Green
+- [ ] 6. Checkpoint - All Tests Green
   - All unit, integration, property, and smoke tests pass
   - All six binaries build and run correctly
   - Ask the user if questions arise

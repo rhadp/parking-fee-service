@@ -14,168 +14,168 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
+- [ ] 1. Write failing spec tests
   - Write integration tests that verify DATA_BROKER connectivity, signal availability, read/write operations, and subscriptions. All tests will fail initially since the compose.yml is not yet configured for dual listeners.
 
-  - [x] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
+  - [ ] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
     - Set up Go module and initial test file structure
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
 
-  - [x] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
+  - [ ] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
     - _Test Spec: TS-02-1_
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
 
-  - [x] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
+  - [ ] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
     - _Test Spec: TS-02-2_
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2_
 
-  - [x] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
+  - [ ] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
     - _Test Spec: TS-02-4, TS-02-P1_
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
 
-  - [x] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
+  - [ ] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
     - _Test Spec: TS-02-5, TS-02-P1_
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
 
-  - [x] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
+  - [ ] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
     - _Test Spec: TS-02-6, TS-02-7, TS-02-8, TS-02-9, TS-02-10, TS-02-11, TS-02-P4_
     - _Requirements: 02-REQ-4.1, 02-REQ-8.1, 02-REQ-8.2, 02-REQ-9.1, 02-REQ-9.2, 02-REQ-10.1_
 
-  - [x] 1.V Verify task group 1
-    - [x] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
+  - [ ] 1.V Verify task group 1
+    - [ ] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
     ```
     cd tests/databroker && go test -run TestCompile ./... 2>&1 || echo "Tests compile but fail as expected"
     ```
 
-- [x] 2. Configure compose.yml for dual listeners
+- [ ] 2. Configure compose.yml for dual listeners
   - Update the existing compose.yml (from spec 01) to configure the DATA_BROKER with pinned image version, dual listener args, port mapping, and volume mounts.
 
-  - [x] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` in `deployments/compose.yml`
+  - [ ] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` in `deployments/compose.yml`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
     - Note: pinned to :0.5.0 per errata (02_data_broker_compose_flags.md) — :0.5.1 does not exist in registry
 
-  - [x] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
+  - [ ] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-2.1, 02-REQ-3.1, 02-REQ-4.1_
     - Note: per errata, uses `--address 0.0.0.0 --port 55555` and `--unix-socket /tmp/kuksa-databroker.sock` (combined host:port and --uds-path are invalid for this binary)
 
-  - [x] 2.3 Configure port mapping `55556:55555` for the databroker service
+  - [ ] 2.3 Configure port mapping `55556:55555` for the databroker service
     - _Requirements: 02-REQ-2.2_
 
-  - [x] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
+  - [ ] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-3.2_
     - Added named volume `kuksa-uds` (bind-mount of `/tmp/kuksa` on host) mounted at `/tmp` in container; socket accessible at `/tmp/kuksa/kuksa-databroker.sock` on host
 
-  - [x] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
+  - [ ] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
     - _Requirements: 02-REQ-6.4_
     - Uses `--vss /vss_release_4.0.json,/app/vss-overlay.json` to load both standard VSS 4.0 tree and custom overlay
 
-  - [x] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
+  - [ ] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
     - _Requirements: 02-REQ-7.1_
     - Verified: no --token, --auth, --jwt, or --tls-server-cert flags in command
 
-  - [x] 2.V Verify task group 2
-    - [x] All TestCompose* static tests pass (`go test -run TestCompose ./...` in tests/databroker — 7/7 pass)
+  - [ ] 2.V Verify task group 2
+    - [ ] All TestCompose* static tests pass (`go test -run TestCompose ./...` in tests/databroker — 7/7 pass)
     ```
     cd deployments && podman compose up -d databroker && sleep 3 && podman compose logs databroker | grep -i "listening" && podman compose down
     ```
 
-- [x] 3. Validate VSS overlay
+- [ ] 3. Validate VSS overlay
   - Validate and complete the VSS overlay file to ensure all 3 custom signals are correctly defined and loadable by the databroker.
 
-  - [x] 3.1 Verify `Vehicle.Parking.SessionActive` is defined as type `boolean` in the overlay file
+  - [ ] 3.1 Verify `Vehicle.Parking.SessionActive` is defined as type `boolean` in the overlay file
     - _Requirements: 02-REQ-6.1_
     - Verified: `deployments/vss-overlay.json` has `"datatype": "boolean"` for this signal
 
-  - [x] 3.2 Verify `Vehicle.Command.Door.Lock` is defined as type `string` in the overlay file
+  - [ ] 3.2 Verify `Vehicle.Command.Door.Lock` is defined as type `string` in the overlay file
     - _Requirements: 02-REQ-6.2_
     - Verified: `deployments/vss-overlay.json` has `"datatype": "string"` for this signal
 
-  - [x] 3.3 Verify `Vehicle.Command.Door.Response` is defined as type `string` in the overlay file
+  - [ ] 3.3 Verify `Vehicle.Command.Door.Response` is defined as type `string` in the overlay file
     - _Requirements: 02-REQ-6.3_
     - Verified: `deployments/vss-overlay.json` has `"datatype": "string"` for this signal
 
-  - [x] 3.4 Fix any issues found in the overlay file (incorrect types, missing entries, syntax errors)
+  - [ ] 3.4 Fix any issues found in the overlay file (incorrect types, missing entries, syntax errors)
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
     - Added intermediate branch nodes (`Vehicle.Parking`, `Vehicle.Command`, `Vehicle.Command.Door`) with `type: "branch"` and descriptions; these are required by the flat VSS JSON format used by kuksa-databroker since the custom branches are not in the standard VSS 4.0 tree
     - Added `TestVSSOverlayFormat` static test in `tests/databroker/compose_test.go` to verify overlay structure, types, branch nodes, and descriptions without requiring a running container
 
-  - [x] 3.V Verify task group 3
-    - [x] Static tests pass: `TestVSSOverlayFormat` verifies all 3 custom signals present with correct types, branch nodes defined, and JSON valid (9/9 subtests pass)
+  - [ ] 3.V Verify task group 3
+    - [ ] Static tests pass: `TestVSSOverlayFormat` verifies all 3 custom signals present with correct types, branch nodes defined, and JSON valid (9/9 subtests pass)
     - Note: Live container verification (`podman compose up`) not executable in this environment (Podman machine stopped); static analysis confirms overlay is structurally correct
     ```
     cd deployments && podman compose up -d databroker && sleep 3 && echo "Query custom signals via grpcurl or kuksa-client" && podman compose down
     ```
 
-- [x] 4. Implement edge case tests
+- [ ] 4. Implement edge case tests
   - Add edge case tests for error scenarios: non-existent signals, overlay errors, and permissive mode behavior.
 
-  - [x] 4.1 Implement test for setting a non-existent signal (expect NOT_FOUND error)
+  - [ ] 4.1 Implement test for setting a non-existent signal (expect NOT_FOUND error)
     - _Test Spec: TS-02-E1_
     - _Requirements: 02-REQ-8.E1_
     - `TestEdgeCaseNonExistentSignal` in tests/databroker/edge_test.go
 
-  - [x] 4.2 Implement test for overlay with syntax error (expect container failure)
+  - [ ] 4.2 Implement test for overlay with syntax error (expect container failure)
     - _Test Spec: TS-02-E2_
     - _Requirements: 02-REQ-6.E1_
     - `TestEdgeCaseOverlaySyntaxError` in tests/databroker/edge_test.go; writes invalid JSON to overlay, runs `podman compose up` synchronously with 20s timeout, asserts non-zero exit code
 
-  - [x] 4.3 Implement test for missing overlay file (expect container failure)
+  - [ ] 4.3 Implement test for missing overlay file (expect container failure)
     - _Test Spec: TS-02-E3_
     - _Requirements: 02-REQ-6.E2_
     - `TestEdgeCaseMissingOverlay` in tests/databroker/edge_test.go; renames overlay to .bak, runs `podman compose up` synchronously, asserts non-zero exit code
 
-  - [x] 4.4 Implement test for permissive mode with arbitrary token (expect success)
+  - [ ] 4.4 Implement test for permissive mode with arbitrary token (expect success)
     - _Test Spec: TS-02-E4_
     - _Requirements: 02-REQ-7.E1_
     - `TestPermissiveModeWithArbitraryToken` in tests/databroker/pubsub_test.go; sends gRPC request with `Authorization: Bearer invalid-token-12345`, asserts success
 
-  - [x] 4.5 Implement pinned image version verification test
+  - [ ] 4.5 Implement pinned image version verification test
     - _Test Spec: TS-02-3_
     - _Requirements: 02-REQ-1.1_
     - Static: `TestComposePinnedImage` in tests/databroker/compose_test.go (verifies compose.yml contains :0.5.0)
     - Live: `TestImageVersion` in tests/databroker/edge_test.go (inspects running container via podman ps)
 
-  - [x] 4.V Verify task group 4
-    - [x] All edge case tests compile and pass (SKIP when Podman/databroker unavailable; PASS for static checks)
+  - [ ] 4.V Verify task group 4
+    - [ ] All edge case tests compile and pass (SKIP when Podman/databroker unavailable; PASS for static checks)
     ```
     cd tests/databroker && go test -run "TestEdgeCase|TestImageVersion" -v ./...
     ```
 
-- [x] 5. Implement smoke tests
+- [ ] 5. Implement smoke tests
   - Add smoke tests for CI/CD quick verification.
 
-  - [x] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
+  - [ ] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
     - `TestSmokeHealthCheck` in tests/databroker/smoke_test.go; if port 55556 not reachable, requires podman and brings up `kuksa-databroker` service, waits 10s for port, verifies GetServerInfo via gRPC, tears down via t.Cleanup
 
-  - [x] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
+  - [ ] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
     - _Test Spec: TS-02-SMOKE-2_
     - _Requirements: 02-REQ-5.1, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3_
     - `TestSmokeFullSignalInventory` in tests/databroker/smoke_test.go; queries ListMetadata for all 8 signals and reports any missing by name
 
-  - [x] 5.V Verify task group 5
-    - [x] All smoke tests compile and skip gracefully when Podman/databroker unavailable; PASS when databroker is running
+  - [ ] 5.V Verify task group 5
+    - [ ] All smoke tests compile and skip gracefully when Podman/databroker unavailable; PASS when databroker is running
     ```
     cd tests/databroker && go test -run "TestSmoke" -v ./...
     ```
 
-- [x] 6. Wiring verification
+- [ ] 6. Wiring verification
   - Run the complete test suite end-to-end and verify all requirements are met.
 
-  - [x] 6.1 Run all integration tests (acceptance, property, edge case, smoke) and verify 100% pass rate
+  - [ ] 6.1 Run all integration tests (acceptance, property, edge case, smoke) and verify 100% pass rate
     - _Test Spec: TS-02-1 through TS-02-12, TS-02-P1 through TS-02-P3, TS-02-E1 through TS-02-E4, TS-02-SMOKE-1, TS-02-SMOKE-2_
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2, 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1, 02-REQ-3.2, 02-REQ-4.1, 02-REQ-5.1, 02-REQ-5.2, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4, 02-REQ-7.1, 02-REQ-8.1, 02-REQ-8.2, 02-REQ-9.1, 02-REQ-9.2, 02-REQ-10.1_
     - Result: 8 static tests PASS; 22 live tests SKIP gracefully (Podman machine not running in CI); 0 FAIL
 
-  - [x] 6.2 Verify compose.yml contains all required configuration: pinned image, dual listener args, port mapping, volume mounts, overlay flag, no auth flags
+  - [ ] 6.2 Verify compose.yml contains all required configuration: pinned image, dual listener args, port mapping, volume mounts, overlay flag, no auth flags
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1, 02-REQ-3.2, 02-REQ-4.1, 02-REQ-6.4, 02-REQ-7.1_
     - Verified by TestComposePinnedImage, TestComposeTCPPort, TestComposeTCPListener, TestComposeUDSSocket, TestComposeUDSVolume, TestComposeVSSOverlay, TestComposePermissiveMode (all PASS)
     - compose.yml: image=ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0, ports=55556:55555, args=--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss /vss_release_4.0.json,/app/vss-overlay.json, volume=kuksa-uds (bind /tmp/kuksa), no auth flags
 
-  - [x] 6.V Verify task group 6
-    - [x] Final wiring verification: `go test -v ./tests/databroker/...` → PASS (8 pass, 22 skip, 0 fail); `make check` → PASS (all quality gates green)
+  - [ ] 6.V Verify task group 6
+    - [ ] Final wiring verification: `go test -v ./tests/databroker/...` → PASS (8 pass, 22 skip, 0 fail); `make check` → PASS (all quality gates green)
     ```
     cd tests/databroker && go test -v ./... && echo "All DATA_BROKER tests passed"
     ```
