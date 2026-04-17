@@ -88,6 +88,36 @@ struct StopResponseJson {
     currency: String,
 }
 
+// ── Retry delays ──────────────────────────────────────────────────────────────
+
+/// Backoff delays between retry attempts (1 initial + 3 retries = 4 total attempts).
+///
+/// In production these are full seconds; in tests they are milliseconds so the
+/// unit-test suite does not take 7+ seconds per retry-exhaustion test.
+#[cfg(not(test))]
+async fn retry_delay(attempt: usize) {
+    const DELAYS_SECS: [u64; 3] = [1, 2, 4];
+    if let Some(&secs) = DELAYS_SECS.get(attempt) {
+        tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+    }
+}
+
+#[cfg(test)]
+async fn retry_delay(attempt: usize) {
+    const DELAYS_MS: [u64; 3] = [1, 2, 4];
+    if let Some(&ms) = DELAYS_MS.get(attempt) {
+        tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+    }
+}
+
+/// Returns the current Unix timestamp in seconds.
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
 // ── OperatorClient ────────────────────────────────────────────────────────────
 
 /// HTTP client for the PARKING_OPERATOR REST API (08-REQ-2.1 through 08-REQ-2.4).
@@ -109,19 +139,99 @@ impl OperatorClient {
     ///
     /// Sends `{vehicle_id, zone_id, timestamp}` and parses the response.
     /// Retries up to 3 times with delays of 1s, 2s, 4s on network or non-200 errors.
+    /// Total: 1 initial attempt + 3 retries = 4 maximum attempts.
     pub async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!("implement start_session with exponential-backoff retry")
+        let url = format!("{}/parking/start", self.base_url);
+        let body = StartRequest {
+            vehicle_id,
+            zone_id,
+            timestamp: now_unix(),
+        };
+
+        let mut last_err = String::from("no attempts made");
+
+        // 1 initial + 3 retries = 4 total (08-REQ-2.E1).
+        for attempt in 0..4_usize {
+            if attempt > 0 {
+                retry_delay(attempt - 1).await;
+            }
+
+            match self.client.post(&url).json(&body).send().await {
+                Err(e) => {
+                    last_err = e.to_string();
+                }
+                Ok(resp) if !resp.status().is_success() => {
+                    last_err = format!("HTTP {}", resp.status());
+                }
+                Ok(resp) => {
+                    return resp
+                        .json::<StartResponseJson>()
+                        .await
+                        .map_err(|e| OperatorError::Parse(e.to_string()))
+                        .map(|parsed| StartResponse {
+                            session_id: parsed.session_id,
+                            status: parsed.status,
+                            rate: Rate {
+                                rate_type: parsed.rate.rate_type,
+                                amount: parsed.rate.amount,
+                                currency: parsed.rate.currency,
+                            },
+                        });
+                }
+            }
+        }
+
+        Err(OperatorError::RetriesExhausted(last_err))
     }
 
     /// POST /parking/stop with retry (08-REQ-2.2, 08-REQ-2.E1, 08-REQ-2.E2).
     ///
     /// Sends `{session_id, timestamp}` and parses the response.
-    pub async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        todo!("implement stop_session with exponential-backoff retry")
+    /// Retries up to 3 times with delays of 1s, 2s, 4s on network or non-200 errors.
+    /// Total: 1 initial attempt + 3 retries = 4 maximum attempts.
+    pub async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let url = format!("{}/parking/stop", self.base_url);
+        let body = StopRequest {
+            session_id,
+            timestamp: now_unix(),
+        };
+
+        let mut last_err = String::from("no attempts made");
+
+        // 1 initial + 3 retries = 4 total (08-REQ-2.E1).
+        for attempt in 0..4_usize {
+            if attempt > 0 {
+                retry_delay(attempt - 1).await;
+            }
+
+            match self.client.post(&url).json(&body).send().await {
+                Err(e) => {
+                    last_err = e.to_string();
+                }
+                Ok(resp) if !resp.status().is_success() => {
+                    last_err = format!("HTTP {}", resp.status());
+                }
+                Ok(resp) => {
+                    return resp
+                        .json::<StopResponseJson>()
+                        .await
+                        .map_err(|e| OperatorError::Parse(e.to_string()))
+                        .map(|parsed| StopResponse {
+                            session_id: parsed.session_id,
+                            status: parsed.status,
+                            duration_seconds: parsed.duration_seconds,
+                            total_amount: parsed.total_amount,
+                            currency: parsed.currency,
+                        });
+                }
+            }
+        }
+
+        Err(OperatorError::RetriesExhausted(last_err))
     }
 }
 
