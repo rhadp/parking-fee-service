@@ -5,12 +5,21 @@ edition = "2021"
 
 [[bin]]
 name = "location-sensor"
-path = "src/bin/location_sensor.rs"
+path = "src/bin/location-sensor.rs"
 
 [[bin]]
 name = "speed-sensor"
-path = "src/bin/speed_sensor.rs"
+path = "src/bin/speed-sensor.rs"
 
 [[bin]]
 name = "door-sensor"
-path = "src/bin/door_sensor.rs"
+path = "src/bin/door-sensor.rs"
+
+[lib]
+name = "mock_sensors"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

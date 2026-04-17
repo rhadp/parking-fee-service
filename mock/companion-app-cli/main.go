@@ -1,7 +1,17 @@
+// companion-app-cli stub.
+// Task group 4 will replace this with a real implementation.
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 func main() {
-	fmt.Println("companion-app-cli v0.1.0")
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "companion-app-cli: command required (lock|unlock|status)")
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stderr, "companion-app-cli: not implemented")
+	os.Exit(1)
 }
