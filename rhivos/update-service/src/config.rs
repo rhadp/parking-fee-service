@@ -51,9 +51,18 @@ pub fn default_config() -> Config {
 /// Load configuration from a JSON file at `path`.
 /// If the file does not exist, returns `default_config()`.
 /// If the file contains invalid JSON, returns an error.
-#[allow(dead_code)]
-pub fn load_config(_path: &str) -> Result<Config, ConfigError> {
-    todo!("implement load_config")
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    match std::fs::read_to_string(path) {
+        Ok(contents) => {
+            let cfg: Config = serde_json::from_str(&contents).map_err(ConfigError::Json)?;
+            Ok(cfg)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::warn!("Config file not found at {path}, using defaults");
+            Ok(default_config())
+        }
+        Err(e) => Err(ConfigError::Io(e)),
+    }
 }
 
 #[cfg(test)]

@@ -34,9 +34,11 @@ pub struct AdapterStateEvent {
 /// Derive a deterministic adapter_id from an OCI image reference.
 /// Extracts the last path segment and replaces ':' with '-'.
 /// E.g., "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0" → "parkhaus-munich-v1.0.0"
-#[allow(dead_code)]
-pub fn derive_adapter_id(_image_ref: &str) -> String {
-    todo!("implement derive_adapter_id")
+pub fn derive_adapter_id(image_ref: &str) -> String {
+    // Extract the last path segment (after the last '/')
+    let last_segment = image_ref.rsplit('/').next().unwrap_or(image_ref);
+    // Replace ':' with '-'
+    last_segment.replace(':', "-")
 }
 
 #[cfg(test)]
