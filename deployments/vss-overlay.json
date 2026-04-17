@@ -1,0 +1,20 @@
+{
+  "Vehicle.Parking.SessionActive": {
+    "type": "sensor",
+    "datatype": "boolean",
+    "description": "Adapter-managed parking session state. True when a parking session is active.",
+    "comment": "Custom signal for parking-fee-service demo"
+  },
+  "Vehicle.Command.Door.Lock": {
+    "type": "actuator",
+    "datatype": "string",
+    "description": "Lock/unlock command request. JSON payload containing command_id, action (lock/unlock), and target doors.",
+    "comment": "Custom signal for parking-fee-service demo"
+  },
+  "Vehicle.Command.Door.Response": {
+    "type": "sensor",
+    "datatype": "string",
+    "description": "Command execution result. JSON payload containing command_id, status (success/failed), and optional reason.",
+    "comment": "Custom signal for parking-fee-service demo"
+  }
+}

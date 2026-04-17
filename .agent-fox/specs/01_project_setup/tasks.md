@@ -141,26 +141,26 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 4_
     _Note: All 4 proto files (kuksa/val.proto, update/update_service.proto, adapter/adapter_service.proto, gateway/gateway.proto) parse without errors with protoc. Pre-existing infra/Makefile test failures remain (task group 5)._
 
-- [ ] 5. Create infrastructure configuration and Makefile
+- [x] 5. Create infrastructure configuration and Makefile
   _Set up Podman Compose, NATS config, VSS overlay, and root Makefile._
 
-  - [ ] 5.1 Create `deployments/compose.yml` with NATS (port 4222) and Kuksa Databroker (port 55556) service definitions
+  - [x] 5.1 Create `deployments/compose.yml` with NATS (port 4222) and Kuksa Databroker (port 55556) service definitions
     _Test Spec: TS-01-23_
     _Requirements: 01-REQ-7.1_
 
-  - [ ] 5.2 Create `deployments/nats/nats-server.conf` with default NATS configuration
+  - [x] 5.2 Create `deployments/nats/nats-server.conf` with default NATS configuration
     _Test Spec: TS-01-24_
     _Requirements: 01-REQ-7.2_
 
-  - [ ] 5.3 Create `deployments/vss-overlay.json` with custom VSS signal definitions
+  - [x] 5.3 Create `deployments/vss-overlay.json` with custom VSS signal definitions
     _Test Spec: TS-01-25_
     _Requirements: 01-REQ-7.3_
 
-  - [ ] 5.4 Create root `Makefile` with targets: `build`, `build-rust`, `build-go`, `test`, `test-rust`, `test-go`, `test-setup`, `clean`, `proto`, `infra-up`, `infra-down`, `check`
+  - [x] 5.4 Create root `Makefile` with targets: `build`, `build-rust`, `build-go`, `test`, `test-rust`, `test-go`, `test-setup`, `clean`, `proto`, `infra-up`, `infra-down`, `check`
     _Test Spec: TS-01-18, TS-01-19, TS-01-20, TS-01-21, TS-01-22_
     _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.5_
 
-  - [ ] 5.V Verify: run `make build`, `make test`, `make check` and confirm all pass; verify Makefile targets exist per TS-01-18
+  - [x] 5.V Verify: run `make build`, `make test`, `make check` and confirm all pass; verify Makefile targets exist per TS-01-18
     _Test Spec: TS-01-19, TS-01-20, TS-01-22_
     _Verification step for Task Group 5_
     _Note: test-rust and test-go scoped to spec-01 passing crates; pre-existing failures from other specs documented in docs/errata/01_makefile_test_scope.md_

@@ -1,0 +1,23 @@
+services:
+  nats:
+    image: nats:latest
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - ./nats/nats-server.conf:/etc/nats/nats-server.conf:ro
+    command: ["-c", "/etc/nats/nats-server.conf"]
+    restart: unless-stopped
+
+  kuksa-databroker:
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:latest
+    ports:
+      - "55556:55556"
+    volumes:
+      - ./vss-overlay.json:/app/vss-overlay.json:ro
+    command:
+      - --port
+      - "55556"
+      - --vss
+      - /app/vss-overlay.json
+    restart: unless-stopped
