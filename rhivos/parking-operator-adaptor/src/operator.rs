@@ -86,10 +86,25 @@ pub trait OperatorApi {
     async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError>;
 }
 
+// ─── Retry configuration ─────────────────────────────────────────────────────
+
+/// Total number of attempts (1 initial + 3 retries) per 08-REQ-2.E1.
+const MAX_ATTEMPTS: usize = 4;
+
+/// Delay before each retry attempt: 1 s, 2 s, 4 s.
+const RETRY_DELAYS_MS: [u64; 3] = [1_000, 2_000, 4_000];
+
+/// Return the current Unix timestamp in seconds.
+fn current_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
 // ─── Production client ───────────────────────────────────────────────────────
 
 /// HTTP client for the PARKING_OPERATOR REST API.
-#[allow(dead_code)]
 pub struct OperatorClient {
     base_url: String,
     client: reqwest::Client,
@@ -108,14 +123,85 @@ impl OperatorClient {
 impl OperatorApi for OperatorClient {
     async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!("OperatorClient::start_session not yet implemented")
+        let url = format!("{}/parking/start", self.base_url);
+        let timestamp = current_timestamp();
+
+        for attempt in 0..MAX_ATTEMPTS {
+            if attempt > 0 {
+                let delay = RETRY_DELAYS_MS[attempt - 1];
+                tracing::info!(attempt, delay_ms = delay, "retrying start_session");
+                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+            }
+
+            let request = StartRequest {
+                vehicle_id: vehicle_id.to_owned(),
+                zone_id: zone_id.to_owned(),
+                timestamp,
+            };
+
+            match self.client.post(&url).json(&request).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    return resp
+                        .json::<StartResponse>()
+                        .await
+                        .map_err(|e| OperatorError::ParseError(e.to_string()));
+                }
+                Ok(resp) => {
+                    tracing::warn!(
+                        attempt,
+                        status = %resp.status(),
+                        "start_session received non-200 response"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(attempt, error = %e, "start_session request failed");
+                }
+            }
+        }
+
+        Err(OperatorError::RetriesExhausted)
     }
 
-    async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        todo!("OperatorClient::stop_session not yet implemented")
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let url = format!("{}/parking/stop", self.base_url);
+        let timestamp = current_timestamp();
+
+        for attempt in 0..MAX_ATTEMPTS {
+            if attempt > 0 {
+                let delay = RETRY_DELAYS_MS[attempt - 1];
+                tracing::info!(attempt, delay_ms = delay, "retrying stop_session");
+                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+            }
+
+            let request = StopRequest {
+                session_id: session_id.to_owned(),
+                timestamp,
+            };
+
+            match self.client.post(&url).json(&request).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    return resp
+                        .json::<StopResponse>()
+                        .await
+                        .map_err(|e| OperatorError::ParseError(e.to_string()));
+                }
+                Ok(resp) => {
+                    tracing::warn!(
+                        attempt,
+                        status = %resp.status(),
+                        "stop_session received non-200 response"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(attempt, error = %e, "stop_session request failed");
+                }
+            }
+        }
+
+        Err(OperatorError::RetriesExhausted)
     }
 }
 
