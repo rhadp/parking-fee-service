@@ -1,3 +1,9 @@
+/// Generated proto code for kuksa.val.v1.
+#[allow(clippy::enum_variant_names)]
+mod kuksav1 {
+    tonic::include_proto!("kuksa.val.v1");
+}
+
 /// VSS signal paths published by mock sensors.
 pub const LATITUDE_PATH: &str = "Vehicle.CurrentLocation.Latitude";
 pub const LONGITUDE_PATH: &str = "Vehicle.CurrentLocation.Longitude";
@@ -16,15 +22,46 @@ pub enum DatapointValue {
 
 /// Publish a single VSS signal value to DATA_BROKER via kuksa.val.v1 Set RPC.
 ///
+/// Connects to the broker at `broker_addr`, issues a `Set` request for the
+/// given VSS `path` and `value`, then returns. This is the shared helper used
+/// by all three sensor binaries (09-REQ-10.2).
+///
 /// # Errors
 /// Returns an error if the broker is unreachable or the Set RPC fails.
 pub async fn publish_datapoint(
-    _broker_addr: &str,
-    _path: &str,
-    _value: DatapointValue,
+    broker_addr: &str,
+    path: &str,
+    value: DatapointValue,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: implement in task group 2 via kuksa.val.v1 gRPC Set RPC
-    Err("publish_datapoint: not implemented".into())
+    use kuksav1::datapoint::Value as KuksaValue;
+    use kuksav1::val_client::ValClient;
+    use kuksav1::{DataEntry, Datapoint, EntryUpdate, Field, SetRequest};
+
+    let mut client = ValClient::connect(broker_addr.to_string()).await?;
+
+    let kv = match value {
+        DatapointValue::Double(d) => KuksaValue::DoubleValue(d),
+        DatapointValue::Float(f) => KuksaValue::FloatValue(f),
+        DatapointValue::Bool(b) => KuksaValue::BoolValue(b),
+    };
+
+    let request = SetRequest {
+        updates: vec![EntryUpdate {
+            entry: Some(DataEntry {
+                path: path.to_string(),
+                value: Some(Datapoint {
+                    timestamp: 0,
+                    value: Some(kv),
+                }),
+                actuator_target: None,
+                metadata: None,
+            }),
+            fields: vec![Field::Value as i32],
+        }],
+    };
+
+    client.set(request).await?;
+    Ok(())
 }
 
 #[cfg(test)]
