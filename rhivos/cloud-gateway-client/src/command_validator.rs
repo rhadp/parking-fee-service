@@ -18,8 +18,14 @@ pub type HeaderMap = HashMap<String, String>;
 /// Returns `Ok(())` on success, or an `AuthError` variant on failure.
 ///
 /// Validates [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
-pub fn validate_bearer_token(_headers: &HeaderMap, _expected: &str) -> Result<(), AuthError> {
-    todo!("implement in task group 3")
+pub fn validate_bearer_token(headers: &HeaderMap, expected: &str) -> Result<(), AuthError> {
+    let auth_value = headers.get("Authorization").ok_or(AuthError::MissingHeader)?;
+    let expected_value = format!("Bearer {}", expected);
+    if auth_value == &expected_value {
+        Ok(())
+    } else {
+        Err(AuthError::InvalidToken)
+    }
 }
 
 /// Validates the structure of a command payload received from NATS.
@@ -33,8 +39,56 @@ pub fn validate_bearer_token(_headers: &HeaderMap, _expected: &str) -> Result<()
 ///
 /// Validates [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.4],
 ///           [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
-pub fn validate_command_payload(_payload: &[u8]) -> Result<CommandPayload, ValidationError> {
-    todo!("implement in task group 3")
+pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError> {
+    // Parse as generic JSON value first to give structured field-level errors.
+    let value: serde_json::Value = serde_json::from_slice(payload)
+        .map_err(|e| ValidationError::InvalidJson(e.to_string()))?;
+
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ValidationError::InvalidJson("expected a JSON object".to_string()))?;
+
+    // Validate command_id: must be a non-empty string.
+    let command_id = match obj.get("command_id") {
+        Some(serde_json::Value::String(s)) if !s.is_empty() => s.clone(),
+        Some(serde_json::Value::String(_)) => {
+            // Empty string — treat as missing.
+            return Err(ValidationError::MissingField("command_id".to_string()));
+        }
+        _ => return Err(ValidationError::MissingField("command_id".to_string())),
+    };
+
+    // Validate action: must be present as a string.
+    let action = match obj.get("action") {
+        Some(serde_json::Value::String(s)) => s.clone(),
+        _ => return Err(ValidationError::MissingField("action".to_string())),
+    };
+
+    // Validate action value: must be "lock" or "unlock".
+    if action != "lock" && action != "unlock" {
+        return Err(ValidationError::InvalidAction(action));
+    }
+
+    // Validate doors: must be present as a JSON array.
+    let doors = match obj.get("doors") {
+        Some(serde_json::Value::Array(arr)) => arr.clone(),
+        _ => return Err(ValidationError::MissingField("doors".to_string())),
+    };
+
+    // Collect all extra fields (everything beyond command_id, action, doors).
+    let mut extra = serde_json::Map::new();
+    for (k, v) in obj {
+        if k != "command_id" && k != "action" && k != "doors" {
+            extra.insert(k.clone(), v.clone());
+        }
+    }
+
+    Ok(CommandPayload {
+        command_id,
+        action,
+        doors,
+        extra,
+    })
 }
 
 #[cfg(test)]
