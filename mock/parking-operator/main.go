@@ -1,12 +1,15 @@
 // parking-operator is a mock REST server simulating a parking operator backend.
-// Stub — full implementation in task group 3.
+// Usage: parking-operator serve [--port=<port>]
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -32,9 +35,24 @@ func main() {
 	mux.HandleFunc("GET /parking/status/{session_id}", s.handleStatus)
 
 	addr := ":" + *port
-	fmt.Fprintf(os.Stderr, "parking-operator listening on %s\n", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
-		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+	srv := &http.Server{Addr: addr, Handler: mux}
+
+	// Listen for SIGTERM/SIGINT and shut down gracefully.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		fmt.Fprintf(os.Stderr, "parking-operator listening on %s\n", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	<-stop
+	fmt.Fprintln(os.Stderr, "parking-operator shutting down")
+	if err := srv.Shutdown(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "shutdown error: %v\n", err)
 		os.Exit(1)
 	}
 }
