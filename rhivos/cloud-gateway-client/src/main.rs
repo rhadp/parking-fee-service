@@ -66,6 +66,10 @@ async fn run_service() {
     // ── Step 1: Configuration ─────────────────────────────────────────────
 
     let config = Config::from_env().unwrap_or_else(|_| {
+        // Write directly to stderr to ensure the message is visible even when
+        // the tracing subscriber writer is directed to stdout.  This also
+        // satisfies TS-04-SMOKE-2 which checks stderr for "VIN".
+        eprintln!("ERROR: VIN environment variable is required but not set");
         error!("VIN environment variable is required but not set");
         std::process::exit(1);
     });

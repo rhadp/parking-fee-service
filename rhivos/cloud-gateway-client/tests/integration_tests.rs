@@ -529,3 +529,209 @@ async fn ts_04_14_command_rejected_with_invalid_token() {
         "Vehicle.Command.Door.Lock was incorrectly updated despite wrong bearer token"
     );
 }
+
+// ── Smoke Tests ────────────────────────────────────────────────────────────────
+
+/// TS-04-SMOKE-1: Service starts with valid configuration.
+///
+/// Verifies that the binary connects to both NATS and DATA_BROKER by observing
+/// the self-registration message on NATS — which is only published after both
+/// connections succeed in the startup sequence.
+///
+/// Validates [04-REQ-2.1], [04-REQ-3.1]
+#[tokio::test]
+#[ignore = "smoke test — requires running NATS and DATA_BROKER containers"]
+async fn ts_04_smoke_1_service_starts_with_valid_config() {
+    let nats = match try_nats().await {
+        Some(c) => c,
+        None => {
+            eprintln!("SKIP: NATS not available at {NATS_URL}");
+            return;
+        }
+    };
+    if try_broker().await.is_none() {
+        eprintln!("SKIP: DATA_BROKER not available at {BROKER_ADDR}");
+        return;
+    }
+
+    let vin = "SMOKE-1";
+
+    // Subscribe to the registration subject BEFORE starting the service.
+    let mut sub = nats
+        .subscribe(format!("vehicles.{vin}.status"))
+        .await
+        .expect("subscribe to status failed");
+
+    let mut child = start_service(vin);
+
+    // Wait up to 5 s for the registration message. The service publishes this
+    // only after both NATS and DATA_BROKER connections succeed.
+    let msg = wait_for_message(&mut sub, 5).await;
+
+    child.kill().ok();
+    child.wait().ok();
+
+    assert!(
+        msg.is_some(),
+        "Service did not publish registration within 5 s — startup or connections may have failed"
+    );
+
+    // Parse the registration to confirm it is well-formed.
+    let msg = msg.unwrap();
+    let payload = std::str::from_utf8(&msg.payload).expect("registration payload is not UTF-8");
+    let parsed: serde_json::Value =
+        serde_json::from_str(payload).expect("registration payload is not valid JSON");
+    assert_eq!(parsed["vin"], vin);
+    assert_eq!(parsed["status"], "online");
+    assert!(parsed["timestamp"].is_number(), "timestamp must be a number");
+}
+
+/// TS-04-SMOKE-2: Service exits with code 1 when VIN environment variable is missing.
+///
+/// Does NOT require running infrastructure; verifies config validation path only.
+///
+/// Validates [04-REQ-1.E1]
+#[test]
+fn ts_04_smoke_2_service_exits_on_missing_vin() {
+    // Spawn the binary with VIN explicitly removed from the environment.
+    // The service must detect the missing mandatory variable and exit with code 1
+    // before attempting any network connections.
+    let output = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env_remove("VIN")
+        // Use an address that is definitely unreachable so the test completes
+        // quickly even if the service erroneously tries to connect.
+        .env("NATS_URL", "nats://localhost:14222")
+        .env("DATABROKER_ADDR", "http://localhost:65535")
+        .env("RUST_LOG", "error")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("Failed to spawn cloud-gateway-client binary");
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "Service must exit with code 1 when VIN is not set"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("VIN"),
+        "stderr must mention VIN, got: {stderr}"
+    );
+}
+
+/// TS-04-SMOKE-3: Service publishes registration message on startup.
+///
+/// Verifies that the self-registration message is published to
+/// `vehicles.{VIN}.status` within 5 seconds of startup.
+///
+/// Validates [04-REQ-4.1]
+#[tokio::test]
+#[ignore = "smoke test — requires running NATS and DATA_BROKER containers"]
+async fn ts_04_smoke_3_registration_on_startup() {
+    let nats = match try_nats().await {
+        Some(c) => c,
+        None => {
+            eprintln!("SKIP: NATS not available at {NATS_URL}");
+            return;
+        }
+    };
+    if try_broker().await.is_none() {
+        eprintln!("SKIP: DATA_BROKER not available at {BROKER_ADDR}");
+        return;
+    }
+
+    let vin = "SMOKE-3";
+
+    // Subscribe BEFORE starting the service so we cannot miss the message.
+    let mut sub = nats
+        .subscribe(format!("vehicles.{vin}.status"))
+        .await
+        .expect("subscribe to status failed");
+
+    let mut child = start_service(vin);
+
+    // Wait up to 5 s for the registration message.
+    let msg = wait_for_message(&mut sub, 5).await;
+
+    child.kill().ok();
+    child.wait().ok();
+
+    let msg = msg.expect("Registration message not received within 5 s");
+    let payload = std::str::from_utf8(&msg.payload).expect("payload is not UTF-8");
+    let parsed: serde_json::Value =
+        serde_json::from_str(payload).expect("registration payload is not valid JSON");
+
+    assert_eq!(parsed["vin"], vin, "vin field mismatch in registration message");
+    assert_eq!(parsed["status"], "online", "status field must be 'online'");
+    assert!(parsed["timestamp"].is_number(), "timestamp must be a number");
+}
+
+/// TS-04-15: NATS connection failure triggers exponential backoff and exits with code 1.
+///
+/// The service retries NATS connections with exponential backoff delays (1s, 2s, 4s, 8s)
+/// for up to 5 total attempts, then exits with code 1.  Using an unreachable port
+/// guarantees all 5 attempts fail without disrupting any running NATS instance.
+///
+/// Total backoff time: 1+2+4+8 = 15 s.  Test timeout: 25 s.
+///
+/// Validates [04-REQ-2.2], [04-REQ-2.E1]
+#[tokio::test]
+#[ignore = "smoke test — takes ~15 seconds; verifies exponential backoff over 5 NATS attempts"]
+async fn ts_04_15_nats_reconnection_with_exponential_backoff() {
+    // Port 14222 is unlikely to have a NATS server; this guarantees all connection
+    // attempts fail without stopping any running NATS instance on port 4222.
+    let unreachable_nats_url = "nats://127.0.0.1:14222";
+
+    let start = std::time::Instant::now();
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env("VIN", "BACKOFF-15")
+        .env("NATS_URL", unreachable_nats_url)
+        .env("DATABROKER_ADDR", BROKER_ADDR)
+        .env("BEARER_TOKEN", BEARER_TOKEN)
+        .env("RUST_LOG", "error")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("Failed to spawn cloud-gateway-client binary");
+
+    // Poll until the process exits or 25 s elapses.
+    let exit_status = timeout(Duration::from_secs(25), async {
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => return Some(status),
+                Ok(None) => tokio::time::sleep(Duration::from_millis(200)).await,
+                Err(_) => return None,
+            }
+        }
+    })
+    .await;
+
+    // Kill the process if it hasn't exited (timeout path).
+    child.kill().ok();
+    child.wait().ok();
+
+    let elapsed = start.elapsed();
+
+    match exit_status {
+        Ok(Some(status)) => {
+            assert_eq!(
+                status.code(),
+                Some(1),
+                "Service must exit with code 1 after exhausting all NATS retry attempts"
+            );
+            // The backoff schedule is 1+2+4+8=15 s; allow 2 s of slack on either side.
+            assert!(
+                elapsed >= Duration::from_secs(13),
+                "Service exited too quickly ({elapsed:?}); expected at least ~15 s of backoff"
+            );
+        }
+        Ok(None) | Err(_) => {
+            panic!(
+                "Service did not exit within 25 s after exhausting NATS retries (elapsed: {elapsed:?})"
+            );
+        }
+    }
+}
