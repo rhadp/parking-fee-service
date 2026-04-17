@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package parking.adaptor;
+
+message Rate {
+    string rate_type = 1;
+    double amount = 2;
+    string currency = 3;
+}
+
+message StartSessionRequest {
+    string zone_id = 1;
+}
+
+message StartSessionResponse {
+    string session_id = 1;
+    string status = 2;
+    Rate rate = 3;
+}
+
+message StopSessionRequest {}
+
+message StopSessionResponse {
+    string session_id = 1;
+    string status = 2;
+    int64 duration_seconds = 3;
+    double total_amount = 4;
+    string currency = 5;
+}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+    bool active = 1;
+    string session_id = 2;
+    string zone_id = 3;
+    int64 start_time = 4;
+    Rate rate = 5;
+}
+
+message GetRateRequest {}
+
+message GetRateResponse {
+    string rate_type = 1;
+    double amount = 2;
+    string currency = 3;
+}
+
+service ParkingAdaptor {
+    rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+    rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+    rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+    rpc GetRate(GetRateRequest) returns (GetRateResponse);
+}

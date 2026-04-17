@@ -1,0 +1,222 @@
+syntax = "proto3";
+
+package kuksa.val.v1;
+
+option go_package = "github.com/parking-fee-service/proto/kuksa";
+
+// DataType enumerates the VSS data types supported by the Kuksa Databroker.
+enum DataType {
+  DATA_TYPE_UNSPECIFIED = 0;
+  DATA_TYPE_STRING = 1;
+  DATA_TYPE_BOOL = 2;
+  DATA_TYPE_INT8 = 3;
+  DATA_TYPE_INT16 = 4;
+  DATA_TYPE_INT32 = 5;
+  DATA_TYPE_INT64 = 6;
+  DATA_TYPE_UINT8 = 7;
+  DATA_TYPE_UINT16 = 8;
+  DATA_TYPE_UINT32 = 9;
+  DATA_TYPE_UINT64 = 10;
+  DATA_TYPE_FLOAT = 11;
+  DATA_TYPE_DOUBLE = 12;
+  DATA_TYPE_STRING_ARRAY = 20;
+  DATA_TYPE_BOOL_ARRAY = 21;
+  DATA_TYPE_INT8_ARRAY = 22;
+  DATA_TYPE_INT16_ARRAY = 23;
+  DATA_TYPE_INT32_ARRAY = 24;
+  DATA_TYPE_INT64_ARRAY = 25;
+  DATA_TYPE_UINT8_ARRAY = 26;
+  DATA_TYPE_UINT16_ARRAY = 27;
+  DATA_TYPE_UINT32_ARRAY = 28;
+  DATA_TYPE_UINT64_ARRAY = 29;
+  DATA_TYPE_FLOAT_ARRAY = 30;
+  DATA_TYPE_DOUBLE_ARRAY = 31;
+}
+
+// EntryType describes whether a VSS entry is a sensor, actuator, or attribute.
+enum EntryType {
+  ENTRY_TYPE_UNSPECIFIED = 0;
+  ENTRY_TYPE_ATTRIBUTE = 1;
+  ENTRY_TYPE_SENSOR = 2;
+  ENTRY_TYPE_ACTUATOR = 3;
+}
+
+// Datapoint holds a typed signal value and its timestamp.
+message Datapoint {
+  // Timestamp in Unix nanoseconds.
+  int64 timestamp = 1;
+
+  oneof value {
+    string string_value = 10;
+    bool bool_value = 11;
+    int32 int32_value = 12;
+    int64 int64_value = 13;
+    uint32 uint32_value = 14;
+    uint64 uint64_value = 15;
+    float float_value = 16;
+    double double_value = 17;
+    StringArray string_array = 20;
+    BoolArray bool_array = 21;
+    Int32Array int32_array = 22;
+    Int64Array int64_array = 23;
+    Uint32Array uint32_array = 24;
+    Uint64Array uint64_array = 25;
+    FloatArray float_array = 26;
+    DoubleArray double_array = 27;
+  }
+}
+
+message StringArray { repeated string values = 1; }
+message BoolArray   { repeated bool   values = 1; }
+message Int32Array  { repeated int32  values = 1; }
+message Int64Array  { repeated int64  values = 1; }
+message Uint32Array { repeated uint32 values = 1; }
+message Uint64Array { repeated uint64 values = 1; }
+message FloatArray  { repeated float  values = 1; }
+message DoubleArray { repeated double values = 1; }
+
+// Metadata describes a VSS signal entry.
+message Metadata {
+  DataType data_type = 1;
+  EntryType entry_type = 2;
+  string description = 3;
+  string comment = 4;
+  string deprecation = 5;
+  string unit = 6;
+  ValueRestriction value_restriction = 7;
+  repeated Actuator actuator = 10;
+  repeated Sensor sensor = 11;
+  repeated Attribute attribute = 12;
+}
+
+message ValueRestriction {
+  oneof type {
+    ValueRestrictionString string = 1;
+    ValueRestrictionInt    signed = 2;
+    ValueRestrictionUint   unsigned = 3;
+    ValueRestrictionFloat  floating_point = 4;
+  }
+}
+
+message ValueRestrictionInt {
+  optional int64 min = 1;
+  optional int64 max = 2;
+  repeated int64 allowed_values = 3;
+}
+
+message ValueRestrictionUint {
+  optional uint64 min = 1;
+  optional uint64 max = 2;
+  repeated uint64 allowed_values = 3;
+}
+
+message ValueRestrictionFloat {
+  optional double min = 1;
+  optional double max = 2;
+}
+
+message ValueRestrictionString {
+  repeated string allowed_values = 1;
+}
+
+message Actuator {}
+message Sensor {}
+message Attribute {}
+
+// DataEntry combines the VSS path with its current value, actuator target, and metadata.
+message DataEntry {
+  string path = 1;
+  optional Datapoint value = 2;
+  optional Datapoint actuator_target = 3;
+  optional Metadata metadata = 4;
+}
+
+// View selects which fields of a DataEntry to return.
+enum View {
+  VIEW_UNSPECIFIED = 0;
+  VIEW_CURRENT_VALUE = 1;
+  VIEW_TARGET_VALUE = 2;
+  VIEW_METADATA = 3;
+  VIEW_FIELDS = 10;
+  VIEW_ALL = 20;
+}
+
+// Field selects fine-grained parts of a DataEntry.
+enum Field {
+  FIELD_UNSPECIFIED = 0;
+  FIELD_PATH = 1;
+  FIELD_VALUE = 2;
+  FIELD_ACTUATOR_TARGET = 3;
+  FIELD_METADATA = 4;
+  FIELD_METADATA_DATA_TYPE = 5;
+  FIELD_METADATA_DESCRIPTION = 6;
+  FIELD_METADATA_ENTRY_TYPE = 7;
+  FIELD_METADATA_COMMENT = 8;
+  FIELD_METADATA_DEPRECATION = 9;
+  FIELD_METADATA_UNIT = 10;
+  FIELD_METADATA_VALUE_RESTRICTION = 11;
+  FIELD_METADATA_ACTUATOR = 12;
+  FIELD_METADATA_SENSOR = 13;
+  FIELD_METADATA_ATTRIBUTE = 14;
+}
+
+// EntryRequest selects a VSS path and which fields to return.
+message EntryRequest {
+  string path = 1;
+  View view = 2;
+  repeated Field fields = 3;
+}
+
+// EntryUpdate pairs an entry with the fields being updated.
+message EntryUpdate {
+  DataEntry entry = 1;
+  repeated Field fields = 2;
+}
+
+// Error describes a gRPC-level or entry-level error.
+message Error {
+  uint32 code = 1;
+  string reason = 2;
+  string message = 3;
+}
+
+// DataEntryError pairs an update entry with an error.
+message DataEntryError {
+  DataEntry data_entry = 1;
+  Error error = 2;
+}
+
+// --- RPC messages ---
+
+message GetRequest  { repeated EntryRequest entries = 1; }
+message GetResponse {
+  repeated DataEntry entries = 1;
+  repeated DataEntryError errors = 2;
+}
+
+message SetRequest  { repeated EntryUpdate updates = 1; }
+message SetResponse { repeated DataEntryError errors = 1; }
+
+message SubscribeEntry {
+  string path = 1;
+  View view = 2;
+  repeated Field fields = 3;
+}
+
+message SubscribeRequest  { repeated SubscribeEntry entries = 1; }
+message SubscribeResponse { repeated EntryUpdate updates = 1; }
+
+message GetServerInfoRequest {}
+message GetServerInfoResponse {
+  string name = 1;
+  string version = 2;
+  string commit_hash = 3;
+}
+
+// VAL is the Kuksa Databroker vehicle abstraction layer service.
+service VAL {
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Set(SetRequest) returns (SetResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+  rpc GetServerInfo(GetServerInfoRequest) returns (GetServerInfoResponse);
+}
