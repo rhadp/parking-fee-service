@@ -10,7 +10,7 @@
 /// Reads `DATABROKER_ADDR` from the environment. Falls back to
 /// `http://localhost:55556` when the variable is unset.
 pub fn get_databroker_addr() -> String {
-    todo!("get_databroker_addr — implemented in task group 2")
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| "http://localhost:55556".to_string())
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

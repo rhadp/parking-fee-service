@@ -6,7 +6,7 @@
 
 #![allow(dead_code)]
 
-use crate::broker::BrokerClient;
+use crate::broker::{BrokerClient, SIGNAL_IS_OPEN, SIGNAL_SPEED};
 
 // ── SafetyResult ─────────────────────────────────────────────────────────────
 
@@ -24,8 +24,28 @@ pub enum SafetyResult {
 /// Speed is evaluated first (03-REQ-3.1 takes priority over 03-REQ-3.2).
 /// An unset speed is treated as 0.0 (03-REQ-3.E1).
 /// An unset door signal is treated as closed (03-REQ-3.E2).
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("check_safety — implemented in task group 2")
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    // Speed is evaluated first (Property 2: speed check takes priority over door).
+    let speed = broker
+        .get_float(SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    // Unset door signal is treated as closed (03-REQ-3.E2).
+    let door_open = broker
+        .get_bool(SIGNAL_IS_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

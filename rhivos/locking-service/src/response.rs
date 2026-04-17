@@ -5,7 +5,16 @@
 
 #![allow(dead_code)]
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use serde::{Deserialize, Serialize};
+
+fn current_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time must be after UNIX epoch")
+        .as_secs() as i64
+}
 
 // ── CommandResponse ───────────────────────────────────────────────────────────
 
@@ -22,13 +31,25 @@ pub struct CommandResponse {
 // ── Builder functions ─────────────────────────────────────────────────────────
 
 /// Build a JSON success response for the given command_id (03-REQ-5.1).
-pub fn success_response(_command_id: &str) -> String {
-    todo!("success_response — implemented in task group 2")
+pub fn success_response(command_id: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp: current_timestamp(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse is always serializable")
 }
 
 /// Build a JSON failure response for the given command_id and reason (03-REQ-5.2).
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("failure_response — implemented in task group 2")
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp: current_timestamp(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse is always serializable")
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

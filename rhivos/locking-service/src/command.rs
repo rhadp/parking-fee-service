@@ -56,8 +56,15 @@ impl CommandError {
 ///
 /// - JSON syntax errors → `InvalidJson` (no response should be published)
 /// - Missing/invalid required fields → `InvalidCommand`
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!("parse_command — implemented in task group 2")
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    serde_json::from_str::<LockCommand>(json).map_err(|e| {
+        if e.is_syntax() || e.is_eof() {
+            CommandError::InvalidJson(e.to_string())
+        } else {
+            // Data errors: missing required fields, unknown enum variants, etc.
+            CommandError::InvalidCommand(e.to_string())
+        }
+    })
 }
 
 // ── validate_command ──────────────────────────────────────────────────────────
@@ -66,8 +73,25 @@ pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
 ///
 /// - `command_id` must be non-empty
 /// - `doors` must contain only "driver" (and be non-empty)
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!("validate_command — implemented in task group 2")
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id must not be empty".to_string(),
+        ));
+    }
+    if cmd.doors.is_empty() {
+        return Err(CommandError::UnsupportedDoor(
+            "doors array must contain 'driver'".to_string(),
+        ));
+    }
+    for door in &cmd.doors {
+        if door != "driver" {
+            return Err(CommandError::UnsupportedDoor(format!(
+                "unsupported door: {door}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
