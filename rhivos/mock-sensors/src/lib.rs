@@ -45,4 +45,10 @@ mod tests {
     fn test_default_broker_addr() {
         assert_eq!(DEFAULT_BROKER_ADDR, "http://localhost:55556");
     }
+
+    /// Verifies the crate compiles successfully (01-REQ-8.1, TS-01-26).
+    #[test]
+    fn it_compiles() {
+        assert!(true);
+    }
 }

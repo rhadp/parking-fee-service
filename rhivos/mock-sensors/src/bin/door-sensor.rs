@@ -1,7 +1,9 @@
-// door-sensor stub binary.
-// Exits 0 for any invocation (no argument validation).
-// Task group 2 will replace this with a real implementation.
 fn main() {
-    eprintln!("door-sensor: not implemented");
-    std::process::exit(0);
+    for arg in std::env::args().skip(1) {
+        if arg.starts_with('-') {
+            eprintln!("Usage: door-sensor");
+            std::process::exit(1);
+        }
+    }
+    println!("door-sensor v0.1.0");
 }
