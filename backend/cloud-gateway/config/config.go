@@ -1,7 +1,11 @@
 // Package config handles loading configuration for the CLOUD_GATEWAY.
 package config
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
 
 // Config holds the CLOUD_GATEWAY service configuration.
 type Config struct {
@@ -19,14 +23,25 @@ type TokenMapping struct {
 
 // LoadConfig reads a JSON configuration file at path and returns the parsed Config.
 // Returns a non-nil error if the file is missing or contains invalid JSON.
-// STUB: always returns an error (not implemented).
 func LoadConfig(path string) (*Config, error) {
-	return nil, fmt.Errorf("not implemented: LoadConfig(%q)", path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read config file %q: %w", path, err)
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parse config file %q: %w", path, err)
+	}
+	return &cfg, nil
 }
 
 // GetVINForToken returns the VIN associated with a bearer token.
 // Returns ("", false) if the token is not in the configuration.
-// STUB: always returns ("", false).
 func (c *Config) GetVINForToken(token string) (string, bool) {
+	for _, tm := range c.Tokens {
+		if tm.Token == token {
+			return tm.VIN, true
+		}
+	}
 	return "", false
 }
