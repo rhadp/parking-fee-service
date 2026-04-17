@@ -4,11 +4,11 @@
 //! into a single processing stream, preventing race conditions on session state
 //! (08-REQ-9.1, 08-REQ-9.2).
 
-#![allow(dead_code)]
 #![allow(async_fn_in_trait)]
 
 use crate::operator::{OperatorError, StartResponse, StopResponse};
-use crate::session::Session;
+use crate::session::{Rate, Session, SessionState};
+use tokio::sync::oneshot;
 
 // ── Traits ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +36,47 @@ pub const SIGNAL_SESSION_ACTIVE: &str = "Vehicle.Parking.SessionActive";
 /// Signal path for the door lock VSS signal.
 pub const SIGNAL_IS_LOCKED: &str = "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked";
 
+// ── OperatorTrait blanket impl for OperatorClient ─────────────────────────────
+
+impl OperatorTrait for crate::operator::OperatorClient {
+    async fn start_session(
+        &self,
+        vehicle_id: &str,
+        zone_id: &str,
+    ) -> Result<StartResponse, OperatorError> {
+        crate::operator::OperatorClient::start_session(self, vehicle_id, zone_id).await
+    }
+
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        crate::operator::OperatorClient::stop_session(self, session_id).await
+    }
+}
+
+// ── SessionCommand — serialised event type ────────────────────────────────────
+
+/// Commands processed sequentially by the event loop (08-REQ-9.1).
+pub enum SessionCommand {
+    /// Lock/unlock event from DATA_BROKER subscription.
+    LockChanged(bool),
+    /// Manual StartSession gRPC call (08-REQ-5.1).
+    ManualStart {
+        zone_id: String,
+        reply: oneshot::Sender<Result<StartResponse, tonic::Status>>,
+    },
+    /// Manual StopSession gRPC call (08-REQ-5.2).
+    ManualStop {
+        reply: oneshot::Sender<Result<StopResponse, tonic::Status>>,
+    },
+    /// GetStatus gRPC query.
+    QueryStatus {
+        reply: oneshot::Sender<Option<SessionState>>,
+    },
+    /// GetRate gRPC query.
+    QueryRate {
+        reply: oneshot::Sender<Option<Rate>>,
+    },
+}
+
 // ── Processing functions ──────────────────────────────────────────────────────
 
 /// Process a lock/unlock event from DATA_BROKER.
@@ -47,51 +88,230 @@ pub const SIGNAL_IS_LOCKED: &str = "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"
 /// Unlock event (`is_locked = false`):
 /// - If no session active → log info, no-op (08-REQ-3.E2).
 /// - Otherwise → stop session with operator, clear state, publish signal (08-REQ-3.4, 08-REQ-4.2).
+///
+/// Returns `Err(())` only when the operator call fails; broker publish failures
+/// are logged and ignored per 08-REQ-4.E1.
 pub async fn process_lock_event<O, B>(
-    _is_locked: bool,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    is_locked: bool,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
 ) -> Result<(), ()>
 where
     O: OperatorTrait,
     B: BrokerTrait,
 {
-    todo!("implement process_lock_event — start on lock, stop on unlock, with idempotency")
+    if is_locked {
+        // ── Lock event ──────────────────────────────────────────────────────
+        if session.is_active() {
+            tracing::info!(
+                "lock event received but session already active — no-op (08-REQ-3.E1)"
+            );
+            return Ok(());
+        }
+
+        // Start session with operator (08-REQ-3.3).
+        let resp = operator
+            .start_session(vehicle_id, zone_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("operator start_session failed after retries: {e}");
+            })?;
+
+        let start_time = now_unix();
+        session.start(
+            resp.session_id,
+            zone_id.to_string(),
+            start_time,
+            resp.rate,
+        );
+
+        // Publish SessionActive=true (08-REQ-4.1); log-and-continue on failure (08-REQ-4.E1).
+        if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+            tracing::error!("failed to publish {SIGNAL_SESSION_ACTIVE}=true: {}", e.0);
+        }
+    } else {
+        // ── Unlock event ────────────────────────────────────────────────────
+        if !session.is_active() {
+            tracing::info!(
+                "unlock event received but no session active — no-op (08-REQ-3.E2)"
+            );
+            return Ok(());
+        }
+
+        let session_id = session
+            .status()
+            .expect("session must be active when is_active() is true")
+            .session_id
+            .clone();
+
+        // Stop session with operator (08-REQ-3.4).
+        operator.stop_session(&session_id).await.map_err(|e| {
+            tracing::error!("operator stop_session failed after retries: {e}");
+        })?;
+
+        session.stop();
+
+        // Publish SessionActive=false (08-REQ-4.2); log-and-continue on failure (08-REQ-4.E1).
+        if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+            tracing::error!(
+                "failed to publish {SIGNAL_SESSION_ACTIVE}=false: {}",
+                e.0
+            );
+        }
+    }
+
+    Ok(())
 }
 
 /// Process a manual StartSession gRPC command (08-REQ-5.1).
 ///
 /// Returns `ALREADY_EXISTS` if a session is already active (08-REQ-1.E1).
 pub async fn process_manual_start<O, B>(
-    _zone_id: &str,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
+    zone_id: &str,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
 ) -> Result<StartResponse, tonic::Status>
 where
     O: OperatorTrait,
     B: BrokerTrait,
 {
-    todo!("implement process_manual_start — start session, return ALREADY_EXISTS if active")
+    if session.is_active() {
+        return Err(tonic::Status::already_exists(format!(
+            "session already active: {}",
+            session
+                .status()
+                .map(|s| s.session_id.as_str())
+                .unwrap_or("")
+        )));
+    }
+
+    let resp = operator
+        .start_session(vehicle_id, zone_id)
+        .await
+        .map_err(|e| tonic::Status::unavailable(format!("operator unavailable: {e}")))?;
+
+    let start_time = now_unix();
+    session.start(
+        resp.session_id.clone(),
+        zone_id.to_string(),
+        start_time,
+        resp.rate.clone(),
+    );
+
+    // Publish SessionActive=true; log-and-continue on failure (08-REQ-4.E1).
+    if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+        tracing::error!("failed to publish {SIGNAL_SESSION_ACTIVE}=true: {}", e.0);
+    }
+
+    Ok(resp)
 }
 
 /// Process a manual StopSession gRPC command (08-REQ-5.2).
 ///
 /// Returns `FAILED_PRECONDITION` if no session is active (08-REQ-1.E2).
 pub async fn process_manual_stop<O, B>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
 ) -> Result<StopResponse, tonic::Status>
 where
     O: OperatorTrait,
     B: BrokerTrait,
 {
-    todo!("implement process_manual_stop — stop session, return FAILED_PRECONDITION if none active")
+    if !session.is_active() {
+        return Err(tonic::Status::failed_precondition("no active session"));
+    }
+
+    let session_id = session
+        .status()
+        .expect("session must be active when is_active() is true")
+        .session_id
+        .clone();
+
+    let resp = operator
+        .stop_session(&session_id)
+        .await
+        .map_err(|e| tonic::Status::unavailable(format!("operator unavailable: {e}")))?;
+
+    session.stop();
+
+    // Publish SessionActive=false; log-and-continue on failure (08-REQ-4.E1).
+    if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+        tracing::error!("failed to publish {SIGNAL_SESSION_ACTIVE}=false: {}", e.0);
+    }
+
+    Ok(resp)
+}
+
+// ── Event loop runner ─────────────────────────────────────────────────────────
+
+/// Run the serialised event loop until the command channel is closed (08-REQ-9.1).
+///
+/// Processes `SessionCommand`s one at a time — lock/unlock events are handled
+/// via `process_lock_event`; gRPC commands via `process_manual_start/stop`;
+/// query commands read session state directly and reply via oneshot.
+pub async fn run_event_loop<O, B>(
+    mut rx: tokio::sync::mpsc::Receiver<SessionCommand>,
+    mut session: Session,
+    operator: O,
+    broker: B,
+    vehicle_id: String,
+    zone_id: String,
+) where
+    O: OperatorTrait + 'static,
+    B: BrokerTrait + 'static,
+{
+    while let Some(cmd) = rx.recv().await {
+        match cmd {
+            SessionCommand::LockChanged(locked) => {
+                let _ = process_lock_event(
+                    locked,
+                    &mut session,
+                    &operator,
+                    &broker,
+                    &vehicle_id,
+                    &zone_id,
+                )
+                .await;
+            }
+
+            SessionCommand::ManualStart { zone_id: zid, reply } => {
+                let result =
+                    process_manual_start(&zid, &mut session, &operator, &broker, &vehicle_id)
+                        .await;
+                let _ = reply.send(result);
+            }
+
+            SessionCommand::ManualStop { reply } => {
+                let result = process_manual_stop(&mut session, &operator, &broker).await;
+                let _ = reply.send(result);
+            }
+
+            SessionCommand::QueryStatus { reply } => {
+                let _ = reply.send(session.status().cloned());
+            }
+
+            SessionCommand::QueryRate { reply } => {
+                let _ = reply.send(session.rate().cloned());
+            }
+        }
+    }
+
+    tracing::info!("event loop terminated — command channel closed");
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
