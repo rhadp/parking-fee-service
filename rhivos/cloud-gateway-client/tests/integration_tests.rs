@@ -23,13 +23,16 @@ use futures::StreamExt;
 
 // Re-include the generated proto types so tests can interact with DATA_BROKER
 // directly (write signals, read signal values) without going through the service.
+// Uses the same kuksa.val.v2 proto that the main implementation uses.
 #[allow(clippy::enum_variant_names)]
-mod kuksa {
-    tonic::include_proto!("kuksa");
+mod kuksa_v2 {
+    tonic::include_proto!("kuksa.val.v2");
 }
 
-use kuksa::val_service_client::ValServiceClient;
-use kuksa::{DataEntry, Datapoint, Field, GetRequest, SetRequest};
+use kuksa_v2::val_client::ValClient;
+use kuksa_v2::{Datapoint, GetValueRequest, PublishValueRequest, SignalId, Value};
+use kuksa_v2::signal_id::Signal;
+use kuksa_v2::value::TypedValue;
 use tonic::transport::{Channel, Endpoint};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -106,8 +109,8 @@ async fn recv_with_timeout(
 }
 
 /// Open a fresh gRPC connection to DATA_BROKER for test helper operations.
-async fn raw_broker() -> ValServiceClient<Channel> {
-    ValServiceClient::connect(BROKER_ADDR)
+async fn raw_broker() -> ValClient<Channel> {
+    ValClient::connect(BROKER_ADDR)
         .await
         .expect("Test helper: failed to connect to DATA_BROKER")
 }
@@ -118,59 +121,75 @@ async fn raw_broker() -> ValServiceClient<Channel> {
 async fn read_signal_string(path: &str) -> Option<String> {
     let mut client = raw_broker().await;
     let resp = client
-        .get(GetRequest {
-            entries: vec![Field {
-                path: path.to_owned(),
-            }],
+        .get_value(GetValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(Signal::Path(path.to_owned())),
+            }),
         })
         .await
         .ok()?
         .into_inner();
 
-    for entry in resp.entries {
-        if entry.path == path {
-            if let Some(dp) = entry.value {
-                if let Some(kuksa::datapoint::Value::StringValue(s)) = dp.value {
-                    return Some(s);
-                }
-            }
+    if let Some(dp) = resp.data_point {
+        if let Some(Value { typed_value: Some(TypedValue::String(s)) }) = dp.value {
+            return Some(s);
         }
     }
     None
 }
 
-/// Write a string value to a VSS signal in DATA_BROKER.
-async fn write_signal_string(path: &str, value: &str) {
+/// Write a string value to a VSS signal in DATA_BROKER using PublishValue.
+async fn write_actuator_string(path: &str, value: &str) {
     let mut client = raw_broker().await;
     client
-        .set(SetRequest {
-            updates: vec![DataEntry {
-                path: path.to_owned(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(kuksa::datapoint::Value::StringValue(value.to_owned())),
+        .publish_value(PublishValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(Signal::Path(path.to_owned())),
+            }),
+            data_point: Some(Datapoint {
+                value: Some(Value {
+                    typed_value: Some(TypedValue::String(value.to_owned())),
                 }),
-            }],
+            }),
         })
         .await
-        .expect("Test helper: failed to write string signal to DATA_BROKER");
+        .expect("Test helper: failed to publish string signal to DATA_BROKER");
 }
 
-/// Write a boolean value to a VSS signal in DATA_BROKER.
-async fn write_signal_bool(path: &str, value: bool) {
+/// Publish a string value to a VSS sensor signal in DATA_BROKER using PublishValue.
+async fn publish_sensor_string(path: &str, value: &str) {
     let mut client = raw_broker().await;
     client
-        .set(SetRequest {
-            updates: vec![DataEntry {
-                path: path.to_owned(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(kuksa::datapoint::Value::BoolValue(value)),
+        .publish_value(PublishValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(Signal::Path(path.to_owned())),
+            }),
+            data_point: Some(Datapoint {
+                value: Some(Value {
+                    typed_value: Some(TypedValue::String(value.to_owned())),
                 }),
-            }],
+            }),
         })
         .await
-        .expect("Test helper: failed to write bool signal to DATA_BROKER");
+        .expect("Test helper: failed to publish string sensor value to DATA_BROKER");
+}
+
+/// Publish a boolean value to a VSS signal in DATA_BROKER using PublishValue.
+async fn write_actuator_bool(path: &str, value: bool) {
+    let mut client = raw_broker().await;
+    client
+        .publish_value(PublishValueRequest {
+            signal_id: Some(SignalId {
+                signal: Some(Signal::Path(path.to_owned())),
+            }),
+            data_point: Some(Datapoint {
+                value: Some(Value {
+                    typed_value: Some(TypedValue::Bool(value)),
+                }),
+            }),
+        })
+        .await
+        .expect("Test helper: failed to publish bool signal to DATA_BROKER");
 }
 
 /// Wait for the service registration message on `vehicles.{vin}.status`.
@@ -226,7 +245,7 @@ async fn ts_04_10_end_to_end_command_flow() {
         .expect("ts_04_10: service should publish registration within 10 seconds");
 
     // Give the service a moment to complete DATA_BROKER subscriptions.
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
 
     // Publish a valid command with the correct bearer token.
     let command_payload = r#"{"command_id":"cmd-e2e-10","action":"lock","doors":["driver"],"source":"test","vin":"E2E-CMD-VIN","timestamp":1700000000}"#;
@@ -303,10 +322,10 @@ async fn ts_04_11_end_to_end_response_relay() {
     // Give the service a moment to complete DATA_BROKER subscriptions.
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    // Write a command response to DATA_BROKER.
+    // Write a command response to DATA_BROKER (sensor signal → PublishValue).
     let response_json =
         r#"{"command_id":"cmd-relay-11","status":"success","timestamp":1700000001}"#;
-    write_signal_string(SIGNAL_COMMAND_RESPONSE, response_json).await;
+    publish_sensor_string(SIGNAL_COMMAND_RESPONSE, response_json).await;
 
     // Wait for the service to relay the response to NATS.
     let msg = recv_with_timeout(&mut resp_sub, 5)
@@ -366,7 +385,8 @@ async fn ts_04_12_end_to_end_telemetry_on_signal_change() {
     tokio::time::sleep(Duration::from_millis(300)).await;
 
     // Set IsLocked to true in DATA_BROKER — this triggers a telemetry publish.
-    write_signal_bool(SIGNAL_IS_LOCKED, true).await;
+    // IsLocked is an actuator signal in the DATA_BROKER, so use Actuate.
+    write_actuator_bool(SIGNAL_IS_LOCKED, true).await;
 
     // Wait for the telemetry message on NATS.
     let msg = recv_with_timeout(&mut telem_sub, 5)
@@ -483,7 +503,7 @@ async fn ts_04_14_command_rejected_with_invalid_token() {
 
     // Write a sentinel value to the lock signal so we can detect any overwrite.
     let sentinel = r#"{"command_id":"sentinel-pre-auth","action":"lock","doors":[]}"#;
-    write_signal_string(SIGNAL_COMMAND_LOCK, sentinel).await;
+    write_actuator_string(SIGNAL_COMMAND_LOCK, sentinel).await;
 
     // Publish a command with the WRONG bearer token.
     let bad_payload = r#"{"command_id":"cmd-invalid-auth-14","action":"lock","doors":["driver"]}"#;
@@ -516,4 +536,247 @@ async fn ts_04_14_command_rejected_with_invalid_token() {
             // Signal has no value → it was definitely not written. Pass.
         }
     }
+}
+
+// ── Smoke Tests ───────────────────────────────────────────────────────────────
+
+/// TS-04-SMOKE-1: Service starts with valid configuration.
+///
+/// Validates: [04-REQ-2.1], [04-REQ-3.1]
+///
+/// Spawns the service with valid environment variables pointing to running NATS
+/// and DATA_BROKER containers. Verifies that the process starts without error
+/// (remains running for at least 2 seconds) and that INFO logs confirm
+/// successful connections to both NATS and DATA_BROKER.
+#[tokio::test]
+#[ignore]
+async fn ts_04_smoke_1_service_starts_with_valid_config() {
+    if !nats_available().await {
+        eprintln!("SKIP ts_04_smoke_1: NATS not reachable at {NATS_URL}");
+        return;
+    }
+    if !broker_available().await {
+        eprintln!("SKIP ts_04_smoke_1: DATA_BROKER not reachable at {BROKER_ADDR}");
+        return;
+    }
+
+    let vin = "SMOKE-1-VIN";
+
+    // Redirect both stdout and stderr to a temp file so we can inspect logs.
+    let log_path = std::env::temp_dir().join("cgc-smoke-1.log");
+    let log_file = std::fs::File::create(&log_path).expect("Create smoke-1 log file");
+    let log_copy = log_file.try_clone().expect("Clone smoke-1 log file handle");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env("VIN", vin)
+        .env("NATS_URL", NATS_URL)
+        .env("DATABROKER_ADDR", BROKER_ADDR)
+        .env("BEARER_TOKEN", BEARER_TOKEN)
+        .env("RUST_LOG", "info")
+        .stdout(log_file)
+        .stderr(log_copy)
+        .spawn()
+        .expect("ts_04_smoke_1: Failed to spawn binary");
+
+    // Allow 4 seconds for the service to establish connections and log.
+    tokio::time::sleep(Duration::from_secs(4)).await;
+
+    // The process must still be running (no immediate error).
+    match child.try_wait() {
+        Ok(Some(status)) => {
+            // Kill guard and panic with info.
+            child.kill().ok();
+            child.wait().ok();
+            let log_content = std::fs::read_to_string(&log_path).unwrap_or_default();
+            std::fs::remove_file(&log_path).ok();
+            panic!(
+                "ts_04_smoke_1: service exited unexpectedly with status: {status:?}\nLog:\n{log_content}"
+            );
+        }
+        Ok(None) => {} // still running — expected
+        Err(e) => {
+            child.kill().ok();
+            child.wait().ok();
+            std::fs::remove_file(&log_path).ok();
+            panic!("ts_04_smoke_1: error checking child status: {e}");
+        }
+    }
+
+    // Terminate the service.
+    child.kill().ok();
+    child.wait().ok();
+
+    // Inspect captured logs.
+    let log_content = std::fs::read_to_string(&log_path).unwrap_or_default();
+    std::fs::remove_file(&log_path).ok();
+
+    assert!(
+        log_content.contains("Connected to NATS"),
+        "ts_04_smoke_1: logs must contain 'Connected to NATS'; got:\n{log_content}"
+    );
+    assert!(
+        log_content.contains("Connected to DATA_BROKER"),
+        "ts_04_smoke_1: logs must contain 'Connected to DATA_BROKER'; got:\n{log_content}"
+    );
+}
+
+/// TS-04-SMOKE-2: Service exits with code 1 when VIN is not set.
+///
+/// Validates: [04-REQ-1.E1]
+///
+/// Runs the binary without VIN in the environment and verifies that the process
+/// exits with a non-zero exit code and that the error output references "VIN".
+///
+/// This test does NOT require NATS or DATA_BROKER containers — the service
+/// exits during configuration validation before any network connections.
+#[test]
+fn ts_04_smoke_2_service_exits_on_missing_vin() {
+    let output = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        // Explicitly remove VIN from the environment so the service cannot find it.
+        .env_remove("VIN")
+        .env("NATS_URL", "nats://localhost:4222")
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .env("BEARER_TOKEN", "demo-token")
+        .output()
+        .expect("ts_04_smoke_2: Failed to run cloud-gateway-client binary");
+
+    assert!(
+        !output.status.success(),
+        "ts_04_smoke_2: service must exit with non-zero code when VIN is missing"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let combined = format!("{stdout}{stderr}");
+
+    assert!(
+        combined.contains("VIN"),
+        "ts_04_smoke_2: output must reference 'VIN'; got stderr='{stderr}' stdout='{stdout}'"
+    );
+}
+
+/// TS-04-SMOKE-3: Service publishes registration message on startup.
+///
+/// Validates: [04-REQ-4.1]
+///
+/// Subscribes to `vehicles.SMOKE-3-VIN.status` before starting the service and
+/// verifies that within 5 seconds a registration message is received with the
+/// correct VIN and "status":"online".
+#[tokio::test]
+#[ignore]
+async fn ts_04_smoke_3_service_publishes_registration_on_startup() {
+    if !nats_available().await {
+        eprintln!("SKIP ts_04_smoke_3: NATS not reachable at {NATS_URL}");
+        return;
+    }
+    if !broker_available().await {
+        eprintln!("SKIP ts_04_smoke_3: DATA_BROKER not reachable at {BROKER_ADDR}");
+        return;
+    }
+
+    let vin = "SMOKE-3-VIN";
+    let nats = async_nats::connect(NATS_URL)
+        .await
+        .expect("Connect to NATS");
+
+    // Subscribe BEFORE spawning so the subscription is in place before the
+    // registration message is published (fire-and-forget per REQ-4.2).
+    let mut sub = subscribe_for_registration(&nats, vin).await;
+
+    let _guard = spawn_service(vin);
+
+    let msg = recv_with_timeout(&mut sub, 5)
+        .await
+        .expect("ts_04_smoke_3: service should publish registration within 5 seconds");
+
+    let payload = std::str::from_utf8(&msg.payload)
+        .expect("ts_04_smoke_3: registration payload must be valid UTF-8");
+    let json: serde_json::Value =
+        serde_json::from_str(payload).expect("ts_04_smoke_3: registration must be valid JSON");
+
+    assert_eq!(json["vin"], vin, "ts_04_smoke_3: registration must contain the correct VIN");
+    assert_eq!(
+        json["status"], "online",
+        "ts_04_smoke_3: registration status must be 'online'"
+    );
+    assert!(
+        json["timestamp"].is_number(),
+        "ts_04_smoke_3: registration must contain a numeric timestamp"
+    );
+}
+
+/// TS-04-15: NATS reconnection with exponential backoff.
+///
+/// Validates: [04-REQ-2.2], [04-REQ-2.E1]
+///
+/// Starts the service pointing at a dead NATS port (no server listening) and
+/// verifies that:
+/// 1. The service exhausts all 5 connection attempts using exponential backoff
+///    (wait intervals: 1s, 2s, 4s, 8s → total elapsed ≈ 15s).
+/// 2. The service exits with a non-zero exit code after all retries fail.
+///
+/// **Note:** This test takes approximately 15 seconds to complete because the
+/// exponential backoff schedule is real-time.
+#[test]
+#[ignore]
+fn ts_04_15_nats_reconnection_exponential_backoff() {
+    // Use a port very unlikely to have any server listening.
+    let dead_nats_url = "nats://127.0.0.1:19222";
+
+    let start = std::time::Instant::now();
+
+    // Spawn the service; it will try to connect to the dead NATS URL.
+    let mut child = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env("VIN", "BACKOFF-VIN")
+        .env("NATS_URL", dead_nats_url)
+        .env("DATABROKER_ADDR", BROKER_ADDR)
+        .env("BEARER_TOKEN", BEARER_TOKEN)
+        .env("RUST_LOG", "warn")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("ts_04_15: Failed to spawn cloud-gateway-client binary");
+
+    // The service should exit after ≈15s of backoff (1+2+4+8 seconds of waits
+    // between 5 failed connection attempts). Give it up to 35 seconds.
+    let deadline = std::time::Duration::from_secs(35);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {
+                if start.elapsed() > deadline {
+                    child.kill().ok();
+                    child.wait().ok();
+                    panic!(
+                        "ts_04_15: service did not exit within {deadline:?} — backoff may not be terminating"
+                    );
+                }
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            Err(e) => {
+                child.kill().ok();
+                child.wait().ok();
+                panic!("ts_04_15: error waiting for child process: {e}");
+            }
+        }
+    };
+
+    let elapsed = start.elapsed();
+
+    // Service must exit with a non-zero code after exhausting NATS retries.
+    assert!(
+        !status.success(),
+        "ts_04_15: service must exit with non-zero code after NATS retries exhausted"
+    );
+
+    // The full backoff schedule totals 1+2+4+8 = 15 seconds.
+    // Allow 8–30 seconds as a generous tolerance window.
+    assert!(
+        elapsed >= std::time::Duration::from_secs(8),
+        "ts_04_15: service exited too quickly ({elapsed:?}); expected ≈15s for full backoff"
+    );
+    assert!(
+        elapsed <= std::time::Duration::from_secs(30),
+        "ts_04_15: service took too long ({elapsed:?}); expected ≈15s for full backoff"
+    );
 }

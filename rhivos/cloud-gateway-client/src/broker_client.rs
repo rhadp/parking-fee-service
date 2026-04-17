@@ -3,7 +3,8 @@
 //! Provides `BrokerClient` for connecting to Eclipse Kuksa Databroker,
 //! writing command signals, and subscribing to response and telemetry signals.
 //!
-//! All DATA_BROKER communication uses the kuksa.val.v1 gRPC API.
+//! All DATA_BROKER communication uses the `kuksa.val.v2.VAL` gRPC API
+//! as exposed by `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0`.
 
 use std::time::Duration;
 
@@ -15,18 +16,18 @@ use crate::config::Config;
 use crate::errors::BrokerError;
 use crate::models::SignalUpdate;
 
-/// Generated types from `proto/kuksa/val.proto`.
+/// Generated types from `proto/kuksa/val/v2/val.proto`.
 ///
-/// The `enum_variant_names` lint is suppressed because the generated `Value`
-/// enum has variants like `StringValue`, `BoolValue`, etc. — a protobuf
-/// convention that clippy flags but we cannot change in generated code.
+/// The `enum_variant_names` lint is suppressed because the generated `typed_value`
+/// enum has variants like `String`, `Bool`, etc. that clippy may flag.
 #[allow(clippy::enum_variant_names)]
-mod kuksa {
-    tonic::include_proto!("kuksa");
+mod kuksa_v2 {
+    tonic::include_proto!("kuksa.val.v2");
 }
 
-use kuksa::val_service_client::ValServiceClient;
-use kuksa::{DataEntry, Datapoint, Field, SetRequest, SubscribeRequest};
+use kuksa_v2::val_client::ValClient;
+use kuksa_v2::{Datapoint, PublishValueRequest, SignalId, SubscribeRequest, Value};
+use kuksa_v2::value::TypedValue;
 
 // VSS signal paths used by CLOUD_GATEWAY_CLIENT
 pub const SIGNAL_COMMAND_LOCK: &str = "Vehicle.Command.Door.Lock";
@@ -45,7 +46,7 @@ const BASE_BACKOFF_MS: u64 = 1_000;
 /// gRPC client for Eclipse Kuksa Databroker (DATA_BROKER).
 ///
 /// Uses a shared `Channel` (internally multiplexed by tonic) so that cloning
-/// `ValServiceClient` per call is cheap and does not open new connections.
+/// `ValClient` per call is cheap and does not open new connections.
 pub struct BrokerClient {
     channel: Channel,
 }
@@ -103,14 +104,19 @@ impl BrokerClient {
         )))
     }
 
-    /// Create a fresh `ValServiceClient` per call.
+    /// Create a fresh `ValClient` per call.
     ///
     /// The underlying `Channel` is multiplexed, so cloning is cheap.
-    fn client(&self) -> ValServiceClient<Channel> {
-        ValServiceClient::new(self.channel.clone())
+    fn client(&self) -> ValClient<Channel> {
+        ValClient::new(self.channel.clone())
     }
 
     /// Write `payload` verbatim to `Vehicle.Command.Door.Lock` in DATA_BROKER.
+    ///
+    /// The cloud-gateway-client acts as the "provider" publishing the command
+    /// payload for the LOCKING_SERVICE to observe via its subscription. The
+    /// `kuksa.val.v2.VAL/PublishValue` RPC is used so that the write succeeds
+    /// even when no actuator provider is registered for the signal.
     ///
     /// The payload is the original JSON bytes from the NATS command message,
     /// forwarded as-is per Property 3 (Command Passthrough Fidelity).
@@ -118,43 +124,26 @@ impl BrokerClient {
     /// [04-REQ-6.3]
     pub async fn write_command(&self, payload: &str) -> Result<(), BrokerError> {
         let mut client = self.client();
-        let response = client
-            .set(SetRequest {
-                updates: vec![DataEntry {
-                    path: SIGNAL_COMMAND_LOCK.to_owned(),
-                    value: Some(Datapoint {
-                        timestamp: 0,
-                        value: Some(kuksa::datapoint::Value::StringValue(payload.to_owned())),
+        client
+            .publish_value(PublishValueRequest {
+                signal_id: Some(SignalId {
+                    signal: Some(kuksa_v2::signal_id::Signal::Path(
+                        SIGNAL_COMMAND_LOCK.to_owned(),
+                    )),
+                }),
+                data_point: Some(Datapoint {
+                    value: Some(Value {
+                        typed_value: Some(TypedValue::String(payload.to_owned())),
                     }),
-                }],
+                }),
             })
             .await
             .map_err(|e| {
                 BrokerError::WriteFailed(format!(
-                    "SET {} failed: {e}",
+                    "PublishValue {} failed: {e}",
                     SIGNAL_COMMAND_LOCK
                 ))
-            })?
-            .into_inner();
-
-        // Check for field-level errors in the response.
-        if !response.errors.is_empty() {
-            let msg = response
-                .errors
-                .iter()
-                .map(|e| format!("[{}] {}: {}", e.code, e.reason, e.message))
-                .collect::<Vec<_>>()
-                .join("; ");
-            error!(
-                signal = SIGNAL_COMMAND_LOCK,
-                errors = %msg,
-                "DATA_BROKER SET returned field-level errors"
-            );
-            return Err(BrokerError::WriteFailed(format!(
-                "SET {} returned errors: {msg}",
-                SIGNAL_COMMAND_LOCK
-            )));
-        }
+            })?;
 
         info!(signal = SIGNAL_COMMAND_LOCK, "Command forwarded to DATA_BROKER");
         Ok(())
@@ -174,9 +163,7 @@ impl BrokerClient {
         let mut client = self.client();
         let stream = client
             .subscribe(SubscribeRequest {
-                entries: vec![Field {
-                    path: SIGNAL_COMMAND_RESPONSE.to_owned(),
-                }],
+                signal_paths: vec![SIGNAL_COMMAND_RESPONSE.to_owned()],
             })
             .await
             .map_err(|e| {
@@ -200,10 +187,12 @@ impl BrokerClient {
             while let Some(result) = stream.next().await {
                 match result {
                     Ok(response) => {
-                        for entry in response.updates {
-                            if let Some(dp) = entry.value {
+                        for (path, dp) in response.entries {
+                            if path == SIGNAL_COMMAND_RESPONSE {
                                 match dp.value {
-                                    Some(kuksa::datapoint::Value::StringValue(s)) => {
+                                    Some(Value {
+                                        typed_value: Some(TypedValue::String(s)),
+                                    }) => {
                                         debug!(
                                             signal = SIGNAL_COMMAND_RESPONSE,
                                             "Command response received from DATA_BROKER"
@@ -267,19 +256,11 @@ impl BrokerClient {
         let mut client = self.client();
         let stream = client
             .subscribe(SubscribeRequest {
-                entries: vec![
-                    Field {
-                        path: SIGNAL_IS_LOCKED.to_owned(),
-                    },
-                    Field {
-                        path: SIGNAL_LATITUDE.to_owned(),
-                    },
-                    Field {
-                        path: SIGNAL_LONGITUDE.to_owned(),
-                    },
-                    Field {
-                        path: SIGNAL_PARKING_ACTIVE.to_owned(),
-                    },
+                signal_paths: vec![
+                    SIGNAL_IS_LOCKED.to_owned(),
+                    SIGNAL_LATITUDE.to_owned(),
+                    SIGNAL_LONGITUDE.to_owned(),
+                    SIGNAL_PARKING_ACTIVE.to_owned(),
                 ],
             })
             .await
@@ -300,9 +281,8 @@ impl BrokerClient {
             while let Some(result) = stream.next().await {
                 match result {
                     Ok(response) => {
-                        for entry in response.updates {
-                            let path = entry.path.clone();
-                            if let Some(update) = parse_signal_update(&path, entry.value) {
+                        for (path, dp) in response.entries {
+                            if let Some(update) = parse_signal_update(&path, dp.value) {
                                 debug!(
                                     signal = %path,
                                     "Telemetry signal update received from DATA_BROKER"
@@ -333,41 +313,41 @@ impl BrokerClient {
     }
 }
 
-/// Parse a DATA_BROKER signal entry into a typed `SignalUpdate`.
+/// Parse a DATA_BROKER signal value into a typed `SignalUpdate`.
 ///
 /// Returns `None` if the path is unknown or the value type is unexpected
 /// (both cases are logged at WARN level).
-fn parse_signal_update(path: &str, datapoint: Option<Datapoint>) -> Option<SignalUpdate> {
-    let dp = datapoint?;
-    let value = dp.value?;
+fn parse_signal_update(path: &str, value: Option<Value>) -> Option<SignalUpdate> {
+    let v = value?;
+    let typed = v.typed_value?;
 
     if path == SIGNAL_IS_LOCKED {
-        if let kuksa::datapoint::Value::BoolValue(b) = value {
+        if let TypedValue::Bool(b) = typed {
             Some(SignalUpdate::IsLocked(b))
         } else {
             warn!(signal = path, "Unexpected value type for IsLocked signal");
             None
         }
     } else if path == SIGNAL_LATITUDE {
-        match value {
-            kuksa::datapoint::Value::DoubleValue(d) => Some(SignalUpdate::Latitude(d)),
-            kuksa::datapoint::Value::FloatValue(f) => Some(SignalUpdate::Latitude(f64::from(f))),
+        match typed {
+            TypedValue::Double(d) => Some(SignalUpdate::Latitude(d)),
+            TypedValue::Float(f) => Some(SignalUpdate::Latitude(f64::from(f))),
             _ => {
                 warn!(signal = path, "Unexpected value type for Latitude signal");
                 None
             }
         }
     } else if path == SIGNAL_LONGITUDE {
-        match value {
-            kuksa::datapoint::Value::DoubleValue(d) => Some(SignalUpdate::Longitude(d)),
-            kuksa::datapoint::Value::FloatValue(f) => Some(SignalUpdate::Longitude(f64::from(f))),
+        match typed {
+            TypedValue::Double(d) => Some(SignalUpdate::Longitude(d)),
+            TypedValue::Float(f) => Some(SignalUpdate::Longitude(f64::from(f))),
             _ => {
                 warn!(signal = path, "Unexpected value type for Longitude signal");
                 None
             }
         }
     } else if path == SIGNAL_PARKING_ACTIVE {
-        if let kuksa::datapoint::Value::BoolValue(b) = value {
+        if let TypedValue::Bool(b) = typed {
             Some(SignalUpdate::ParkingActive(b))
         } else {
             warn!(signal = path, "Unexpected value type for ParkingActive signal");
@@ -384,73 +364,53 @@ mod tests {
     use super::*;
     use crate::models::SignalUpdate;
 
+    fn make_value(tv: TypedValue) -> Option<Value> {
+        Some(Value { typed_value: Some(tv) })
+    }
+
     /// Verify parse_signal_update correctly maps IsLocked bool values.
     #[test]
     fn test_parse_signal_is_locked() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            value: Some(kuksa::datapoint::Value::BoolValue(true)),
-        });
-        let result = parse_signal_update(SIGNAL_IS_LOCKED, dp);
+        let result = parse_signal_update(SIGNAL_IS_LOCKED, make_value(TypedValue::Bool(true)));
         assert!(matches!(result, Some(SignalUpdate::IsLocked(true))));
     }
 
     /// Verify parse_signal_update correctly maps Latitude double values.
     #[test]
     fn test_parse_signal_latitude_double() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            value: Some(kuksa::datapoint::Value::DoubleValue(48.1351)),
-        });
-        let result = parse_signal_update(SIGNAL_LATITUDE, dp);
+        let result = parse_signal_update(SIGNAL_LATITUDE, make_value(TypedValue::Double(48.1351)));
         assert!(matches!(result, Some(SignalUpdate::Latitude(v)) if (v - 48.1351).abs() < 1e-9));
     }
 
     /// Verify parse_signal_update correctly maps Latitude float values (upcast to f64).
     #[test]
     fn test_parse_signal_latitude_float() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            value: Some(kuksa::datapoint::Value::FloatValue(48.0_f32)),
-        });
-        let result = parse_signal_update(SIGNAL_LATITUDE, dp);
+        let result = parse_signal_update(SIGNAL_LATITUDE, make_value(TypedValue::Float(48.0_f32)));
         assert!(matches!(result, Some(SignalUpdate::Latitude(_))));
     }
 
     /// Verify parse_signal_update correctly maps Longitude double values.
     #[test]
     fn test_parse_signal_longitude() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            value: Some(kuksa::datapoint::Value::DoubleValue(11.582)),
-        });
-        let result = parse_signal_update(SIGNAL_LONGITUDE, dp);
+        let result = parse_signal_update(SIGNAL_LONGITUDE, make_value(TypedValue::Double(11.582)));
         assert!(matches!(result, Some(SignalUpdate::Longitude(v)) if (v - 11.582).abs() < 1e-9));
     }
 
     /// Verify parse_signal_update correctly maps ParkingActive bool values.
     #[test]
     fn test_parse_signal_parking_active() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            value: Some(kuksa::datapoint::Value::BoolValue(false)),
-        });
-        let result = parse_signal_update(SIGNAL_PARKING_ACTIVE, dp);
+        let result = parse_signal_update(SIGNAL_PARKING_ACTIVE, make_value(TypedValue::Bool(false)));
         assert!(matches!(result, Some(SignalUpdate::ParkingActive(false))));
     }
 
     /// Verify parse_signal_update returns None for unknown signal paths.
     #[test]
     fn test_parse_signal_unknown_path() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            value: Some(kuksa::datapoint::Value::BoolValue(true)),
-        });
-        let result = parse_signal_update("Vehicle.Unknown.Signal", dp);
+        let result = parse_signal_update("Vehicle.Unknown.Signal", make_value(TypedValue::Bool(true)));
         assert!(result.is_none());
     }
 
-    /// Verify parse_signal_update returns None when datapoint is absent.
+    /// Verify parse_signal_update returns None when value is absent.
     #[test]
     fn test_parse_signal_none_datapoint() {
         let result = parse_signal_update(SIGNAL_IS_LOCKED, None);
@@ -460,12 +420,8 @@ mod tests {
     /// Verify parse_signal_update returns None for wrong value type.
     #[test]
     fn test_parse_signal_wrong_type() {
-        let dp = Some(Datapoint {
-            timestamp: 0,
-            // IsLocked expects bool, not string
-            value: Some(kuksa::datapoint::Value::StringValue("true".to_owned())),
-        });
-        let result = parse_signal_update(SIGNAL_IS_LOCKED, dp);
+        // IsLocked expects bool, not string
+        let result = parse_signal_update(SIGNAL_IS_LOCKED, make_value(TypedValue::String("true".to_owned())));
         assert!(result.is_none());
     }
 }

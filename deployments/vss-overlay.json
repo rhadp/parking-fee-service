@@ -1,29 +1,41 @@
 {
-  "Vehicle.Parking": {
+  "Vehicle": {
     "type": "branch",
-    "description": "Parking-related vehicle data and commands."
-  },
-  "Vehicle.Parking.SessionActive": {
-    "type": "sensor",
-    "datatype": "boolean",
-    "description": "Adapter-managed parking session state. True when an active parking session is in progress."
-  },
-  "Vehicle.Command": {
-    "type": "branch",
-    "description": "Vehicle command interface for remote service operations."
-  },
-  "Vehicle.Command.Door": {
-    "type": "branch",
-    "description": "Door-related command interface."
-  },
-  "Vehicle.Command.Door.Lock": {
-    "type": "actuator",
-    "datatype": "string",
-    "description": "Lock/unlock command request (JSON payload). Contains command_id, action (lock|unlock), and door identifiers."
-  },
-  "Vehicle.Command.Door.Response": {
-    "type": "sensor",
-    "datatype": "string",
-    "description": "Command execution result (JSON payload). Contains command_id, status (success|failed), and reason."
+    "description": "Highlevel vehicle data.",
+    "children": {
+      "Parking": {
+        "type": "branch",
+        "description": "Parking-related vehicle data and commands.",
+        "children": {
+          "SessionActive": {
+            "type": "sensor",
+            "datatype": "boolean",
+            "description": "Adapter-managed parking session state. True when an active parking session is in progress."
+          }
+        }
+      },
+      "Command": {
+        "type": "branch",
+        "description": "Vehicle command interface for remote service operations.",
+        "children": {
+          "Door": {
+            "type": "branch",
+            "description": "Door-related command interface.",
+            "children": {
+              "Lock": {
+                "type": "actuator",
+                "datatype": "string",
+                "description": "Lock/unlock command request (JSON payload). Contains command_id, action (lock|unlock), and door identifiers."
+              },
+              "Response": {
+                "type": "sensor",
+                "datatype": "string",
+                "description": "Command execution result (JSON payload). Contains command_id, status (success|failed), and reason."
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
