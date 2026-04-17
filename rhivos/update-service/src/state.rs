@@ -6,6 +6,9 @@
 #![allow(dead_code)]
 
 use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Errors returned by state-manager operations.
 #[derive(Debug, PartialEq, Eq)]
@@ -31,58 +34,138 @@ impl std::error::Error for StateError {}
 /// broadcast channel.
 pub struct StateManager {
     broadcaster: tokio::sync::broadcast::Sender<AdapterStateEvent>,
-    // Concrete storage is added in task group 3.
-    _inner: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, AdapterEntry>>>,
+    inner: Arc<Mutex<HashMap<String, AdapterEntry>>>,
+}
+
+fn unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 impl StateManager {
     /// Create a new state manager backed by the given broadcast sender.
-    pub fn new(_broadcaster: tokio::sync::broadcast::Sender<AdapterStateEvent>) -> Self {
-        todo!()
+    pub fn new(broadcaster: tokio::sync::broadcast::Sender<AdapterStateEvent>) -> Self {
+        Self {
+            broadcaster,
+            inner: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
-    /// Insert a new adapter entry. Panics (via todo!) until task group 3.
-    pub fn create_adapter(&self, _entry: AdapterEntry) {
-        todo!()
+    /// Insert a new adapter entry.
+    pub fn create_adapter(&self, entry: AdapterEntry) {
+        let mut map = self.inner.lock().unwrap();
+        map.insert(entry.adapter_id.clone(), entry);
     }
 
     /// Look up an adapter by ID. Returns `None` if not found.
-    pub fn get_adapter(&self, _adapter_id: &str) -> Option<AdapterEntry> {
-        todo!()
+    pub fn get_adapter(&self, adapter_id: &str) -> Option<AdapterEntry> {
+        self.inner.lock().unwrap().get(adapter_id).cloned()
     }
 
     /// Return all stored adapter entries.
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!()
+        self.inner.lock().unwrap().values().cloned().collect()
     }
 
     /// Remove an adapter by ID. Returns `Err(StateError::NotFound)` if absent.
-    pub fn remove_adapter(&self, _adapter_id: &str) -> Result<(), StateError> {
-        todo!()
+    pub fn remove_adapter(&self, adapter_id: &str) -> Result<(), StateError> {
+        let mut map = self.inner.lock().unwrap();
+        if map.remove(adapter_id).is_none() {
+            return Err(StateError::NotFound);
+        }
+        Ok(())
     }
 
     /// Transition an adapter to a new state, emitting a broadcast event.
+    ///
+    /// The lock is released before broadcasting to avoid potential deadlocks
+    /// when broadcast receivers are driven within the same task.
     pub fn transition(
         &self,
-        _adapter_id: &str,
-        _new_state: AdapterState,
-        _error_message: Option<String>,
+        adapter_id: &str,
+        new_state: AdapterState,
+        error_message: Option<String>,
     ) -> Result<(), StateError> {
-        todo!()
+        let event = {
+            let mut map = self.inner.lock().unwrap();
+            let entry = map.get_mut(adapter_id).ok_or(StateError::NotFound)?;
+
+            let old_state = entry.state.clone();
+            entry.state = new_state.clone();
+            entry.error_message = error_message;
+
+            // Record when an adapter becomes STOPPED (for offload timer).
+            if new_state == AdapterState::Stopped {
+                entry.stopped_at = Some(Instant::now());
+            }
+
+            AdapterStateEvent {
+                adapter_id: adapter_id.to_string(),
+                old_state,
+                new_state,
+                timestamp: unix_millis(),
+            }
+        }; // lock released here
+
+        let _ = self.broadcaster.send(event);
+        Ok(())
+    }
+
+    /// Forcibly set an adapter's state to ERROR, bypassing transition validation.
+    ///
+    /// Used when error recording must happen regardless of the current state
+    /// (e.g., after a failed podman operation).
+    pub fn force_error(&self, adapter_id: &str, error_message: String) {
+        let event = {
+            let mut map = self.inner.lock().unwrap();
+            let Some(entry) = map.get_mut(adapter_id) else {
+                return;
+            };
+
+            let old_state = entry.state.clone();
+            entry.state = AdapterState::Error;
+            entry.error_message = Some(error_message);
+
+            Some(AdapterStateEvent {
+                adapter_id: adapter_id.to_string(),
+                old_state,
+                new_state: AdapterState::Error,
+                timestamp: unix_millis(),
+            })
+        }; // lock released here
+
+        if let Some(ev) = event {
+            let _ = self.broadcaster.send(ev);
+        }
     }
 
     /// Return the adapter currently in RUNNING state, if any.
     pub fn get_running_adapter(&self) -> Option<AdapterEntry> {
-        todo!()
+        self.inner
+            .lock()
+            .unwrap()
+            .values()
+            .find(|e| e.state == AdapterState::Running)
+            .cloned()
     }
 
     /// Return adapters in STOPPED state whose `stopped_at` timestamp is older
     /// than `timeout`.
-    pub fn get_offload_candidates(
-        &self,
-        _timeout: std::time::Duration,
-    ) -> Vec<AdapterEntry> {
-        todo!()
+    pub fn get_offload_candidates(&self, timeout: Duration) -> Vec<AdapterEntry> {
+        let now = Instant::now();
+        self.inner
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|e| {
+                e.state == AdapterState::Stopped
+                    && e.stopped_at
+                        .is_some_and(|t| now.duration_since(t) >= timeout)
+            })
+            .cloned()
+            .collect()
     }
 }
 
@@ -225,15 +308,119 @@ mod tests {
     #[test]
     #[ignore = "proptest: run with --include-ignored proptest"]
     fn proptest_state_transition_validity() {
-        // Implemented in task group 3.
-        todo!()
+        use proptest::prelude::*;
+
+        fn is_valid(from: &AdapterState, to: &AdapterState) -> bool {
+            matches!(
+                (from, to),
+                (AdapterState::Unknown, AdapterState::Downloading)
+                    | (AdapterState::Downloading, AdapterState::Installing)
+                    | (AdapterState::Downloading, AdapterState::Error)
+                    | (AdapterState::Installing, AdapterState::Running)
+                    | (AdapterState::Installing, AdapterState::Error)
+                    | (AdapterState::Running, AdapterState::Stopped)
+                    | (AdapterState::Running, AdapterState::Error)
+                    | (AdapterState::Stopped, AdapterState::Offloading)
+                    | (AdapterState::Stopped, AdapterState::Running)
+                    | (AdapterState::Offloading, AdapterState::Error)
+            )
+        }
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        proptest!(|(seed in 0usize..3)| {
+            use crate::podman::{MockPodmanExecutor, PodmanError, UpdateServiceImpl};
+            use std::sync::Arc;
+
+            let image_ref = format!("reg.io/adapter-{seed}:v1");
+            let checksum = format!("sha256:abc{seed:060}");
+
+            let events = rt.block_on(async {
+                let (tx, mut rx) = broadcast::channel::<AdapterStateEvent>(64);
+                let state = Arc::new(StateManager::new(tx.clone()));
+                let mock = Arc::new(MockPodmanExecutor::new());
+                mock.set_pull_result(Ok(()));
+                mock.set_inspect_result(Ok(checksum.clone()));
+                mock.set_run_result(Ok(()));
+                mock.set_wait_result(Err(PodmanError::new("block")));
+
+                let svc = UpdateServiceImpl::new(Arc::clone(&state), Arc::clone(&mock), tx);
+                let _ = svc.install_adapter(&image_ref, &checksum).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+
+                let mut events = Vec::new();
+                while let Ok(event) = rx.try_recv() {
+                    events.push((event.old_state, event.new_state));
+                }
+                events
+            });
+
+            for (old, new) in &events {
+                prop_assert!(
+                    is_valid(old, new),
+                    "Invalid transition: {:?} -> {:?}", old, new
+                );
+            }
+        });
     }
 
     /// TS-07-P4: event delivery completeness (property test scaffold)
     #[test]
     #[ignore = "proptest: run with --include-ignored proptest"]
     fn proptest_event_delivery_completeness() {
-        // Implemented in task group 3.
-        todo!()
+        use proptest::prelude::*;
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        proptest!(|(n in 1usize..=3)| {
+            use crate::podman::{MockPodmanExecutor, PodmanError, UpdateServiceImpl};
+            use std::sync::Arc;
+
+            let image_ref = "reg.io/adapter-a:v1";
+            let checksum = "sha256:abcdef";
+
+            let all_events = rt.block_on(async {
+                let (tx, _rx) = broadcast::channel::<AdapterStateEvent>(64);
+                let state = Arc::new(StateManager::new(tx.clone()));
+
+                // Subscribe N receivers BEFORE install to capture all events.
+                let mut receivers: Vec<_> = (0..n).map(|_| tx.subscribe()).collect();
+
+                let mock = Arc::new(MockPodmanExecutor::new());
+                mock.set_pull_result(Ok(()));
+                mock.set_inspect_result(Ok(checksum.to_string()));
+                mock.set_run_result(Ok(()));
+                mock.set_wait_result(Err(PodmanError::new("block")));
+
+                let svc = UpdateServiceImpl::new(Arc::clone(&state), Arc::clone(&mock), tx);
+                let _ = svc.install_adapter(image_ref, checksum).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+
+                receivers
+                    .iter_mut()
+                    .map(|rx| {
+                        let mut evs = Vec::new();
+                        while let Ok(event) = rx.try_recv() {
+                            evs.push((event.old_state, event.new_state));
+                        }
+                        evs
+                    })
+                    .collect::<Vec<_>>()
+            });
+
+            // All N subscribers should have received the same events.
+            for i in 1..n {
+                prop_assert_eq!(
+                    &all_events[0], &all_events[i],
+                    "subscriber {} received different events than subscriber 0", i
+                );
+            }
+        });
     }
 }

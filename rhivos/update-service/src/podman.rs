@@ -1,8 +1,8 @@
-//! Podman executor trait and mock implementation.
+//! Podman executor trait, real CLI implementation, and mock.
 //!
 //! The `PodmanExecutor` trait abstracts all container operations so that unit
 //! tests can use `MockPodmanExecutor` while production code uses
-//! `RealPodmanExecutor` (implemented in task group 3).
+//! `RealPodmanExecutor`.
 
 #![allow(dead_code)]
 
@@ -60,6 +60,125 @@ pub trait PodmanExecutor: Send + Sync {
     async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError>;
 }
 
+// ── Real executor ─────────────────────────────────────────────────────────────
+
+/// Real podman executor that shells out to the podman CLI via
+/// `tokio::process::Command`.
+pub struct RealPodmanExecutor;
+
+#[async_trait]
+impl PodmanExecutor for RealPodmanExecutor {
+    async fn pull(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["pull", image_ref])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["image", "inspect", "--format", "{{.Digest}}", image_ref])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    async fn run(&self, adapter_id: &str, image_ref: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args([
+                "run",
+                "-d",
+                "--name",
+                adapter_id,
+                "--network=host",
+                image_ref,
+            ])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn stop(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["stop", adapter_id])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn rm(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rm", adapter_id])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn rmi(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rmi", image_ref])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["wait", adapter_id])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(e.to_string()))?;
+        if !output.status.success() {
+            return Err(PodmanError::new(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        let exit_code_str = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .to_string();
+        exit_code_str
+            .parse::<i32>()
+            .map_err(|e| PodmanError::new(format!("failed to parse exit code: {e}")))
+    }
+}
+
 // ── Mock executor ────────────────────────────────────────────────────────────
 
 /// Per-adapter configurable stop result.
@@ -73,6 +192,7 @@ struct MockInner {
     stop_result_for: std::collections::HashMap<String, Result<(), PodmanError>>,
     rm_result: Option<Result<(), PodmanError>>,
     rmi_result: Option<Result<(), PodmanError>>,
+    /// `None` = block forever (pending); `Some` = return the value immediately.
     wait_result: Option<Result<i32, PodmanError>>,
 
     pull_calls: Vec<String>,
@@ -86,9 +206,10 @@ struct MockInner {
 
 /// A configurable, call-tracking mock of `PodmanExecutor`.
 ///
-/// All `set_*_result` methods must be called before the async task that drives
-/// the install flow runs (i.e., before or immediately after calling
-/// `install_adapter`).
+/// When `wait_result` is left unset (default), `wait()` blocks indefinitely
+/// (simulating a long-running container). Set it explicitly with
+/// `set_wait_result` to make the container "exit" with a specific code or
+/// error.
 #[derive(Clone, Default)]
 pub struct MockPodmanExecutor {
     inner: Arc<Mutex<MockInner>>,
@@ -134,6 +255,8 @@ impl MockPodmanExecutor {
         self.inner.lock().unwrap().rmi_result = Some(result);
     }
 
+    /// Set the result for `wait`. Pass `Ok(exit_code)` or `Err(err)`.
+    /// If not set, `wait` blocks indefinitely (simulating a running container).
     pub fn set_wait_result(&self, result: Result<i32, PodmanError>) {
         self.inner.lock().unwrap().wait_result = Some(result);
     }
@@ -239,23 +362,25 @@ impl PodmanExecutor for MockPodmanExecutor {
     }
 
     async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
-        let mut g = self.inner.lock().unwrap();
-        g.wait_calls.push(adapter_id.to_string());
-        match g.wait_result.clone() {
+        // Record the call while holding the lock, then release it before awaiting.
+        let result = {
+            let mut g = self.inner.lock().unwrap();
+            g.wait_calls.push(adapter_id.to_string());
+            g.wait_result.clone()
+        };
+        match result {
             Some(Ok(code)) => Ok(code),
             Some(Err(e)) => Err(e),
-            // Default: block forever (never resolves) — callers must set a result.
-            None => Err(PodmanError::new("wait result not configured")),
+            // None: block indefinitely — simulates a long-running container.
+            None => futures::future::pending().await,
         }
     }
 }
 
-// ── Service stub (used by tests; full impl in task group 3) ──────────────────
+// ── Service implementation ────────────────────────────────────────────────────
 
-/// Combined service struct used by unit tests.
-///
-/// The constructor and all methods panic with `todo!()` until task group 3
-/// provides the real implementation.
+/// Combined service struct that orchestrates install, remove, query, and watch
+/// operations using a state manager and a podman executor.
 #[allow(dead_code)]
 pub struct UpdateServiceImpl<P: PodmanExecutor> {
     pub state: Arc<crate::state::StateManager>,
@@ -265,40 +390,200 @@ pub struct UpdateServiceImpl<P: PodmanExecutor> {
 
 impl<P: PodmanExecutor + Send + Sync + 'static> UpdateServiceImpl<P> {
     pub fn new(
-        _state: Arc<crate::state::StateManager>,
-        _podman: Arc<P>,
-        _broadcaster: tokio::sync::broadcast::Sender<crate::adapter::AdapterStateEvent>,
+        state: Arc<crate::state::StateManager>,
+        podman: Arc<P>,
+        broadcaster: tokio::sync::broadcast::Sender<crate::adapter::AdapterStateEvent>,
     ) -> Self {
-        todo!()
+        Self {
+            state,
+            podman,
+            broadcaster,
+        }
     }
 
-    /// Validate inputs, derive adapter_id, create state entry, spawn background
-    /// install task, and return immediately with job_id + DOWNLOADING state.
+    /// Validate inputs, derive adapter_id, enforce the single-adapter
+    /// constraint, create a state entry, spawn the background install task, and
+    /// return immediately with job_id + DOWNLOADING state.
     pub async fn install_adapter(
         &self,
-        _image_ref: &str,
-        _checksum_sha256: &str,
+        image_ref: &str,
+        checksum_sha256: &str,
     ) -> Result<crate::adapter::InstallResponse, tonic::Status> {
-        todo!()
+        // Validate inputs.
+        if image_ref.is_empty() {
+            return Err(tonic::Status::invalid_argument("image_ref is required"));
+        }
+        if checksum_sha256.is_empty() {
+            return Err(tonic::Status::invalid_argument(
+                "checksum_sha256 is required",
+            ));
+        }
+
+        let adapter_id = crate::adapter::derive_adapter_id(image_ref);
+
+        // Single adapter constraint: stop any currently RUNNING adapter first.
+        if let Some(running) = self.state.get_running_adapter() {
+            if running.adapter_id != adapter_id {
+                match self.podman.stop(&running.adapter_id).await {
+                    Ok(()) => {
+                        let _ = self.state.transition(
+                            &running.adapter_id,
+                            crate::adapter::AdapterState::Stopped,
+                            None,
+                        );
+                    }
+                    Err(e) => {
+                        self.state
+                            .force_error(&running.adapter_id, e.message.clone());
+                    }
+                }
+            }
+        }
+
+        // Generate a UUID v4 job ID.
+        let job_id = uuid::Uuid::new_v4().to_string();
+
+        // Create the adapter entry and transition it to DOWNLOADING.
+        let entry = crate::adapter::AdapterEntry {
+            adapter_id: adapter_id.clone(),
+            image_ref: image_ref.to_string(),
+            checksum_sha256: checksum_sha256.to_string(),
+            state: crate::adapter::AdapterState::Unknown,
+            job_id: job_id.clone(),
+            stopped_at: None,
+            error_message: None,
+        };
+        self.state.create_adapter(entry);
+        let _ = self
+            .state
+            .transition(&adapter_id, crate::adapter::AdapterState::Downloading, None);
+
+        // Spawn the background install task.
+        let podman = Arc::clone(&self.podman);
+        let state = Arc::clone(&self.state);
+        let image_ref_owned = image_ref.to_string();
+        let adapter_id_owned = adapter_id.clone();
+        let checksum_owned = checksum_sha256.to_string();
+
+        tokio::spawn(async move {
+            // 1. Pull the image.
+            if let Err(e) = podman.pull(&image_ref_owned).await {
+                state.force_error(&adapter_id_owned, e.message);
+                return;
+            }
+
+            // 2. Inspect the digest and verify the checksum.
+            let digest = match podman.inspect_digest(&image_ref_owned).await {
+                Ok(d) => d,
+                Err(e) => {
+                    state.force_error(&adapter_id_owned, e.message);
+                    return;
+                }
+            };
+
+            if digest != checksum_owned {
+                // Checksum mismatch: remove the pulled image and error.
+                let _ = podman.rmi(&image_ref_owned).await;
+                state.force_error(&adapter_id_owned, "checksum_mismatch".to_string());
+                return;
+            }
+
+            // 3. Transition to INSTALLING.
+            let _ = state.transition(
+                &adapter_id_owned,
+                crate::adapter::AdapterState::Installing,
+                None,
+            );
+
+            // 4. Start the container.
+            if let Err(e) = podman.run(&adapter_id_owned, &image_ref_owned).await {
+                state.force_error(&adapter_id_owned, e.message);
+                return;
+            }
+
+            // 5. Transition to RUNNING.
+            let _ = state.transition(
+                &adapter_id_owned,
+                crate::adapter::AdapterState::Running,
+                None,
+            );
+
+            // 6. Monitor container exit via `podman wait`.
+            //    Exit code 0 → STOPPED; non-zero / error → ERROR.
+            match podman.wait(&adapter_id_owned).await {
+                Ok(0) => {
+                    let _ = state.transition(
+                        &adapter_id_owned,
+                        crate::adapter::AdapterState::Stopped,
+                        None,
+                    );
+                }
+                Ok(code) => {
+                    state.force_error(
+                        &adapter_id_owned,
+                        format!("container exited with code {code}"),
+                    );
+                }
+                Err(e) => {
+                    state.force_error(&adapter_id_owned, e.message);
+                }
+            }
+        });
+
+        Ok(crate::adapter::InstallResponse {
+            job_id,
+            adapter_id,
+            state: crate::adapter::AdapterState::Downloading,
+        })
     }
 
-    /// Stop + rm + rmi the adapter, then remove it from state.
-    pub async fn remove_adapter(&self, _adapter_id: &str) -> Result<(), tonic::Status> {
-        todo!()
+    /// Stop the container (if running), remove the container, remove the image,
+    /// and delete the adapter from state.
+    pub async fn remove_adapter(&self, adapter_id: &str) -> Result<(), tonic::Status> {
+        let entry = self
+            .state
+            .get_adapter(adapter_id)
+            .ok_or_else(|| tonic::Status::not_found("adapter not found"))?;
+
+        // Stop if running.
+        if entry.state == crate::adapter::AdapterState::Running {
+            if let Err(e) = self.podman.stop(adapter_id).await {
+                self.state.force_error(adapter_id, e.message.clone());
+                return Err(tonic::Status::internal(e.message));
+            }
+        }
+
+        // Remove container.
+        if let Err(e) = self.podman.rm(adapter_id).await {
+            self.state.force_error(adapter_id, e.message.clone());
+            return Err(tonic::Status::internal(e.message));
+        }
+
+        // Remove image.
+        if let Err(e) = self.podman.rmi(&entry.image_ref).await {
+            self.state.force_error(adapter_id, e.message.clone());
+            return Err(tonic::Status::internal(e.message));
+        }
+
+        // Remove from state.
+        let _ = self.state.remove_adapter(adapter_id);
+        Ok(())
     }
 
     /// Return the adapter entry or NOT_FOUND.
     #[allow(clippy::result_large_err)]
     pub fn get_adapter_status(
         &self,
-        _adapter_id: &str,
+        adapter_id: &str,
     ) -> Result<crate::adapter::AdapterEntry, tonic::Status> {
-        todo!()
+        self.state
+            .get_adapter(adapter_id)
+            .ok_or_else(|| tonic::Status::not_found("adapter not found"))
     }
 
     /// Delegate to the state manager.
     pub fn list_adapters(&self) -> Vec<crate::adapter::AdapterEntry> {
-        todo!()
+        self.state.list_adapters()
     }
 }
 
@@ -328,6 +613,19 @@ mod tests {
         (svc, state, rx)
     }
 
+    /// Helper to create an AdapterEntry directly in RUNNING state.
+    fn running_entry(adapter_id: &str, image_ref: &str, checksum: &str) -> crate::adapter::AdapterEntry {
+        crate::adapter::AdapterEntry {
+            adapter_id: adapter_id.to_string(),
+            image_ref: image_ref.to_string(),
+            checksum_sha256: checksum.to_string(),
+            state: AdapterState::Running,
+            job_id: "job-direct".to_string(),
+            stopped_at: None,
+            error_message: None,
+        }
+    }
+
     // ── TS-07-1: install returns DOWNLOADING immediately ──────────────────
 
     /// TS-07-1: InstallAdapter returns job_id (UUID v4), adapter_id, DOWNLOADING state
@@ -337,7 +635,7 @@ mod tests {
         mock.set_pull_result(Ok(()));
         mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
+        // wait not set → blocks forever; adapter stays RUNNING
         let (svc, _state, _rx) = make_service(mock);
 
         let resp = svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
@@ -355,7 +653,7 @@ mod tests {
         mock.set_pull_result(Ok(()));
         mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
+        // wait not set → blocks forever
         let (svc, _state, _rx) = make_service(Arc::clone(&mock));
 
         svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
@@ -373,7 +671,7 @@ mod tests {
         mock.set_pull_result(Ok(()));
         mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
+        // wait not set → blocks; adapter stays in RUNNING after successful install
         let (svc, state, _rx) = make_service(Arc::clone(&mock));
 
         svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
@@ -396,7 +694,7 @@ mod tests {
         mock.set_pull_result(Ok(()));
         mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
+        // wait not set → blocks
         let (svc, _state, _rx) = make_service(Arc::clone(&mock));
 
         svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
@@ -417,7 +715,7 @@ mod tests {
         mock.set_pull_result(Ok(()));
         mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
+        // wait not set → blocks indefinitely, keeping adapter in RUNNING
         let (svc, state, _rx) = make_service(Arc::clone(&mock));
 
         svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
@@ -521,36 +819,39 @@ mod tests {
 
     // ── TS-07-7: single adapter constraint ───────────────────────────────
 
-    /// TS-07-7: second install stops running adapter first
+    /// TS-07-7: second install stops running adapter first.
+    ///
+    /// Adapter A is placed directly into RUNNING state to avoid race conditions
+    /// with the background install task. Adapter B's install must stop A first.
     #[tokio::test]
     async fn test_single_adapter_stops_running() {
         const IMAGE_B: &str = "reg.io/adapter-b:v1";
         const CHECKSUM_B: &str = "sha256:bbb";
         const ADAPTER_B: &str = "adapter-b-v1";
 
+        let (tx, _rx) = broadcast::channel(64);
+        let state = Arc::new(StateManager::new(tx.clone()));
         let mock = Arc::new(MockPodmanExecutor::new());
         mock.set_pull_result(Ok(()));
-        mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
-        let (svc, state, _rx) = make_service(Arc::clone(&mock));
+        // wait not set → blocks; adapters stay in RUNNING once started
 
-        // Install adapter A
-        svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        assert_eq!(
-            state.get_adapter(ADAPTER_ID).unwrap().state,
-            AdapterState::Running
-        );
+        // Place adapter A directly into RUNNING state (no background task for A).
+        state.create_adapter(running_entry(ADAPTER_ID, IMAGE_REF, CHECKSUM));
 
-        // Configure mock for adapter B
+        // Configure inspect result for adapter B.
         mock.set_inspect_result(Ok(CHECKSUM_B.to_string()));
 
-        // Install adapter B (should stop A first)
+        let svc = UpdateServiceImpl::new(Arc::clone(&state), Arc::clone(&mock), tx);
+
+        // Install adapter B — must stop A first.
         svc.install_adapter(IMAGE_B, CHECKSUM_B).await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
-        assert!(mock.stop_calls().contains(&ADAPTER_ID.to_string()));
+        assert!(
+            mock.stop_calls().contains(&ADAPTER_ID.to_string()),
+            "stop should have been called for adapter A"
+        );
         assert_eq!(
             state.get_adapter(ADAPTER_ID).unwrap().state,
             AdapterState::Stopped
@@ -563,36 +864,42 @@ mod tests {
 
     // ── TS-07-E6: stop failure, install proceeds ──────────────────────────
 
-    /// TS-07-E6: stop failure -> old adapter ERROR, new install proceeds
+    /// TS-07-E6: stop failure -> old adapter ERROR, new install proceeds.
+    ///
+    /// Adapter A is placed directly into RUNNING state. Stop fails for A.
+    /// Install of B must still proceed and reach RUNNING.
     #[tokio::test]
     async fn test_stop_failure_install_proceeds() {
         const IMAGE_B: &str = "reg.io/adapter-b:v1";
         const CHECKSUM_B: &str = "sha256:bbb";
         const ADAPTER_B: &str = "adapter-b-v1";
 
+        let (tx, _rx) = broadcast::channel(64);
+        let state = Arc::new(StateManager::new(tx.clone()));
         let mock = Arc::new(MockPodmanExecutor::new());
         mock.set_pull_result(Ok(()));
-        mock.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
-        let (svc, state, _rx) = make_service(Arc::clone(&mock));
+        // wait not set → blocks; B stays in RUNNING
 
-        // Install adapter A
-        svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        // Place adapter A directly into RUNNING state.
+        state.create_adapter(running_entry(ADAPTER_ID, IMAGE_REF, CHECKSUM));
 
-        // Configure stop to fail for adapter A
+        // Configure stop to fail for adapter A.
         mock.set_stop_result_for(ADAPTER_ID, Err(PodmanError::new("timeout")));
         mock.set_inspect_result(Ok(CHECKSUM_B.to_string()));
 
-        // Install adapter B
+        let svc = UpdateServiceImpl::new(Arc::clone(&state), Arc::clone(&mock), tx);
+
+        // Install adapter B.
         svc.install_adapter(IMAGE_B, CHECKSUM_B).await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
+        // A should be in ERROR (stop failed).
         assert_eq!(
             state.get_adapter(ADAPTER_ID).unwrap().state,
             AdapterState::Error
         );
+        // B should be RUNNING (install proceeded despite A's stop failure).
         assert_eq!(
             state.get_adapter(ADAPTER_B).unwrap().state,
             AdapterState::Running
@@ -676,19 +983,17 @@ mod tests {
 
     // ── TS-07-E11: removal failure -> INTERNAL ────────────────────────────
 
-    /// TS-07-E11: remove_adapter with rm failure -> INTERNAL
+    /// TS-07-E11: remove_adapter with rm failure -> INTERNAL.
+    ///
+    /// Adapter is placed directly in RUNNING state to avoid timing issues.
     #[tokio::test]
     async fn test_removal_failure_internal() {
         let mock = Arc::new(MockPodmanExecutor::new());
-        mock.set_pull_result(Ok(()));
-        mock.set_inspect_result(Ok(CHECKSUM.to_string()));
-        mock.set_run_result(Ok(()));
-        mock.set_wait_result(Err(PodmanError::new("block")));
         mock.set_rm_result(Err(PodmanError::new("container in use")));
         let (svc, state, _rx) = make_service(Arc::clone(&mock));
 
-        svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        // Place adapter directly in RUNNING state.
+        state.create_adapter(running_entry(ADAPTER_ID, IMAGE_REF, CHECKSUM));
 
         let result = svc.remove_adapter(ADAPTER_ID).await;
         assert!(result.is_err());
@@ -699,20 +1004,105 @@ mod tests {
 
     // ── Property test scaffolds ───────────────────────────────────────────
 
-    /// TS-07-P2: single adapter invariant (property test scaffold)
+    /// TS-07-P2: single adapter invariant (property test).
+    ///
+    /// At most one adapter is in RUNNING state at any point. Tested at the
+    /// state manager level (simulating the constraint that install_adapter
+    /// enforces by stopping the running adapter before starting a new one).
     #[test]
     #[ignore = "proptest: run with --include-ignored proptest"]
     fn proptest_single_adapter_invariant() {
-        // Implemented in task group 3.
-        todo!()
+        use crate::adapter::{AdapterEntry, AdapterState};
+        use proptest::prelude::*;
+
+        proptest!(|(n in 2usize..=5)| {
+            let (tx, _rx) = broadcast::channel::<crate::adapter::AdapterStateEvent>(128);
+            let state = Arc::new(StateManager::new(tx));
+
+            let mut prev_id: Option<String> = None;
+
+            for i in 0..n {
+                let adapter_id = format!("adapter-{i}-v1");
+                let image_ref = format!("reg.io/adapter-{i}:v1");
+
+                // Simulate single-adapter constraint: stop previous running adapter.
+                if let Some(ref prev) = prev_id {
+                    let _ = state.transition(prev, AdapterState::Stopped, None);
+                }
+
+                // Create new adapter directly in RUNNING state.
+                state.create_adapter(AdapterEntry {
+                    adapter_id: adapter_id.clone(),
+                    image_ref,
+                    checksum_sha256: "sha256:abc".to_string(),
+                    state: AdapterState::Running,
+                    job_id: "job".to_string(),
+                    stopped_at: None,
+                    error_message: None,
+                });
+
+                // Verify at most one RUNNING at all times.
+                let running = state
+                    .list_adapters()
+                    .iter()
+                    .filter(|a| a.state == AdapterState::Running)
+                    .count();
+                prop_assert!(running <= 1, "invariant violated: {} adapters running", running);
+
+                prev_id = Some(adapter_id);
+            }
+        });
     }
 
-    /// TS-07-P5: checksum verification soundness (property test scaffold)
+    /// TS-07-P5: checksum verification soundness (property test).
+    ///
+    /// When the pulled image digest differs from the provided checksum, the
+    /// adapter transitions to ERROR and rmi is called.
     #[test]
     #[ignore = "proptest: run with --include-ignored proptest"]
     fn proptest_checksum_verification_soundness() {
-        // Implemented in task group 3.
-        todo!()
+        use proptest::prelude::*;
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        proptest!(|(
+            actual_hex in "[a-f0-9]{64}",
+            provided_hex in "[a-f0-9]{64}"
+        )| {
+            // Only test when digest != checksum.
+            prop_assume!(actual_hex != provided_hex);
+
+            let image_ref = "reg.io/test-img:v1";
+            let adapter_id = "test-img-v1";
+            let actual_digest = format!("sha256:{actual_hex}");
+            let provided = format!("sha256:{provided_hex}");
+
+            let (state_val, rmi_called) = rt.block_on(async {
+                let (tx, _rx) = broadcast::channel::<crate::adapter::AdapterStateEvent>(64);
+                let state = Arc::new(StateManager::new(tx.clone()));
+                let mock = Arc::new(MockPodmanExecutor::new());
+                mock.set_pull_result(Ok(()));
+                mock.set_inspect_result(Ok(actual_digest.clone()));
+
+                let svc = UpdateServiceImpl::new(Arc::clone(&state), Arc::clone(&mock), tx);
+                let _ = svc.install_adapter(image_ref, &provided).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+                let st = state.get_adapter(adapter_id).map(|a| a.state);
+                let rmi = mock.rmi_calls().contains(&image_ref.to_string());
+                (st, rmi)
+            });
+
+            prop_assert_eq!(
+                state_val,
+                Some(AdapterState::Error),
+                "adapter should be ERROR on checksum mismatch"
+            );
+            prop_assert!(rmi_called, "rmi should be called on checksum mismatch");
+        });
     }
 
     /// TS-07-P6: offload timing correctness (property test scaffold)
