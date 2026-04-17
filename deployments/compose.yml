@@ -8,9 +8,34 @@ services:
     command: ["-c", "/etc/nats/nats-server.conf"]
 
   kuksa-databroker:
-    image: ghcr.io/eclipse-kuksa/kuksa-databroker:latest
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
     ports:
       - "55556:55555"
     volumes:
       - ./vss-overlay.json:/app/vss-overlay.json:ro
-    command: ["--address", "0.0.0.0", "--port", "55555", "--vss", "/app/vss-overlay.json"]
+      - kuksa-uds:/tmp
+    # TCP listener: --address 0.0.0.0 --port 55555 (host:port combined form is invalid for this binary)
+    # UDS listener: --unix-socket (--uds-path does not exist; see docs/errata/02_data_broker_compose_flags.md)
+    # VSS: loads standard VSS 4.0 tree first, then applies the custom overlay
+    # Permissive mode: no authorization flags (open access for development)
+    command:
+      - "--address"
+      - "0.0.0.0"
+      - "--port"
+      - "55555"
+      - "--unix-socket"
+      - "/tmp/kuksa-databroker.sock"
+      - "--vss"
+      - "/vss_release_4.0.json,/app/vss-overlay.json"
+
+volumes:
+  # Named volume backed by a host bind-mount so the UDS socket at
+  # /tmp/kuksa-databroker.sock (inside the container) is accessible on the
+  # host at /tmp/kuksa/kuksa-databroker.sock.  Run `mkdir -p /tmp/kuksa`
+  # before `podman compose up` (handled by `make infra-up`).
+  kuksa-uds:
+    driver: local
+    driver_opts:
+      type: none
+      device: /tmp/kuksa
+      o: bind

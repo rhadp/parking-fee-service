@@ -67,6 +67,7 @@ proto:
 
 # ── Local Infrastructure ──────────────────────────────────────────────────────
 infra-up:
+	mkdir -p /tmp/kuksa
 	podman-compose -f deployments/compose.yml up -d
 
 infra-down:
