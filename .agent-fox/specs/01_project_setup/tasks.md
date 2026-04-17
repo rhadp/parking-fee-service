@@ -27,36 +27,36 @@ This task list implements the project setup specification through an incremental
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
+- [x] 1. Write failing spec tests
   _Write the setup verification tests based on test_spec.md. These tests will initially fail because the project structure does not yet exist._
 
-  - [ ] 1.1 Create `tests/setup/` Go module with `go.mod`
+  - [x] 1.1 Create `tests/setup/` Go module with `go.mod`
     _Test Spec: TS-01-6_
     _Requirements: 01-REQ-1.8, 01-REQ-9.1_
 
-  - [ ] 1.2 Write directory structure tests: verify `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/` directories and their required subdirectories exist
+  - [x] 1.2 Write directory structure tests: verify `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/` directories and their required subdirectories exist
     _Test Spec: TS-01-1, TS-01-2, TS-01-3, TS-01-4, TS-01-5_
     _Requirements: 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4, 01-REQ-1.5, 01-REQ-1.6, 01-REQ-1.7_
 
-  - [ ] 1.3 Write Rust workspace validation tests: verify `Cargo.toml` workspace configuration, crate structure, and mock-sensors binary targets
+  - [x] 1.3 Write Rust workspace validation tests: verify `Cargo.toml` workspace configuration, crate structure, and mock-sensors binary targets
     _Test Spec: TS-01-7, TS-01-8_
     _Requirements: 01-REQ-2.1, 01-REQ-2.2, 01-REQ-2.3_
 
-  - [ ] 1.4 Write Go workspace validation tests: verify `go.work` references, `go.mod` files, and `main.go` presence
+  - [x] 1.4 Write Go workspace validation tests: verify `go.work` references, `go.mod` files, and `main.go` presence
     _Test Spec: TS-01-10, TS-01-11_
     _Requirements: 01-REQ-3.1, 01-REQ-3.2, 01-REQ-3.3_
 
-  - [ ] 1.5 Write Makefile target tests: verify all required Make targets exist
+  - [x] 1.5 Write Makefile target tests: verify all required Make targets exist
     _Test Spec: TS-01-18_
     _Test Spec: TS-01-P4_
     _Requirements: 01-REQ-6.1_
 
-  - [ ] 1.6 Write infrastructure config tests: verify `compose.yml`, NATS config, and VSS overlay file contents
+  - [x] 1.6 Write infrastructure config tests: verify `compose.yml`, NATS config, and VSS overlay file contents
     _Test Spec: TS-01-23, TS-01-24, TS-01-25_
     _Test Spec: TS-01-P3_
     _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3_
 
-  - [ ] 1.V Verify: run `go test -v ./...` in `tests/setup/` and confirm all tests fail (expected — structure does not exist yet)
+  - [x] 1.V Verify: run `go test -v ./...` in `tests/setup/` and confirm all tests fail (expected — structure does not exist yet)
     _Verification step for Task Group 1_
 
 - [ ] 2. Create monorepo directory structure
