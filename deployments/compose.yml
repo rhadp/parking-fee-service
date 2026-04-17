@@ -10,14 +10,22 @@ services:
     restart: unless-stopped
 
   kuksa-databroker:
-    image: ghcr.io/eclipse-kuksa/kuksa-databroker:latest
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0
     ports:
-      - "55556:55556"
+      - "55556:55555"
     volumes:
       - ./vss-overlay.json:/app/vss-overlay.json:ro
+      - kuksa-uds:/tmp
     command:
+      - --address
+      - 0.0.0.0
       - --port
-      - "55556"
+      - "55555"
+      - --unix-socket
+      - /tmp/kuksa-databroker.sock
       - --vss
-      - /app/vss-overlay.json
+      - /vss_release_4.0.json,/app/vss-overlay.json
     restart: unless-stopped
+
+volumes:
+  kuksa-uds:

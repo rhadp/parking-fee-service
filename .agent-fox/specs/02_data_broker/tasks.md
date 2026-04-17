@@ -61,32 +61,32 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd tests/databroker && go test -run TestCompile ./... 2>&1 || echo "Tests compile but fail as expected"
     ```
 
-- [ ] 2. Configure compose.yml for dual listeners
+- [x] 2. Configure compose.yml for dual listeners
   - Update the existing compose.yml (from spec 01) to configure the DATA_BROKER with pinned image version, dual listener args, port mapping, and volume mounts.
 
-  - [ ] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` in `deployments/compose.yml`
+  - [x] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` in `deployments/compose.yml`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
 
-  - [ ] 2.2 Add dual listener command args: `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock`
+  - [x] 2.2 Add dual listener command args: `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-2.1, 02-REQ-3.1, 02-REQ-4.1_
 
-  - [ ] 2.3 Configure port mapping `55556:55555` for the databroker service
+  - [x] 2.3 Configure port mapping `55556:55555` for the databroker service
     - _Requirements: 02-REQ-2.2_
 
-  - [ ] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
+  - [x] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-3.2_
-    - Added named volume `kuksa-uds` (bind-mount of `/tmp/kuksa` on host) mounted at `/tmp` in container; socket accessible at `/tmp/kuksa/kuksa-databroker.sock` on host
+    - Added named volume `kuksa-uds` mounted at `/tmp` in container; socket at `/tmp/kuksa-databroker.sock` is on the shared volume
 
-  - [ ] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
+  - [x] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
     - _Requirements: 02-REQ-6.4_
     - Uses `--vss /vss_release_4.0.json,/app/vss-overlay.json` to load both standard VSS 4.0 tree and custom overlay
 
-  - [ ] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
+  - [x] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
     - _Requirements: 02-REQ-7.1_
     - Verified: no --token, --auth, --jwt, or --tls-server-cert flags in command
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All TestCompose* static tests pass (`go test -run TestCompose ./...` in tests/databroker — 7/7 pass)
+  - [x] 2.V Verify task group 2
+    - [x] All TestCompose* static tests pass (`go test -run TestCompose ./...` in tests/databroker — 7/7 pass)
     ```
     cd deployments && podman compose up -d databroker && sleep 3 && podman compose logs databroker | grep -i "listening" && podman compose down
     ```
