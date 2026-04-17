@@ -106,37 +106,37 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
     - [x] _Test Spec: TS-05-4, TS-05-9, TS-05-10, TS-05-E5, TS-05-E6, TS-05-P3, TS-05-P5, TS-05-P6_
 
-- [ ] 3. Geo module
-  - [ ] 3.1 Implement PointInPolygon
+- [x] 3. Geo module
+  - [x] 3.1 Implement PointInPolygon
     - Ray casting algorithm for point-in-polygon test
     - Takes `model.Coordinate` point and `[]model.Coordinate` polygon
     - Returns `bool`
     - _Requirements: 05-REQ-1.2_
 
-  - [ ] 3.2 Implement HaversineDistance
+  - [x] 3.2 Implement HaversineDistance
     - Great-circle distance between two `model.Coordinate` values
     - Returns distance in meters
     - Uses `math` stdlib
     - _Requirements: 05-REQ-1.3_
 
-  - [ ] 3.3 Implement DistanceToPolygonEdge
+  - [x] 3.3 Implement DistanceToPolygonEdge
     - Minimum distance from a point to the nearest edge of a polygon
     - Iterates over polygon edges, computes perpendicular distance to each segment
     - Returns distance in meters
     - _Requirements: 05-REQ-1.3_
 
-  - [ ] 3.4 Implement FindMatchingZones
+  - [x] 3.4 Implement FindMatchingZones
     - For each zone: check PointInPolygon first, then proximity if outside
     - Returns list of matching zone IDs
     - Uses configured proximity threshold
     - _Requirements: 05-REQ-1.1, 05-REQ-1.3, 05-REQ-1.5_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Geo tests pass: `cd backend && go test -v ./parking-fee-service/geo/...`
-    - [ ] Property tests pass: `cd backend && go test -v ./parking-fee-service/... -run Property`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
-    - [ ] _Test Spec: TS-05-2, TS-05-3, TS-05-11, TS-05-P1, TS-05-P2_
+  - [x] 3.V Verify task group 3
+    - [x] Geo tests pass: `cd backend && go test -v ./parking-fee-service/geo/...`
+    - [x] Property tests pass: `cd backend && go test -v ./parking-fee-service/... -run Property`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+    - [x] _Test Spec: TS-05-2, TS-05-3, TS-05-11, TS-05-P1, TS-05-P2_
 
 - [ ] 4. HTTP handlers and main
   - [ ] 4.1 Implement handler package
