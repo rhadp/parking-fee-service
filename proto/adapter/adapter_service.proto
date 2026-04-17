@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package adapter;
+
+option go_package = "github.com/parking-fee-service/proto/adapter";
+
+// --- StartSession ---
+
+message StartSessionRequest {
+  // Unique identifier for the vehicle (e.g. VIN).
+  string vehicle_id = 1;
+  // Parking zone identifier managed by the operator.
+  string zone_id = 2;
+}
+
+message StartSessionResponse {
+  string session_id = 1;
+}
+
+// --- StopSession ---
+
+message StopSessionRequest {
+  string session_id = 1;
+}
+
+message StopSessionResponse {
+  string session_id = 1;
+}
+
+// --- GetStatus ---
+
+message GetStatusRequest {
+  string session_id = 1;
+}
+
+message SessionStatus {
+  string session_id = 1;
+  bool active = 2;
+  // Unix milliseconds when the session was started.
+  int64 start_time = 3;
+  string zone_id = 4;
+}
+
+// --- GetRate ---
+
+message GetRateRequest {
+  string zone_id = 1;
+}
+
+message ParkingRate {
+  string operator_id = 1;
+  // "per_hour" or "flat_fee"
+  string rate_type = 2;
+  double amount = 3;
+  string currency = 4;
+}
+
+// AdapterService is implemented by each parking-operator adapter and exposes
+// session and rate management to the RHIVOS vehicle unit.
+service AdapterService {
+  // StartSession initiates a parking session for the given vehicle and zone.
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+
+  // StopSession terminates an active parking session.
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+
+  // GetStatus returns the current state of a parking session.
+  rpc GetStatus(GetStatusRequest) returns (SessionStatus);
+
+  // GetRate returns the current parking rate for a zone.
+  rpc GetRate(GetRateRequest) returns (ParkingRate);
+}

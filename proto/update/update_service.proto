@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package update;
+
+option go_package = "github.com/parking-fee-service/proto/update";
+
+// AdapterState models the lifecycle of a parking-operator adapter.
+enum AdapterState {
+  ADAPTER_STATE_UNKNOWN = 0;
+  ADAPTER_STATE_DOWNLOADING = 1;
+  ADAPTER_STATE_INSTALLING = 2;
+  ADAPTER_STATE_RUNNING = 3;
+  ADAPTER_STATE_STOPPED = 4;
+  ADAPTER_STATE_ERROR = 5;
+  ADAPTER_STATE_OFFLOADING = 6;
+}
+
+// --- InstallAdapter ---
+
+message InstallAdapterRequest {
+  // OCI image reference, e.g. "ghcr.io/acme/parkhaus-munich:v1.0.0"
+  string image_ref = 1;
+  // Expected SHA-256 digest of the image manifest.
+  string checksum_sha256 = 2;
+}
+
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  AdapterState state = 3;
+}
+
+// --- WatchAdapterStates ---
+
+message WatchAdapterStatesRequest {}
+
+message AdapterStateEvent {
+  string adapter_id = 1;
+  AdapterState old_state = 2;
+  AdapterState new_state = 3;
+  // Unix milliseconds.
+  int64 timestamp = 4;
+}
+
+// --- ListAdapters ---
+
+message ListAdaptersRequest {}
+
+message AdapterInfo {
+  string adapter_id = 1;
+  string image_ref = 2;
+  AdapterState state = 3;
+}
+
+message ListAdaptersResponse {
+  repeated AdapterInfo adapters = 1;
+}
+
+// --- RemoveAdapter ---
+
+message RemoveAdapterRequest {
+  string adapter_id = 1;
+}
+
+message RemoveAdapterResponse {}
+
+// --- GetAdapterStatus ---
+
+message GetAdapterStatusRequest {
+  string adapter_id = 1;
+}
+
+message GetAdapterStatusResponse {
+  AdapterInfo adapter = 1;
+}
+
+// UpdateService manages the lifecycle of parking-operator adapters running
+// as OCI containers on the RHIVOS vehicle unit.
+service UpdateService {
+  // InstallAdapter pulls, verifies, and starts an adapter container.
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+
+  // WatchAdapterStates streams state-change events for all adapters.
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+
+  // ListAdapters returns the current inventory of installed adapters.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+
+  // RemoveAdapter stops and removes an adapter container and its image.
+  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
+
+  // GetAdapterStatus returns the current state of a specific adapter.
+  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
+}

@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package gateway;
+
+option go_package = "github.com/parking-fee-service/proto/gateway";
+
+// VehicleCommand carries a door lock/unlock command relayed from the mobile
+// COMPANION_APP through the cloud gateway to the RHIVOS vehicle unit.
+message VehicleCommand {
+  // Unique command identifier (UUID).
+  string command_id = 1;
+  // "lock" or "unlock"
+  string action = 2;
+  // Which doors to act on, e.g. ["driver", "passenger", "rear_left"].
+  repeated string doors = 3;
+  // Origin of the command, e.g. "companion_app" or "parking_operator".
+  string source = 4;
+  // Vehicle Identification Number.
+  string vin = 5;
+  // Unix milliseconds when the command was issued.
+  int64 timestamp = 6;
+}
+
+// CommandResponse reports the outcome of executing a VehicleCommand.
+message CommandResponse {
+  string command_id = 1;
+  // "success" or "failed"
+  string status = 2;
+  // Human-readable failure reason; empty on success.
+  string reason = 3;
+  // Unix milliseconds when the response was produced.
+  int64 timestamp = 4;
+}
+
+// CommandRelay is implemented by the CLOUD_GATEWAY_CLIENT and forwards
+// commands from the cloud to the vehicle and responses back.
+service CommandRelay {
+  // SendCommand delivers a VehicleCommand to the RHIVOS unit.
+  rpc SendCommand(VehicleCommand) returns (CommandResponse);
+}
