@@ -15,12 +15,13 @@ build-go:
 # ── Test ──────────────────────────────────────────────────────────────────────
 # Note: test-rust and test-go scope to crates/modules whose tests are expected
 # to pass at this stage. Crates with failing stub tests from unimplemented specs
-# (locking-service, cloud-gateway-client, mock/parking-operator) are excluded;
+# (cloud-gateway-client, update-service, parking-operator-adaptor) are excluded;
 # see docs/errata/01_makefile_test_scope.md for details.
+# locking-service is fully implemented (spec 03) and passes all tests.
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test -p update-service -p parking-operator-adaptor
+	cd rhivos && cargo test -p locking-service
 	cd rhivos && cargo test -p mock-sensors --lib
 
 test-go:

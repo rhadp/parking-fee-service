@@ -16,12 +16,16 @@ pub fn get_databroker_addr() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Serialise all env-var tests to prevent races when cargo test runs
+    // tests in parallel on multiple threads.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     // TS-03-3 (case 1): Default address when DATABROKER_ADDR is not set
     #[test]
     fn test_databroker_addr_default() {
-        // Remove the env var so we test the default path.
-        // Use a lock to avoid races with other tests that set the var.
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::remove_var("DATABROKER_ADDR");
         let addr = get_databroker_addr();
         assert_eq!(addr, "http://localhost:55556");
@@ -30,6 +34,7 @@ mod tests {
     // TS-03-3 (case 2): Custom address from DATABROKER_ADDR environment variable
     #[test]
     fn test_databroker_addr_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("DATABROKER_ADDR", "http://10.0.0.5:55556");
         let addr = get_databroker_addr();
         // Clean up before asserting to avoid polluting other tests.

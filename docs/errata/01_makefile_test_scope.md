@@ -24,7 +24,9 @@ unimplemented tests that panic with `todo!()`:
 
 | Crate | Reason excluded |
 |-------|----------------|
-| `locking-service` | 41 spec-03 tests failing (todo! stubs) |
+| `locking-service` | ~~41 spec-03 tests failing (todo! stubs)~~ **Implemented in spec 03 task group 2-3; now included in test-rust** |
+| `update-service` | 35 spec-07 tests failing (todo! stubs); was incorrectly included before spec 03 TG5 |
+| `parking-operator-adaptor` | 26 spec-08 tests failing (todo! stubs); was incorrectly included before spec 03 TG5 |
 | `cloud-gateway-client` | 24 spec-04 tests failing (todo! stubs) |
 | `mock-sensors` (integration tests) | 3 spec-09 sensor tests failing; only `--lib` is run |
 
@@ -45,11 +47,14 @@ unimplemented tests that panic with `todo!()`:
 | `backend/cloud-gateway/natsclient` | spec-06 task group 1 stub tests |
 | `backend/cloud-gateway/store` | spec-06 task group 1 stub tests |
 
-## Resolution
+## Resolution (Updated in spec 03 task group 5)
 
 `test-rust` runs:
-- `cargo test -p update-service -p parking-operator-adaptor` (only placeholder tests, pass)
+- `cargo test -p locking-service` (fully implemented in spec 03 task groups 2-3; all 39 tests pass)
 - `cargo test -p mock-sensors --lib` (only spec-01 lib placeholder test, pass)
+
+`update-service` and `parking-operator-adaptor` were removed from `test-rust` because they
+still have `todo!()` stub implementations. The original Makefile incorrectly included them.
 
 `test-go` runs modules explicitly (root packages only, without `...` recursion
 for the two backend modules that now have failing sub-packages from spec 05 and
@@ -59,10 +64,14 @@ spec 06 task group 1 stubs):
 - `mock/parking-app-cli/...`, `mock/companion-app-cli/...`
 - `tests/setup/...`
 
+Additionally, `update-service/src/main.rs` was updated in spec 03 task group 5 to include
+the skeleton flag-handling code (`starts_with('-')`, `eprintln!`, `process::exit(1)`)
+required by `TestRustSkeletonsHandleUnknownFlags` (TS-01-E4 / 01-REQ-4.E1).
+
 ## Impact
 
-- `make test` and `make check` pass for spec-01-scoped tests
-- Full workspace test (`cargo test --workspace`) still fails until specs 03, 04, 09 implement their
+- `make test` and `make check` pass for all currently-implemented specs
+- Full workspace test (`cargo test --workspace`) still fails until specs 04, 07, 08, 09 implement their
   stub functions
 - Pre-existing failures are tracked in:
   - `docs/errata/01_skeleton_vs_spec09_sensors.md` (sensor integration tests)
