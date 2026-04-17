@@ -2,7 +2,7 @@
 
 ## Overview
 
-This test specification defines the integration, property, edge case, and smoke tests for the DATA_BROKER component. Since the DATA_BROKER is a pre-built container (Eclipse Kuksa Databroker 0.5.1) with no custom application code, all verification is performed through integration tests that exercise the gRPC API over TCP and UDS transports. Tests are implemented in Go under `tests/databroker/`.
+This test specification defines the integration, property, edge case, and smoke tests for the DATA_BROKER component. Since the DATA_BROKER is a pre-built container (Eclipse Kuksa Databroker 0.5.0) with no custom application code, all verification is performed through integration tests that exercise the gRPC API over TCP and UDS transports. Tests are implemented in Go under `tests/databroker/`.
 
 ## Test Cases
 
@@ -40,14 +40,14 @@ This test specification defines the integration, property, edge case, and smoke 
 
 - **Requirement:** 02-REQ-1
 - **Type:** Integration
-- **Description:** Verify that the running DATA_BROKER container uses the pinned image version 0.5.1.
+- **Description:** Verify that the running DATA_BROKER container uses the pinned image version 0.5.0.
 - **Preconditions:** DATA_BROKER container is running.
 - **Input:** Inspect the running container image reference.
-- **Expected:** Image reference matches `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
+- **Expected:** Image reference matches `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0`.
 - **Assertion pseudocode:**
   ```
   image = podman_inspect("databroker").image
-  assert image contains "kuksa-databroker:0.5.1"
+  assert image contains "kuksa-databroker:0.5.0"
   ```
 
 ### TS-02-4: Standard VSS signal metadata

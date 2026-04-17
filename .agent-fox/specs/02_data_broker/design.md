@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design describes the configuration and validation of Eclipse Kuksa Databroker as the DATA_BROKER component. No custom application code is written -- the deliverables are compose.yml updates, VSS overlay validation, and integration tests. The DATA_BROKER is a pre-built container image (`ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`) configured for dual listeners (TCP on port 55555/container, 55556/host, and UDS at `/tmp/kuksa-databroker.sock`) running in permissive mode (no token auth). The VSS overlay file from spec 01 provides 3 custom signals; the remaining 5 standard VSS v5.1 signals are built into the Kuksa image.
+This design describes the configuration and validation of Eclipse Kuksa Databroker as the DATA_BROKER component. No custom application code is written -- the deliverables are compose.yml updates, VSS overlay validation, and integration tests. The DATA_BROKER is a pre-built container image (`ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0`) configured for dual listeners (TCP on port 55555/container, 55556/host, and UDS at `/tmp/kuksa-databroker.sock`) running in permissive mode (no token auth). The VSS overlay file from spec 01 provides 3 custom signals; the remaining 5 standard VSS v5.1 signals are built into the Kuksa image.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ flowchart LR
 
     subgraph Compose["podman compose"]
         subgraph DB["DATA_BROKER Container"]
-            Kuksa["Kuksa Databroker 0.5.1"]
+            Kuksa["Kuksa Databroker 0.5.0"]
             TCP["TCP Listener\n0.0.0.0:55555"]
             UDS["UDS Listener\n/tmp/kuksa-databroker.sock"]
             VSS["VSS Tree\n5 standard + 3 custom"]
@@ -52,7 +52,7 @@ flowchart LR
 | Module | Responsibility |
 |--------|---------------|
 | `deployments/compose.yml` | Defines the databroker service with pinned image, dual listener args, port mapping, volume mounts for overlay and UDS socket |
-| `deployments/vss/overlay.vspec` | Declares 3 custom VSS signals (Vehicle.Parking.SessionActive, Vehicle.Command.Door.Lock, Vehicle.Command.Door.Response) |
+| `deployments/vss-overlay.json` | Declares 3 custom VSS leaf signals and their required intermediate branch nodes (`Vehicle.Parking`, `Vehicle.Command`, `Vehicle.Command.Door`) in flat JSON format |
 | `tests/databroker/` | Integration tests verifying connectivity, signal availability, read/write, and cross-transport consistency |
 
 ## Execution Paths
@@ -60,10 +60,10 @@ flowchart LR
 ### Path 1: Container startup
 
 1. Developer runs `podman compose up databroker`
-2. Compose pulls `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` (if not cached)
-3. Container starts with command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` plus overlay flag
-4. Kuksa loads the default VSS v5.1 tree (5 standard signals)
-5. Kuksa loads the overlay file (3 custom signals)
+2. Compose pulls `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` (if not cached)
+3. Container starts with command args: `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss /vss_release_4.0.json,/app/vss-overlay.json`
+4. Kuksa loads the bundled standard VSS release tree (`vss_release_4.0.json`) providing 5 standard signals
+5. Kuksa loads the custom overlay file (`vss-overlay.json`) adding 3 custom signals
 6. TCP listener binds to `0.0.0.0:55555`, mapped to host `55556`
 7. UDS listener creates socket at `/tmp/kuksa-databroker.sock`
 8. DATA_BROKER is ready to accept gRPC connections on both transports
@@ -114,10 +114,10 @@ The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 | Property | Value |
 |----------|-------|
 | Service name | `databroker` |
-| Image | `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` |
+| Image | `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` |
 | Ports | `55556:55555` |
 | Volumes | Overlay file (read-only), UDS socket directory (read-write) |
-| Command | `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` + overlay args |
+| Command | `--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss /vss_release_4.0.json,/app/vss-overlay.json` |
 
 ## Data Models
 
@@ -201,7 +201,7 @@ The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| Eclipse Kuksa Databroker | 0.5.1 | Vehicle signal broker (pre-built container) |
+| Eclipse Kuksa Databroker | 0.5.0 | Vehicle signal broker (pre-built container) |
 | Podman Compose | latest | Container orchestration for local development |
 | gRPC / Protocol Buffers | v2 API | Signal read/write/subscribe interface |
 | COVESA VSS | 5.1 | Vehicle Signal Specification standard |
@@ -210,7 +210,7 @@ The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 
 ## Definition of Done
 
-1. `deployments/compose.yml` updated with pinned image (`0.5.1`), dual listener args, port mapping (`55556:55555`), and volume mounts (overlay file, UDS socket directory).
+1. `deployments/compose.yml` updated with pinned image (`0.5.0`), dual listener args, port mapping (`55556:55555`), and volume mounts (overlay file, UDS socket directory).
 2. VSS overlay file validated: 3 custom signals with correct types loadable by the databroker.
 3. `podman compose up databroker` starts successfully with both TCP and UDS listeners active.
 4. All 8 VSS signals (5 standard + 3 custom) queryable via metadata introspection.

@@ -24,13 +24,13 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 **Requirements:**
 
-- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
+- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0`.
 - [02-REQ-1.2] WHEN a developer runs `podman compose up`, the DATA_BROKER container SHALL start using the pinned image version.
 
 **Acceptance Criteria:**
 
-1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` for the databroker service.
-2. The running container SHALL report version 0.5.1 in its startup logs.
+1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0` for the databroker service.
+2. The running container SHALL report version 0.5.0 in its startup logs.
 
 **Edge Cases:**
 
@@ -51,7 +51,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 1. A gRPC client connecting to `localhost:55556` from the host SHALL receive a successful gRPC channel connection.
 2. The compose.yml SHALL contain port mapping `55556:55555` for the databroker service.
-3. The DATA_BROKER command args SHALL include `--address 0.0.0.0:55555`.
+3. The DATA_BROKER command args SHALL include `--address 0.0.0.0 --port 55555`.
 
 **Edge Cases:**
 
@@ -70,7 +70,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 **Acceptance Criteria:**
 
-1. The DATA_BROKER command args SHALL include `--uds-path /tmp/kuksa-databroker.sock`.
+1. The DATA_BROKER command args SHALL include `--unix-socket /tmp/kuksa-databroker.sock`.
 2. The compose.yml SHALL define a named volume or bind mount that makes the UDS socket accessible to same-partition consumer containers.
 3. A gRPC client connecting via `unix:///tmp/kuksa-databroker.sock` from a co-located container SHALL receive a successful gRPC channel connection.
 
@@ -108,6 +108,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 - [02-REQ-5.1] The DATA_BROKER SHALL include the following standard VSS v5.1 signals in its metadata: `Vehicle.Cabin.Door.Row1.DriverSide.IsLocked` (bool), `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` (bool), `Vehicle.CurrentLocation.Latitude` (double), `Vehicle.CurrentLocation.Longitude` (double), `Vehicle.Speed` (float).
 - [02-REQ-5.2] Each standard signal SHALL be retrievable via gRPC GetMetadata or equivalent introspection call.
+- [02-REQ-5.3] The compose.yml SHALL load the bundled standard VSS release tree (e.g., `vss_release_4.0.json`) via the `--vss` CLI flag alongside the custom overlay, since standard signals are not available by default without an explicit VSS tree.
 
 **Acceptance Criteria:**
 
@@ -130,6 +131,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 - [02-REQ-6.2] The VSS overlay file SHALL define `Vehicle.Command.Door.Lock` as type `string`.
 - [02-REQ-6.3] The VSS overlay file SHALL define `Vehicle.Command.Door.Response` as type `string`.
 - [02-REQ-6.4] The DATA_BROKER SHALL load the VSS overlay file at startup via the appropriate CLI flag or configuration.
+- [02-REQ-6.5] The VSS overlay file SHALL include intermediate branch nodes (`Vehicle.Parking`, `Vehicle.Command`, `Vehicle.Command.Door`) with `type: "branch"`, as required by the Kuksa Databroker flat JSON format for custom signal paths not present in the standard VSS tree.
 
 **Acceptance Criteria:**
 
