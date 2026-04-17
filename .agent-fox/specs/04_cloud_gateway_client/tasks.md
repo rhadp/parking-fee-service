@@ -41,13 +41,13 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [x] 6.4 Implement `BrokerClient::subscribe_telemetry()` to observe IsLocked, Latitude, Longitude, SessionActive signals _Requirements:_ [04-REQ-3.2]
   - [x] 6.5 Add `tracing` instrumentation to all DATA_BROKER operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.4]
   - [x] 6.V Verify task group 6: `cargo build -p cloud-gateway-client` compiles without errors
-- [ ] 7. Implement main and wiring
-  - [ ] 7.1 Implement `main()` with startup sequencing: config -> NATS -> DATA_BROKER -> registration -> spawn tasks _Requirements:_ [04-REQ-9.1], [04-REQ-9.2]
-  - [ ] 7.2 Implement command processing loop: receive from NATS, validate, write to DATA_BROKER _Requirements:_ [04-REQ-5.2], [04-REQ-6.3]
-  - [ ] 7.3 Implement response relay loop: subscribe DATA_BROKER responses, publish to NATS _Requirements:_ [04-REQ-7.1], [04-REQ-7.2]
-  - [ ] 7.4 Implement telemetry loop: subscribe DATA_BROKER signals, aggregate, publish to NATS _Requirements:_ [04-REQ-8.1], [04-REQ-8.2]
-  - [ ] 7.5 Add `tracing-subscriber` initialization and structured logging _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.3], [04-REQ-10.4]
-  - [ ] 7.V Verify task group 7: `cargo build -p cloud-gateway-client` produces a working binary
+- [x] 7. Implement main and wiring
+  - [x] 7.1 Implement `main()` with startup sequencing: config -> NATS -> DATA_BROKER -> registration -> spawn tasks _Requirements:_ [04-REQ-9.1], [04-REQ-9.2]
+  - [x] 7.2 Implement command processing loop: receive from NATS, validate, write to DATA_BROKER _Requirements:_ [04-REQ-5.2], [04-REQ-6.3]
+  - [x] 7.3 Implement response relay loop: subscribe DATA_BROKER responses, publish to NATS _Requirements:_ [04-REQ-7.1], [04-REQ-7.2]
+  - [x] 7.4 Implement telemetry loop: subscribe DATA_BROKER signals, aggregate, publish to NATS _Requirements:_ [04-REQ-8.1], [04-REQ-8.2]
+  - [x] 7.5 Add `tracing-subscriber` initialization and structured logging _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.3], [04-REQ-10.4]
+  - [x] 7.V Verify task group 7: `cargo build -p cloud-gateway-client` produces a working binary
 - [ ] 8. Write and run integration tests
   - [ ] 8.1 Create integration test for end-to-end command flow _Test Spec:_ TS-04-10 _Requirements:_ [04-REQ-2.3], [04-REQ-5.2], [04-REQ-6.3]
   - [ ] 8.2 Create integration test for end-to-end response relay _Test Spec:_ TS-04-11 _Requirements:_ [04-REQ-7.1], [04-REQ-7.2]

@@ -55,10 +55,31 @@ pub enum NatsError {
     SubscribeFailed(String),
 }
 
+impl std::fmt::Display for NatsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NatsError::ConnectionFailed(msg) => write!(f, "NATS connection failed: {msg}"),
+            NatsError::RetriesExhausted => write!(f, "NATS connection retries exhausted"),
+            NatsError::PublishFailed(msg) => write!(f, "NATS publish failed: {msg}"),
+            NatsError::SubscribeFailed(msg) => write!(f, "NATS subscribe failed: {msg}"),
+        }
+    }
+}
+
 /// Errors for DATA_BROKER client operations.
 #[derive(Debug)]
 pub enum BrokerError {
     ConnectionFailed(String),
     WriteFailed(String),
     SubscribeFailed(String),
+}
+
+impl std::fmt::Display for BrokerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BrokerError::ConnectionFailed(msg) => write!(f, "DATA_BROKER connection failed: {msg}"),
+            BrokerError::WriteFailed(msg) => write!(f, "DATA_BROKER write failed: {msg}"),
+            BrokerError::SubscribeFailed(msg) => write!(f, "DATA_BROKER subscribe failed: {msg}"),
+        }
+    }
 }
