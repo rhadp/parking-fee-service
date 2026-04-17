@@ -17,29 +17,54 @@ type Store struct {
 }
 
 // NewStore creates a new, empty Store.
-// STUB: returns a Store with nil maps (operations will panic or no-op).
 func NewStore() *Store {
-	return &Store{}
+	return &Store{
+		responses: make(map[string]model.CommandResponse),
+		timers:    make(map[string]*time.Timer),
+	}
 }
 
 // StoreResponse stores a CommandResponse keyed by its CommandID and cancels any
 // pending timeout timer for that command.
-// STUB: no-op.
 func (s *Store) StoreResponse(resp model.CommandResponse) {
-	// not implemented
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.responses[resp.CommandID] = resp
+	if t, ok := s.timers[resp.CommandID]; ok {
+		t.Stop()
+		delete(s.timers, resp.CommandID)
+	}
 }
 
 // GetResponse returns the stored response for commandID.
 // Returns (nil, false) if the commandID is not found.
-// STUB: always returns (nil, false).
 func (s *Store) GetResponse(commandID string) (*model.CommandResponse, bool) {
-	return nil, false
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	resp, ok := s.responses[commandID]
+	if !ok {
+		return nil, false
+	}
+	return &resp, true
 }
 
 // StartTimeout starts a timer for commandID. After duration elapses, if no
 // response has been stored for that commandID, it stores a response with
 // status "timeout".
-// STUB: no-op.
 func (s *Store) StartTimeout(commandID string, duration time.Duration) {
-	// not implemented
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t := time.AfterFunc(duration, func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		// Only write the timeout response if no real response has been stored yet.
+		if _, exists := s.responses[commandID]; !exists {
+			s.responses[commandID] = model.CommandResponse{
+				CommandID: commandID,
+				Status:    "timeout",
+			}
+		}
+		delete(s.timers, commandID)
+	})
+	s.timers[commandID] = t
 }
