@@ -1,8 +1,11 @@
 # Agent-Fox Memory
 
-_260 facts | last updated: 2026-04-17_
+_262 facts | last updated: 2026-04-17_
 
 ## Gotchas
+
+- When using `#[should_panic]` on stub tests in Rust, the test harness reports them as `ok` (the panic from `todo!()` is the expected outcome). This is the correct pattern for RED-phase test stubs where the entire function body is `todo!()`. _(spec: 07_update_service, confidence: 0.90)_
+- `tonic::Status` is ≥176 bytes, triggering `clippy::result_large_err`. Suppress it with `#[allow(clippy::result_large_err)]` on stub methods that return `Result<_, tonic::Status>` until task group 5 refactors them. _(spec: 07_update_service, confidence: 0.90)_
 
 - When a perpendicular foot falls outside a segment's endpoints, return the distance to the nearer endpoint instead of extrapolating; this is critical for correct polygon corner handling. _(spec: 08_parking_operator_adaptor, confidence: 0.90)_
   - effect: Distance-to-segment calculations for geographic data should …
