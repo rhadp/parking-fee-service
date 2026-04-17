@@ -1,4 +1,6 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Proto code generation will be added in task group 2.
+    tonic_build::configure()
+        .build_server(false)
+        .compile(&["proto/kuksa/val.proto"], &["proto"])?;
     Ok(())
 }
