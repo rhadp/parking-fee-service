@@ -29,38 +29,44 @@ pub struct Session {
 impl Session {
     /// Create a new session manager with no active session.
     pub fn new() -> Self {
-        todo!("Session::new not yet implemented")
+        Self { state: None }
     }
 
     /// Return `true` if a session is currently active.
     pub fn is_active(&self) -> bool {
-        todo!("Session::is_active not yet implemented")
+        self.state.as_ref().is_some_and(|s| s.active)
     }
 
     /// Record a successfully started session.
     pub fn start(
         &mut self,
-        _session_id: String,
-        _zone_id: String,
-        _start_time: i64,
-        _rate: Rate,
+        session_id: String,
+        zone_id: String,
+        start_time: i64,
+        rate: Rate,
     ) {
-        todo!("Session::start not yet implemented")
+        self.state = Some(SessionState {
+            session_id,
+            zone_id,
+            start_time,
+            rate,
+            active: true,
+        });
     }
 
     /// Clear the active session record (called after a successful stop).
     pub fn stop(&mut self) {
-        todo!("Session::stop not yet implemented")
+        self.state = None;
     }
 
     /// Return a reference to the current session state, or `None`.
     pub fn status(&self) -> Option<&SessionState> {
-        todo!("Session::status not yet implemented")
+        self.state.as_ref().filter(|s| s.active)
     }
 
     /// Return a reference to the cached rate, or `None` when no session is active.
     pub fn rate(&self) -> Option<&Rate> {
-        todo!("Session::rate not yet implemented")
+        self.state.as_ref().filter(|s| s.active).map(|s| &s.rate)
     }
 }
 

@@ -32,16 +32,45 @@ pub struct Config {
 ///
 /// Returns `ConfigError::InvalidPort` when `GRPC_PORT` is not a valid u16.
 pub fn load_config() -> Result<Config, ConfigError> {
-    todo!("load_config not yet implemented")
+    let parking_operator_url = std::env::var("PARKING_OPERATOR_URL")
+        .unwrap_or_else(|_| DEFAULT_PARKING_OPERATOR_URL.to_owned());
+
+    let data_broker_addr = std::env::var("DATA_BROKER_ADDR")
+        .unwrap_or_else(|_| DEFAULT_DATA_BROKER_ADDR.to_owned());
+
+    let grpc_port = match std::env::var("GRPC_PORT") {
+        Ok(val) => val.parse::<u16>().map_err(|_| ConfigError::InvalidPort(val))?,
+        Err(_) => DEFAULT_GRPC_PORT,
+    };
+
+    let vehicle_id = std::env::var("VEHICLE_ID")
+        .unwrap_or_else(|_| DEFAULT_VEHICLE_ID.to_owned());
+
+    let zone_id = std::env::var("ZONE_ID")
+        .unwrap_or_else(|_| DEFAULT_ZONE_ID.to_owned());
+
+    Ok(Config {
+        parking_operator_url,
+        data_broker_addr,
+        grpc_port,
+        vehicle_id,
+        zone_id,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Serialize env-var manipulation across all config tests to prevent
+    /// parallel-test pollution (Rust test runner uses threads by default).
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     // TS-08-18: Configuration Defaults
     #[test]
     fn test_config_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
         // Remove all config env vars so defaults are used.
         std::env::remove_var("PARKING_OPERATOR_URL");
         std::env::remove_var("DATA_BROKER_ADDR");
@@ -60,6 +89,7 @@ mod tests {
     // TS-08-19: Configuration Custom Values
     #[test]
     fn test_config_custom_values() {
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("PARKING_OPERATOR_URL", "http://op.example.com:9090");
         std::env::set_var("DATA_BROKER_ADDR", "http://10.0.0.5:55556");
         std::env::set_var("GRPC_PORT", "50099");
@@ -86,6 +116,7 @@ mod tests {
     // TS-08-E10: GRPC_PORT Non-Numeric
     #[test]
     fn test_config_invalid_grpc_port() {
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("GRPC_PORT", "abc");
         let result = load_config();
         std::env::remove_var("GRPC_PORT");
