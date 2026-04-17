@@ -60,15 +60,28 @@ impl std::error::Error for ConfigError {}
 
 /// Return the built-in default configuration.
 pub fn default_config() -> Config {
-    todo!()
+    Config {
+        grpc_port: default_grpc_port(),
+        registry_url: default_registry_url(),
+        inactivity_timeout_secs: default_inactivity_timeout_secs(),
+        container_storage_path: default_container_storage_path(),
+    }
 }
 
 /// Load configuration from `path`.
 ///
 /// * File not found → return `default_config()`.
 /// * Invalid JSON   → return `Err(ConfigError::ParseError(_))`.
-pub fn load_config(_path: &str) -> Result<Config, ConfigError> {
-    todo!()
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::warn!("Config file not found at {path}, using built-in defaults");
+            return Ok(default_config());
+        }
+        Err(e) => return Err(ConfigError::IoError(e)),
+    };
+    serde_json::from_str(&content).map_err(ConfigError::ParseError)
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
