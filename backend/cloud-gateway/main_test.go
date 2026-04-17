@@ -100,9 +100,11 @@ func TestStartupLogging(t *testing.T) {
 	cmd := exec.Command(binPath)
 	cmd.Env = append(os.Environ(), "CONFIG_PATH="+configPath)
 
-	// Wait 500ms for startup logs. Startup logging happens before NATS connect,
-	// which takes ≥7s for 5 retries (1s+2s+4s+...), so 500ms is a safe window.
-	output := captureProcessOutput(t, cmd, 500*time.Millisecond)
+	// Wait 2s for startup logs. Startup logging happens before NATS connect,
+	// which takes ≥7s for 5 retries (1s+2s+4s+...), so 2s is a safe window.
+	// The extra headroom compared to 500ms avoids intermittent failures when
+	// the test binary is starved for CPU time under parallel test execution.
+	output := captureProcessOutput(t, cmd, 2*time.Second)
 	t.Logf("startup output:\n%s", output)
 
 	if !strings.Contains(output, "8081") {
