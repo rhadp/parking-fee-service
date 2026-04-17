@@ -6,8 +6,12 @@
 
 #![allow(dead_code)]
 
-use crate::broker::BrokerClient;
-use crate::command::LockCommand;
+use tracing::{error, info};
+
+use crate::broker::{BrokerClient, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
+use crate::command::{Action, LockCommand};
+use crate::response::{failure_response, success_response};
+use crate::safety::{check_safety, SafetyResult};
 
 /// Process a validated lock/unlock command.
 ///
@@ -20,11 +24,103 @@ use crate::command::LockCommand;
 ///
 /// Returns the JSON response string (for testing / further processing).
 pub async fn process_command<B: BrokerClient>(
-    _broker: &B,
-    _cmd: &LockCommand,
-    _lock_state: &mut bool,
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
 ) -> String {
-    todo!("process_command — implemented in task group 3")
+    let resp = match cmd.action {
+        Action::Lock => process_lock(broker, cmd, lock_state).await,
+        Action::Unlock => process_unlock(broker, cmd, lock_state).await,
+    };
+
+    // Publish response — log and continue on failure (03-REQ-5.E1).
+    if let Err(e) = broker.set_string(SIGNAL_RESPONSE, &resp).await {
+        error!(
+            "Failed to publish response for command {}: {e}",
+            cmd.command_id
+        );
+    }
+
+    resp
+}
+
+/// Execute a lock command.
+///
+/// Validates safety constraints first. Returns a failure response if vehicle
+/// is moving or door is ajar. If safety passes and the door is not already
+/// locked, writes the new state to DATA_BROKER (idempotent: skips write if
+/// already locked).
+async fn process_lock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Safety validation (03-REQ-3.1, 03-REQ-3.2).
+    let safety = check_safety(broker).await;
+    match safety {
+        SafetyResult::VehicleMoving => {
+            info!(
+                "Lock command {} rejected: vehicle moving",
+                cmd.command_id
+            );
+            return failure_response(&cmd.command_id, "vehicle_moving");
+        }
+        SafetyResult::DoorOpen => {
+            info!(
+                "Lock command {} rejected: door open",
+                cmd.command_id
+            );
+            return failure_response(&cmd.command_id, "door_open");
+        }
+        SafetyResult::Safe => {}
+    }
+
+    // Idempotent: skip set_bool if already locked (03-REQ-4.E1).
+    if !*lock_state {
+        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, true).await {
+            error!("Failed to write lock state for command {}: {e}", cmd.command_id);
+        } else {
+            *lock_state = true;
+            info!("Lock state set to true for command {}", cmd.command_id);
+        }
+    } else {
+        info!(
+            "Lock command {} is idempotent (already locked)",
+            cmd.command_id
+        );
+    }
+
+    success_response(&cmd.command_id)
+}
+
+/// Execute an unlock command.
+///
+/// Safety checks are bypassed (03-REQ-3.4). Writes the new state to
+/// DATA_BROKER unless already unlocked (idempotent, 03-REQ-4.E2).
+async fn process_unlock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Idempotent: skip set_bool if already unlocked (03-REQ-4.E2).
+    if *lock_state {
+        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, false).await {
+            error!(
+                "Failed to write unlock state for command {}: {e}",
+                cmd.command_id
+            );
+        } else {
+            *lock_state = false;
+            info!("Lock state set to false for command {}", cmd.command_id);
+        }
+    } else {
+        info!(
+            "Unlock command {} is idempotent (already unlocked)",
+            cmd.command_id
+        );
+    }
+
+    success_response(&cmd.command_id)
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
