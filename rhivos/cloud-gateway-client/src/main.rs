@@ -2,9 +2,11 @@ mod command_validator;
 mod config;
 mod errors;
 mod models;
+mod nats_client;
 mod telemetry;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(first) = args.first() {
         if first == "serve" {
