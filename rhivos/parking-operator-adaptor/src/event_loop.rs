@@ -18,6 +18,14 @@ pub enum EventError {
     OperatorFailed(String),
 }
 
+/// Return the current Unix timestamp in seconds.
+fn current_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
 /// Process a lock/unlock event from DATA_BROKER.
 ///
 /// - `IsLocked = true`:  start session (no-op if already active, 08-REQ-3.E1).
@@ -25,39 +33,111 @@ pub enum EventError {
 ///
 /// On success the DATA_BROKER signal `Vehicle.Parking.SessionActive` is updated.
 /// If that publish fails, the error is logged and operation continues (08-REQ-4.E1).
+/// If the operator call fails, the error is logged and session state is unchanged.
 pub async fn process_lock_event(
-    _is_locked: bool,
-    _session: &mut Session,
-    _operator: &impl OperatorApi,
-    _publisher: &impl SessionPublisher,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    is_locked: bool,
+    session: &mut Session,
+    operator: &impl OperatorApi,
+    publisher: &impl SessionPublisher,
+    vehicle_id: &str,
+    zone_id: &str,
 ) -> Result<(), EventError> {
-    todo!("process_lock_event not yet implemented")
+    if is_locked {
+        if session.is_active() {
+            tracing::info!("Lock event received but session already active — no-op (08-REQ-3.E1)");
+            return Ok(());
+        }
+        match operator.start_session(vehicle_id, zone_id).await {
+            Ok(resp) => {
+                let rate: crate::session::Rate = resp.rate.into();
+                let start_time = current_timestamp();
+                session.start(resp.session_id, zone_id.to_owned(), start_time, rate);
+                if let Err(e) = publisher.set_session_active(true).await {
+                    tracing::error!(error = ?e, "Failed to publish SessionActive=true — continuing (08-REQ-4.E1)");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Operator start_session failed — session unchanged");
+            }
+        }
+    } else {
+        if !session.is_active() {
+            tracing::info!("Unlock event received but no session active — no-op (08-REQ-3.E2)");
+            return Ok(());
+        }
+        let session_id = session.status().expect("active session has status").session_id.clone();
+        match operator.stop_session(&session_id).await {
+            Ok(_resp) => {
+                session.stop();
+                if let Err(e) = publisher.set_session_active(false).await {
+                    tracing::error!(error = ?e, "Failed to publish SessionActive=false — continuing (08-REQ-4.E1)");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Operator stop_session failed — session unchanged");
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Handle a manual `StartSession` gRPC call (08-REQ-5.1).
 ///
 /// Returns `EventError::AlreadyActive` when a session is already active.
 pub async fn manual_start(
-    _zone_id: &str,
-    _session: &mut Session,
-    _operator: &impl OperatorApi,
-    _publisher: &impl SessionPublisher,
-    _vehicle_id: &str,
+    zone_id: &str,
+    session: &mut Session,
+    operator: &impl OperatorApi,
+    publisher: &impl SessionPublisher,
+    vehicle_id: &str,
 ) -> Result<StartResponse, EventError> {
-    todo!("manual_start not yet implemented")
+    if session.is_active() {
+        let existing = session.status().expect("active session has status").session_id.clone();
+        return Err(EventError::AlreadyActive { existing_session_id: existing });
+    }
+
+    let resp = operator
+        .start_session(vehicle_id, zone_id)
+        .await
+        .map_err(|e| EventError::OperatorFailed(format!("{e:?}")))?;
+
+    let rate: crate::session::Rate = resp.rate.clone().into();
+    let start_time = current_timestamp();
+    session.start(resp.session_id.clone(), zone_id.to_owned(), start_time, rate);
+
+    if let Err(e) = publisher.set_session_active(true).await {
+        tracing::error!(error = ?e, "Failed to publish SessionActive=true — continuing (08-REQ-4.E1)");
+    }
+
+    Ok(resp)
 }
 
 /// Handle a manual `StopSession` gRPC call (08-REQ-5.2).
 ///
 /// Returns `EventError::NotActive` when no session is active.
 pub async fn manual_stop(
-    _session: &mut Session,
-    _operator: &impl OperatorApi,
-    _publisher: &impl SessionPublisher,
+    session: &mut Session,
+    operator: &impl OperatorApi,
+    publisher: &impl SessionPublisher,
 ) -> Result<StopResponse, EventError> {
-    todo!("manual_stop not yet implemented")
+    if !session.is_active() {
+        return Err(EventError::NotActive);
+    }
+
+    let session_id = session.status().expect("active session has status").session_id.clone();
+
+    let resp = operator
+        .stop_session(&session_id)
+        .await
+        .map_err(|e| EventError::OperatorFailed(format!("{e:?}")))?;
+
+    session.stop();
+
+    if let Err(e) = publisher.set_session_active(false).await {
+        tracing::error!(error = ?e, "Failed to publish SessionActive=false — continuing (08-REQ-4.E1)");
+    }
+
+    Ok(resp)
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
