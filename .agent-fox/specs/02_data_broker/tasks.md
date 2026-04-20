@@ -51,9 +51,9 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 - [ ] 2. Configure compose.yml for dual listeners
   - Update the existing compose.yml (from spec 01) to configure the DATA_BROKER with pinned image version, dual listener args, port mapping, and volume mounts.
 
-  - [ ] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` in `deployments/compose.yml`
+  - [ ] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` in `deployments/compose.yml`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
-    - Note: pinned to :0.5.0 per errata (02_data_broker_compose_flags.md) — :0.5.1 does not exist in registry
+    - Note: pinned to :0.5.0 per errata (02_data_broker_compose_flags.md) — :0.6.1 does not exist in registry
 
   - [ ] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-2.1, 02-REQ-3.1, 02-REQ-4.1_

@@ -24,12 +24,12 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 **Requirements:**
 
-- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
+- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1`.
 - [02-REQ-1.2] WHEN a developer runs `podman compose up`, the DATA_BROKER container SHALL start using the pinned image version.
 
 **Acceptance Criteria:**
 
-1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` for the databroker service.
+1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` for the databroker service.
 2. The running container SHALL report version 0.5.1 in its startup logs.
 
 **Edge Cases:**
@@ -51,7 +51,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 1. A gRPC client connecting to `localhost:55556` from the host SHALL receive a successful gRPC channel connection.
 2. The compose.yml SHALL contain port mapping `55556:55555` for the databroker service.
-3. The DATA_BROKER command args SHALL include `--address 0.0.0.0:55555`.
+3. The DATA_BROKER start command args SHALL include `--address 0.0.0.0:55555`.
 
 **Edge Cases:**
 
@@ -70,7 +70,7 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 **Acceptance Criteria:**
 
-1. The DATA_BROKER command args SHALL include `--uds-path /tmp/kuksa-databroker.sock`.
+1. The DATA_BROKER start command args SHALL include `--uds-path /tmp/kuksa-databroker.sock`.
 2. The compose.yml SHALL define a named volume or bind mount that makes the UDS socket accessible to same-partition consumer containers.
 3. A gRPC client connecting via `unix:///tmp/kuksa-databroker.sock` from a co-located container SHALL receive a successful gRPC channel connection.
 

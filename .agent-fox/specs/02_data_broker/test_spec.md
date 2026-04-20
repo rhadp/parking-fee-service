@@ -43,11 +43,11 @@ This test specification defines the integration, property, edge case, and smoke 
 - **Description:** Verify that the running DATA_BROKER container uses the pinned image version 0.5.1.
 - **Preconditions:** DATA_BROKER container is running.
 - **Input:** Inspect the running container image reference.
-- **Expected:** Image reference matches `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`.
+- **Expected:** Image reference matches `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1`.
 - **Assertion pseudocode:**
   ```
   image = podman_inspect("databroker").image
-  assert image contains "kuksa-databroker:0.5.1"
+  assert image contains "kuksa-databroker:0.6.1"
   ```
 
 ### TS-02-4: Standard VSS signal metadata

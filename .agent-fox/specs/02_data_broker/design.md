@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design describes the configuration and validation of Eclipse Kuksa Databroker as the DATA_BROKER component. No custom application code is written -- the deliverables are compose.yml updates, VSS overlay validation, and integration tests. The DATA_BROKER is a pre-built container image (`ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1`) configured for dual listeners (TCP on port 55555/container, 55556/host, and UDS at `/tmp/kuksa-databroker.sock`) running in permissive mode (no token auth). The VSS overlay file from spec 01 provides 3 custom signals; the remaining 5 standard VSS v5.1 signals are built into the Kuksa image.
+This design describes the configuration and validation of Eclipse Kuksa Databroker as the DATA_BROKER component. No custom application code is written -- the deliverables are compose.yml updates, VSS overlay validation, and integration tests. The DATA_BROKER is a pre-built container image (`ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1`) configured for dual listeners (TCP on port 55555/container, 55556/host, and UDS at `/tmp/kuksa-databroker.sock`) running in permissive mode (no token auth). The VSS overlay file from spec 01 provides 3 custom signals; the remaining 5 standard VSS v5.1 signals are built into the Kuksa image.
 
 ## Architecture
 
@@ -60,7 +60,7 @@ flowchart LR
 ### Path 1: Container startup
 
 1. Developer runs `podman compose up databroker`
-2. Compose pulls `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` (if not cached)
+2. Compose pulls `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` (if not cached)
 3. Container starts with command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` plus overlay flag
 4. Kuksa loads the default VSS v5.1 tree (5 standard signals)
 5. Kuksa loads the overlay file (3 custom signals)
@@ -114,7 +114,7 @@ The DATA_BROKER exposes the standard Kuksa Databroker gRPC API (kuksa.val.v2):
 | Property | Value |
 |----------|-------|
 | Service name | `databroker` |
-| Image | `ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.1` |
+| Image | `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` |
 | Ports | `55556:55555` |
 | Volumes | Overlay file (read-only), UDS socket directory (read-write) |
 | Command | `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock` + overlay args |

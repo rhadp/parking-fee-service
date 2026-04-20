@@ -1,3 +1,3 @@
 # Agent-Fox Memory
 
-_No facts have been recorded yet._
+_100 facts | last updated: 2026-04-20_
