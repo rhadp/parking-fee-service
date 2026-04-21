@@ -124,3 +124,36 @@ func TestPropertyTimeoutCancellation(t *testing.T) {
 		}
 	}
 }
+
+// TestPropertyTimeoutCancellationTightRace exercises the race window where StoreResponse
+// is called very close to when the timeout timer fires (Property 6 from design.md).
+// This addresses the review finding that TS-06-P5 does not exercise the tight race because
+// StoreResponse is called immediately (well before the timer fires). Here we use very short
+// timeouts and varying delays to increase the chance that the timer goroutine is already
+// queued (timer.Stop() returns false) when StoreResponse runs. The existence guard in
+// StartTimeout must prevent the timeout goroutine from overwriting a real response.
+// Run with -race to verify no data races.
+func TestPropertyTimeoutCancellationTightRace(t *testing.T) {
+	const iterations = 50
+	for i := 0; i < iterations; i++ {
+		s := store.NewStore()
+		cmdID := fmt.Sprintf("race-cmd-%d", i)
+		// Very short timeout to maximize race window overlap.
+		s.StartTimeout(cmdID, time.Millisecond)
+		// Vary the delay so some iterations call StoreResponse before, during, or
+		// just after the timer fires. This exercises the existence guard.
+		time.Sleep(time.Duration(i%3) * time.Millisecond)
+		s.StoreResponse(model.CommandResponse{CommandID: cmdID, Status: "success"})
+		// Wait well past the timeout to ensure the timer goroutine has run.
+		time.Sleep(10 * time.Millisecond)
+		resp, found := s.GetResponse(cmdID)
+		if !found {
+			t.Errorf("iteration %d: GetResponse(%q): expected found=true", i, cmdID)
+			continue
+		}
+		if resp.Status != "success" {
+			t.Errorf("iteration %d: Status(%q): got %q, want %q (timeout must not overwrite real response)",
+				i, cmdID, resp.Status, "success")
+		}
+	}
+}
