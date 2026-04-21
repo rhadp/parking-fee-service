@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package update;
+
+option go_package = "github.com/sdv-demo/parking-fee-service/gen/update";
+
+// AdapterState represents the lifecycle state of an installed adapter.
+enum AdapterState {
+  UNKNOWN = 0;
+  DOWNLOADING = 1;
+  INSTALLING = 2;
+  RUNNING = 3;
+  STOPPED = 4;
+  ERROR = 5;
+  OFFLOADING = 6;
+}
+
+// InstallAdapterRequest requests installation of a new adapter.
+message InstallAdapterRequest {
+  string image_ref = 1;
+  string checksum_sha256 = 2;
+}
+
+// InstallAdapterResponse returns the job and adapter IDs along with initial state.
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  AdapterState state = 3;
+}
+
+// WatchAdapterStatesRequest subscribes to adapter state change events.
+message WatchAdapterStatesRequest {}
+
+// AdapterStateEvent represents a state transition for an adapter.
+message AdapterStateEvent {
+  string adapter_id = 1;
+  AdapterState old_state = 2;
+  AdapterState new_state = 3;
+  int64 timestamp = 4;
+}
+
+// ListAdaptersRequest requests the list of all known adapters.
+message ListAdaptersRequest {}
+
+// AdapterInfo describes an adapter and its current state.
+message AdapterInfo {
+  string adapter_id = 1;
+  string image_ref = 2;
+  AdapterState state = 3;
+}
+
+// ListAdaptersResponse returns all known adapters.
+message ListAdaptersResponse {
+  repeated AdapterInfo adapters = 1;
+}
+
+// RemoveAdapterRequest requests removal of an adapter by ID.
+message RemoveAdapterRequest {
+  string adapter_id = 1;
+}
+
+// RemoveAdapterResponse returns the result of removal.
+message RemoveAdapterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// GetAdapterStatusRequest requests the status of a specific adapter.
+message GetAdapterStatusRequest {
+  string adapter_id = 1;
+}
+
+// GetAdapterStatusResponse returns the current adapter info.
+message GetAdapterStatusResponse {
+  AdapterInfo adapter = 1;
+}
+
+// UpdateService manages the lifecycle of parking operator adapters.
+service UpdateService {
+  // InstallAdapter installs a new adapter from an OCI image reference.
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+
+  // WatchAdapterStates streams adapter state change events.
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+
+  // ListAdapters returns all known adapters and their states.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+
+  // RemoveAdapter stops and removes an adapter.
+  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
+
+  // GetAdapterStatus returns the current status of an adapter.
+  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
+}

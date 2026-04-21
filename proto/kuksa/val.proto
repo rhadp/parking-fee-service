@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package kuksa.val.v2;
+
+option go_package = "github.com/sdv-demo/parking-fee-service/gen/kuksa/val/v2";
+
+// Datapoint holds a typed vehicle signal value.
+message Datapoint {
+  oneof value {
+    string string_value = 1;
+    bool bool_value = 2;
+    float float_value = 3;
+    double double_value = 4;
+    int32 int32_value = 5;
+    int64 int64_value = 6;
+    uint32 uint32_value = 7;
+    uint64 uint64_value = 8;
+  }
+  // Unix timestamp in milliseconds when the value was recorded.
+  int64 timestamp = 10;
+}
+
+// SignalID identifies a VSS signal by its path.
+message SignalID {
+  string path = 1;
+}
+
+// SubscribeEntry describes a signal to subscribe to and the fields to receive.
+message SubscribeEntry {
+  SignalID signal_id = 1;
+}
+
+// SubscribeRequest initiates a subscription for one or more signals.
+message SubscribeRequest {
+  repeated SubscribeEntry entries = 1;
+}
+
+// EntryUpdate pairs a signal ID with its latest datapoint.
+message EntryUpdate {
+  SignalID signal_id = 1;
+  Datapoint value = 2;
+}
+
+// SubscribeResponse delivers one or more updated signal values.
+message SubscribeResponse {
+  repeated EntryUpdate updates = 1;
+}
+
+// PublishValueRequest publishes a new value for a signal.
+message PublishValueRequest {
+  SignalID signal_id = 1;
+  Datapoint value = 2;
+}
+
+// PublishValueResponse is the response from publishing a value.
+message PublishValueResponse {}
+
+// VAL is the Vehicle Abstraction Layer service provided by Kuksa Databroker.
+service VAL {
+  // Subscribe streams datapoint updates for the requested signals.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+
+  // PublishValue writes a new value for a signal.
+  rpc PublishValue(PublishValueRequest) returns (PublishValueResponse);
+}

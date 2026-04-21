@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package adapter;
+
+option go_package = "github.com/sdv-demo/parking-fee-service/gen/adapter";
+
+// StartSessionRequest initiates a parking session for a vehicle in a zone.
+message StartSessionRequest {
+  string vehicle_id = 1;
+  string zone_id = 2;
+}
+
+// StartSessionResponse returns the new session ID.
+message StartSessionResponse {
+  string session_id = 1;
+}
+
+// StopSessionRequest terminates an active parking session.
+message StopSessionRequest {
+  string session_id = 1;
+}
+
+// StopSessionResponse returns the result of stopping the session.
+message StopSessionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// GetStatusRequest requests the status of the current parking session.
+message GetStatusRequest {}
+
+// SessionStatus describes the current state of a parking session.
+message SessionStatus {
+  string session_id = 1;
+  bool active = 2;
+  int64 start_time = 3;
+  string zone_id = 4;
+}
+
+// GetRateRequest requests the current parking rate from the operator.
+message GetRateRequest {}
+
+// ParkingRate describes the pricing structure for a parking zone.
+message ParkingRate {
+  string operator_id = 1;
+  string rate_type = 2;  // "per_hour" or "flat_fee"
+  double amount = 3;
+  string currency = 4;
+}
+
+// AdapterService is the gRPC interface exposed by a parking operator adapter.
+service AdapterService {
+  // StartSession begins a parking session for the given vehicle and zone.
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+
+  // StopSession ends the active parking session.
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+
+  // GetStatus returns the current session status.
+  rpc GetStatus(GetStatusRequest) returns (SessionStatus);
+
+  // GetRate returns the current parking rate from the operator.
+  rpc GetRate(GetRateRequest) returns (ParkingRate);
+}
