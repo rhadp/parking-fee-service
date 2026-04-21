@@ -194,3 +194,42 @@ func grpcurlInstallAdapter(t *testing.T, imageRef, checksum string) (string, err
 	reqJSON := fmt.Sprintf(`{"image_ref":%q,"checksum_sha256":%q}`, imageRef, checksum)
 	return grpcurlCall(t, "InstallAdapter", reqJSON)
 }
+
+// grpcurlWatch starts a background grpcurl process for the streaming
+// WatchAdapterStates RPC. Returns the command and a thread-safe output buffer.
+// The caller must kill the process when done.
+func grpcurlWatch(t *testing.T) (*exec.Cmd, *safeBuffer) {
+	t.Helper()
+	root := findRepoRoot(t)
+	protoDir := filepath.Join(root, "proto", "update")
+	cmd := exec.Command("grpcurl",
+		"-plaintext",
+		"-import-path", protoDir,
+		"-proto", "update_service.proto",
+		"-d", "{}",
+		updateServiceAddr,
+		updateServiceGRPCService+"/WatchAdapterStates",
+	)
+	buf := &safeBuffer{}
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start WatchAdapterStates grpcurl: %v", err)
+	}
+	return cmd, buf
+}
+
+// podmanPullAndDigest pulls an OCI image and returns its sha256 digest.
+// Returns ("", error) if podman pull or inspect fails.
+func podmanPullAndDigest(image string) (string, error) {
+	pullCmd := exec.Command("podman", "pull", image)
+	if out, err := pullCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("podman pull failed: %v\n%s", err, out)
+	}
+	digestCmd := exec.Command("podman", "image", "inspect", "--format", "{{.Digest}}", image)
+	out, err := digestCmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("podman inspect failed: %v\n%s", err, out)
+	}
+	return strings.TrimSpace(string(out)), nil
+}

@@ -195,40 +195,138 @@ func TestInstallAdapterInvalidArgument(t *testing.T) {
 
 // --- TS-07-SMOKE-1: End-to-End Install and Query ---
 
-// TestSmokeEndToEndInstallAndQuery is an end-to-end smoke test that requires
-// a real podman installation and a pre-pulled OCI image.
-// Skips gracefully when podman is not available.
+// TestSmokeEndToEndInstallAndQuery is an end-to-end smoke test that exercises
+// the full adapter lifecycle: install, list, get status, remove, and verify
+// cleanup. Requires podman, grpcurl, and network access to an OCI registry.
+// Skips gracefully when infrastructure is not available.
 //
 // Test Spec: TS-07-SMOKE-1
-// Requirements: 07-REQ-1.1 through 07-REQ-1.5, 07-REQ-4.1, 07-REQ-4.2
+// Requirements: 07-REQ-1.1 through 07-REQ-1.5, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1
 func TestSmokeEndToEndInstallAndQuery(t *testing.T) {
 	skipIfGrpcurlMissing(t)
-
-	// Skip if podman is not available.
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman not in PATH; skipping end-to-end smoke test")
 	}
 
-	// Skip unless a pre-pulled test image is specified via environment variable.
+	// Use hello-world as the test image (small, exits immediately with code 0).
 	testImage := "docker.io/library/hello-world:latest"
-	t.Logf("smoke test would use image %s (requires real podman + prior pull)", testImage)
-	t.Skip("TS-07-SMOKE-1: skipping smoke test requiring real OCI registry — run manually with a real podman environment")
+	checksum, err := podmanPullAndDigest(testImage)
+	if err != nil {
+		t.Skipf("cannot prepare test image %s: %v", testImage, err)
+	}
+	t.Logf("test image %s, digest %s", testImage, checksum)
+
+	// Build and start the service.
+	binPath := buildUpdateServiceBinary(t)
+	startUpdateService(t, binPath)
+	ensureServiceReady(t)
+
+	// 1. InstallAdapter
+	out, err := grpcurlInstallAdapter(t, testImage, checksum)
+	if err != nil && !strings.Contains(out, "adapter_id") && !strings.Contains(out, "adapterId") {
+		t.Fatalf("InstallAdapter failed: %v\noutput: %s", err, out)
+	}
+	t.Logf("InstallAdapter response: %s", out)
+
+	// Wait for the async install to complete (pull + verify + run + container exit).
+	// hello-world exits immediately, so the adapter transitions to STOPPED.
+	time.Sleep(10 * time.Second)
+
+	// 2. ListAdapters — should contain the adapter.
+	out, err = grpcurlCallNoBody(t, "ListAdapters")
+	if err != nil && out == "" {
+		t.Fatalf("ListAdapters failed: %v", err)
+	}
+	t.Logf("ListAdapters response: %s", out)
+	if !strings.Contains(out, "hello-world") {
+		t.Errorf("expected hello-world adapter in list, got: %s", out)
+	}
+
+	// 3. GetAdapterStatus
+	out, err = grpcurlCall(t, "GetAdapterStatus", `{"adapter_id":"hello-world-latest"}`)
+	if err != nil && !strings.Contains(out, "hello-world") {
+		t.Fatalf("GetAdapterStatus failed: %v\noutput: %s", err, out)
+	}
+	t.Logf("GetAdapterStatus response: %s", out)
+	if !strings.Contains(out, "hello-world-latest") && !strings.Contains(out, "hello-world") {
+		t.Errorf("expected hello-world adapter in status, got: %s", out)
+	}
+
+	// 4. RemoveAdapter
+	out, err = grpcurlCall(t, "RemoveAdapter", `{"adapter_id":"hello-world-latest"}`)
+	if err != nil && !strings.Contains(out, "success") {
+		t.Errorf("RemoveAdapter failed: %v\noutput: %s", err, out)
+	}
+	t.Logf("RemoveAdapter response: %s", out)
+
+	// 5. ListAdapters — should be empty.
+	out, err = grpcurlCallNoBody(t, "ListAdapters")
+	if strings.Contains(out, "hello-world") {
+		t.Errorf("expected empty adapter list after removal, got: %s", out)
+	}
+	_ = err
 }
 
 // --- TS-07-SMOKE-2: WatchAdapterStates Stream ---
 
-// TestSmokeWatchAdapterStates verifies that WatchAdapterStates delivers state
-// transition events when an adapter is installed.
-// Skips gracefully when podman is not available.
+// TestSmokeWatchAdapterStates verifies that the WatchAdapterStates server-
+// streaming RPC delivers state transition events when an adapter is installed.
+// Requires podman, grpcurl, and network access to an OCI registry.
+// Skips gracefully when infrastructure is not available.
 //
 // Test Spec: TS-07-SMOKE-2
 // Requirements: 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3
 func TestSmokeWatchAdapterStates(t *testing.T) {
 	skipIfGrpcurlMissing(t)
-
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman not in PATH; skipping WatchAdapterStates smoke test")
 	}
 
-	t.Skip("TS-07-SMOKE-2: skipping smoke test requiring real OCI registry — run manually with a real podman environment")
+	testImage := "docker.io/library/hello-world:latest"
+	checksum, err := podmanPullAndDigest(testImage)
+	if err != nil {
+		t.Skipf("cannot prepare test image %s: %v", testImage, err)
+	}
+
+	// Build and start the service.
+	binPath := buildUpdateServiceBinary(t)
+	startUpdateService(t, binPath)
+	ensureServiceReady(t)
+
+	// Start WatchAdapterStates in background (server-streaming RPC).
+	watchCmd, watchBuf := grpcurlWatch(t)
+	defer func() {
+		if watchCmd.Process != nil {
+			_ = watchCmd.Process.Kill()
+			_ = watchCmd.Wait()
+		}
+	}()
+
+	// Allow time for the stream to establish.
+	time.Sleep(500 * time.Millisecond)
+
+	// Install an adapter to trigger state transitions.
+	out, err := grpcurlInstallAdapter(t, testImage, checksum)
+	t.Logf("InstallAdapter response: %s (err: %v)", out, err)
+
+	// Wait for install + container lifecycle to complete.
+	time.Sleep(10 * time.Second)
+
+	// Kill the watch process and inspect captured output.
+	_ = watchCmd.Process.Kill()
+	_ = watchCmd.Wait()
+
+	watchOutput := watchBuf.String()
+	t.Logf("WatchAdapterStates output:\n%s", watchOutput)
+
+	// Verify state transitions appear in the stream output.
+	if !strings.Contains(watchOutput, "DOWNLOADING") {
+		t.Errorf("expected DOWNLOADING state in watch output, got:\n%s", watchOutput)
+	}
+	if !strings.Contains(watchOutput, "INSTALLING") {
+		t.Errorf("expected INSTALLING state in watch output, got:\n%s", watchOutput)
+	}
+	if !strings.Contains(watchOutput, "RUNNING") {
+		t.Errorf("expected RUNNING state in watch output, got:\n%s", watchOutput)
+	}
 }

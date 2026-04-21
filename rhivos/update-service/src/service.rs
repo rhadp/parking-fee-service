@@ -38,6 +38,10 @@ pub struct UpdateService<P: PodmanExecutor + Send + Sync + 'static> {
     pub(crate) state_mgr: Arc<StateManager>,
     pub(crate) podman: Arc<P>,
     pub(crate) broadcaster: broadcast::Sender<AdapterStateEvent>,
+    /// Serialises async install tasks so that at most one install flow
+    /// (pull → verify → run) executes at a time.  This enforces Design
+    /// Property 2: at most one adapter in RUNNING state at any point.
+    install_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl<P: PodmanExecutor + Send + Sync + 'static> UpdateService<P> {
@@ -50,6 +54,7 @@ impl<P: PodmanExecutor + Send + Sync + 'static> UpdateService<P> {
             state_mgr,
             podman,
             broadcaster,
+            install_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -114,11 +119,32 @@ impl<P: PodmanExecutor + Send + Sync + 'static> UpdateService<P> {
         // Spawn async install task: pull → verify → run
         let state_mgr = Arc::clone(&self.state_mgr);
         let podman = Arc::clone(&self.podman);
+        let install_lock = Arc::clone(&self.install_lock);
         let image_ref_owned = image_ref.to_string();
         let checksum_owned = checksum_sha256.to_string();
         let adapter_id_task = adapter_id.clone();
 
         tokio::spawn(async move {
+            // Acquire the install lock to serialise install flows and enforce
+            // the single-adapter invariant (Design Property 2).
+            let _guard = install_lock.lock().await;
+
+            // Re-check for a RUNNING adapter under the lock.  Another install
+            // task may have completed while we waited for the lock.
+            if let Some(running) = state_mgr.get_running_adapter() {
+                if running.adapter_id != adapter_id_task {
+                    match podman.stop(&running.adapter_id).await {
+                        Ok(()) => {
+                            let _ = state_mgr
+                                .transition(&running.adapter_id, AdapterState::Stopped, None);
+                        }
+                        Err(e) => {
+                            state_mgr.force_error(&running.adapter_id, &e.message);
+                        }
+                    }
+                }
+            }
+
             // 1. Pull image
             if let Err(e) = podman.pull(&image_ref_owned).await {
                 state_mgr.force_error(&adapter_id_task, &e.message);

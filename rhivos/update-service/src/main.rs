@@ -111,6 +111,14 @@ async fn main() {
                 .expect("failed to listen for ctrl-c");
             info!("received ctrl-c");
         }
+
+        // REQ-10.E1: if in-flight RPCs do not complete within 10 seconds,
+        // force-terminate and exit with code 0.
+        tokio::spawn(async {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            info!("drain timeout (10s) exceeded, force-terminating");
+            std::process::exit(0);
+        });
     };
 
     Server::builder()
@@ -119,10 +127,5 @@ async fn main() {
         .await
         .expect("gRPC server error");
 
-    // Allow in-flight RPCs up to 10 seconds to drain (tonic handles graceful
-    // drain internally; we give it a moment then exit cleanly).
-    tokio::time::sleep(Duration::from_secs(10)).await;
-
     info!("update-service stopped");
-    std::process::exit(0);
 }
