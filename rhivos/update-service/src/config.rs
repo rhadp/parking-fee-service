@@ -34,13 +34,28 @@ impl std::fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}
 
 /// Load config from JSON file. Returns defaults if file not found, error if invalid JSON.
-pub fn load_config(_path: &str) -> Result<Config, ConfigError> {
-    todo!("implemented in task group 2")
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    match std::fs::read_to_string(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::warn!("Config file not found at '{}', using defaults", path);
+            Ok(default_config())
+        }
+        Err(e) => Err(ConfigError(format!("Failed to read config file '{}': {}", path, e))),
+        Ok(contents) => {
+            serde_json::from_str(&contents)
+                .map_err(|e| ConfigError(format!("Invalid JSON in config file '{}': {}", path, e)))
+        }
+    }
 }
 
 /// Return built-in default config.
 pub fn default_config() -> Config {
-    todo!("implemented in task group 2")
+    Config {
+        grpc_port: default_grpc_port(),
+        registry_url: String::new(),
+        inactivity_timeout_secs: default_inactivity_timeout(),
+        container_storage_path: default_storage_path(),
+    }
 }
 
 #[cfg(test)]

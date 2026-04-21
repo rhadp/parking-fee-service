@@ -33,8 +33,9 @@ pub struct AdapterStateEvent {
 /// Derive adapter_id from OCI image reference.
 /// Extracts the last path segment and replaces ':' with '-'.
 /// E.g. "registry/path/name:tag" -> "name-tag"
-pub fn derive_adapter_id(_image_ref: &str) -> String {
-    todo!("implemented in task group 2")
+pub fn derive_adapter_id(image_ref: &str) -> String {
+    let last_segment = image_ref.rsplit('/').next().unwrap_or(image_ref);
+    last_segment.replace(':', "-")
 }
 
 #[cfg(test)]
