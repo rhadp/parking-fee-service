@@ -425,4 +425,49 @@ mod tests {
         let result = parse_signal_update(SIGNAL_LATITUDE, &dp);
         assert!(result.is_none(), "type mismatch must return None");
     }
+
+    #[test]
+    fn parse_empty_datapoint_returns_none() {
+        // Datapoint with no value at all.
+        let dp = Datapoint { value: None };
+        let result = parse_signal_update(SIGNAL_IS_LOCKED, &dp);
+        assert!(result.is_none(), "empty datapoint must return None");
+    }
+
+    #[test]
+    fn parse_type_mismatch_double_for_bool_signal() {
+        // SIGNAL_IS_LOCKED expects Bool, but provide Double.
+        let dp = make_double_dp(1.0);
+        let result = parse_signal_update(SIGNAL_IS_LOCKED, &dp);
+        assert!(result.is_none(), "double for bool signal must return None");
+    }
+
+    #[test]
+    fn parse_type_mismatch_double_for_parking_signal() {
+        // SIGNAL_PARKING_ACTIVE expects Bool, but provide Double.
+        let dp = make_double_dp(1.0);
+        let result = parse_signal_update(SIGNAL_PARKING_ACTIVE, &dp);
+        assert!(result.is_none(), "double for bool signal must return None");
+    }
+
+    #[test]
+    fn parse_type_mismatch_bool_for_longitude_signal() {
+        // SIGNAL_LONGITUDE expects Double, but provide Bool.
+        let dp = make_bool_dp(false);
+        let result = parse_signal_update(SIGNAL_LONGITUDE, &dp);
+        assert!(result.is_none(), "bool for double signal must return None");
+    }
+
+    #[test]
+    fn parse_string_value_returns_none_for_telemetry() {
+        // None of the telemetry signals accept String values.
+        let dp = Datapoint {
+            value: Some(datapoint::Value::String("unexpected".to_string())),
+        };
+        let result = parse_signal_update(SIGNAL_IS_LOCKED, &dp);
+        assert!(result.is_none(), "string value for bool signal must return None");
+
+        let result = parse_signal_update(SIGNAL_LATITUDE, &dp);
+        assert!(result.is_none(), "string value for double signal must return None");
+    }
 }
