@@ -25,6 +25,10 @@ func TestRustSkeletonBinaryPrintsVersion(t *testing.T) {
 		t.Fatalf("cargo build failed:\n%s\n%v", out, err)
 	}
 
+	// Note: sensor binaries (location-sensor, speed-sensor, door-sensor) are
+	// excluded here because spec 09 requires them to exit non-zero when
+	// required arguments are missing (09-REQ-1.E1, 09-REQ-2.E1, 09-REQ-3.E1).
+	// See docs/errata/01_skeleton_vs_spec09_sensors.md.
 	binaries := []struct {
 		name      string
 		component string // substring expected in stdout
@@ -33,9 +37,6 @@ func TestRustSkeletonBinaryPrintsVersion(t *testing.T) {
 		{"cloud-gateway-client", "cloud-gateway-client"},
 		{"update-service", "update-service"},
 		{"parking-operator-adaptor", "parking-operator-adaptor"},
-		{"location-sensor", "location-sensor"},
-		{"speed-sensor", "speed-sensor"},
-		{"door-sensor", "door-sensor"},
 	}
 
 	for _, b := range binaries {
@@ -94,11 +95,13 @@ func TestGoSkeletonBinaryPrintsVersion(t *testing.T) {
 	}
 }
 
-// TestMockSensorBinaryPrintsName verifies each mock sensor binary prints its
-// specific name when executed with no arguments.
-// Test Spec: TS-01-15
-// Requirement: 01-REQ-4.3
-func TestMockSensorBinaryPrintsName(t *testing.T) {
+// TestMockSensorBinaryNoArgsExitsNonZero verifies each mock sensor binary
+// exits non-zero with a usage error on stderr when invoked with no arguments.
+// Spec 09 requirements (09-REQ-1.E1, 09-REQ-2.E1, 09-REQ-3.E1) take
+// precedence over the generic spec 01 skeleton version-printing behavior.
+// See docs/errata/01_skeleton_vs_spec09_sensors.md.
+// Test Spec: TS-09-E1, TS-09-E2, TS-09-E3
+func TestMockSensorBinaryNoArgsExitsNonZero(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
 		t.Skip("cargo not found on PATH — skipping sensor binary tests")
 	}
@@ -118,12 +121,12 @@ func TestMockSensorBinaryPrintsName(t *testing.T) {
 		t.Run(sensor, func(t *testing.T) {
 			binPath := filepath.Join(root, "rhivos", "target", "debug", sensor)
 			cmd := exec.Command(binPath)
-			out, err := cmd.Output()
-			if err != nil {
-				t.Fatalf("%s exited with error: %v", sensor, err)
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected non-zero exit for %s with no args, but got 0", sensor)
 			}
-			if !strings.Contains(string(out), sensor) {
-				t.Fatalf("expected stdout to contain %q, got: %s", sensor, out)
+			if len(out) == 0 {
+				t.Fatalf("expected usage error on stderr for %s with no args, but got nothing", sensor)
 			}
 		})
 	}
@@ -217,14 +220,13 @@ func TestSkeletonDeterminism(t *testing.T) {
 		t.Fatalf("cargo build failed:\n%s\n%v", out, err)
 	}
 
+	// Note: sensor binaries are excluded — they now exit non-zero with no
+	// args per spec 09 (09-REQ-1.E1, 09-REQ-2.E1, 09-REQ-3.E1).
 	binaries := []string{
 		"locking-service",
 		"cloud-gateway-client",
 		"update-service",
 		"parking-operator-adaptor",
-		"location-sensor",
-		"speed-sensor",
-		"door-sensor",
 	}
 
 	for _, bin := range binaries {

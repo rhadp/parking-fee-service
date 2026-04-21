@@ -34,12 +34,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    // No arguments → print version and exit 0 (01-REQ-4.1, 01-REQ-4.3).
-    if std::env::args().len() == 1 {
-        println!("door-sensor v0.1.0");
-        return;
-    }
-
     let args = Args::parse();
 
     // The ArgGroup guarantees exactly one of --open or --closed is set.

@@ -9,23 +9,21 @@ use std::process::Command;
 
 // ── location-sensor argument validation ────────────────────────────────────
 
-/// TS-09-E1 / 01-REQ-4.1: location-sensor with no arguments should print
-/// version to stdout and exit 0 (spec 01 skeleton behavior takes precedence).
-/// Missing individual args (e.g. --lat without --lon) still produce non-zero exit.
+/// TS-09-E1: location-sensor with no arguments should exit non-zero with
+/// a usage error on stderr (09-REQ-1.E1 — missing --lat and --lon).
 #[test]
 fn test_location_sensor_no_args() {
     let out = Command::new(env!("CARGO_BIN_EXE_location-sensor"))
         .output()
         .expect("failed to start location-sensor");
     assert!(
-        out.status.success(),
-        "expected exit 0 when invoked with no args (01-REQ-4.1), got {:?}",
+        !out.status.success(),
+        "expected non-zero exit when invoked with no args (09-REQ-1.E1), got {:?}",
         out.status.code()
     );
-    let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("location-sensor"),
-        "expected version string containing 'location-sensor' on stdout, got: {stdout}"
+        !out.stderr.is_empty(),
+        "expected usage error on stderr"
     );
 }
 
@@ -67,45 +65,41 @@ fn test_location_sensor_missing_lat() {
 
 // ── speed-sensor argument validation ──────────────────────────────────────
 
-/// TS-09-E2 / 01-REQ-4.1: speed-sensor with no arguments should print
-/// version to stdout and exit 0 (spec 01 skeleton behavior takes precedence).
-/// Missing --speed when other args are present still produces non-zero exit.
+/// TS-09-E2: speed-sensor with no arguments should exit non-zero with
+/// a usage error on stderr (09-REQ-2.E1 — missing --speed).
 #[test]
 fn test_speed_sensor_no_args() {
     let out = Command::new(env!("CARGO_BIN_EXE_speed-sensor"))
         .output()
         .expect("failed to start speed-sensor");
     assert!(
-        out.status.success(),
-        "expected exit 0 when invoked with no args (01-REQ-4.1), got {:?}",
+        !out.status.success(),
+        "expected non-zero exit when invoked with no args (09-REQ-2.E1), got {:?}",
         out.status.code()
     );
-    let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("speed-sensor"),
-        "expected version string containing 'speed-sensor' on stdout, got: {stdout}"
+        !out.stderr.is_empty(),
+        "expected usage error on stderr"
     );
 }
 
 // ── door-sensor argument validation ───────────────────────────────────────
 
-/// TS-09-E3 / 01-REQ-4.1: door-sensor with no arguments should print
-/// version to stdout and exit 0 (spec 01 skeleton behavior takes precedence).
-/// Missing --open/--closed when other args are present still produces non-zero exit.
+/// TS-09-E3: door-sensor with no arguments should exit non-zero with
+/// a usage error on stderr (09-REQ-3.E1 — missing --open/--closed).
 #[test]
 fn test_door_sensor_no_args() {
     let out = Command::new(env!("CARGO_BIN_EXE_door-sensor"))
         .output()
         .expect("failed to start door-sensor");
     assert!(
-        out.status.success(),
-        "expected exit 0 when invoked with no args (01-REQ-4.1), got {:?}",
+        !out.status.success(),
+        "expected non-zero exit when invoked with no args (09-REQ-3.E1), got {:?}",
         out.status.code()
     );
-    let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("door-sensor"),
-        "expected version string containing 'door-sensor' on stdout, got: {stdout}"
+        !out.stderr.is_empty(),
+        "expected usage error on stderr"
     );
 }
 

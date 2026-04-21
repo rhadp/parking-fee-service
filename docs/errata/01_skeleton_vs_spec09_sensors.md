@@ -1,37 +1,39 @@
 # Errata: Spec 01 — Mock Sensor Skeleton vs. Spec 09 Sensor Behavior
 
-**Spec:** 01_project_setup  
-**Related Spec:** 09_mock_apps  
-**Status:** Resolved — sensor binaries now satisfy both spec 01 and spec 09
+**Spec:** 01_project_setup
+**Related Spec:** 09_mock_apps
+**Status:** Resolved — spec 09 requirements take precedence for sensor binaries
 
 ## Summary
 
-The mock sensor binaries (location-sensor, speed-sensor, door-sensor) must
-satisfy two specifications with different behavioral requirements for the
-"no arguments" case:
+The mock sensor binaries (location-sensor, speed-sensor, door-sensor) were
+originally implemented with a `std::env::args().len() == 1` check that printed
+a version string and exited 0 when invoked with no arguments, following spec 01
+skeleton behavior (01-REQ-4.1, 01-REQ-4.3).
 
-- **Spec 01 (01-REQ-4.1, 01-REQ-4.3):** When invoked with no arguments,
-  print name and version to stdout, exit with code 0.
-- **Spec 09 (TS-09-E1, E2, E3):** When required arguments are missing,
-  exit non-zero with an error message on stderr.
+However, spec 09 requirements are explicit:
+
+- **09-REQ-1.E1:** IF `--lat` or `--lon` is missing, exit code 1.
+- **09-REQ-2.E1:** IF `--speed` is missing, exit code 1.
+- **09-REQ-3.E1:** IF neither `--open` nor `--closed` is provided, exit code 1.
+
+The "no arguments" case is a subset of "missing required arguments." Spec 09
+requirements take precedence for these binaries, and the no-args version bypass
+has been removed.
 
 ## Resolution
 
-Each sensor binary now checks `std::env::args().len() == 1` before invoking
-clap argument parsing:
+All three sensor binaries now delegate argument parsing entirely to `clap`.
+When invoked with no arguments, clap prints a usage error to stderr and exits
+with code 2 (clap's convention for usage errors). This satisfies the spec 09
+requirement that missing arguments produce a non-zero exit with an error on
+stderr. See also `09_mock_apps_clap_exit_code.md` for the exit code 2 vs 1
+divergence.
 
-- **No arguments at all:** prints `"{name} v0.1.0"` to stdout, exits 0.
-  This satisfies spec 01 skeleton behavior.
-- **Some arguments but missing required ones** (e.g., `--lat` without `--lon`):
-  clap reports the missing argument to stderr and exits non-zero. This
-  satisfies spec 09 argument validation.
-- **All required arguments present:** executes the sensor logic normally.
-
-The spec 09 `test_*_no_args` tests in `rhivos/mock-sensors/tests/sensor_args.rs`
-were updated to expect exit 0 with version output on the no-args case, aligning
-with the spec 01 foundation requirement. Tests for individual missing arguments
-(e.g., `test_location_sensor_missing_lon`) remain unchanged and continue to
-assert non-zero exit.
+The spec 01 skeleton tests (`TestRustSkeletonBinaryPrintsVersion`,
+`TestSkeletonDeterminism`) have been updated to exclude sensor binaries, and
+`TestMockSensorBinaryPrintsName` has been replaced with
+`TestMockSensorBinaryNoArgsExitsNonZero` to validate spec 09 behavior.
 
 ## Affected Files
 
@@ -39,3 +41,4 @@ assert non-zero exit.
 - `rhivos/mock-sensors/src/bin/speed-sensor.rs`
 - `rhivos/mock-sensors/src/bin/door-sensor.rs`
 - `rhivos/mock-sensors/tests/sensor_args.rs`
+- `tests/setup/skeleton_binary_test.go`

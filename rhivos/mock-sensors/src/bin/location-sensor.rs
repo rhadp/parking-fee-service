@@ -26,12 +26,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    // No arguments → print version and exit 0 (01-REQ-4.1, 01-REQ-4.3).
-    if std::env::args().len() == 1 {
-        println!("location-sensor v0.1.0");
-        return;
-    }
-
     let args = Args::parse();
 
     if let Err(e) = publish_datapoint(&args.broker_addr, PATH_LATITUDE, DatapointValue::Double(args.lat)).await {
