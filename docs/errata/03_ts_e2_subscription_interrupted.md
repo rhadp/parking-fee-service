@@ -1,9 +1,9 @@
-# Errata: TS-03-E2 — Subscription Stream Interruption Not Unit-Tested
+# Errata: TS-03-E2 — Subscription Stream Interruption
 
 **Spec:** 03_locking_service  
 **Requirement:** 03-REQ-1.E2  
 **Test Spec Entry:** TS-03-E2  
-**Status:** Open — resubscription logic implemented; no automated test in CI
+**Status:** Resolved — resubscription logic implemented and verified via mock broker test
 
 ## Summary
 
@@ -11,18 +11,10 @@ TS-03-E2 requires verifying that LOCKING_SERVICE logs a resubscribe warning and
 attempts to resubscribe when the subscription stream to DATA_BROKER is interrupted
 (e.g. DATA_BROKER is restarted while the service is running).
 
-This test spec entry has no corresponding automated test because:
-
-1. **Integration infrastructure gap**: The test requires starting LOCKING_SERVICE
-   connected to a live DATA_BROKER, then restarting DATA_BROKER while the service
-   is running, and then inspecting the service logs for a resubscribe warning. This
-   requires Podman, a running DATA_BROKER container, and orchestration of a container
-   restart mid-test — complexity beyond the current integration test harness.
-
-2. **kuksa.val.v1/v2 API compatibility**: The locking-service uses the `kuksa.val.v1`
-   gRPC API while the DATA_BROKER image (0.5.0) only exposes `kuksa.val.v2`. This
-   prevents the service from ever reaching ready state against the real broker.
-   See `docs/errata/03_locking_service_proto_compat.md`.
+This test spec entry is now covered by `TestSubscriptionStreamInterrupted` in
+`tests/locking-service/integration_test.go`. The test uses a mock kuksa.val.v1
+gRPC server (no real DATA_BROKER container required) that terminates the subscribe
+stream on demand, triggering the service's resubscription logic.
 
 ## Implementation Status
 
@@ -36,6 +28,20 @@ The resubscription logic is implemented in `rhivos/locking-service/src/main.rs`:
   loop continues processing commands.
 - If all 3 attempts fail, the service exits with a non-zero exit code.
 
+## Test Coverage
+
+`TestSubscriptionStreamInterrupted` (TS-03-E2) verifies:
+
+1. The service reaches "locking-service ready" state against a mock v1 broker.
+2. When the mock terminates the subscribe stream, the service logs "Resubscribing".
+3. The service issues a second Subscribe RPC call (resubscription).
+4. The service logs "Resubscribed" confirming successful resubscription.
+5. The service remains running after resubscription (does not exit).
+
+The mock broker (`mockV1Broker` in `tests/locking-service/helpers_test.go`) implements
+the kuksa.val.v1.VALService gRPC interface using pre-generated Go protobuf code
+in `tests/locking-service/pb/kuksa/`.
+
 ## Spec Underdefinition
 
 03-REQ-1.E2 states the service SHALL attempt to resubscribe "up to a maximum number
@@ -43,20 +49,3 @@ of attempts" without specifying the actual maximum. The implementation uses 3 at
 (distinct from the connection retry count of 5 in `GrpcBrokerClient::connect`). This
 number is documented in the code constants `MAX_RESUBSCRIBE_ATTEMPTS` and
 `RESUBSCRIBE_DELAYS_MS` but is not defined by the requirements.
-
-## Affected Test Spec Entry
-
-| Entry | Expected Assertion |
-|-------|--------------------|
-| TS-03-E2 | `logs_contain("Resubscribing")` after DATA_BROKER restart |
-
-## Resolution
-
-To close this gap, one of the following would be needed:
-
-1. **Upgrade locking-service to kuksa.val.v2** (prerequisite for any live integration
-   test): See resolution options in `docs/errata/03_locking_service_proto_compat.md`.
-
-2. **Add a mock DATA_BROKER for stream interruption testing**: A lightweight gRPC
-   server in the integration test module that sends a stream termination, which
-   would allow verifying the resubscription path without a real DATA_BROKER.

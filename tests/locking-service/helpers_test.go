@@ -12,6 +12,7 @@ package lockingservice
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -21,6 +22,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	kuksapb "github.com/rhadp/parking-fee-service/tests/locking-service/pb/kuksa"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -225,4 +229,134 @@ func pollSignalForContent(t *testing.T, signalPath, substr string, timeout time.
 		time.Sleep(100 * time.Millisecond)
 	}
 	return lastOut, false
+}
+
+// ── Mock kuksa.val.v1 gRPC server ──────────────────────────────────────────────
+
+// mockV1Broker implements the kuksa.val.v1.VALService gRPC service for testing
+// stream interruption and resubscription (TS-03-E2).
+//
+// It provides:
+//   - Set: accepts all calls silently (allows initial state publish).
+//   - Get: returns empty responses (safe defaults for speed/door signals).
+//   - Subscribe: sends an initial empty response, then waits for terminateCh.
+//     On the first call, returns (ending stream) when terminateCh is closed.
+//     On subsequent calls, keeps the stream open until the client disconnects.
+type mockV1Broker struct {
+	kuksapb.UnimplementedVALServiceServer
+
+	mu             sync.Mutex
+	subscribeCalls int
+	// terminateCh is closed to signal the first Subscribe stream to end.
+	terminateCh chan struct{}
+	// subConnectedCh is closed when the first Subscribe call arrives.
+	subConnectedCh chan struct{}
+	subOnce        sync.Once
+	// resubConnectedCh is closed when the second Subscribe call arrives.
+	resubConnectedCh chan struct{}
+	resubOnce        sync.Once
+}
+
+// newMockV1Broker creates a new mock kuksa.val.v1 gRPC server listening on a
+// random port. Returns the broker and its listen address. The server is stopped
+// when the test ends.
+func newMockV1Broker(t *testing.T) (*mockV1Broker, string) {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for mock v1 broker: %v", err)
+	}
+
+	broker := &mockV1Broker{
+		terminateCh:      make(chan struct{}),
+		subConnectedCh:   make(chan struct{}),
+		resubConnectedCh: make(chan struct{}),
+	}
+
+	srv := grpc.NewServer()
+	kuksapb.RegisterVALServiceServer(srv, broker)
+
+	go srv.Serve(lis) //nolint:errcheck
+	t.Cleanup(func() { srv.Stop() })
+
+	return broker, lis.Addr().String()
+}
+
+// Set accepts all write calls (needed for initial state publish of IsLocked=false).
+func (b *mockV1Broker) Set(_ context.Context, _ *kuksapb.SetRequest) (*kuksapb.SetResponse, error) {
+	return &kuksapb.SetResponse{}, nil
+}
+
+// Get returns empty entries so unset signals fall through to safe defaults.
+func (b *mockV1Broker) Get(_ context.Context, _ *kuksapb.GetRequest) (*kuksapb.GetResponse, error) {
+	return &kuksapb.GetResponse{}, nil
+}
+
+// Subscribe sends an empty initial response (unblocks tonic client streaming),
+// then waits. On the first call, it returns when terminateCh is closed (simulating
+// stream interruption). On subsequent calls, it keeps the stream open until the
+// client disconnects.
+func (b *mockV1Broker) Subscribe(_ *kuksapb.SubscribeRequest, stream kuksapb.VALService_SubscribeServer) error {
+	b.mu.Lock()
+	b.subscribeCalls++
+	callNum := b.subscribeCalls
+	b.mu.Unlock()
+
+	// Signal that a subscription has been established.
+	if callNum == 1 {
+		b.subOnce.Do(func() { close(b.subConnectedCh) })
+	} else {
+		b.resubOnce.Do(func() { close(b.resubConnectedCh) })
+	}
+
+	// Send an empty initial response to unblock the tonic client.
+	if err := stream.Send(&kuksapb.SubscribeResponse{}); err != nil {
+		return err
+	}
+
+	if callNum == 1 {
+		// First subscription: wait for termination signal, then end the stream.
+		select {
+		case <-b.terminateCh:
+			return nil // Ends the stream, simulating interruption.
+		case <-stream.Context().Done():
+			return nil
+		}
+	}
+
+	// Subsequent subscriptions: keep the stream open until client disconnects.
+	<-stream.Context().Done()
+	return nil
+}
+
+// TerminateStream closes terminateCh, causing the first Subscribe stream to end.
+func (b *mockV1Broker) TerminateStream() {
+	close(b.terminateCh)
+}
+
+// WaitForSubscription blocks until the first Subscribe call arrives or timeout.
+func (b *mockV1Broker) WaitForSubscription(timeout time.Duration) bool {
+	select {
+	case <-b.subConnectedCh:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+// WaitForResubscription blocks until the second Subscribe call arrives or timeout.
+func (b *mockV1Broker) WaitForResubscription(timeout time.Duration) bool {
+	select {
+	case <-b.resubConnectedCh:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+// SubscribeCallCount returns the number of Subscribe calls received.
+func (b *mockV1Broker) SubscribeCallCount() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.subscribeCalls
 }

@@ -9,9 +9,11 @@
 // Tests that always run (no infrastructure required):
 //   - TestConnectionRetryFailure (TS-03-E1)
 //   - TestStartupLogging (03-REQ-6.2)
+//   - TestSubscriptionStreamInterrupted (TS-03-E2) — uses mock v1 broker
 package lockingservice
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -314,5 +316,76 @@ func TestGracefulShutdown(t *testing.T) {
 		// exit code 0 confirmed — test passes.
 	case <-time.After(10 * time.Second):
 		t.Fatal("locking-service did not exit within 10s after SIGTERM")
+	}
+}
+
+// --- TS-03-E2: Subscription Stream Interrupted ---
+
+// TestSubscriptionStreamInterrupted verifies that the locking-service attempts
+// to resubscribe when the subscription stream is interrupted. Uses a mock
+// kuksa.val.v1 gRPC server to simulate stream termination without requiring
+// a live DATA_BROKER container.
+//
+// Test Spec: TS-03-E2
+// Requirements: 03-REQ-1.E2
+func TestSubscriptionStreamInterrupted(t *testing.T) {
+	binPath := buildLockingServiceBinary(t)
+
+	// Start a mock kuksa.val.v1 broker that we control.
+	mockBroker, mockAddr := newMockV1Broker(t)
+	dataBrokerAddr := fmt.Sprintf("http://%s", mockAddr)
+
+	// Start the locking-service pointing at our mock broker.
+	proc := startLockingService(t, binPath, dataBrokerAddr)
+
+	// Wait for the service to reach ready state (subscribe to command signal).
+	if !waitForLog(proc, "locking-service ready", 15*time.Second) {
+		t.Fatalf("service did not reach ready state within 15s\nprocess output:\n%s",
+			proc.output.String())
+	}
+
+	// Verify the mock received the first Subscribe call.
+	if !mockBroker.WaitForSubscription(5 * time.Second) {
+		t.Fatal("mock broker did not receive initial Subscribe call within 5s")
+	}
+
+	// Terminate the first subscribe stream (simulates DATA_BROKER restart / stream interruption).
+	mockBroker.TerminateStream()
+
+	// Wait for the service to log a resubscription warning.
+	// The resubscribe function uses 1s delay before the first attempt, so allow
+	// extra time for the warning log to appear.
+	if !waitForLog(proc, "Resubscribing", 10*time.Second) {
+		t.Fatalf("service did not log resubscription warning after stream interruption\nprocess output:\n%s",
+			proc.output.String())
+	}
+
+	// Verify the mock received a second Subscribe call (the resubscription).
+	if !mockBroker.WaitForResubscription(10 * time.Second) {
+		t.Fatalf("mock broker did not receive resubscription Subscribe call\nprocess output:\n%s",
+			proc.output.String())
+	}
+
+	// Verify the service logged successful resubscription.
+	if !waitForLog(proc, "Resubscribed", 5*time.Second) {
+		t.Fatalf("service did not log successful resubscription\nprocess output:\n%s",
+			proc.output.String())
+	}
+
+	// Verify at least 2 Subscribe calls were made (initial + resubscribe).
+	callCount := mockBroker.SubscribeCallCount()
+	if callCount < 2 {
+		t.Errorf("expected at least 2 Subscribe calls (initial + resubscribe), got %d", callCount)
+	}
+
+	// Verify the service is still running (did not exit after resubscription).
+	output := proc.output.String()
+	if strings.Contains(output, "Resubscription exhausted") {
+		t.Error("service reported resubscription exhausted — expected successful resubscription")
+	}
+
+	// Send SIGTERM for clean shutdown.
+	if proc.cmd.Process != nil {
+		_ = proc.cmd.Process.Signal(syscall.SIGTERM)
 	}
 }
