@@ -358,13 +358,63 @@ mod tests {
         );
     }
 
+    // TS-07-12: RemoveAdapter happy path — stop RUNNING, rm, rmi, verify removed
+    #[tokio::test]
+    async fn test_remove_adapter_happy_path() {
+        let (sm, podman, svc) = make_service();
+        podman.set_pull_result(Ok(()));
+        podman.set_inspect_result(Ok(CHECKSUM_A.to_string()));
+        podman.set_run_result(Ok(()));
+
+        // Install adapter A to RUNNING
+        svc.install_adapter(IMAGE_REF_A, CHECKSUM_A).await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert_eq!(
+            sm.get_adapter(ADAPTER_ID_A).unwrap().state,
+            AdapterState::Running,
+            "adapter A should be RUNNING before removal"
+        );
+
+        // Remove adapter A (happy path)
+        svc.remove_adapter(ADAPTER_ID_A).await.unwrap();
+
+        // Verify all podman calls were made: stop, rm, rmi
+        assert!(
+            podman.stop_calls().contains(&ADAPTER_ID_A.to_string()),
+            "podman stop should be called for a RUNNING adapter"
+        );
+        assert!(
+            podman.rm_calls().contains(&ADAPTER_ID_A.to_string()),
+            "podman rm should be called"
+        );
+        assert!(
+            podman.rmi_calls().contains(&IMAGE_REF_A.to_string()),
+            "podman rmi should be called with image_ref"
+        );
+
+        // Verify adapter is removed from state
+        assert!(
+            sm.get_adapter(ADAPTER_ID_A).is_none(),
+            "adapter should be removed from state after RemoveAdapter"
+        );
+    }
+
     // TS-07-E8 (service layer): get_adapter_status for unknown ID returns NotFound
     #[test]
     fn test_get_unknown_adapter_service() {
         let (_sm, _podman, svc) = make_service();
         let result = svc.get_adapter_status("nonexistent-adapter");
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ServiceError::NotFound(_)));
+        let err = result.unwrap_err();
+        match &err {
+            ServiceError::NotFound(msg) => {
+                assert!(
+                    msg.contains("adapter not found"),
+                    "expected message to contain 'adapter not found', got: '{msg}'"
+                );
+            }
+            other => panic!("expected NotFound, got: {other:?}"),
+        }
     }
 
     // TS-07-E10 (service layer): remove_adapter for unknown ID returns NotFound
@@ -373,7 +423,16 @@ mod tests {
         let (_sm, _podman, svc) = make_service();
         let result = svc.remove_adapter("nonexistent-adapter").await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ServiceError::NotFound(_)));
+        let err = result.unwrap_err();
+        match &err {
+            ServiceError::NotFound(msg) => {
+                assert!(
+                    msg.contains("adapter not found"),
+                    "expected message to contain 'adapter not found', got: '{msg}'"
+                );
+            }
+            other => panic!("expected NotFound, got: {other:?}"),
+        }
     }
 
     // TS-07-P2: Single adapter invariant property test

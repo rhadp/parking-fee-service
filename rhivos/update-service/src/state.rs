@@ -58,10 +58,22 @@ impl StateManager {
     }
 
     pub fn create_adapter(&self, entry: AdapterEntry) {
-        self.adapters
-            .lock()
-            .unwrap()
-            .insert(entry.adapter_id.clone(), entry);
+        let mut adapters = self.adapters.lock().unwrap();
+        // If an entry already exists with a non-Unknown state, emit an event
+        // so WatchAdapterStates subscribers see the implicit reset transition.
+        // This prevents silent state corruption per 07-REQ-8.1.
+        if let Some(old_entry) = adapters.get(&entry.adapter_id) {
+            if old_entry.state != AdapterState::Unknown {
+                let event = AdapterStateEvent {
+                    adapter_id: entry.adapter_id.clone(),
+                    old_state: old_entry.state.clone(),
+                    new_state: AdapterState::Unknown,
+                    timestamp: now_unix_secs(),
+                };
+                let _ = self.broadcaster.send(event);
+            }
+        }
+        adapters.insert(entry.adapter_id.clone(), entry);
     }
 
     pub fn transition(
@@ -187,14 +199,22 @@ mod tests {
         }
     }
 
-    // TS-07-11: Create adapter and retrieve its state
+    // TS-07-11: Create adapter, transition to RUNNING, and retrieve its state
     #[test]
     fn test_create_and_get_adapter() {
         let (sm, _rx) = make_state_mgr();
         sm.create_adapter(make_entry("my-adapter-v1", "registry/my-adapter:v1"));
+        // Transition through the state machine to RUNNING (spec precondition).
+        sm.transition("my-adapter-v1", AdapterState::Downloading, None)
+            .unwrap();
+        sm.transition("my-adapter-v1", AdapterState::Installing, None)
+            .unwrap();
+        sm.transition("my-adapter-v1", AdapterState::Running, None)
+            .unwrap();
         let entry = sm.get_adapter("my-adapter-v1").expect("should find adapter");
         assert_eq!(entry.adapter_id, "my-adapter-v1");
-        assert_eq!(entry.state, AdapterState::Unknown);
+        assert_eq!(entry.state, AdapterState::Running);
+        assert_eq!(entry.image_ref, "registry/my-adapter:v1");
     }
 
     // TS-07-E9: ListAdapters returns empty when none installed
@@ -204,17 +224,43 @@ mod tests {
         assert!(sm.list_adapters().is_empty());
     }
 
-    // TS-07-10: ListAdapters returns all adapters
+    // TS-07-10: ListAdapters returns all adapters with state diversity
+    // Spec precondition: one RUNNING, one STOPPED.
     #[test]
     fn test_list_adapters_multiple() {
         let (sm, _rx) = make_state_mgr();
+
+        // Adapter A → RUNNING
         sm.create_adapter(make_entry("adapter-a-v1", "reg/adapter-a:v1"));
+        sm.transition("adapter-a-v1", AdapterState::Downloading, None)
+            .unwrap();
+        sm.transition("adapter-a-v1", AdapterState::Installing, None)
+            .unwrap();
+        sm.transition("adapter-a-v1", AdapterState::Running, None)
+            .unwrap();
+
+        // Adapter B → STOPPED (via Running → Stopped)
         sm.create_adapter(make_entry("adapter-b-v1", "reg/adapter-b:v1"));
+        sm.transition("adapter-b-v1", AdapterState::Downloading, None)
+            .unwrap();
+        sm.transition("adapter-b-v1", AdapterState::Installing, None)
+            .unwrap();
+        sm.transition("adapter-b-v1", AdapterState::Running, None)
+            .unwrap();
+        sm.transition("adapter-b-v1", AdapterState::Stopped, None)
+            .unwrap();
+
         let list = sm.list_adapters();
         assert_eq!(list.len(), 2);
         let mut ids: Vec<_> = list.iter().map(|a| a.adapter_id.clone()).collect();
         ids.sort();
         assert_eq!(ids, vec!["adapter-a-v1", "adapter-b-v1"]);
+
+        // Verify state diversity
+        let a = sm.get_adapter("adapter-a-v1").unwrap();
+        assert_eq!(a.state, AdapterState::Running);
+        let b = sm.get_adapter("adapter-b-v1").unwrap();
+        assert_eq!(b.state, AdapterState::Stopped);
     }
 
     // TS-07-E8: GetAdapterStatus unknown ID returns None
@@ -242,17 +288,52 @@ mod tests {
     }
 
     // TS-07-8: State transition emits events to subscribers
+    // Spec requires verifying a sequence of at least 3 events:
+    // UNKNOWN→DOWNLOADING, DOWNLOADING→INSTALLING, INSTALLING→RUNNING
+    // with correct adapter_id, old_state, new_state, and timestamp.
     #[tokio::test]
     async fn test_state_transition_emits_event() {
         let (sm, mut rx) = make_state_mgr();
         sm.create_adapter(make_entry("my-adapter-v1", "registry/my-adapter:v1"));
+
+        // Drive through the full happy-path lifecycle.
         sm.transition("my-adapter-v1", AdapterState::Downloading, None)
             .unwrap();
-        let event = rx.try_recv().expect("should have received event");
-        assert_eq!(event.adapter_id, "my-adapter-v1");
-        assert_eq!(event.old_state, AdapterState::Unknown);
-        assert_eq!(event.new_state, AdapterState::Downloading);
-        assert!(event.timestamp > 0);
+        sm.transition("my-adapter-v1", AdapterState::Installing, None)
+            .unwrap();
+        sm.transition("my-adapter-v1", AdapterState::Running, None)
+            .unwrap();
+
+        // Collect all emitted events.
+        let mut events = Vec::new();
+        while let Ok(event) = rx.try_recv() {
+            events.push(event);
+        }
+
+        // Must have received at least 3 events.
+        assert!(
+            events.len() >= 3,
+            "expected >= 3 events, got {}",
+            events.len()
+        );
+
+        // Event 0: UNKNOWN → DOWNLOADING
+        assert_eq!(events[0].adapter_id, "my-adapter-v1");
+        assert_eq!(events[0].old_state, AdapterState::Unknown);
+        assert_eq!(events[0].new_state, AdapterState::Downloading);
+        assert!(events[0].timestamp > 0);
+
+        // Event 1: DOWNLOADING → INSTALLING
+        assert_eq!(events[1].adapter_id, "my-adapter-v1");
+        assert_eq!(events[1].old_state, AdapterState::Downloading);
+        assert_eq!(events[1].new_state, AdapterState::Installing);
+        assert!(events[1].timestamp > 0);
+
+        // Event 2: INSTALLING → RUNNING
+        assert_eq!(events[2].adapter_id, "my-adapter-v1");
+        assert_eq!(events[2].old_state, AdapterState::Installing);
+        assert_eq!(events[2].new_state, AdapterState::Running);
+        assert!(events[2].timestamp > 0);
     }
 
     // TS-07-9: No historical replay for new subscribers

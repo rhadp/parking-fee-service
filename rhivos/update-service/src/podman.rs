@@ -408,7 +408,16 @@ mod tests {
         podman.set_pull_result(Ok(()));
         podman.set_inspect_result(Ok(CHECKSUM.to_string()));
         let resp = svc.install_adapter(IMAGE_REF, CHECKSUM).await.unwrap();
-        assert!(!resp.job_id.is_empty());
+        // Verify job_id matches UUID v4 format (spec: "matching UUID v4 format")
+        assert!(!resp.job_id.is_empty(), "job_id must be non-empty");
+        let uuid_v4_regex =
+            regex::Regex::new(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+                .unwrap();
+        assert!(
+            uuid_v4_regex.is_match(&resp.job_id),
+            "job_id '{}' does not match UUID v4 format",
+            resp.job_id
+        );
         assert_eq!(resp.adapter_id, ADAPTER_ID);
         assert_eq!(resp.state, crate::adapter::AdapterState::Downloading);
     }
@@ -470,22 +479,40 @@ mod tests {
         assert_eq!(adapter.state, crate::adapter::AdapterState::Running);
     }
 
-    // TS-07-E1: Empty image_ref returns InvalidArgument
+    // TS-07-E1: Empty image_ref returns InvalidArgument with message
     #[tokio::test]
     async fn test_install_empty_image_ref() {
         let (_sm, _podman, svc) = make_service();
         let result = svc.install_adapter("", CHECKSUM).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ServiceError::InvalidArgument(_)));
+        let err = result.unwrap_err();
+        match &err {
+            ServiceError::InvalidArgument(msg) => {
+                assert!(
+                    msg.contains("image_ref is required"),
+                    "expected message to contain 'image_ref is required', got: '{msg}'"
+                );
+            }
+            other => panic!("expected InvalidArgument, got: {other:?}"),
+        }
     }
 
-    // TS-07-E2: Empty checksum returns InvalidArgument
+    // TS-07-E2: Empty checksum returns InvalidArgument with message
     #[tokio::test]
     async fn test_install_empty_checksum() {
         let (_sm, _podman, svc) = make_service();
         let result = svc.install_adapter(IMAGE_REF, "").await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ServiceError::InvalidArgument(_)));
+        let err = result.unwrap_err();
+        match &err {
+            ServiceError::InvalidArgument(msg) => {
+                assert!(
+                    msg.contains("checksum_sha256 is required"),
+                    "expected message to contain 'checksum_sha256 is required', got: '{msg}'"
+                );
+            }
+            other => panic!("expected InvalidArgument, got: {other:?}"),
+        }
     }
 
     // TS-07-E3: Pull failure transitions adapter to ERROR

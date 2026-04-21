@@ -87,9 +87,11 @@ mod tests {
     }
 
     // TS-07-13: STOPPED adapter is offloaded after timeout
+    // Verifies: transition to OFFLOADING, rm + rmi called, adapter removed,
+    // and STOPPED→OFFLOADING event delivered to subscribers (REQ-6.4).
     #[tokio::test]
     async fn test_offload_after_timeout() {
-        let (sm, _rx) = make_state_mgr();
+        let (sm, mut rx) = make_state_mgr();
         let podman = Arc::new(MockPodmanExecutor::new());
         let adapter_id = "adapter-a-v1";
         let image_ref = "registry.example.com/adapter-a:v1";
@@ -113,6 +115,21 @@ mod tests {
         assert!(
             podman.rmi_calls().contains(&image_ref.to_string()),
             "podman rmi should be called"
+        );
+
+        // Verify STOPPED→OFFLOADING event was emitted (REQ-6.4)
+        let mut found_offloading_event = false;
+        while let Ok(event) = rx.try_recv() {
+            if event.adapter_id == adapter_id
+                && event.old_state == AdapterState::Stopped
+                && event.new_state == AdapterState::Offloading
+            {
+                found_offloading_event = true;
+            }
+        }
+        assert!(
+            found_offloading_event,
+            "STOPPED→OFFLOADING event should be delivered to subscribers"
         );
     }
 
