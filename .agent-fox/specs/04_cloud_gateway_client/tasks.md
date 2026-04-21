@@ -6,14 +6,14 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit tests for `config` module _Test Spec:_ TS-04-1, TS-04-2, TS-04-E1 _Requirements:_ [04-REQ-1.1], [04-REQ-1.2], [04-REQ-1.3], [04-REQ-1.4], [04-REQ-1.E1]
-  - [ ] 1.2 Create unit tests for `command_validator` bearer token validation _Test Spec:_ TS-04-3, TS-04-E2, TS-04-E3, TS-04-E4 _Requirements:_ [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
-  - [ ] 1.3 Create unit tests for `command_validator` payload validation _Test Spec:_ TS-04-4, TS-04-5, TS-04-E5, TS-04-E6, TS-04-E7, TS-04-E8, TS-04-E9, TS-04-E10, TS-04-6 _Requirements:_ [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.4], [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
-  - [ ] 1.4 Create unit tests for `telemetry` state aggregation _Test Spec:_ TS-04-7, TS-04-8, TS-04-9 _Requirements:_ [04-REQ-8.1], [04-REQ-8.2], [04-REQ-8.3]
-  - [ ] 1.5 Create unit test for registration message format _Test Spec:_ TS-04-P1 _Requirements:_ [04-REQ-4.1]
-  - [ ] 1.6 Create property tests for command validation, passthrough, response relay, telemetry, and startup _Test Spec:_ TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5, TS-04-P6 _Requirements:_ [04-REQ-6.1], [04-REQ-6.3], [04-REQ-7.1], [04-REQ-8.1], [04-REQ-9.1]
-  - [ ] 1.V Verify task group 1: `cargo test -p cloud-gateway-client` compiles and all tests fail (not compile errors, but assertion failures)
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit tests for `config` module _Test Spec:_ TS-04-1, TS-04-2, TS-04-E1 _Requirements:_ [04-REQ-1.1], [04-REQ-1.2], [04-REQ-1.3], [04-REQ-1.4], [04-REQ-1.E1]
+  - [x] 1.2 Create unit tests for `command_validator` bearer token validation _Test Spec:_ TS-04-3, TS-04-E2, TS-04-E3, TS-04-E4 _Requirements:_ [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
+  - [x] 1.3 Create unit tests for `command_validator` payload validation _Test Spec:_ TS-04-4, TS-04-5, TS-04-E5, TS-04-E6, TS-04-E7, TS-04-E8, TS-04-E9, TS-04-E10, TS-04-6 _Requirements:_ [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.4], [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
+  - [x] 1.4 Create unit tests for `telemetry` state aggregation _Test Spec:_ TS-04-7, TS-04-8, TS-04-9 _Requirements:_ [04-REQ-8.1], [04-REQ-8.2], [04-REQ-8.3]
+  - [x] 1.5 Create unit test for registration message format _Test Spec:_ TS-04-P1 _Requirements:_ [04-REQ-4.1]
+  - [x] 1.6 Create property tests for command validation, passthrough, response relay, telemetry, and startup _Test Spec:_ TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5, TS-04-P6 _Requirements:_ [04-REQ-6.1], [04-REQ-6.3], [04-REQ-7.1], [04-REQ-8.1], [04-REQ-9.1]
+  - [x] 1.V Verify task group 1: `cargo test -p cloud-gateway-client` compiles and all tests fail (not compile errors, but assertion failures)
 - [ ] 2. Implement config and data models
   - [ ] 2.1 Implement `Config` struct and `Config::from_env()` in `src/config.rs` _Requirements:_ [04-REQ-1.1], [04-REQ-1.2], [04-REQ-1.3], [04-REQ-1.4], [04-REQ-1.E1]
   - [ ] 2.2 Implement data model structs (`CommandPayload`, `CommandResponse`, `TelemetryMessage`, `RegistrationMessage`, `SignalUpdate`) in `src/models.rs` _Requirements:_ [04-REQ-6.1], [04-REQ-8.2], [04-REQ-4.1]
