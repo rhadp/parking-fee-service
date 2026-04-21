@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/auth"
+	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/config"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/handler"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/model"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/store"
@@ -39,12 +41,24 @@ func buildMux(nc handler.NATSPublisher, s *store.Store) *http.ServeMux {
 	return mux
 }
 
+// buildMuxWithAuth creates a ServeMux with auth middleware applied for integration-style tests.
+func buildMuxWithAuth(nc handler.NATSPublisher, s *store.Store, cfg *config.Config) *http.ServeMux {
+	mux := http.NewServeMux()
+	mw := auth.Middleware(cfg)
+	mux.Handle("POST /vehicles/{vin}/commands", mw(handler.NewSubmitCommandHandler(nc, s, 30*time.Second)))
+	mux.Handle("GET /vehicles/{vin}/commands/{command_id}", mw(handler.NewGetCommandStatusHandler(s)))
+	mux.Handle("GET /health", handler.HealthHandler())
+	return mux
+}
+
 // contextWithToken returns a handler that injects the auth token into the context before the real handler.
 // Since auth is bypassed in these tests, we simulate the token being available via a custom header.
 // Handlers may look for "X-Auth-Token" from context or r.Header.
 // For simplicity, handler tests bypass auth entirely.
 
 // TestCommandSubmissionSuccess verifies POST /vehicles/{vin}/commands returns 202 (TS-06-1).
+// Also verifies that the command was published to the mock NATS client with the correct VIN
+// and command payload (per review finding about nc.published not being asserted).
 func TestCommandSubmissionSuccess(t *testing.T) {
 	nc := &mockNATSPublisher{}
 	s := store.NewStore()
@@ -53,7 +67,6 @@ func TestCommandSubmissionSuccess(t *testing.T) {
 	body := `{"command_id":"cmd-001","type":"lock","doors":["driver"]}`
 	req := httptest.NewRequest("POST", "/vehicles/VIN12345/commands", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Auth-Token", "demo-token-001")
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -69,6 +82,21 @@ func TestCommandSubmissionSuccess(t *testing.T) {
 	}
 	if resp.Type != "lock" {
 		t.Errorf("type: got %q, want %q", resp.Type, "lock")
+	}
+
+	// Verify the command was published to the mock NATS client.
+	if len(nc.published) != 1 {
+		t.Fatalf("expected 1 published message, got %d", len(nc.published))
+	}
+	pub := nc.published[0]
+	if pub.VIN != "VIN12345" {
+		t.Errorf("published VIN: got %q, want %q", pub.VIN, "VIN12345")
+	}
+	if pub.Cmd.CommandID != "cmd-001" {
+		t.Errorf("published command_id: got %q, want %q", pub.Cmd.CommandID, "cmd-001")
+	}
+	if pub.Cmd.Type != "lock" {
+		t.Errorf("published type: got %q, want %q", pub.Cmd.Type, "lock")
 	}
 }
 
@@ -230,38 +258,56 @@ func TestCommandNotFound(t *testing.T) {
 }
 
 // TestErrorResponseFormat verifies error responses use {"error":"..."} format (TS-06-E9).
+// Per TS-06-E9 preconditions, this tests 401 (no auth) and 403 (valid token, wrong VIN)
+// scenarios with auth middleware wired in.
 func TestErrorResponseFormat(t *testing.T) {
+	cfg := &config.Config{
+		Tokens: []config.TokenMapping{
+			{Token: "demo-token-001", VIN: "VIN12345"},
+		},
+	}
 	nc := &mockNATSPublisher{}
 	s := store.NewStore()
-	mux := buildMux(nc, s)
+	mux := buildMuxWithAuth(nc, s, cfg)
 
-	endpoints := []struct {
-		method string
-		path   string
-		body   string
+	cases := []struct {
+		name       string
+		method     string
+		path       string
+		authHeader string
+		wantStatus int
 	}{
-		{"POST", "/vehicles/VIN12345/commands", `{}`},                 // 400
-		{"GET", "/vehicles/VIN12345/commands/nonexistent-id-xyz", ""}, // 404
+		{
+			name:       "401 no auth",
+			method:     "POST",
+			path:       "/vehicles/VIN12345/commands",
+			authHeader: "",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "403 wrong VIN",
+			method:     "POST",
+			path:       "/vehicles/VIN99999/commands",
+			authHeader: "Bearer demo-token-001",
+			wantStatus: http.StatusForbidden,
+		},
 	}
-	for _, ep := range endpoints {
-		var reqBody *bytes.Buffer
-		if ep.body != "" {
-			reqBody = bytes.NewBufferString(ep.body)
-		} else {
-			reqBody = &bytes.Buffer{}
-		}
-		req := httptest.NewRequest(ep.method, ep.path, reqBody)
-		if ep.body != "" {
-			req.Header.Set("Content-Type", "application/json")
+	for _, tc := range cases {
+		req := httptest.NewRequest(tc.method, tc.path, &bytes.Buffer{})
+		if tc.authHeader != "" {
+			req.Header.Set("Authorization", tc.authHeader)
 		}
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
+		if rec.Code != tc.wantStatus {
+			t.Errorf("ErrorResponseFormat [%s]: got status %d, want %d", tc.name, rec.Code, tc.wantStatus)
+		}
 		var resp map[string]string
 		if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-			t.Fatalf("failed to decode error body [%s %s]: %v", ep.method, ep.path, err)
+			t.Fatalf("ErrorResponseFormat [%s]: failed to decode error body: %v", tc.name, err)
 		}
 		if resp["error"] == "" {
-			t.Errorf("ErrorResponseFormat [%s %s]: body.error is empty", ep.method, ep.path)
+			t.Errorf("ErrorResponseFormat [%s]: body.error is empty", tc.name)
 		}
 	}
 }
