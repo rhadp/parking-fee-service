@@ -110,7 +110,11 @@ func TestPropertyWriteReadRoundtrip(t *testing.T) {
 
 // TestPropertyWriteReadRoundtripUDS verifies write-read idempotency via the UDS transport.
 // This complements TestPropertyWriteReadRoundtrip (TCP) by exercising the UDS-write/UDS-read
-// path for each signal type.
+// path for each signal type with multiple values per type, matching the TS-02-P2 pseudocode:
+//
+//	BOOL: [true, false], FLOAT: [0.0, 50.0, 999.9],
+//	DOUBLE: [48.1351, -122.4194], STRING: ['{"command_id":"x"}', '{}']
+//
 // Test Spec: TS-02-P2
 // Requirements: 02-REQ-9.1
 func TestPropertyWriteReadRoundtripUDS(t *testing.T) {
@@ -125,18 +129,32 @@ func TestPropertyWriteReadRoundtripUDS(t *testing.T) {
 	}
 
 	cases := []testCase{
+		// BOOL signals: test both true and false
 		{signal: "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", value: `"bool_value": true`, checkIn: "true"},
+		{signal: "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked", value: `"bool_value": false`, checkIn: "false"},
+		{signal: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen", value: `"bool_value": true`, checkIn: "true"},
 		{signal: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen", value: `"bool_value": false`, checkIn: "false"},
-		{signal: "Vehicle.CurrentLocation.Latitude", value: `"double_value": 48.1351`, checkIn: "48"},
-		{signal: "Vehicle.CurrentLocation.Longitude", value: `"double_value": 11.5820`, checkIn: "11"},
-		{signal: "Vehicle.Speed", value: `"float_value": 50.0`, checkIn: "50"},
 		{signal: "Vehicle.Parking.SessionActive", value: `"bool_value": true`, checkIn: "true"},
-		{signal: "Vehicle.Command.Door.Lock", value: `"string_value": "uds-roundtrip"`, checkIn: "uds-roundtrip"},
-		{signal: "Vehicle.Command.Door.Response", value: `"string_value": "uds-resp"`, checkIn: "uds-resp"},
+		{signal: "Vehicle.Parking.SessionActive", value: `"bool_value": false`, checkIn: "false"},
+		// FLOAT signal: test 0.0, 50.0, 999.9
+		{signal: "Vehicle.Speed", value: `"float_value": 0.0`, checkIn: "0"},
+		{signal: "Vehicle.Speed", value: `"float_value": 50.0`, checkIn: "50"},
+		{signal: "Vehicle.Speed", value: `"float_value": 999.9`, checkIn: "999"},
+		// DOUBLE signals: test 48.1351 and -122.4194
+		{signal: "Vehicle.CurrentLocation.Latitude", value: `"double_value": 48.1351`, checkIn: "48"},
+		{signal: "Vehicle.CurrentLocation.Latitude", value: `"double_value": -122.4194`, checkIn: "-122"},
+		{signal: "Vehicle.CurrentLocation.Longitude", value: `"double_value": 11.5820`, checkIn: "11"},
+		{signal: "Vehicle.CurrentLocation.Longitude", value: `"double_value": -122.4194`, checkIn: "-122"},
+		// STRING signals: test JSON payloads and empty object
+		{signal: "Vehicle.Command.Door.Lock", value: `"string_value": "{\"command_id\":\"uds-x\"}"`, checkIn: "command_id"},
+		{signal: "Vehicle.Command.Door.Lock", value: `"string_value": "{}"`, checkIn: "{}"},
+		{signal: "Vehicle.Command.Door.Response", value: `"string_value": "{\"command_id\":\"uds-y\"}"`, checkIn: "command_id"},
+		{signal: "Vehicle.Command.Door.Response", value: `"string_value": "{}"`, checkIn: "{}"},
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.signal, func(t *testing.T) {
+		name := tc.signal + "/" + tc.checkIn
+		t.Run(name, func(t *testing.T) {
 			publishReq := `{"signal_id": {"path": "` + tc.signal + `"}, "value": {` + tc.value + `}}`
 			grpcurlUDS(t, sockPath, "PublishValue", publishReq)
 

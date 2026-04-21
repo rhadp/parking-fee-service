@@ -6,7 +6,6 @@ package databroker
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"os"
 	"os/exec"
@@ -76,12 +75,6 @@ func effectiveUDSSocket(t *testing.T) string {
 	return "" // unreachable
 }
 
-// skipIfUDSNotAvailable skips the test if no UDS socket file exists.
-func skipIfUDSNotAvailable(t *testing.T) {
-	t.Helper()
-	effectiveUDSSocket(t) // skips if not found
-}
-
 // grpcurlTCP runs grpcurl against the DATA_BROKER TCP endpoint and returns combined output.
 // The test fails if grpcurl exits with a non-zero status.
 func grpcurlTCP(t *testing.T, method, reqJSON string) string {
@@ -133,16 +126,6 @@ func readComposeYML(t *testing.T) string {
 		t.Fatalf("failed to read compose.yml: %v", err)
 	}
 	return string(data)
-}
-
-// parseJSONObject unmarshals a JSON object from out. Fails if it is not valid JSON.
-func parseJSONObject(t *testing.T, out string) map[string]any {
-	t.Helper()
-	var v map[string]any
-	if err := json.Unmarshal([]byte(out), &v); err != nil {
-		t.Fatalf("failed to parse JSON object: %v\noutput: %s", err, out)
-	}
-	return v
 }
 
 // skipIfPodmanMissing skips the test if podman is not available in PATH.
