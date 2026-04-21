@@ -193,6 +193,10 @@ mod tests {
         stop_response: Option<Result<StopResponse, OperatorError>>,
         start_calls: std::sync::Mutex<usize>,
         stop_calls: std::sync::Mutex<usize>,
+        /// Captured (vehicle_id, zone_id) arguments from start_session calls.
+        start_args: std::sync::Mutex<Vec<(String, String)>>,
+        /// Captured session_id arguments from stop_session calls.
+        stop_args: std::sync::Mutex<Vec<String>>,
     }
 
     impl MockOperator {
@@ -202,16 +206,28 @@ mod tests {
         fn stop_call_count(&self) -> usize {
             *self.stop_calls.lock().unwrap()
         }
+        /// Returns the (vehicle_id, zone_id) from the last start_session call.
+        fn last_start_args(&self) -> Option<(String, String)> {
+            self.start_args.lock().unwrap().last().cloned()
+        }
+        /// Returns the session_id from the last stop_session call.
+        fn last_stop_session_id(&self) -> Option<String> {
+            self.stop_args.lock().unwrap().last().cloned()
+        }
     }
 
     #[async_trait]
     impl OperatorApi for MockOperator {
         async fn start_session(
             &self,
-            _vehicle_id: &str,
-            _zone_id: &str,
+            vehicle_id: &str,
+            zone_id: &str,
         ) -> Result<StartResponse, OperatorError> {
             *self.start_calls.lock().unwrap() += 1;
+            self.start_args
+                .lock()
+                .unwrap()
+                .push((vehicle_id.to_string(), zone_id.to_string()));
             self.start_response
                 .clone()
                 .unwrap_or_else(|| Ok(make_start_response()))
@@ -219,9 +235,13 @@ mod tests {
 
         async fn stop_session(
             &self,
-            _session_id: &str,
+            session_id: &str,
         ) -> Result<StopResponse, OperatorError> {
             *self.stop_calls.lock().unwrap() += 1;
+            self.stop_args
+                .lock()
+                .unwrap()
+                .push(session_id.to_string());
             self.stop_response
                 .clone()
                 .unwrap_or_else(|| Ok(make_stop_response()))
@@ -276,6 +296,7 @@ mod tests {
         assert_eq!(resp.session_id, "sess-1");
         assert_eq!(resp.rate.rate_type, "per_hour");
         assert!((resp.rate.amount - 2.50).abs() < f64::EPSILON);
+        assert_eq!(resp.rate.currency, "EUR");
         assert!(session.is_active());
     }
 
@@ -315,6 +336,11 @@ mod tests {
         assert!(session.is_active(), "session must be active after lock");
         assert_eq!(op.start_call_count(), 1, "operator start must be called once");
         assert_eq!(
+            op.last_start_args(),
+            Some(("DEMO-VIN-001".to_string(), "zone-demo-1".to_string())),
+            "operator start must be called with correct vehicle_id and zone_id"
+        );
+        assert_eq!(
             pub_.last_call(),
             Some(true),
             "SessionActive must be set to true"
@@ -337,6 +363,11 @@ mod tests {
 
         assert!(!session.is_active(), "session must be inactive after unlock");
         assert_eq!(op.stop_call_count(), 1, "operator stop must be called once");
+        assert_eq!(
+            op.last_stop_session_id(),
+            Some("sess-1".to_string()),
+            "operator stop must be called with session_id 'sess-1'"
+        );
         assert_eq!(
             pub_.last_call(),
             Some(false),
@@ -527,6 +558,22 @@ mod tests {
         assert!(
             session.is_active(),
             "session state must be active despite publisher failure"
+        );
+
+        // Verify the service continues processing subsequent events (should not panic).
+        let _ = process_lock_event(
+            false,
+            &mut session,
+            &op,
+            &pub_,
+            "DEMO-VIN-001",
+            "zone-demo-1",
+        )
+        .await;
+
+        assert!(
+            !session.is_active(),
+            "session must be inactive after subsequent unlock event"
         );
     }
 

@@ -33,7 +33,6 @@ pub struct SessionState {
 /// In-memory session manager.
 ///
 /// Wraps an `Option<SessionState>` and provides start/stop/query operations.
-#[allow(dead_code)] // field used once implementation is complete (task group 2)
 #[derive(Debug, Default)]
 pub struct Session {
     inner: Option<SessionState>,
