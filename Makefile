@@ -28,7 +28,7 @@ lint:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --exclude mock-sensors --exclude cloud-gateway-client
+	cd rhivos && cargo test --workspace --exclude cloud-gateway-client
 
 test-go:
 	cd backend/parking-fee-service && go test ./...

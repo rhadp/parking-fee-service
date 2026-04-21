@@ -1,0 +1,70 @@
+// Minimal kuksa.val.v1 proto vendored for mock-sensors.
+// Only the Set RPC and the types it requires are included.
+// Source: https://github.com/eclipse/kuksa.val (simplified subset).
+
+syntax = "proto3";
+
+package kuksa.val.v1;
+
+// A typed sensor or actuator value.
+message Datapoint {
+  oneof value {
+    string string  = 11;
+    bool   bool    = 12;
+    int32  int32   = 13;
+    int64  int64   = 14;
+    uint32 uint32  = 15;
+    uint64 uint64  = 16;
+    float  float   = 17;
+    double double  = 18;
+  }
+}
+
+// A VSS data-tree entry: path + current value.
+message DataEntry {
+  string    path  = 1;
+  Datapoint value = 2;
+}
+
+// Fields that can be updated in an EntryUpdate.
+enum Field {
+  FIELD_UNSPECIFIED = 0;
+  FIELD_PATH        = 1;
+  FIELD_VALUE       = 2;
+}
+
+// Pairs a DataEntry with the fields that should be written.
+message EntryUpdate {
+  DataEntry      entry  = 1;
+  repeated Field fields = 2;
+}
+
+// Describes an error returned by the databroker.
+message Error {
+  uint32 code    = 1;
+  string reason  = 2;
+  string message = 3;
+}
+
+// Per-entry error detail.
+message EntryError {
+  string path  = 1;
+  Error  error = 2;
+}
+
+// Request for the Set RPC.
+message SetRequest {
+  repeated EntryUpdate updates = 1;
+}
+
+// Response from the Set RPC.
+message SetResponse {
+  Error             error  = 1;
+  repeated EntryError errors = 2;
+}
+
+// VAL service – Vehicle Abstraction Layer (kuksa.val v1).
+service VALService {
+  // Write one or more signal values into the databroker.
+  rpc Set(SetRequest) returns (SetResponse);
+}

@@ -2,7 +2,7 @@
 
 **Spec:** 01_project_setup  
 **Related Spec:** 09_mock_apps  
-**Status:** Expected — resolved by spec 09 implementation
+**Status:** Resolved — spec 09 task group 2 implemented full sensor binaries
 
 ## Summary
 
