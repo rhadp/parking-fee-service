@@ -291,19 +291,23 @@ mod tests {
     async fn test_retry_on_failure() {
         let mock_server = MockServer::start().await;
 
-        // First two requests → 500, third → 200
+        // First two requests → 500, third → 200.
+        // .expect(2) verifies exactly 2 failure responses were served.
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(500))
             .up_to_n_times(2)
+            .expect(2)
             .mount(&mock_server)
             .await;
 
+        // .expect(1) verifies exactly 1 success response was served.
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(start_response_json()),
             )
+            .expect(1)
             .mount(&mock_server)
             .await;
 
@@ -312,19 +316,22 @@ mod tests {
 
         assert!(resp.is_ok(), "expected Ok after retries succeeded");
         assert_eq!(resp.unwrap().session_id, "s1");
-        // Wiremock verifies that exactly 3 requests were received at scope drop.
+        // Wiremock verifies exact request counts (2 failures + 1 success = 3 total) at drop.
     }
 
     /// TS-08-E4: All retries exhausted → OperatorError returned.
     ///
     /// Verifies: 08-REQ-2.E1
+    /// Asserts exactly 4 HTTP requests (1 initial + 3 retries) per test spec.
     #[tokio::test]
     async fn test_retry_exhausted() {
         let mock_server = MockServer::start().await;
 
+        // .expect(4) verifies 4 total requests: 1 initial + 3 retries.
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(500))
+            .expect(4)
             .mount(&mock_server)
             .await;
 
@@ -336,6 +343,7 @@ mod tests {
             matches!(resp.unwrap_err(), OperatorError::Unavailable(_)),
             "expected OperatorError::Unavailable"
         );
+        // Wiremock verifies exactly 4 requests at drop.
     }
 
     /// TS-08-E5: Non-200 HTTP status triggers retry logic.
@@ -345,19 +353,23 @@ mod tests {
     async fn test_retry_on_non_200() {
         let mock_server = MockServer::start().await;
 
-        // Two 500s, then success
+        // Two 500s, then success.
+        // .expect(2) verifies exactly 2 non-200 responses were served.
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(500))
             .up_to_n_times(2)
+            .expect(2)
             .mount(&mock_server)
             .await;
 
+        // .expect(1) verifies exactly 1 success response was served.
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(start_response_json()),
             )
+            .expect(1)
             .mount(&mock_server)
             .await;
 
@@ -365,5 +377,6 @@ mod tests {
         let resp = client.start_session("DEMO-VIN-001", "zone-a").await;
 
         assert!(resp.is_ok(), "expected Ok after non-200 retries succeeded");
+        // Wiremock verifies exact request counts (2 failures + 1 success = 3 total) at drop.
     }
 }
