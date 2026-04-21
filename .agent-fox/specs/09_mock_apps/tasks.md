@@ -251,7 +251,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 | 09-REQ-4.E2 | TS-09-E11 | 4.2 | tests/mock-apps::TestLookupHTTPError |
 | 09-REQ-5.1 | TS-09-7 | 4.3 | tests/mock-apps::TestInstall |
 | 09-REQ-5.2 | TS-09-8 | 4.3 | tests/mock-apps::TestList |
-| 09-REQ-5.3 | — | 4.3 | manual verification |
+| 09-REQ-5.3 | — | 4.3 | tests/mock-apps::TestWatchAdapterStates |
 | 09-REQ-5.4 | TS-09-8 | 4.3 | tests/mock-apps::TestAdapterStatus |
 | 09-REQ-5.5 | TS-09-8 | 4.3 | tests/mock-apps::TestRemove |
 | 09-REQ-5.6 | TS-09-7 | 4.3 | tests/mock-apps::TestInstall |
@@ -268,7 +268,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 | 09-REQ-7.5 | TS-09-11 | 4.1 | tests/mock-apps::TestLockCommand |
 | 09-REQ-7.E1 | TS-09-E6 | 4.1 | tests/mock-apps::TestMissingVIN |
 | 09-REQ-7.E2 | TS-09-E5 | 4.1 | tests/mock-apps::TestMissingToken |
-| 09-REQ-7.E3 | TS-09-E11 | 4.1 | tests/mock-apps::TestHTTPError |
+| 09-REQ-7.E3 | TS-09-E11 | 4.1 | tests/mock-apps::TestCompanionHTTPError |
 | 09-REQ-8.1 | TS-09-17 | 3.3 | tests/mock-apps::TestGracefulShutdown |
 | 09-REQ-8.2 | TS-09-14 | 3.1, 3.2 | mock/parking-operator::TestStartSession |
 | 09-REQ-8.3 | TS-09-15 | 3.1, 3.2 | mock/parking-operator::TestStopSession |
