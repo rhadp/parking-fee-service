@@ -189,6 +189,51 @@ func TestStopSession(t *testing.T) {
 	}
 }
 
+// 09-REQ-5.3: parking-app-cli watch streams AdapterStateEvents until stream closes.
+// Verifies that each event is printed to stdout as JSON.
+func TestWatchAdapterStates(t *testing.T) {
+	mockAddr := startMockUpdateServer(t)
+	binary := parkingAppBin(t)
+
+	stdout, stderr, code := runBinary(t, binary,
+		"watch",
+		"--update-addr="+mockAddr,
+	)
+
+	if code != 0 {
+		t.Errorf("expected exit 0 when stream closes normally, got %d (stderr=%q)", code, stderr)
+	}
+
+	// The mock sends two events: DOWNLOADING→INSTALLING and INSTALLING→RUNNING
+	if !strings.Contains(stdout, "INSTALLING") {
+		t.Errorf("expected INSTALLING state in stdout, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "RUNNING") {
+		t.Errorf("expected RUNNING state in stdout, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "a1") {
+		t.Errorf("expected adapter_id a1 in stdout, got %q", stdout)
+	}
+}
+
+// 09-REQ-6.E1: parking-app-cli start-session exits 1 when PARKING_OPERATOR_ADAPTOR is unreachable.
+func TestSessionGRPCError(t *testing.T) {
+	binary := parkingAppBin(t)
+
+	_, stderr, code := runBinary(t, binary,
+		"start-session",
+		"--zone-id=zone-1",
+		"--adaptor-addr=localhost:59996", // unreachable
+	)
+
+	if code != 1 {
+		t.Errorf("expected exit 1 on gRPC error (unreachable adaptor), got %d", code)
+	}
+	if len(stderr) == 0 {
+		t.Error("expected error message in stderr on gRPC failure")
+	}
+}
+
 // TS-09-E10: parking-app-cli exits 1 and prints gRPC error when UPDATE_SERVICE is unreachable.
 func TestInstallGRPCError(t *testing.T) {
 	binary := parkingAppBin(t)

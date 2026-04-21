@@ -189,6 +189,30 @@ func (s *mockUpdateServer) RemoveAdapter(_ context.Context, req *updatepb.Remove
 	}, nil
 }
 
+func (s *mockUpdateServer) WatchAdapterStates(_ *updatepb.WatchAdapterStatesRequest, stream grpc.ServerStreamingServer[updatepb.AdapterStateEvent]) error {
+	// Send two events then close the stream.
+	events := []*updatepb.AdapterStateEvent{
+		{
+			AdapterId: "a1",
+			OldState:  updatepb.AdapterState_DOWNLOADING,
+			NewState:  updatepb.AdapterState_INSTALLING,
+			Timestamp: 1700000001,
+		},
+		{
+			AdapterId: "a1",
+			OldState:  updatepb.AdapterState_INSTALLING,
+			NewState:  updatepb.AdapterState_RUNNING,
+			Timestamp: 1700000002,
+		},
+	}
+	for _, e := range events {
+		if err := stream.Send(e); err != nil {
+			return err
+		}
+	}
+	return nil // stream closes after returning
+}
+
 // mockAdapterServer implements AdapterServiceServer for testing.
 type mockAdapterServer struct {
 	adapterpb.UnimplementedAdapterServiceServer
