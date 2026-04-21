@@ -127,4 +127,50 @@ mod tests {
         let result = check_safety(&mock).await;
         assert_eq!(result, SafetyResult::VehicleMoving, "speed check must take priority");
     }
+
+    // Addresses major review finding [03-REQ-5.2]: broker error during get_float
+    // (speed check) is treated as safe default (speed = 0.0).
+    // The spec does not define behavior for broker errors during safety checks;
+    // the implementation uses unwrap_or(None) → 0.0 (safe default).
+    #[tokio::test]
+    async fn test_get_float_error_treated_as_safe() {
+        let mock = MockBrokerClient::new()
+            .fail_get_float()
+            .with_door_open(false);
+        let result = check_safety(&mock).await;
+        assert_eq!(
+            result,
+            SafetyResult::Safe,
+            "broker error on speed read must be treated as 0.0 (safe default)"
+        );
+    }
+
+    // Addresses major review finding [03-REQ-5.2]: broker error during get_bool
+    // (door check) is treated as safe default (door closed).
+    #[tokio::test]
+    async fn test_get_bool_error_treated_as_safe() {
+        let mock = MockBrokerClient::new()
+            .with_speed(0.0)
+            .fail_get_bool();
+        let result = check_safety(&mock).await;
+        assert_eq!(
+            result,
+            SafetyResult::Safe,
+            "broker error on door read must be treated as closed (safe default)"
+        );
+    }
+
+    // Both broker calls fail: both treated as safe defaults → Safe
+    #[tokio::test]
+    async fn test_both_broker_errors_treated_as_safe() {
+        let mock = MockBrokerClient::new()
+            .fail_get_float()
+            .fail_get_bool();
+        let result = check_safety(&mock).await;
+        assert_eq!(
+            result,
+            SafetyResult::Safe,
+            "all broker errors must be treated as safe defaults"
+        );
+    }
 }

@@ -13,6 +13,8 @@ pub struct MockBrokerClient {
     set_bool_calls: RefCell<Vec<(String, bool)>>,
     set_string_calls: RefCell<Vec<(String, String)>>,
     fail_next_set_string: RefCell<bool>,
+    fail_get_float: RefCell<bool>,
+    fail_get_bool: RefCell<bool>,
 }
 
 impl MockBrokerClient {
@@ -24,6 +26,8 @@ impl MockBrokerClient {
             set_bool_calls: RefCell::new(Vec::new()),
             set_string_calls: RefCell::new(Vec::new()),
             fail_next_set_string: RefCell::new(false),
+            fail_get_float: RefCell::new(false),
+            fail_get_bool: RefCell::new(false),
         }
     }
 
@@ -57,6 +61,18 @@ impl MockBrokerClient {
         *self.fail_next_set_string.borrow_mut() = true;
     }
 
+    /// Make all `get_float` calls return an error.
+    pub fn fail_get_float(self) -> Self {
+        *self.fail_get_float.borrow_mut() = true;
+        self
+    }
+
+    /// Make all `get_bool` calls return an error.
+    pub fn fail_get_bool(self) -> Self {
+        *self.fail_get_bool.borrow_mut() = true;
+        self
+    }
+
     pub fn set_bool_calls(&self) -> Vec<(String, bool)> {
         self.set_bool_calls.borrow().clone()
     }
@@ -69,6 +85,9 @@ impl MockBrokerClient {
 #[async_trait(?Send)]
 impl BrokerClient for MockBrokerClient {
     async fn get_float(&self, signal: &str) -> Result<Option<f32>, BrokerError> {
+        if *self.fail_get_float.borrow() {
+            return Err(BrokerError::Transport("simulated get_float failure".to_string()));
+        }
         if signal == SIGNAL_SPEED {
             Ok(self.speed)
         } else {
@@ -77,6 +96,9 @@ impl BrokerClient for MockBrokerClient {
     }
 
     async fn get_bool(&self, signal: &str) -> Result<Option<bool>, BrokerError> {
+        if *self.fail_get_bool.borrow() {
+            return Err(BrokerError::Transport("simulated get_bool failure".to_string()));
+        }
         if signal == SIGNAL_IS_OPEN {
             Ok(self.door_open)
         } else if signal == SIGNAL_IS_LOCKED {
