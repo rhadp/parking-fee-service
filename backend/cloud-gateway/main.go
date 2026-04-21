@@ -23,10 +23,15 @@ const version = "0.1.0"
 
 func main() {
 	// Handle --version flag (01-REQ-4.2, 01-REQ-4.4).
+	// Reject unknown flags (01-REQ-4.E1).
 	for _, arg := range os.Args[1:] {
 		if arg == "--version" || arg == "-version" {
 			fmt.Println("cloud-gateway v0.1.0")
 			return
+		}
+		if len(arg) > 0 && arg[0] == '-' {
+			fmt.Fprintln(os.Stderr, "usage: cloud-gateway [--version]")
+			os.Exit(1)
 		}
 	}
 

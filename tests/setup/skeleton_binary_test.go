@@ -134,31 +134,69 @@ func TestMockSensorBinaryPrintsName(t *testing.T) {
 // Test Spec: TS-01-E4
 // Requirement: 01-REQ-4.E1
 func TestSkeletonUnknownFlag(t *testing.T) {
-	if _, err := exec.LookPath("cargo"); err != nil {
-		t.Skip("cargo not found on PATH — skipping unknown flag tests")
-	}
-
 	root := findRepoRoot(t)
 
+	// --- Rust binaries ---
+	if _, err := exec.LookPath("cargo"); err != nil {
+		t.Skip("cargo not found on PATH — skipping Rust unknown flag tests")
+	}
+
 	// Build workspace.
-	cmd := exec.Command("cargo", "build", "--workspace")
-	cmd.Dir = filepath.Join(root, "rhivos")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	buildCmd := exec.Command("cargo", "build", "--workspace")
+	buildCmd.Dir = filepath.Join(root, "rhivos")
+	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("cargo build failed:\n%s\n%v", out, err)
 	}
 
-	// Test mock-sensors main binary — it rejects flags starting with '-'.
-	t.Run("mock-sensors", func(t *testing.T) {
-		binPath := filepath.Join(root, "rhivos", "target", "debug", "mock-sensors")
-		cmd := exec.Command(binPath, "--invalid-flag")
-		stderr, err := cmd.CombinedOutput()
-		if err == nil {
-			t.Fatal("expected non-zero exit code for --invalid-flag, but got 0")
-		}
-		if len(stderr) == 0 {
-			t.Fatal("expected stderr output for unknown flag, but got nothing")
-		}
-	})
+	rustBinaries := []string{
+		"locking-service",
+		"cloud-gateway-client",
+		"update-service",
+		"parking-operator-adaptor",
+		"mock-sensors",
+	}
+
+	for _, bin := range rustBinaries {
+		t.Run("rust/"+bin, func(t *testing.T) {
+			binPath := filepath.Join(root, "rhivos", "target", "debug", bin)
+			cmd := exec.Command(binPath, "--invalid-flag")
+			output, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected non-zero exit code for %s --invalid-flag, but got 0", bin)
+			}
+			if len(output) == 0 {
+				t.Fatalf("expected stderr output for %s with unknown flag, but got nothing", bin)
+			}
+		})
+	}
+
+	// --- Go binaries ---
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Log("go not found on PATH — skipping Go unknown flag tests")
+		return
+	}
+
+	goModules := []string{
+		"backend/parking-fee-service",
+		"backend/cloud-gateway",
+		"mock/parking-app-cli",
+		"mock/companion-app-cli",
+		"mock/parking-operator",
+	}
+
+	for _, mod := range goModules {
+		t.Run("go/"+mod, func(t *testing.T) {
+			cmd := exec.Command("go", "run", ".", "--invalid-flag")
+			cmd.Dir = filepath.Join(root, mod)
+			output, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected non-zero exit code for %s --invalid-flag, but got 0", mod)
+			}
+			if len(output) == 0 {
+				t.Fatalf("expected stderr output for %s with unknown flag, but got nothing", mod)
+			}
+		})
+	}
 }
 
 // TestSkeletonDeterminism verifies skeleton binaries produce identical output

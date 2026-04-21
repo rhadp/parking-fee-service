@@ -81,13 +81,13 @@ async fn shutdown_signal() {
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    // Require "serve" subcommand; otherwise print usage and exit 0.
+    // Require "serve" subcommand; print version with no args, reject unknown flags.
     if args.len() < 2 || args[1] != "serve" {
         if args.iter().any(|a| a.starts_with('-') && a != "--") {
             eprintln!("usage: locking-service serve");
-            std::process::exit(0);
+            std::process::exit(1);
         }
-        println!("usage: locking-service serve");
+        println!("locking-service v0.1.0");
         std::process::exit(0);
     }
 

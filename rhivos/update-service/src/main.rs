@@ -31,9 +31,9 @@ async fn main() {
     if args.len() < 2 || args[1] != "serve" {
         if args.iter().skip(1).any(|a| a.starts_with('-')) {
             eprintln!("usage: update-service serve");
-            std::process::exit(0);
+            std::process::exit(1);
         }
-        println!("usage: update-service serve");
+        println!("update-service v0.1.0");
         std::process::exit(0);
     }
 

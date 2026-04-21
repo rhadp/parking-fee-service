@@ -20,10 +20,15 @@ const version = "0.1.0"
 
 func main() {
 	// Handle --version flag (01-REQ-4.2, 01-REQ-4.4).
+	// Reject unknown flags (01-REQ-4.E1).
 	for _, arg := range os.Args[1:] {
 		if arg == "--version" || arg == "-version" {
 			fmt.Println("parking-fee-service v0.1.0")
 			return
+		}
+		if len(arg) > 0 && arg[0] == '-' {
+			fmt.Fprintln(os.Stderr, "usage: parking-fee-service [--version]")
+			os.Exit(1)
 		}
 	}
 

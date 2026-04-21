@@ -8,7 +8,8 @@ import (
 	"time"
 )
 
-// skipIfNoPodman skips the test if podman-compose is not available.
+// skipIfNoPodman skips the test if podman-compose is not available or the
+// Podman daemon is not reachable (e.g. podman machine not started).
 func skipIfNoPodman(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("podman-compose"); err != nil {
@@ -16,6 +17,12 @@ func skipIfNoPodman(t *testing.T) {
 	}
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman not found on PATH — skipping infrastructure test")
+	}
+	// Verify the Podman daemon is actually reachable (binary exists but VM
+	// may not be started).
+	cmd := exec.Command("podman", "info", "--format", "{{.Host.Os}}")
+	if err := cmd.Run(); err != nil {
+		t.Skip("podman daemon not reachable (is the podman machine started?) — skipping infrastructure test")
 	}
 }
 

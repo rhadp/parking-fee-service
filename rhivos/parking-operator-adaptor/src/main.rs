@@ -24,6 +24,7 @@ async fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     // Require the "serve" subcommand (01-REQ-4.1).
+    // No args → print version (01-REQ-4.1); unknown flags → exit 1 (01-REQ-4.E1).
     if args.get(1).map(String::as_str) != Some("serve") {
         for arg in &args[1..] {
             if arg.starts_with('-') {
@@ -31,7 +32,7 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        println!("usage: parking-operator-adaptor serve");
+        println!("parking-operator-adaptor v0.1.0");
         return;
     }
 
