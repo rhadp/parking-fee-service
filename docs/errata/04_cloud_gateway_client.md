@@ -85,3 +85,33 @@ constitutes element-type validation.
 `CommandPayload.doors` uses `Vec<serde_json::Value>` rather than `Vec<String>`. This accepts
 any JSON value type in the doors array, fully delegating all door-value semantics to
 LOCKING_SERVICE as intended by REQ-6.4.
+
+---
+
+## E5 — TS-04-P6 Startup Determinism: property test scope
+
+**Source:** Skeptic major findings `c20df8f2`, `6118699983266a4e`  
+**Affects:** [04-REQ-9.1], [04-REQ-9.2]
+
+**Problem:**  
+Test spec TS-04-P6 defines a property test asserting that for any startup execution with a
+failure injected at step N, steps 1..N-1 complete, step N fails, and steps N+1..end do not
+execute. This property inherently requires process-level control to inject failures at each
+startup step (NATS unavailable, DATA_BROKER unreachable, subscription errors).
+
+A pure unit test cannot inject failures into real `NatsClient::connect()` or
+`BrokerClient::connect()` calls because the service uses concrete async-nats and tonic clients,
+not trait-based abstractions amenable to mock injection.
+
+**Resolution:**  
+The TS-04-P6 unit test verifies the structural invariants that make the startup gating mechanism
+work: it asserts that each startup step has a dedicated error type (`ConfigError::MissingVin`,
+`NatsError::RetriesExhausted`, `BrokerError::ConnectionFailed`, `NatsError::SubscribeFailed`,
+`BrokerError::SubscribeFailed`, `NatsError::PublishFailed`) and that these types produce
+descriptive messages that main() can match.
+
+Process-level verification of the full ordering invariant is delegated to:
+- Unit test ts_04_e1: Config step failure
+- Smoke test TS-04-SMOKE-2: Process exits with code 1 when VIN missing
+- Integration test TS-04-15: NATS retry exhaustion exits with code 1
+- Integration test TS-04-13: Registration published only after all connections + subscriptions
