@@ -34,14 +34,47 @@ pub enum StopError {
 /// On failure to publish `Vehicle.Parking.SessionActive`, the error is logged
 /// and the in-memory session state remains authoritative (08-REQ-4.E1).
 pub async fn process_lock_event(
-    _is_locked: bool,
-    _session: &mut Session,
-    _operator: &dyn OperatorApi,
-    _publisher: &dyn SessionPublisher,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    is_locked: bool,
+    session: &mut Session,
+    operator: &dyn OperatorApi,
+    publisher: &dyn SessionPublisher,
+    vehicle_id: &str,
+    zone_id: &str,
 ) -> Result<(), OperatorError> {
-    todo!("implement process_lock_event")
+    if is_locked {
+        // Lock event → start session
+        if session.is_active() {
+            tracing::info!("Lock event received but session already active (no-op)");
+            return Ok(());
+        }
+
+        let resp = operator.start_session(vehicle_id, zone_id).await?;
+        let start_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        session.start(resp.session_id, zone_id.to_string(), start_time, resp.rate);
+
+        if let Err(e) = publisher.set_session_active(true).await {
+            tracing::error!("Failed to publish SessionActive=true: {e}");
+        }
+    } else {
+        // Unlock event → stop session
+        if !session.is_active() {
+            tracing::info!("Unlock event received but no session is active (no-op)");
+            return Ok(());
+        }
+
+        let session_id = session.status().unwrap().session_id.clone();
+        operator.stop_session(&session_id).await?;
+        session.stop();
+
+        if let Err(e) = publisher.set_session_active(false).await {
+            tracing::error!("Failed to publish SessionActive=false: {e}");
+        }
+    }
+
+    Ok(())
 }
 
 /// Manually start a parking session via gRPC `StartSession` RPC.
@@ -49,13 +82,38 @@ pub async fn process_lock_event(
 /// Returns `StartError::AlreadyActive` immediately if a session is active.
 /// Otherwise calls the PARKING_OPERATOR and updates session state.
 pub async fn manual_start(
-    _zone_id: &str,
-    _session: &mut Session,
-    _operator: &dyn OperatorApi,
-    _publisher: &dyn SessionPublisher,
-    _vehicle_id: &str,
+    zone_id: &str,
+    session: &mut Session,
+    operator: &dyn OperatorApi,
+    publisher: &dyn SessionPublisher,
+    vehicle_id: &str,
 ) -> Result<StartResponse, StartError> {
-    todo!("implement manual_start")
+    if session.is_active() {
+        let existing = session.status().unwrap().session_id.clone();
+        return Err(StartError::AlreadyActive { session_id: existing });
+    }
+
+    let resp = operator
+        .start_session(vehicle_id, zone_id)
+        .await
+        .map_err(StartError::Operator)?;
+
+    let start_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    session.start(
+        resp.session_id.clone(),
+        zone_id.to_string(),
+        start_time,
+        resp.rate.clone(),
+    );
+
+    if let Err(e) = publisher.set_session_active(true).await {
+        tracing::error!("Failed to publish SessionActive=true: {e}");
+    }
+
+    Ok(resp)
 }
 
 /// Manually stop the active parking session via gRPC `StopSession` RPC.
@@ -63,11 +121,26 @@ pub async fn manual_start(
 /// Returns `StopError::NotActive` if no session is active.
 /// Otherwise calls the PARKING_OPERATOR and clears session state.
 pub async fn manual_stop(
-    _session: &mut Session,
-    _operator: &dyn OperatorApi,
-    _publisher: &dyn SessionPublisher,
+    session: &mut Session,
+    operator: &dyn OperatorApi,
+    publisher: &dyn SessionPublisher,
 ) -> Result<StopResponse, StopError> {
-    todo!("implement manual_stop")
+    if !session.is_active() {
+        return Err(StopError::NotActive);
+    }
+
+    let session_id = session.status().unwrap().session_id.clone();
+    let resp = operator
+        .stop_session(&session_id)
+        .await
+        .map_err(StopError::Operator)?;
+    session.stop();
+
+    if let Err(e) = publisher.set_session_active(false).await {
+        tracing::error!("Failed to publish SessionActive=false: {e}");
+    }
+
+    Ok(resp)
 }
 
 #[cfg(test)]
