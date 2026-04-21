@@ -10,4 +10,5 @@ use (
 	./tests/locking-service
 	./tests/mock-apps
 	./tests/setup
+	./tests/update-service
 )
