@@ -69,6 +69,7 @@ proto:
 
 # Start local infrastructure (NATS + Kuksa Databroker)
 infra-up:
+	mkdir -p /tmp/kuksa
 	podman-compose -f deployments/compose.yml up -d
 
 # Stop local infrastructure

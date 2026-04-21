@@ -14,9 +14,23 @@ services:
     ports:
       - "55556:55555"
     volumes:
-      - ./vss-overlay.json:/opt/vss-overlay.json:ro
+      - ./vss-overlay.json:/app/vss-overlay.json:ro
+      - kuksa-uds:/tmp
     command:
+      - --address
+      - 0.0.0.0
+      - --port
+      - "55555"
+      - --unix-socket
+      - /tmp/kuksa-databroker.sock
       - --vss
-      - /opt/vss-overlay.json
-      - --insecure
+      - /vss_release_4.0.json,/app/vss-overlay.json
     restart: unless-stopped
+
+volumes:
+  kuksa-uds:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/kuksa
