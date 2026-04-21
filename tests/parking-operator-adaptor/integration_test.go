@@ -17,41 +17,47 @@ import (
 // TestStartupLogging verifies that the service logs its version, config values,
 // and a "ready" message on startup.
 //
-// The test runs the adaptor with an unreachable DATA_BROKER so the process will
-// eventually exit, but the startup log appears before the first connection attempt.
+// Uses a mock DATA_BROKER so the adaptor fully starts and reaches the "ready"
+// state, allowing verification of both configuration logging and the readiness
+// message.
 //
 // Test Spec: TS-08-20
 // Requirements: 08-REQ-8.1, 08-REQ-8.2
 func TestStartupLogging(t *testing.T) {
 	binPath := buildAdaptorBinary(t)
+	broker, brokerAddr := newMockDataBroker(t)
+	op := newMockParkingOperator(t)
 
 	const testPort = "50083"
-	const operatorURL = "http://localhost:18080"
-	const brokerAddr = "http://localhost:19999"
-
 	proc := startAdaptor(t, binPath, map[string]string{
 		"GRPC_PORT":            testPort,
-		"PARKING_OPERATOR_URL": operatorURL,
-		"DATA_BROKER_ADDR":     brokerAddr,
+		"DATA_BROKER_ADDR":     "http://" + brokerAddr,
+		"PARKING_OPERATOR_URL": op.URL(),
 		"VEHICLE_ID":           "TEST-VIN-001",
 		"ZONE_ID":              "zone-test-1",
 		"RUST_LOG":             "info",
 	})
 
-	// The startup log appears before DATA_BROKER connection attempts.
-	if !waitForLog(proc, "parking-operator-adaptor", 10*time.Second) {
-		t.Fatalf("startup log not found within 10s\noutput:\n%s", proc.output.String())
+	// Wait for the adaptor to fully subscribe and reach ready state.
+	if !broker.WaitForSubscription(10 * time.Second) {
+		t.Fatalf("adaptor did not subscribe to DATA_BROKER within 10s\noutput:\n%s", proc.output.String())
+	}
+
+	// Wait for the "ready" message which appears after subscription.
+	if !waitForLog(proc, "ready", 10*time.Second) {
+		t.Fatalf("readiness log not found within 10s\noutput:\n%s", proc.output.String())
 	}
 
 	output := proc.output.String()
 
-	// Verify key config values appear in the log.
+	// Verify key config values appear in the log (08-REQ-8.1).
 	checks := []struct {
 		name   string
 		substr string
 	}{
-		{"operator URL", "18080"},
-		{"broker addr", "19999"},
+		{"service name", "parking-operator-adaptor"},
+		{"operator URL", op.URL()},
+		{"broker addr", brokerAddr},
 		{"grpc port", testPort},
 		{"vehicle_id", "TEST-VIN-001"},
 		{"zone_id", "zone-test-1"},
@@ -60,6 +66,11 @@ func TestStartupLogging(t *testing.T) {
 		if !strings.Contains(output, c.substr) {
 			t.Errorf("startup log missing %s (%q)\nfull output:\n%s", c.name, c.substr, output)
 		}
+	}
+
+	// Verify "ready" message appears in the log (08-REQ-8.2).
+	if !strings.Contains(output, "ready") {
+		t.Errorf("startup log missing 'ready' message\nfull output:\n%s", output)
 	}
 }
 
@@ -146,6 +157,12 @@ func TestDatabrokerUnreachable(t *testing.T) {
 		}
 	case <-time.After(60 * time.Second):
 		t.Fatal("adaptor did not exit within 60s; expected failure after exhausting retries")
+	}
+
+	// Verify that retry messages appear in the log output (TS-08-E8).
+	output := proc.output.String()
+	if !strings.Contains(strings.ToLower(output), "retry") {
+		t.Errorf("expected log output to contain retry messages\nfull output:\n%s", output)
 	}
 }
 
