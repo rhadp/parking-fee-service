@@ -73,15 +73,15 @@ func TestAdapterInfo(t *testing.T) {
 }
 
 // TS-09-7: parking-app-cli install calls InstallAdapter on UPDATE_SERVICE.
-// The binary is a stub that exits 0 but doesn't call gRPC; test fails on output check.
 func TestInstall(t *testing.T) {
+	mockAddr := startMockUpdateServer(t)
 	binary := parkingAppBin(t)
 
 	stdout, stderr, code := runBinary(t, binary,
 		"install",
 		"--image-ref=registry/adapter:v1",
 		"--checksum=sha256:abc",
-		"--update-addr=localhost:59997", // unreachable; stub ignores this
+		"--update-addr="+mockAddr,
 	)
 
 	if code != 0 {
@@ -96,11 +96,12 @@ func TestInstall(t *testing.T) {
 
 // TS-09-8: parking-app-cli list calls ListAdapters on UPDATE_SERVICE.
 func TestList(t *testing.T) {
+	mockAddr := startMockUpdateServer(t)
 	binary := parkingAppBin(t)
 
 	stdout, stderr, code := runBinary(t, binary,
 		"list",
-		"--update-addr=localhost:59997",
+		"--update-addr="+mockAddr,
 	)
 
 	if code != 0 {
@@ -114,12 +115,13 @@ func TestList(t *testing.T) {
 // 09-REQ-5.4: parking-app-cli status checks adapter status on UPDATE_SERVICE.
 // (Skeptic finding: missing test for GetAdapterStatus)
 func TestAdapterStatus(t *testing.T) {
+	mockAddr := startMockUpdateServer(t)
 	binary := parkingAppBin(t)
 
 	stdout, stderr, code := runBinary(t, binary,
 		"status",
 		"--adapter-id=a1",
-		"--update-addr=localhost:59997",
+		"--update-addr="+mockAddr,
 	)
 
 	if code != 0 {
@@ -133,12 +135,13 @@ func TestAdapterStatus(t *testing.T) {
 // 09-REQ-5.5: parking-app-cli remove calls RemoveAdapter on UPDATE_SERVICE.
 // (Skeptic finding: missing test for RemoveAdapter)
 func TestRemoveAdapter(t *testing.T) {
+	mockAddr := startMockUpdateServer(t)
 	binary := parkingAppBin(t)
 
 	stdout, stderr, code := runBinary(t, binary,
 		"remove",
 		"--adapter-id=a1",
-		"--update-addr=localhost:59997",
+		"--update-addr="+mockAddr,
 	)
 
 	if code != 0 {
@@ -151,12 +154,13 @@ func TestRemoveAdapter(t *testing.T) {
 
 // TS-09-9: parking-app-cli start-session calls StartSession on PARKING_OPERATOR_ADAPTOR.
 func TestStartSession(t *testing.T) {
+	mockAddr := startMockAdapterServer(t)
 	binary := parkingAppBin(t)
 
 	stdout, stderr, code := runBinary(t, binary,
 		"start-session",
 		"--zone-id=zone-demo-1",
-		"--adaptor-addr=localhost:59998",
+		"--adaptor-addr="+mockAddr,
 	)
 
 	if code != 0 {
@@ -169,11 +173,12 @@ func TestStartSession(t *testing.T) {
 
 // TS-09-10: parking-app-cli stop-session calls StopSession on PARKING_OPERATOR_ADAPTOR.
 func TestStopSession(t *testing.T) {
+	mockAddr := startMockAdapterServer(t)
 	binary := parkingAppBin(t)
 
 	stdout, stderr, code := runBinary(t, binary,
 		"stop-session",
-		"--adaptor-addr=localhost:59998",
+		"--adaptor-addr="+mockAddr,
 	)
 
 	if code != 0 {

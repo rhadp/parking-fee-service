@@ -2,6 +2,7 @@
 package mockappstests
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -13,6 +14,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	adapterpb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/adapter"
+	updatepb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/update"
+	"google.golang.org/grpc"
 )
 
 // findProjectRoot walks up from the current directory to find the go.work file,
@@ -36,12 +41,11 @@ func findProjectRoot(t *testing.T) string {
 }
 
 // buildBinary compiles a Go binary from the mock/ directory and returns its path.
-// The binary is placed in a temp directory that is cleaned up when the test ends.
+// The binary is placed in sharedBinDir which persists for the whole test run.
 func buildBinary(t *testing.T, name string) string {
 	t.Helper()
 	root := findProjectRoot(t)
-	binDir := t.TempDir()
-	binPath := filepath.Join(binDir, name)
+	binPath := filepath.Join(sharedBinDir, name)
 
 	pkgDir := filepath.Join(root, "mock", name)
 	cmd := exec.Command("go", "build", "-o", binPath, pkgDir)
@@ -141,4 +145,95 @@ func runBinary(t *testing.T, binary string, args ...string) (stdout, stderr stri
 		exitCode = 0
 	}
 	return
+}
+
+// ---------------------------------------------------------------------------
+// Mock gRPC server helpers
+// ---------------------------------------------------------------------------
+
+// mockUpdateServer implements UpdateServiceServer for testing.
+type mockUpdateServer struct {
+	updatepb.UnimplementedUpdateServiceServer
+}
+
+func (s *mockUpdateServer) InstallAdapter(_ context.Context, req *updatepb.InstallAdapterRequest) (*updatepb.InstallAdapterResponse, error) {
+	return &updatepb.InstallAdapterResponse{
+		JobId:     "j1",
+		AdapterId: "a1",
+		State:     updatepb.AdapterState_DOWNLOADING,
+	}, nil
+}
+
+func (s *mockUpdateServer) ListAdapters(_ context.Context, _ *updatepb.ListAdaptersRequest) (*updatepb.ListAdaptersResponse, error) {
+	return &updatepb.ListAdaptersResponse{
+		Adapters: []*updatepb.AdapterInfo{
+			{AdapterId: "a1", ImageRef: "test:v1", State: updatepb.AdapterState_RUNNING},
+		},
+	}, nil
+}
+
+func (s *mockUpdateServer) GetAdapterStatus(_ context.Context, req *updatepb.GetAdapterStatusRequest) (*updatepb.GetAdapterStatusResponse, error) {
+	return &updatepb.GetAdapterStatusResponse{
+		Adapter: &updatepb.AdapterInfo{
+			AdapterId: req.AdapterId,
+			ImageRef:  "test:v1",
+			State:     updatepb.AdapterState_RUNNING,
+		},
+	}, nil
+}
+
+func (s *mockUpdateServer) RemoveAdapter(_ context.Context, req *updatepb.RemoveAdapterRequest) (*updatepb.RemoveAdapterResponse, error) {
+	return &updatepb.RemoveAdapterResponse{
+		Success: true,
+		Message: "adapter removed",
+	}, nil
+}
+
+// mockAdapterServer implements AdapterServiceServer for testing.
+type mockAdapterServer struct {
+	adapterpb.UnimplementedAdapterServiceServer
+}
+
+func (s *mockAdapterServer) StartSession(_ context.Context, req *adapterpb.StartSessionRequest) (*adapterpb.StartSessionResponse, error) {
+	return &adapterpb.StartSessionResponse{SessionId: "s1"}, nil
+}
+
+func (s *mockAdapterServer) StopSession(_ context.Context, _ *adapterpb.StopSessionRequest) (*adapterpb.StopSessionResponse, error) {
+	return &adapterpb.StopSessionResponse{Success: true, Message: "session stopped"}, nil
+}
+
+// startMockUpdateServer starts a mock UpdateService gRPC server on a random port
+// and returns its address (host:port). The server is stopped when the test ends.
+func startMockUpdateServer(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for mock UpdateService: %v", err)
+	}
+
+	srv := grpc.NewServer()
+	updatepb.RegisterUpdateServiceServer(srv, &mockUpdateServer{})
+
+	go srv.Serve(lis) //nolint
+	t.Cleanup(func() { srv.Stop() })
+
+	return lis.Addr().String()
+}
+
+// startMockAdapterServer starts a mock AdapterService gRPC server on a random port
+// and returns its address (host:port). The server is stopped when the test ends.
+func startMockAdapterServer(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for mock AdapterService: %v", err)
+	}
+
+	srv := grpc.NewServer()
+	adapterpb.RegisterAdapterServiceServer(srv, &mockAdapterServer{})
+
+	go srv.Serve(lis) //nolint
+	t.Cleanup(func() { srv.Stop() })
+
+	return lis.Addr().String()
 }
