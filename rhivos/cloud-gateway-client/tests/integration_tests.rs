@@ -225,7 +225,8 @@ async fn ts_04_11_end_to_end_response_relay() {
                     break;
                 }
             }
-            _ => break,
+            Ok(None) => break,  // stream closed
+            Err(_) => continue, // timeout, keep polling within deadline
         }
     }
 
@@ -305,7 +306,8 @@ async fn ts_04_12_end_to_end_telemetry_on_signal_change() {
                     }
                 }
             }
-            _ => break,
+            Ok(None) => break,  // stream closed
+            Err(_) => continue, // timeout, keep polling within deadline
         }
     }
 
