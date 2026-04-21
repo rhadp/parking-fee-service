@@ -157,7 +157,9 @@ func TestStartupLogging(t *testing.T) {
 	}
 
 	portStr := fmt.Sprintf("%d", port)
-	for _, want := range []string{portStr, "zones", "operators"} {
+	// Verify version, port, zone count, operator count, and ready message per 05-REQ-6.1.
+	// Addresses Skeptic minor finding: TS-05-15 previously omitted version and ready checks.
+	for _, want := range []string{"version", portStr, "zones", "operators", "ready"} {
 		if !strings.Contains(output, want) {
 			t.Errorf("expected %q in startup output\nfull output:\n%s", want, output)
 		}
