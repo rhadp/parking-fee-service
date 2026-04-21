@@ -469,62 +469,32 @@ func TestSmokeErrorPaths(t *testing.T) {
 // TestSmokeDefaultConfig verifies that the service uses built-in Munich demo
 // data when no config file is present (TS-05-SMOKE-2 fallback verification,
 // 05-REQ-4.E1).
+//
+// Because the default config uses port 8080, this test attempts to bind that
+// port. If port 8080 is already in use, the test is skipped.
 func TestSmokeDefaultConfig(t *testing.T) {
-	bin := buildBinary(t)
-	port := freePort(t)
+	const defaultPort = 8080
 
-	// Set CONFIG_PATH to a non-existent file — service must fall back to defaults.
-	env := append(os.Environ(),
-		"CONFIG_PATH=/nonexistent/path/config.json",
-		fmt.Sprintf("PORT_OVERRIDE=%d", port), // not used by service; just for reference
-	)
-	// Service uses default port 8080 when falling back to defaults.
-	// We need to use the default config which uses port 8080.
-	// Since we can't override the port without a config file,
-	// use a real config file with a known port instead.
-	// This test instead verifies startup with a missing config works at all.
-	cfgWithPort := fmt.Sprintf(`{
-		"port": %d,
-		"proximity_threshold_meters": 500,
-		"zones": [
-			{
-				"id": "munich-central",
-				"name": "Munich Central Station Area",
-				"polygon": [
-					{"lat": 48.14,  "lon": 11.555},
-					{"lat": 48.14,  "lon": 11.565},
-					{"lat": 48.135, "lon": 11.565},
-					{"lat": 48.135, "lon": 11.555}
-				]
-			}
-		],
-		"operators": [
-			{
-				"id": "parkhaus-munich",
-				"name": "Parkhaus Muenchen GmbH",
-				"zone_id": "munich-central",
-				"rate": {"type": "per-hour", "amount": 2.50, "currency": "EUR"},
-				"adapter": {
-					"image_ref": "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0",
-					"checksum_sha256": "sha256:abc123",
-					"version": "1.0.0"
-				}
-			}
-		]
-	}`, port)
-	cfgPath := filepath.Join(t.TempDir(), "config.json")
-	if err := os.WriteFile(cfgPath, []byte(cfgWithPort), 0o644); err != nil {
-		t.Fatal(err)
+	// Check whether the default port is available; skip if in use.
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", defaultPort))
+	if err != nil {
+		t.Skipf("port %d unavailable, skipping default-config smoke test: %v", defaultPort, err)
 	}
-	env = append(os.Environ(), "CONFIG_PATH="+cfgPath)
+	l.Close()
+
+	bin := buildBinary(t)
+
+	// CONFIG_PATH points to a non-existent file — service must fall back to
+	// built-in Munich defaults (port 8080, 2 zones, 2 operators).
+	env := append(os.Environ(), "CONFIG_PATH=/nonexistent/path/config.json")
 
 	_, cleanup := startService(t, bin, env)
 	defer cleanup()
 
-	base := fmt.Sprintf("http://localhost:%d", port)
+	base := fmt.Sprintf("http://localhost:%d", defaultPort)
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	// Verify the Munich operator is discoverable.
+	// Verify the Munich operator is discoverable via default config data.
 	resp, err := client.Get(base + "/operators?lat=48.1375&lon=11.5600")
 	if err != nil {
 		t.Fatalf("GET /operators: %v", err)
@@ -536,6 +506,17 @@ func TestSmokeDefaultConfig(t *testing.T) {
 	var operators []map[string]any
 	json.NewDecoder(resp.Body).Decode(&operators) //nolint:errcheck
 	if len(operators) < 1 {
-		t.Fatal("expected at least one Munich operator")
+		t.Fatal("expected at least one Munich operator from default config")
+	}
+	// Verify the default Munich operator ID is present.
+	foundMunich := false
+	for _, op := range operators {
+		if id, _ := op["id"].(string); id == "parkhaus-munich" {
+			foundMunich = true
+			break
+		}
+	}
+	if !foundMunich {
+		t.Errorf("expected operator parkhaus-munich from default config, got %v", operators)
 	}
 }
