@@ -1,7 +1,8 @@
 //! Command processing: dispatches lock/unlock, checks safety, manages state, publishes response.
-#[allow(unused_imports)]
 use crate::broker::{BrokerClient, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
-use crate::command::LockCommand;
+use crate::command::{Action, LockCommand};
+use crate::response::{failure_response, success_response};
+use crate::safety::{check_safety, SafetyResult};
 
 /// Process a validated lock/unlock command.
 ///
@@ -12,11 +13,52 @@ use crate::command::LockCommand;
 /// Returns the response JSON string. Publish failures are logged and do not
 /// prevent processing subsequent commands.
 pub async fn process_command<B: BrokerClient>(
-    _broker: &B,
-    _cmd: &LockCommand,
-    _lock_state: &mut bool,
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
 ) -> String {
-    todo!("implemented in task group 3")
+    let id = &cmd.command_id;
+
+    // Idempotent check BEFORE safety (design decision per ASIL-B requirements).
+    let already_matches = match cmd.action {
+        Action::Lock => *lock_state,
+        Action::Unlock => !*lock_state,
+    };
+
+    let response = if already_matches {
+        success_response(id)
+    } else {
+        match cmd.action {
+            Action::Lock => {
+                let safety = check_safety(broker).await;
+                match safety {
+                    SafetyResult::Safe => {
+                        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, true).await {
+                            tracing::error!("Failed to set IsLocked=true: {e}");
+                        }
+                        *lock_state = true;
+                        success_response(id)
+                    }
+                    SafetyResult::VehicleMoving => failure_response(id, "vehicle_moving"),
+                    SafetyResult::DoorOpen => failure_response(id, "door_open"),
+                }
+            }
+            Action::Unlock => {
+                if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, false).await {
+                    tracing::error!("Failed to set IsLocked=false: {e}");
+                }
+                *lock_state = false;
+                success_response(id)
+            }
+        }
+    };
+
+    // Always publish response; log errors but don't fail.
+    if let Err(e) = broker.set_string(SIGNAL_RESPONSE, &response).await {
+        tracing::error!("Failed to publish response: {e}");
+    }
+
+    response
 }
 
 #[cfg(test)]
