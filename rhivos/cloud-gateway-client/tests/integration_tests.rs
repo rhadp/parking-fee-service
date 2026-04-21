@@ -482,3 +482,186 @@ async fn ts_04_14_command_rejected_with_invalid_token() {
         "Vehicle.Command.Door.Lock must not change when bearer token is invalid"
     );
 }
+
+// ── TS-04-SMOKE-1: Service starts with valid configuration ────────────────────
+
+/// TS-04-SMOKE-1: Service starts with valid configuration.
+///
+/// Verifies that the service starts without error when both NATS and DATA_BROKER
+/// are available and a valid VIN is configured.
+///
+/// Validates: [04-REQ-2.1], [04-REQ-3.1]
+#[tokio::test]
+#[ignore = "requires NATS + DATA_BROKER containers"]
+async fn ts_04_smoke_1_service_starts_with_valid_config() {
+    if try_nats_connect().await.is_none() {
+        eprintln!("SKIP ts_04_smoke_1: NATS not available at {NATS_URL}");
+        return;
+    }
+    if try_broker_connect().await.is_none() {
+        eprintln!("SKIP ts_04_smoke_1: DATA_BROKER not available at {DATABROKER_ADDR}");
+        return;
+    }
+
+    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .arg("serve")
+        .env("VIN", "SMOKE-VIN")
+        .env("NATS_URL", NATS_URL)
+        .env("DATABROKER_ADDR", DATABROKER_ADDR)
+        .env("BEARER_TOKEN", "demo-token")
+        .env("RUST_LOG", "off")
+        .kill_on_drop(true)
+        .spawn()
+        .expect("failed to spawn cloud-gateway-client binary");
+
+    // Allow time for the full startup sequence to complete.
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // The service should still be running (no crash or early exit).
+    let status = child.try_wait().expect("failed to check child process status");
+    assert!(
+        status.is_none(),
+        "Service should be running after successful startup, but exited with: {:?}",
+        status
+    );
+}
+
+// ── TS-04-SMOKE-2: Service exits on missing VIN ───────────────────────────────
+
+/// TS-04-SMOKE-2: Service exits with code 1 when `VIN` is not set.
+///
+/// This test does not require NATS or DATA_BROKER — the process exits during
+/// configuration validation before attempting any connections.
+///
+/// Validates: [04-REQ-1.E1]
+#[tokio::test]
+#[ignore = "smoke test: spawns the binary; no infrastructure required"]
+async fn ts_04_smoke_2_service_exits_on_missing_vin() {
+    let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .arg("serve")
+        .env_remove("VIN")
+        // Point at unreachable addresses so accidental connection attempts fail fast.
+        .env("NATS_URL", "nats://127.0.0.1:19222")
+        .env("DATABROKER_ADDR", "http://127.0.0.1:19556")
+        .env("RUST_LOG", "off")
+        .output()
+        .await
+        .expect("failed to execute cloud-gateway-client binary");
+
+    assert!(
+        !output.status.success(),
+        "Service must exit with non-zero code when VIN is missing"
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "Service must exit with code 1 when VIN is missing"
+    );
+
+    let stderr = std::str::from_utf8(&output.stderr).unwrap_or("");
+    assert!(
+        stderr.contains("VIN"),
+        "stderr must mention VIN; got: {stderr}"
+    );
+}
+
+// ── TS-04-SMOKE-3: Registration message published on startup ──────────────────
+
+/// TS-04-SMOKE-3: Service publishes a registration message to
+/// `vehicles.{VIN}.status` within 5 seconds of startup.
+///
+/// Validates: [04-REQ-4.1]
+#[tokio::test]
+#[ignore = "requires NATS + DATA_BROKER containers"]
+async fn ts_04_smoke_3_service_publishes_registration_on_startup() {
+    let nats = match try_nats_connect().await {
+        Some(c) => c,
+        None => {
+            eprintln!("SKIP ts_04_smoke_3: NATS not available at {NATS_URL}");
+            return;
+        }
+    };
+    if try_broker_connect().await.is_none() {
+        eprintln!("SKIP ts_04_smoke_3: DATA_BROKER not available at {DATABROKER_ADDR}");
+        return;
+    }
+
+    let vin = "SMOKE-VIN";
+
+    // Subscribe before starting the service so no message is missed.
+    let mut sub = nats
+        .subscribe(format!("vehicles.{vin}.status"))
+        .await
+        .expect("failed to subscribe to status subject");
+
+    let _child = start_service(vin);
+
+    // Wait up to 5 seconds for the registration message.
+    let msg = tokio::time::timeout(Duration::from_secs(5), sub.next())
+        .await
+        .expect("timed out waiting for registration message within 5 seconds")
+        .expect("status subscription ended unexpectedly");
+
+    let json: serde_json::Value = serde_json::from_slice(&msg.payload)
+        .expect("registration message must be valid JSON");
+
+    assert_eq!(json["vin"], vin, "vin field must match");
+    assert_eq!(json["status"], "online", "status must be 'online'");
+    assert!(
+        json["timestamp"].is_number(),
+        "timestamp must be present and numeric"
+    );
+}
+
+// ── TS-04-15: NATS reconnection with exponential backoff ─────────────────────
+
+/// TS-04-15: NATS reconnection with exponential backoff.
+///
+/// When the NATS server is unreachable, the service retries with delays
+/// 1 s, 2 s, 4 s, 8 s (four intervals across five total attempts) and exits
+/// with code 1 after exhausting all attempts.
+///
+/// The cumulative timeline is: attempt at t=0, t≈1s, t≈3s, t≈7s, t≈15s —
+/// matching TS-04-15 and documented in docs/errata/04_cloud_gateway_client.md §E1.
+///
+/// Validates: [04-REQ-2.2], [04-REQ-2.E1]
+#[tokio::test]
+#[ignore = "slow test (~15 s); requires NATS to be unreachable on port 19222"]
+async fn ts_04_15_nats_reconnection_with_exponential_backoff() {
+    // Use a port with nothing listening so every connection attempt gets an
+    // immediate ECONNREFUSED (no timeout overhead).
+    let unreachable_nats = "nats://127.0.0.1:19222";
+
+    let start = std::time::Instant::now();
+
+    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .arg("serve")
+        .env("VIN", "BACKOFF-VIN")
+        .env("NATS_URL", unreachable_nats)
+        .env("DATABROKER_ADDR", DATABROKER_ADDR)
+        .env("RUST_LOG", "off")
+        .kill_on_drop(true)
+        .spawn()
+        .expect("failed to spawn cloud-gateway-client binary");
+
+    // Service should exit after exhausting all 5 NATS connection attempts.
+    // Total backoff: 1s + 2s + 4s + 8s = 15 s. Allow up to 60 s for slow CI.
+    let status = tokio::time::timeout(Duration::from_secs(60), child.wait())
+        .await
+        .expect("service did not exit within 60 seconds")
+        .expect("failed to wait for child process");
+
+    let elapsed = start.elapsed();
+
+    // Service must exit with code 1.
+    assert!(!status.success(), "Service must exit with non-zero code");
+    assert_eq!(status.code(), Some(1), "Service must exit with code 1");
+
+    // Service must have waited at least the sum of all backoff delays (~15 s).
+    // Use 12 s as a conservative lower bound to allow for scheduling jitter.
+    assert!(
+        elapsed >= Duration::from_secs(12),
+        "Expected at least ~15 s of exponential backoff, but finished in {:.1}s",
+        elapsed.as_secs_f64()
+    );
+}
