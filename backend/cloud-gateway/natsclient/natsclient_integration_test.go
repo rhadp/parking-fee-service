@@ -37,6 +37,11 @@ func TestPropertyNATSHeaderPropagation(t *testing.T) {
 			nconn.Close()
 			t.Fatalf("Subscribe failed: %v", err)
 		}
+		// Flush ensures the SUB message is delivered to the server before publishing.
+		if err := nconn.Flush(); err != nil {
+			nconn.Close()
+			t.Fatalf("Flush failed: %v", err)
+		}
 		cmd := model.Command{
 			CommandID: "prop-cmd-" + tt.vin,
 			Type:      "lock",

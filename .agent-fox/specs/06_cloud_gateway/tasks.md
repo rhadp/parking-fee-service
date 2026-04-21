@@ -182,23 +182,23 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] All existing tests still pass: `cd backend && go test -v ./...`
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [ ] 6. Wiring verification
-  - [ ] 6.1 Run integration smoke tests
+- [x] 6. Wiring verification
+  - [x] 6.1 Run integration smoke tests
     - Start NATS server (from compose.yml, spec 01_project_setup group 7)
     - Run TS-06-SMOKE-1: end-to-end command flow
     - Run TS-06-SMOKE-2: command timeout end-to-end
     - `cd backend && go test -v ./cloud-gateway/... -tags=integration`
 
-  - [ ] 6.2 Run full regression
+  - [x] 6.2 Run full regression
     - `cd backend && go test -v ./...`
     - `cd backend && go test -race -v ./cloud-gateway/...`
     - `cd backend && go vet ./cloud-gateway/...`
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All smoke tests pass: TS-06-SMOKE-1, TS-06-SMOKE-2
-    - [ ] All property tests pass: `cd backend && go test -v ./cloud-gateway/... -run Property`
-    - [ ] Race detector clean: `cd backend && go test -race -v ./cloud-gateway/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
+  - [x] 6.V Verify task group 6
+    - [x] All smoke tests pass: TS-06-SMOKE-1, TS-06-SMOKE-2
+    - [x] All property tests pass: `cd backend && go test -v ./cloud-gateway/... -run Property`
+    - [x] Race detector clean: `cd backend && go test -race -v ./cloud-gateway/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
 
 ### Checkbox States
 
