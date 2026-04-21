@@ -12,13 +12,32 @@ pub struct CommandResponse {
 }
 
 /// Build a success response JSON string for the given command_id.
-pub fn success_response(_command_id: &str) -> String {
-    todo!("implemented in task group 2")
+pub fn success_response(command_id: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp: current_unix_timestamp(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse always serializes")
 }
 
 /// Build a failure response JSON string with the given reason.
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("implemented in task group 2")
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp: current_unix_timestamp(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse always serializes")
+}
+
+fn current_unix_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time is after UNIX epoch")
+        .as_secs() as i64
 }
 
 #[cfg(test)]

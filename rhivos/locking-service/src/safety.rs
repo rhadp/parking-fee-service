@@ -14,8 +14,33 @@ pub enum SafetyResult {
 /// Reads Vehicle.Speed and Vehicle.Cabin.Door.Row1.DriverSide.IsOpen.
 /// Speed is checked first (ASIL-B priority ordering).
 /// None speed → treated as 0.0; None door → treated as false (safe defaults).
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("implemented in task group 2")
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    use crate::broker::{SIGNAL_IS_OPEN, SIGNAL_SPEED};
+
+    // Read speed; None or error → treat as 0.0 (safe default per 03-REQ-3.E1)
+    let speed = broker
+        .get_float(SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    // Speed check takes priority (03-REQ-3.1, Property 2)
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    // Read door state; None or error → treat as false (safe default per 03-REQ-3.E2)
+    let door_open = broker
+        .get_bool(SIGNAL_IS_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]

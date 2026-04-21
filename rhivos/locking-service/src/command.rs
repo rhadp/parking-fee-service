@@ -49,8 +49,66 @@ impl CommandError {
 /// 2. Extract required fields — missing/bad fields → `InvalidCommand`
 ///
 /// This distinguishes malformed JSON from structurally invalid payloads.
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!("implemented in task group 2")
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    // Phase 1: parse as JSON value — catches syntax errors
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|e| CommandError::InvalidJson(e.to_string()))?;
+
+    let obj = value
+        .as_object()
+        .ok_or_else(|| CommandError::InvalidCommand("payload must be a JSON object".to_string()))?;
+
+    // command_id: required string
+    let command_id = obj
+        .get("command_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CommandError::InvalidCommand("missing or invalid command_id".to_string()))?
+        .to_string();
+
+    // action: required, must be "lock" or "unlock"
+    let action_str = obj
+        .get("action")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CommandError::InvalidCommand("missing or invalid action".to_string()))?;
+    let action = match action_str {
+        "lock" => Action::Lock,
+        "unlock" => Action::Unlock,
+        other => {
+            return Err(CommandError::InvalidCommand(format!(
+                "unknown action: {other}"
+            )))
+        }
+    };
+
+    // doors: required array of strings
+    let doors = obj
+        .get("doors")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| CommandError::InvalidCommand("missing or invalid doors".to_string()))?
+        .iter()
+        .filter_map(|v| v.as_str())
+        .map(|s| s.to_string())
+        .collect();
+
+    // Optional metadata fields
+    let source = obj
+        .get("source")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let vin = obj
+        .get("vin")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let timestamp = obj.get("timestamp").and_then(|v| v.as_i64());
+
+    Ok(LockCommand {
+        command_id,
+        action,
+        doors,
+        source,
+        vin,
+        timestamp,
+    })
 }
 
 /// Validate a parsed LockCommand.
@@ -58,8 +116,22 @@ pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
 /// Checks:
 /// - `command_id` is non-empty → `InvalidCommand`
 /// - all `doors` values are "driver" → `UnsupportedDoor`
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!("implemented in task group 2")
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id must not be empty".to_string(),
+        ));
+    }
+
+    for door in &cmd.doors {
+        if door != "driver" {
+            return Err(CommandError::UnsupportedDoor(format!(
+                "unsupported door: {door}"
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

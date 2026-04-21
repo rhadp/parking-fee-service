@@ -3,7 +3,7 @@
 /// Read the DATA_BROKER gRPC address from `DATABROKER_ADDR` env var.
 /// Falls back to `http://localhost:55556` if not set.
 pub fn get_databroker_addr() -> String {
-    todo!("implemented in task group 2")
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| "http://localhost:55556".to_string())
 }
 
 #[cfg(test)]
