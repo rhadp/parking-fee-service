@@ -5,6 +5,7 @@
 package databroker
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"os"
@@ -152,6 +153,17 @@ func skipIfPodmanMissing(t *testing.T) {
 	}
 }
 
+// skipIfPodmanNotRunning skips the test if the Podman machine/daemon is not running.
+// This is a stronger check than skipIfPodmanMissing: it verifies the socket is reachable.
+func skipIfPodmanNotRunning(t *testing.T) {
+	t.Helper()
+	skipIfPodmanMissing(t)
+	cmd := exec.Command("podman", "info")
+	if err := cmd.Run(); err != nil {
+		t.Skipf("Podman daemon not running (podman info failed): %v", err)
+	}
+}
+
 // runPodmanCompose runs `podman compose <args>` in the deployments directory.
 // Returns combined output and any error.
 func runPodmanCompose(t *testing.T, args ...string) (string, error) {
@@ -160,6 +172,19 @@ func runPodmanCompose(t *testing.T, args ...string) (string, error) {
 	deploymentsDir := filepath.Join(root, "deployments")
 	cmdArgs := append([]string{"compose"}, args...)
 	cmd := exec.Command("podman", cmdArgs...)
+	cmd.Dir = deploymentsDir
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// runPodmanComposeCtx runs `podman compose <args>` in the deployments directory
+// with a context for timeout control. Returns combined output and any error.
+func runPodmanComposeCtx(ctx context.Context, t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	root := findRepoRoot(t)
+	deploymentsDir := filepath.Join(root, "deployments")
+	cmdArgs := append([]string{"compose"}, args...)
+	cmd := exec.CommandContext(ctx, "podman", cmdArgs...)
 	cmd.Dir = deploymentsDir
 	out, err := cmd.CombinedOutput()
 	return string(out), err
