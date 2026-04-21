@@ -47,21 +47,24 @@ impl Session {
 
     /// Returns `true` if a session is currently active.
     pub fn is_active(&self) -> bool {
-        todo!("implement Session::is_active")
+        self.inner.as_ref().is_some_and(|s| s.active)
     }
 
     /// Start a new session, populating all state fields.
-    ///
-    /// # Panics
-    /// (implementation) — panics with `todo!()` until implemented.
     pub fn start(
         &mut self,
-        _session_id: String,
-        _zone_id: String,
-        _start_time: i64,
-        _rate: Rate,
+        session_id: String,
+        zone_id: String,
+        start_time: i64,
+        rate: Rate,
     ) {
-        todo!("implement Session::start")
+        self.inner = Some(SessionState {
+            session_id,
+            zone_id,
+            start_time,
+            rate,
+            active: true,
+        });
     }
 
     /// Stop the active session, clearing all state.
@@ -69,17 +72,19 @@ impl Session {
     /// Returns the `session_id` of the stopped session, or `None` if no
     /// session was active.
     pub fn stop(&mut self) -> Option<String> {
-        todo!("implement Session::stop")
+        let session_id = self.inner.as_ref().map(|s| s.session_id.clone());
+        self.inner = None;
+        session_id
     }
 
     /// Returns a reference to the current session state, or `None`.
     pub fn status(&self) -> Option<&SessionState> {
-        todo!("implement Session::status")
+        self.inner.as_ref().filter(|s| s.active)
     }
 
     /// Returns a reference to the current session's rate, or `None`.
     pub fn rate(&self) -> Option<&Rate> {
-        todo!("implement Session::rate")
+        self.inner.as_ref().filter(|s| s.active).map(|s| &s.rate)
     }
 }
 
