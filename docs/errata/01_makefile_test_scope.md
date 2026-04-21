@@ -1,47 +1,44 @@
 # Errata: 01_makefile_test_scope
 
-Divergence from spec 01 requirements for `make test` scope.
+Divergence from spec 01 requirements for `make test` and `make check` scope.
 
 ---
 
-## E1 — test-rust excludes task-group-1 stub crates
+## E1 — test-rust previously excluded TDD stub crates (RESOLVED)
 
 **Affects:** [01-REQ-6.3], TS-01-20
 
 **Problem:**  
-REQ-6.3 mandates `make test` runs `cargo test --workspace` for all Rust crates.
-However, the spec-driven TDD workflow requires task group 1 agents to write
-*intentionally failing* tests before implementations exist. Crates in this state
-have `todo!()` stubs that panic at runtime, making `make test` fail before their
-implementation task groups run.
-
-**Affected crates (currently excluded from test-rust):**
-
-| Crate | Reason |
-|-------|--------|
-| `cloud-gateway-client` | Spec 04 task group 1 stubs (validators, telemetry) fail |
-| `update-service` | Spec 07 task group 1 stubs (state, podman, offload, monitor) fail |
-| `parking-operator-adaptor` | Spec 08 task group 1 stubs (operator, event_loop, session) fail |
-
-Note: `mock-sensors` was re-included after spec 09 task group 2 implemented the sensor binaries.
+`make test` (`test-rust`) previously excluded `cloud-gateway-client`,
+`update-service`, and `parking-operator-adaptor` from `cargo test`, and
+`test-go` used `go test .` (root package only) for `backend/parking-fee-service`
+and `backend/cloud-gateway` instead of `go test ./...`.
 
 **Resolution:**  
-`make test` (`test-rust`) excludes crates whose task group 1 tests are written but
-not yet implemented. Each crate is re-included once its implementation task group
-completes and all its tests pass. This is the expected incremental TDD workflow;
-the full `make check` (lint + compile-only) still covers these crates.
+All excluded crates now pass their tests. The exclusions have been removed:
+- `test-rust` now runs `cargo test --workspace` (all workspace members).
+- `test-go` now runs `go test ./...` for all Go modules (including sub-packages).
+- `make check` now runs `lint test` (actual test execution, not compile-only).
 
-**Go packages excluded from test-go (`./...` narrowed to `.` to skip TDD-phase sub-packages):**
+This fully satisfies 01-REQ-6.3 and 01-REQ-6.5.
 
-| Module | Sub-packages excluded | Reason |
-|--------|----------------------|--------|
-| `backend/parking-fee-service` | `config`, `geo`, `store`, `handler` | Spec 05 task group 1 stubs fail |
-| `backend/cloud-gateway` | `auth`, `config`, `handler`, `natsclient`, `store` | Spec 06 task group 1 stubs fail |
+## E2 — proto code generation output not importable (OPEN)
 
-**Re-include when:**  
-- `cloud-gateway-client`: when spec 04 task group 2+ completes command validator
-  and telemetry implementations
-- `backend/parking-fee-service` sub-packages: when spec 05 task group 2+ completes implementations
-- `backend/cloud-gateway` sub-packages: when spec 06 task group 2+ completes implementations
-- `update-service`: when spec 07 task group 2+ completes all module implementations
-- `parking-operator-adaptor`: when spec 08 task group 2+ completes all module implementations
+**Affects:** [01-REQ-10.2]
+
+**Problem:**  
+01-REQ-10.2 requires generated Go code to be placed in a location importable
+by Go modules. The `make proto` target writes output to `gen/`, which is
+in `.gitignore` (generated at build time) and is not registered as a Go module
+in `go.work`. No Go module currently imports from `gen/`.
+
+**Mitigation:**  
+Since no Go module in the current codebase imports from the generated `gen/`
+directory, this is a latent issue. When a module needs proto-generated types,
+it should either:
+1. Vendor the generated code into a `pb/` sub-package (as `mock/parking-app-cli/pb/`
+   and `tests/mock-apps/pb/` already do), or
+2. Add `gen/` as a Go module in `go.work` with a `go.mod` file.
+
+The existing pattern of vendoring proto-generated code into module-local `pb/`
+directories is the established project convention.
