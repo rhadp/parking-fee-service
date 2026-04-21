@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast;
 
 use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
@@ -16,52 +16,152 @@ impl std::fmt::Display for StateError {
 
 impl std::error::Error for StateError {}
 
+/// Returns true if the (old, new) state pair is a valid state machine edge.
+fn is_valid_transition(old: &AdapterState, new: &AdapterState) -> bool {
+    matches!(
+        (old, new),
+        (AdapterState::Unknown, AdapterState::Downloading)
+            | (AdapterState::Downloading, AdapterState::Installing)
+            | (AdapterState::Downloading, AdapterState::Error)
+            | (AdapterState::Installing, AdapterState::Running)
+            | (AdapterState::Installing, AdapterState::Error)
+            | (AdapterState::Running, AdapterState::Stopped)
+            | (AdapterState::Running, AdapterState::Error)
+            | (AdapterState::Stopped, AdapterState::Running)
+            | (AdapterState::Stopped, AdapterState::Offloading)
+            | (AdapterState::Offloading, AdapterState::Error)
+    )
+}
+
+fn now_unix_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
 pub struct StateManager {
-    #[allow(dead_code)]
     adapters: Arc<Mutex<HashMap<String, AdapterEntry>>>,
     broadcaster: broadcast::Sender<AdapterStateEvent>,
 }
 
 impl StateManager {
-    pub fn new(_broadcaster: broadcast::Sender<AdapterStateEvent>) -> Self {
-        todo!("implemented in task group 3")
+    pub fn new(broadcaster: broadcast::Sender<AdapterStateEvent>) -> Self {
+        Self {
+            adapters: Arc::new(Mutex::new(HashMap::new())),
+            broadcaster,
+        }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<AdapterStateEvent> {
         self.broadcaster.subscribe()
     }
 
-    pub fn create_adapter(&self, _entry: AdapterEntry) {
-        todo!("implemented in task group 3")
+    pub fn create_adapter(&self, entry: AdapterEntry) {
+        self.adapters
+            .lock()
+            .unwrap()
+            .insert(entry.adapter_id.clone(), entry);
     }
 
     pub fn transition(
         &self,
-        _adapter_id: &str,
-        _new_state: AdapterState,
-        _error_msg: Option<String>,
+        adapter_id: &str,
+        new_state: AdapterState,
+        error_msg: Option<String>,
     ) -> Result<(), StateError> {
-        todo!("implemented in task group 3")
+        let mut adapters = self.adapters.lock().unwrap();
+        let entry = adapters
+            .get_mut(adapter_id)
+            .ok_or_else(|| StateError(format!("adapter '{}' not found", adapter_id)))?;
+
+        if !is_valid_transition(&entry.state, &new_state) {
+            return Err(StateError(format!(
+                "invalid transition {:?} -> {:?} for adapter '{}'",
+                entry.state, new_state, adapter_id
+            )));
+        }
+
+        let old_state = entry.state.clone();
+        entry.state = new_state.clone();
+        entry.error_message = error_msg;
+
+        if new_state == AdapterState::Stopped {
+            entry.stopped_at = Some(Instant::now());
+        }
+
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state,
+            new_state,
+            timestamp: now_unix_secs(),
+        };
+
+        // Ignore send errors (no active subscribers)
+        let _ = self.broadcaster.send(event);
+
+        Ok(())
     }
 
-    pub fn get_adapter(&self, _adapter_id: &str) -> Option<AdapterEntry> {
-        todo!("implemented in task group 3")
+    /// Unconditionally transition an adapter to ERROR, bypassing state machine
+    /// validation. Used when errors occur mid-flow from any state.
+    pub fn force_error(&self, adapter_id: &str, error_msg: &str) {
+        let mut adapters = self.adapters.lock().unwrap();
+        if let Some(entry) = adapters.get_mut(adapter_id) {
+            let old_state = entry.state.clone();
+            entry.state = AdapterState::Error;
+            entry.error_message = Some(error_msg.to_string());
+
+            let event = AdapterStateEvent {
+                adapter_id: adapter_id.to_string(),
+                old_state,
+                new_state: AdapterState::Error,
+                timestamp: now_unix_secs(),
+            };
+
+            let _ = self.broadcaster.send(event);
+        }
+    }
+
+    pub fn get_adapter(&self, adapter_id: &str) -> Option<AdapterEntry> {
+        self.adapters.lock().unwrap().get(adapter_id).cloned()
     }
 
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!("implemented in task group 3")
+        self.adapters.lock().unwrap().values().cloned().collect()
     }
 
-    pub fn remove_adapter(&self, _adapter_id: &str) -> Result<(), StateError> {
-        todo!("implemented in task group 3")
+    pub fn remove_adapter(&self, adapter_id: &str) -> Result<(), StateError> {
+        let mut adapters = self.adapters.lock().unwrap();
+        adapters
+            .remove(adapter_id)
+            .map(|_| ())
+            .ok_or_else(|| StateError(format!("adapter '{}' not found", adapter_id)))
     }
 
     pub fn get_running_adapter(&self) -> Option<AdapterEntry> {
-        todo!("implemented in task group 3")
+        self.adapters
+            .lock()
+            .unwrap()
+            .values()
+            .find(|e| e.state == AdapterState::Running)
+            .cloned()
     }
 
-    pub fn get_offload_candidates(&self, _timeout: Duration) -> Vec<AdapterEntry> {
-        todo!("implemented in task group 3")
+    /// Returns STOPPED adapters whose stopped_at + timeout has elapsed.
+    pub fn get_offload_candidates(&self, timeout: Duration) -> Vec<AdapterEntry> {
+        self.adapters
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|e| {
+                e.state == AdapterState::Stopped
+                    && e.stopped_at
+                        .map(|t| t.elapsed() >= timeout)
+                        .unwrap_or(false)
+            })
+            .cloned()
+            .collect()
     }
 }
 

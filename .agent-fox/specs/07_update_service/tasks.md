@@ -117,8 +117,8 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] _Test Spec: TS-07-6, TS-07-14, TS-07-E13, TS-07-E14, TS-07-P1_
 
-- [ ] 3. State manager and podman executor
-  - [ ] 3.1 Implement state manager
+- [x] 3. State manager and podman executor
+  - [x] 3.1 Implement state manager
     - `StateManager::new(broadcaster)`: create with broadcast channel
     - `create_adapter`, `transition`, `get_adapter`, `list_adapters`, `remove_adapter`
     - `get_running_adapter`: returns the adapter in RUNNING state (if any)
@@ -127,7 +127,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - State transitions emit events via broadcast channel
     - _Requirements: 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3, 07-REQ-3.4, 07-REQ-4.1, 07-REQ-4.2, 07-REQ-8.1, 07-REQ-8.2, 07-REQ-8.3_
 
-  - [ ] 3.2 Implement podman executor trait and real implementation
+  - [x] 3.2 Implement podman executor trait and real implementation
     - Define `PodmanExecutor` async trait (pull, inspect_digest, run, stop, rm, rmi, wait)
     - Implement `RealPodmanExecutor` using `tokio::process::Command`
     - `pull`: `podman pull <image_ref>`
@@ -140,7 +140,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - Implement `MockPodmanExecutor` for testing
     - _Requirements: 07-REQ-1.2, 07-REQ-1.3, 07-REQ-1.4_
 
-  - [ ] 3.3 Implement install flow orchestration
+  - [x] 3.3 Implement install flow orchestration
     - Validate inputs (non-empty image_ref, checksum)
     - Derive adapter_id
     - Check for running adapter, stop if needed (single adapter constraint)
@@ -149,11 +149,11 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - Handle errors at each step (transition to ERROR)
     - _Requirements: 07-REQ-1.1 through 07-REQ-1.5, 07-REQ-2.1, 07-REQ-2.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] State and podman tests pass: `cd rhivos && cargo test -p update-service -- state podman install`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-1 through TS-07-5, TS-07-7 through TS-07-12, TS-07-E1 through TS-07-E11, TS-07-E15, TS-07-P2 through TS-07-P5_
+  - [x] 3.V Verify task group 3
+    - [x] State and podman tests pass: `cd rhivos && cargo test -p update-service -- state podman install`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-1 through TS-07-5, TS-07-7 through TS-07-12, TS-07-E1 through TS-07-E11, TS-07-E15, TS-07-P2 through TS-07-P5_
 
 - [ ] 4. Background tasks: offload timer and container monitor
   - [ ] 4.1 Implement offload timer

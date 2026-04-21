@@ -267,39 +267,109 @@ impl PodmanExecutor for MockPodmanExecutor {
 }
 
 // ---------------------------------------------------------------------------
-// RealPodmanExecutor — stub, implemented in task group 3
+// RealPodmanExecutor — shells out to the podman CLI
 // ---------------------------------------------------------------------------
 
 pub struct RealPodmanExecutor;
 
+impl RealPodmanExecutor {
+    async fn run_command(
+        &self,
+        args: &[&str],
+    ) -> Result<std::process::Output, PodmanError> {
+        tokio::process::Command::new("podman")
+            .args(args)
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&format!("failed to spawn podman: {}", e)))
+    }
+}
+
 #[async_trait::async_trait]
 impl PodmanExecutor for RealPodmanExecutor {
-    async fn pull(&self, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("implemented in task group 3")
+    async fn pull(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = self.run_command(&["pull", image_ref]).await?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 
-    async fn inspect_digest(&self, _image_ref: &str) -> Result<String, PodmanError> {
-        todo!("implemented in task group 3")
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, PodmanError> {
+        let output = self
+            .run_command(&["image", "inspect", "--format", "{{.Digest}}", image_ref])
+            .await?;
+        if output.status.success() {
+            let digest = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            Ok(digest)
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 
-    async fn run(&self, _adapter_id: &str, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("implemented in task group 3")
+    async fn run(&self, adapter_id: &str, image_ref: &str) -> Result<(), PodmanError> {
+        let output = self
+            .run_command(&[
+                "run",
+                "-d",
+                "--name",
+                adapter_id,
+                "--network=host",
+                image_ref,
+            ])
+            .await?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 
-    async fn stop(&self, _adapter_id: &str) -> Result<(), PodmanError> {
-        todo!("implemented in task group 3")
+    async fn stop(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = self.run_command(&["stop", adapter_id]).await?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 
-    async fn rm(&self, _adapter_id: &str) -> Result<(), PodmanError> {
-        todo!("implemented in task group 3")
+    async fn rm(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = self.run_command(&["rm", adapter_id]).await?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 
-    async fn rmi(&self, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("implemented in task group 3")
+    async fn rmi(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = self.run_command(&["rmi", image_ref]).await?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 
-    async fn wait(&self, _adapter_id: &str) -> Result<i32, PodmanError> {
-        todo!("implemented in task group 3")
+    async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
+        let output = self.run_command(&["wait", adapter_id]).await?;
+        if output.status.success() {
+            let exit_code_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            exit_code_str
+                .parse::<i32>()
+                .map_err(|e| PodmanError::new(&format!("failed to parse exit code: {}", e)))
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(PodmanError::new(&stderr))
+        }
     }
 }
 

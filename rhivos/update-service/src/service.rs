@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
-use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
+use crate::adapter::{derive_adapter_id, AdapterEntry, AdapterState, AdapterStateEvent};
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
@@ -35,51 +35,186 @@ impl std::error::Error for ServiceError {}
 
 /// Core service orchestrating adapter lifecycle.
 pub struct UpdateService<P: PodmanExecutor + Send + Sync + 'static> {
-    #[allow(dead_code)]
     pub(crate) state_mgr: Arc<StateManager>,
-    #[allow(dead_code)]
     pub(crate) podman: Arc<P>,
-    #[allow(dead_code)]
     pub(crate) broadcaster: broadcast::Sender<AdapterStateEvent>,
 }
 
 impl<P: PodmanExecutor + Send + Sync + 'static> UpdateService<P> {
     pub fn new(
-        _state_mgr: Arc<StateManager>,
-        _podman: Arc<P>,
-        _broadcaster: broadcast::Sender<AdapterStateEvent>,
+        state_mgr: Arc<StateManager>,
+        podman: Arc<P>,
+        broadcaster: broadcast::Sender<AdapterStateEvent>,
     ) -> Self {
-        todo!("implemented in task group 3")
+        Self {
+            state_mgr,
+            podman,
+            broadcaster,
+        }
     }
 
     /// Validate inputs, derive adapter_id, stop any running adapter, create
     /// entry, return immediately while spawning async install task.
     pub async fn install_adapter(
         &self,
-        _image_ref: &str,
-        _checksum_sha256: &str,
+        image_ref: &str,
+        checksum_sha256: &str,
     ) -> Result<InstallResponse, ServiceError> {
-        todo!("implemented in task group 3")
+        // Validate inputs
+        if image_ref.is_empty() {
+            return Err(ServiceError::InvalidArgument(
+                "image_ref is required".to_string(),
+            ));
+        }
+        if checksum_sha256.is_empty() {
+            return Err(ServiceError::InvalidArgument(
+                "checksum_sha256 is required".to_string(),
+            ));
+        }
+
+        let adapter_id = derive_adapter_id(image_ref);
+        let job_id = uuid::Uuid::new_v4().to_string();
+
+        // Single adapter constraint: stop any currently running adapter.
+        if let Some(running) = self.state_mgr.get_running_adapter() {
+            if running.adapter_id != adapter_id {
+                match self.podman.stop(&running.adapter_id).await {
+                    Ok(()) => {
+                        // Transition to STOPPED; ignore error (adapter may have been
+                        // concurrently modified by another task).
+                        let _ = self
+                            .state_mgr
+                            .transition(&running.adapter_id, AdapterState::Stopped, None);
+                    }
+                    Err(e) => {
+                        // Stop failed — record error on old adapter but still proceed.
+                        self.state_mgr.force_error(&running.adapter_id, &e.message);
+                    }
+                }
+            }
+        }
+
+        // Create adapter entry starting in UNKNOWN state.
+        let entry = AdapterEntry {
+            adapter_id: adapter_id.clone(),
+            image_ref: image_ref.to_string(),
+            checksum_sha256: checksum_sha256.to_string(),
+            state: AdapterState::Unknown,
+            job_id: job_id.clone(),
+            stopped_at: None,
+            error_message: None,
+        };
+        self.state_mgr.create_adapter(entry);
+
+        // Transition to DOWNLOADING and return the response immediately.
+        self.state_mgr
+            .transition(&adapter_id, AdapterState::Downloading, None)
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
+
+        // Spawn async install task: pull → verify → run
+        let state_mgr = Arc::clone(&self.state_mgr);
+        let podman = Arc::clone(&self.podman);
+        let image_ref_owned = image_ref.to_string();
+        let checksum_owned = checksum_sha256.to_string();
+        let adapter_id_task = adapter_id.clone();
+
+        tokio::spawn(async move {
+            // 1. Pull image
+            if let Err(e) = podman.pull(&image_ref_owned).await {
+                state_mgr.force_error(&adapter_id_task, &e.message);
+                return;
+            }
+
+            // 2. Verify checksum
+            match podman.inspect_digest(&image_ref_owned).await {
+                Err(e) => {
+                    state_mgr.force_error(&adapter_id_task, &e.message);
+                    return;
+                }
+                Ok(digest) => {
+                    if digest != checksum_owned {
+                        // Remove the pulled image and record checksum mismatch.
+                        let _ = podman.rmi(&image_ref_owned).await;
+                        state_mgr.force_error(&adapter_id_task, "checksum_mismatch");
+                        return;
+                    }
+                }
+            }
+
+            // 3. Transition to INSTALLING
+            if state_mgr
+                .transition(&adapter_id_task, AdapterState::Installing, None)
+                .is_err()
+            {
+                return;
+            }
+
+            // 4. Start container
+            match podman.run(&adapter_id_task, &image_ref_owned).await {
+                Err(e) => {
+                    state_mgr.force_error(&adapter_id_task, &e.message);
+                }
+                Ok(()) => {
+                    // Transition to RUNNING
+                    let _ = state_mgr.transition(&adapter_id_task, AdapterState::Running, None);
+                    // Container monitor is started in task group 4.
+                }
+            }
+        });
+
+        Ok(InstallResponse {
+            job_id,
+            adapter_id,
+            state: AdapterState::Downloading,
+        })
     }
 
     /// Stop (if running), rm, rmi the adapter, then remove from state.
-    pub async fn remove_adapter(&self, _adapter_id: &str) -> Result<(), ServiceError> {
-        todo!("implemented in task group 5")
+    pub async fn remove_adapter(&self, adapter_id: &str) -> Result<(), ServiceError> {
+        let entry = self
+            .state_mgr
+            .get_adapter(adapter_id)
+            .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))?;
+
+        // Stop the container if it is currently running.
+        if entry.state == AdapterState::Running {
+            // Best-effort stop; if it fails we still attempt rm.
+            let _ = self.podman.stop(adapter_id).await;
+        }
+
+        // Remove container
+        if let Err(e) = self.podman.rm(adapter_id).await {
+            self.state_mgr.force_error(adapter_id, &e.message);
+            return Err(ServiceError::Internal(e.message));
+        }
+
+        // Remove image
+        if let Err(e) = self.podman.rmi(&entry.image_ref).await {
+            self.state_mgr.force_error(adapter_id, &e.message);
+            return Err(ServiceError::Internal(e.message));
+        }
+
+        // Remove from in-memory state
+        self.state_mgr
+            .remove_adapter(adapter_id)
+            .map_err(|e| ServiceError::Internal(e.to_string()))
     }
 
     /// Return all known adapters.
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!("implemented in task group 5")
+        self.state_mgr.list_adapters()
     }
 
     /// Return state for a specific adapter, or NotFound.
-    pub fn get_adapter_status(&self, _adapter_id: &str) -> Result<AdapterEntry, ServiceError> {
-        todo!("implemented in task group 5")
+    pub fn get_adapter_status(&self, adapter_id: &str) -> Result<AdapterEntry, ServiceError> {
+        self.state_mgr
+            .get_adapter(adapter_id)
+            .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))
     }
 
     /// Subscribe to adapter state change events.
     pub fn subscribe(&self) -> broadcast::Receiver<AdapterStateEvent> {
-        todo!("implemented in task group 5")
+        self.broadcaster.subscribe()
     }
 }
 
