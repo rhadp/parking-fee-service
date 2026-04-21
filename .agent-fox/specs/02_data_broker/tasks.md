@@ -184,7 +184,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [x] 6.1 Run all integration tests (acceptance, property, edge case, smoke) and verify 100% pass rate
     - _Test Spec: TS-02-1 through TS-02-12, TS-02-P1 through TS-02-P3, TS-02-E1 through TS-02-E4, TS-02-SMOKE-1, TS-02-SMOKE-2_
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2, 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1, 02-REQ-3.2, 02-REQ-4.1, 02-REQ-5.1, 02-REQ-5.2, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4, 02-REQ-7.1, 02-REQ-8.1, 02-REQ-8.2, 02-REQ-9.1, 02-REQ-9.2, 02-REQ-10.1_
-    - Result: 8 static tests PASS; 22 live tests SKIP gracefully (Podman machine not running in CI); 0 FAIL
+    - Result: 8 static tests PASS; 23 live tests SKIP gracefully (Podman machine not running in CI); 0 FAIL
 
   - [x] 6.2 Verify compose.yml contains all required configuration: pinned image, dual listener args, port mapping, volume mounts, overlay flag, no auth flags
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1, 02-REQ-3.2, 02-REQ-4.1, 02-REQ-6.4, 02-REQ-7.1_
@@ -192,7 +192,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     - compose.yml: image=ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0, ports=55556:55555, args=--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss /vss_release_4.0.json,/app/vss-overlay.json, volume=kuksa-uds (bind /tmp/kuksa), no auth flags
 
   - [x] 6.V Verify task group 6
-    - [x] Final wiring verification: `go test -v ./tests/databroker/...` → PASS (8 pass, 22 skip, 0 fail); `make check` → PASS (all quality gates green)
+    - [x] Final wiring verification: `go test -v ./tests/databroker/...` → PASS (8 pass, 23 skip, 0 fail); `make check` → PASS (all quality gates green)
     ```
     cd tests/databroker && go test -v ./... && echo "All DATA_BROKER tests passed"
     ```
