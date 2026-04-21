@@ -75,6 +75,27 @@ func TestEdgeCaseOverlaySyntaxError(t *testing.T) {
 		t.Fatalf("expected non-zero exit when overlay has syntax error, but compose up succeeded\noutput: %s", out)
 	}
 	t.Logf("compose up correctly failed with invalid overlay; error: %v\noutput: %s", startErr, out)
+
+	// TS-02-E2 requires log verification: 'logs contain parse error'.
+	// Check both compose output and container logs for error/parse indicators.
+	outLower := strings.ToLower(out)
+	hasErrorInOutput := strings.Contains(outLower, "error") || strings.Contains(outLower, "parse") ||
+		strings.Contains(outLower, "invalid") || strings.Contains(outLower, "json")
+
+	if !hasErrorInOutput {
+		// Try fetching container logs separately in case compose output is minimal.
+		logsCtx, logsCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer logsCancel()
+		logs, _ := runPodmanComposeCtx(logsCtx, t, "logs", "kuksa-databroker")
+		logsLower := strings.ToLower(logs)
+		hasErrorInLogs := strings.Contains(logsLower, "error") || strings.Contains(logsLower, "parse") ||
+			strings.Contains(logsLower, "invalid") || strings.Contains(logsLower, "json")
+		if !hasErrorInLogs {
+			t.Errorf("expected parse/error keywords in compose output or container logs\ncompose output: %s\nlogs: %s", out, logs)
+		} else {
+			t.Logf("parse error found in container logs: %s", logs)
+		}
+	}
 }
 
 // TestEdgeCaseMissingOverlay verifies that the DATA_BROKER container fails to start

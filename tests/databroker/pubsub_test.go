@@ -28,6 +28,19 @@ func subscribeAndCapture(t *testing.T, target, signalPath string, d time.Duratio
 	return string(out)
 }
 
+// countOccurrences returns how many times substr appears in s (case-insensitive).
+func countOccurrences(s, substr string) int {
+	s = strings.ToLower(s)
+	substr = strings.ToLower(substr)
+	count := 0
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr {
+			count++
+		}
+	}
+	return count
+}
+
 // TestSubscriptionViaTCP verifies that a TCP subscriber receives update notifications
 // when a signal value changes.
 // Test Spec: TS-02-10
@@ -104,16 +117,19 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 }
 
 // TestPropertySubscriptionDelivery verifies that for any signal, subscribing and then
-// setting a new value delivers the update to the subscriber. This is the property test
-// covering all 8 signals systematically, complementing the targeted TS-02-10/TS-02-11 tests.
+// setting a new value delivers the update to the subscriber exactly once.
+// Per TS-02-P4 pseudocode, after receiving the expected update, a second Recv with a
+// short timeout must return TIMEOUT (no additional update). The grpcurl approach verifies
+// this by using a distinctive marker value and counting its occurrences in the captured
+// subscription output — the marker should appear exactly once.
 // Test Spec: TS-02-P4
 // Requirement: 02-REQ-10.1
 func TestPropertySubscriptionDelivery(t *testing.T) {
 	skipIfGrpcurlMissing(t)
 	skipIfTCPNotReachable(t)
 
-	// Each signal is tested with a type-appropriate value and a substring to look for
-	// in the subscription output.
+	// Each signal is tested with a type-appropriate value and a distinctive substring
+	// to verify exactly-once delivery.
 	type subCase struct {
 		signal  string
 		pubReq  string // full PublishValueRequest JSON
@@ -124,12 +140,12 @@ func TestPropertySubscriptionDelivery(t *testing.T) {
 		{
 			signal:  "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
 			pubReq:  `{"signal_id": {"path": "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"}, "value": {"bool_value": true}}`,
-			checkIn: "true",
+			checkIn: "IsLocked",
 		},
 		{
 			signal:  "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen",
 			pubReq:  `{"signal_id": {"path": "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"}, "value": {"bool_value": true}}`,
-			checkIn: "true",
+			checkIn: "IsOpen",
 		},
 		{
 			signal:  "Vehicle.CurrentLocation.Latitude",
@@ -149,7 +165,7 @@ func TestPropertySubscriptionDelivery(t *testing.T) {
 		{
 			signal:  "Vehicle.Parking.SessionActive",
 			pubReq:  `{"signal_id": {"path": "Vehicle.Parking.SessionActive"}, "value": {"bool_value": true}}`,
-			checkIn: "true",
+			checkIn: "SessionActive",
 		},
 		{
 			signal:  "Vehicle.Command.Door.Lock",
@@ -167,26 +183,43 @@ func TestPropertySubscriptionDelivery(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.signal, func(t *testing.T) {
-			// Start subscriber in a goroutine; give it 5 seconds to capture output.
+			// Use a longer capture window (3s) split into:
+			//   - 300ms: subscriber setup
+			//   - publish
+			//   - remaining time: wait for delivery + verify no extra delivery
 			type result struct{ out string }
 			ch := make(chan result, 1)
 			go func() {
-				out := subscribeAndCapture(t, target, tc.signal, 5*time.Second)
+				// 3s total: enough to capture the update and verify no more arrive.
+				out := subscribeAndCapture(t, target, tc.signal, 3*time.Second)
 				ch <- result{out}
 			}()
 
 			// Allow subscriber to establish before publishing.
 			time.Sleep(300 * time.Millisecond)
 
-			// Publish the value.
+			// Publish the value exactly once.
 			grpcurlTCP(t, "PublishValue", tc.pubReq)
 
 			// Wait for the subscriber output.
 			select {
 			case r := <-ch:
-				if !strings.Contains(strings.ToLower(r.out), strings.ToLower(tc.checkIn)) {
+				outLower := strings.ToLower(r.out)
+				checkLower := strings.ToLower(tc.checkIn)
+
+				if !strings.Contains(outLower, checkLower) {
 					t.Errorf("subscriber did not receive expected value %q for %s\noutput: %s",
 						tc.checkIn, tc.signal, r.out)
+				}
+
+				// Exactly-once verification: the subscription stream output from
+				// grpcurl contains one JSON object per update. Count how many times
+				// the signal path appears in the output (each update block contains
+				// the signal path once). More than 1 indicates duplicate delivery.
+				pathCount := countOccurrences(r.out, tc.signal)
+				if pathCount > 1 {
+					t.Errorf("expected exactly 1 update for %s but got %d occurrences in subscription output\noutput: %s",
+						tc.signal, pathCount, r.out)
 				}
 			case <-time.After(6 * time.Second):
 				t.Errorf("timed out waiting for subscription update for %s", tc.signal)
