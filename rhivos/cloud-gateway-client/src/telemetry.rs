@@ -281,8 +281,9 @@ mod tests {
     // Validates: [04-REQ-9.1], [04-REQ-9.2]
     //
     // Property: For any execution of the service, initialization proceeds in
-    // strict order (config -> NATS -> DATA_BROKER -> registration -> processing)
-    // and a failure at any step prevents subsequent steps from executing.
+    // strict order (config -> NATS -> DATA_BROKER -> subscriptions ->
+    // registration -> processing) and a failure at any step prevents
+    // subsequent steps from executing.
     //
     // This property inherently requires process-level control to inject failures
     // at each startup step (NATS unavailable, DATA_BROKER unreachable, etc.).
@@ -293,10 +294,11 @@ mod tests {
     //   - Step 1 (config) failure: unit test ts_04_e1 + smoke TS-04-SMOKE-2
     //   - Step 2 (NATS) failure: integration test TS-04-15 (exponential backoff)
     //   - Step 3 (DATA_BROKER) failure: covered by exit-on-error in main.rs
-    //   - Step 4 (registration) failure: covered by exit-on-error in main.rs
-    //   - Step 5 (subscriptions) failure: covered by exit-on-error in main.rs
+    //   - Step 4 (subscriptions) failure: covered by exit-on-error in main.rs;
+    //     registration is NOT published if subscriptions fail (errata E2)
+    //   - Step 5 (registration) failure: covered by exit-on-error in main.rs
     //   - Ordering invariant: integration test TS-04-13 (registration after
-    //     both connections established, per errata E2)
+    //     both connections and all subscriptions established, per errata E2)
     #[test]
     #[ignore = "integration: requires process spawning and infrastructure; delegated to TS-04-15, TS-04-SMOKE-2, TS-04-13"]
     fn ts_04_p6_startup_determinism() {

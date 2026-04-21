@@ -70,14 +70,14 @@ async fn main() {
         }
     };
 
-    // Step 4: Publish self-registration.
-    // Validates: [04-REQ-4.1], [04-REQ-4.2]
-    if let Err(e) = nats.publish_registration().await {
-        error!(error = %e, "Failed to publish self-registration; exiting");
-        std::process::exit(1);
-    }
-
-    // Step 5: Subscribe to all channels before processing begins.
+    // Step 4: Subscribe to all channels before announcing availability.
+    //
+    // Subscriptions are established before self-registration so that a
+    // subscription failure causes exit(1) WITHOUT having published an
+    // "online" message — preventing a false availability signal.
+    // See docs/errata/04_cloud_gateway_client.md §E2 for rationale.
+    //
+    // Validates: [04-REQ-2.3], [04-REQ-3.2], [04-REQ-3.3]
     let mut cmd_sub = match nats.subscribe_commands().await {
         Ok(s) => s,
         Err(e) => {
@@ -86,8 +86,6 @@ async fn main() {
         }
     };
 
-    // Subscribe to command responses from DATA_BROKER.
-    // Validates: [04-REQ-3.3], [04-REQ-7.1]
     let mut response_rx = match broker.subscribe_responses().await {
         Ok(r) => r,
         Err(e) => {
@@ -96,8 +94,6 @@ async fn main() {
         }
     };
 
-    // Subscribe to telemetry signals from DATA_BROKER.
-    // Validates: [04-REQ-3.2], [04-REQ-8.1]
     let mut telemetry_rx = match broker.subscribe_telemetry().await {
         Ok(t) => t,
         Err(e) => {
@@ -106,9 +102,16 @@ async fn main() {
         }
     };
 
+    // Step 5: Publish self-registration now that all channels are active.
+    // Validates: [04-REQ-4.1], [04-REQ-4.2]
+    if let Err(e) = nats.publish_registration().await {
+        error!(error = %e, "Failed to publish self-registration; exiting");
+        std::process::exit(1);
+    }
+
     info!("CLOUD_GATEWAY_CLIENT ready; processing commands and telemetry");
 
-    // ── Processing loops ─────────────────────────────────────────────────────
+    // ── Step 6: Processing loops ─────────────────────────────────────────────
 
     let mut telemetry_state = TelemetryState::new(config.vin.clone());
     let bearer_token = config.bearer_token.clone();

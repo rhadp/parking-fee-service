@@ -24,7 +24,7 @@ pattern.
 
 ## E2 — Self-Registration Trigger: NATS-connected vs post-DATA_BROKER
 
-**Source:** Skeptic major finding `26686601`  
+**Source:** Skeptic major findings `26686601`, `bd3f2a7c`  
 **Affects:** [04-REQ-4.1], [04-REQ-9.1], [04-REQ-9.2]
 
 **Problem:**  
@@ -33,11 +33,21 @@ of startup). REQ-9.1 places registration at step 4, after DATA_BROKER connection
 These are contradictory: if DATA_BROKER fails (step 3), under REQ-4.1 the registration was
 already published, but under REQ-9.1 + REQ-9.2 the service exits without publishing it.
 
+Additionally, REQ-9.1 step 5 ("begin processing commands and telemetry") requires NATS and
+DATA_BROKER subscriptions that could fail. Publishing registration at step 4 before
+subscriptions are established means a subscription failure leaves the cloud with a false
+"online" signal — the service exits but the CLOUD_GATEWAY believes the vehicle is available.
+
 **Resolution:**  
-Follow REQ-9.1's explicit startup sequence order: registration is published at step 4, after a
-successful DATA_BROKER connection. This ensures the CLOUD_GATEWAY only sees a "vehicle online"
-message when the vehicle is fully operational. If DATA_BROKER setup fails, no registration is
-sent (consistent with REQ-9.2's "exit without proceeding").
+The implementation defers self-registration until after all subscriptions are established:
+config → NATS connect → DATA_BROKER connect → subscribe all channels → publish registration →
+begin processing. This ensures the CLOUD_GATEWAY only sees a "vehicle online" message when
+the service is fully operational (all connections established, all subscriptions active).
+
+This reinterprets REQ-9.1 step 5 as including subscriptions, and moves registration to
+after subscriptions succeed. The five spec steps map to six implementation steps:
+(1) config, (2) NATS connect, (3) DATA_BROKER connect, (4) subscribe channels,
+(5) publish registration, (6) begin processing loop.
 
 ---
 
