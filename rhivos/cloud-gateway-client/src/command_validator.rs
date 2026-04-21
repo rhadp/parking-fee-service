@@ -275,20 +275,28 @@ mod tests {
     // TS-04-P3: Command Passthrough Fidelity
     // Validates: [04-REQ-6.3], [04-REQ-6.4]
     //
-    // For any valid command payload, the raw bytes are identical to what would be
-    // written to DATA_BROKER — the validator does not modify the payload.
-    // (Full end-to-end fidelity is verified by integration tests; here we check
-    // that validate_command_payload does not alter the content.)
+    // For any valid command payload, the validator preserves all fields —
+    // command_id, action, doors, AND any extra fields present. The original
+    // NATS payload bytes are what get written to DATA_BROKER (see main.rs
+    // line 161-168), so the validator must not cause data loss during parsing.
+    // (Full end-to-end byte-for-byte fidelity is verified by integration
+    // test TS-04-10; here we verify that the parsed struct retains all data.)
     proptest! {
         #[test]
         fn ts_04_p3_command_passthrough_fidelity(
             command_id in "[a-zA-Z0-9-]{1,32}",
             action in prop_oneof!["lock", "unlock"],
+            extra_key in "x_[a-z]{1,8}",
+            extra_value in "[a-zA-Z0-9]{1,16}",
         ) {
+            // Build a payload with extra fields beyond the required ones,
+            // mirroring real payloads that include source, vin, timestamp, etc.
             let payload_str = format!(
-                r#"{{"command_id":"{cmd}","action":"{act}","doors":["driver"]}}"#,
+                r#"{{"command_id":"{cmd}","action":"{act}","doors":["driver"],"{key}":"{val}"}}"#,
                 cmd = command_id,
                 act = action,
+                key = extra_key,
+                val = extra_value,
             );
             let payload = payload_str.as_bytes();
 
@@ -298,6 +306,22 @@ mod tests {
             // The parsed command_id and action must match the input exactly.
             prop_assert_eq!(cmd.command_id.as_str(), command_id.as_str());
             prop_assert_eq!(cmd.action.as_str(), action);
+
+            // Extra fields must be preserved in the flattened map (REQ-6.4:
+            // the validator does not strip unknown fields).
+            prop_assert!(
+                cmd.extra.contains_key(&extra_key),
+                "extra field '{}' must be preserved in parsed payload", extra_key
+            );
+            prop_assert_eq!(
+                cmd.extra.get(&extra_key).and_then(|v| v.as_str()),
+                Some(extra_value.as_str()),
+                "extra field value must match original"
+            );
+
+            // Verify doors are preserved as well.
+            prop_assert_eq!(cmd.doors.len(), 1);
+            prop_assert_eq!(&cmd.doors[0], "driver");
         }
     }
 }
