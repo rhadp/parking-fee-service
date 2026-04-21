@@ -81,3 +81,24 @@ required parent branch node `Vehicle.Parking`. The Kuksa Databroker container
 in `deployments/compose.yml` loads this overlay via the `--vss` flag.
 
 **Affected Requirements:** 08-REQ-4.1, 08-REQ-4.2, 08-REQ-4.3
+
+---
+
+## 08-ERRATA-5: DATA_BROKER Subscription Stream Failure During Normal Operation
+
+**Finding:** The requirements only cover DATA_BROKER unreachability on startup
+(08-REQ-3.E3). No requirement addresses the case where the DATA_BROKER
+subscription stream fails or disconnects during normal operation. Without
+handling this, the service would enter a zombie state: the gRPC server
+continues accepting requests, but autonomous lock/unlock event processing
+silently stops.
+
+**Resolution:** The implementation now treats a subscription stream failure as
+a fatal condition. When the IsLocked subscription background task exits (due to
+stream error or disconnection), the event processing loop logs at ERROR level
+and triggers a graceful shutdown of the gRPC server. This allows the container
+runtime to detect the exit and restart the process, re-establishing the
+DATA_BROKER subscription. The service completes any in-flight gRPC operations
+before exiting, consistent with 08-REQ-8.E1.
+
+**Affected Requirements:** 08-REQ-3.E3 (gap), 08-REQ-8.3, 08-REQ-8.E1

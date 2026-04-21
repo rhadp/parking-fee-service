@@ -102,7 +102,7 @@ async fn main() {
     let vehicle_id_event = config.vehicle_id.clone();
     let zone_id_event = config.zone_id.clone();
 
-    tokio::spawn(async move {
+    let event_handle = tokio::spawn(async move {
         while let Some(is_locked) = is_locked_rx.recv().await {
             let mut sess = session_event.lock().await;
             let result = process_lock_event(
@@ -119,7 +119,12 @@ async fn main() {
                 error!(is_locked, error = %e, "Lock event processing failed");
             }
         }
-        warn!("IsLocked subscription stream ended");
+        // Channel closed — the subscription background task exited (stream
+        // error or DATA_BROKER disconnected).  The service can no longer
+        // process lock/unlock events autonomously.  Log at ERROR so operators
+        // notice, and signal the gRPC server to shut down so the container
+        // runtime can restart the process.
+        error!("IsLocked subscription stream ended; autonomous session management lost");
     });
 
     // ── Step 6: Build gRPC server ─────────────────────────────────────────────
@@ -142,10 +147,18 @@ async fn main() {
     // ── Step 7: Serve with graceful shutdown ─────────────────────────────────
 
     // 08-REQ-8.3: Handle SIGTERM/SIGINT and exit with code 0.
+    // Also shut down if the IsLocked subscription stream ends — the service
+    // becomes a zombie (accepts gRPC but cannot process lock/unlock events)
+    // without it.  Exiting lets the container runtime restart the process.
     let server = Server::builder()
         .add_service(ParkingAdaptorServer::new(svc))
         .serve_with_shutdown(addr, async {
-            shutdown_signal().await;
+            tokio::select! {
+                _ = shutdown_signal() => {}
+                _ = event_handle => {
+                    error!("Lock-event processing task exited; initiating shutdown");
+                }
+            }
         });
 
     if let Err(e) = server.await {

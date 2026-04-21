@@ -151,7 +151,7 @@ impl BrokerClient {
                         }
                     }
                     Ok(None) => {
-                        info!(signal = SIGNAL_IS_LOCKED, "IsLocked subscribe stream ended");
+                        error!(signal = SIGNAL_IS_LOCKED, "IsLocked subscribe stream ended unexpectedly");
                         return;
                     }
                     Err(e) => {
