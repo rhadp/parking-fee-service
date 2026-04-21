@@ -1,17 +1,43 @@
 use std::sync::Arc;
 
+use crate::adapter::AdapterState;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
-/// Spawn a task that waits for the named container to exit, then transitions
-/// the adapter to STOPPED (exit 0) or ERROR (non-zero / wait failure).
+/// Wait for the named container to exit, then transition the adapter to
+/// STOPPED (exit code 0) or ERROR (non-zero exit / wait failure).
+///
+/// Intended to be spawned as a background task after `podman run` succeeds.
 pub async fn monitor_container<P: PodmanExecutor + Send + Sync + 'static>(
-    _adapter_id: String,
+    adapter_id: String,
     _image_ref: String,
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<P>,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<P>,
 ) {
-    todo!("implemented in task group 4")
+    match podman.wait(&adapter_id).await {
+        Ok(0) => {
+            // Clean exit — transition to STOPPED (also records stopped_at for offload timer).
+            if state_mgr
+                .transition(&adapter_id, AdapterState::Stopped, None)
+                .is_err()
+            {
+                // Adapter may have already been transitioned by another path (e.g. remove).
+                // Use force_error as a fallback if normal transition is rejected.
+                state_mgr.force_error(&adapter_id, "container exited cleanly but state transition failed");
+            }
+        }
+        Ok(exit_code) => {
+            // Non-zero exit — transition to ERROR.
+            state_mgr.force_error(
+                &adapter_id,
+                &format!("container exited with non-zero code: {exit_code}"),
+            );
+        }
+        Err(e) => {
+            // podman wait failure — transition to ERROR.
+            state_mgr.force_error(&adapter_id, &format!("podman wait failed: {}", e.message));
+        }
+    }
 }
 
 #[cfg(test)]

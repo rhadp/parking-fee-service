@@ -1,27 +1,63 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::adapter::AdapterState;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
 /// Iterate over STOPPED adapters whose inactivity timeout has elapsed,
-/// transition them to OFFLOADING, and clean up via podman rm/rmi.
+/// transition them to OFFLOADING, and clean up via `podman rm` + `podman rmi`.
+/// On any cleanup failure the adapter is transitioned to ERROR and left in state.
 pub async fn offload_expired<P: PodmanExecutor + Send + Sync + 'static>(
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<P>,
-    _timeout: Duration,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<P>,
+    timeout: Duration,
 ) {
-    todo!("implemented in task group 4")
+    let candidates = state_mgr.get_offload_candidates(timeout);
+
+    for candidate in candidates {
+        let adapter_id = candidate.adapter_id.clone();
+        let image_ref = candidate.image_ref.clone();
+
+        // Transition to OFFLOADING and emit the state event.
+        if state_mgr
+            .transition(&adapter_id, AdapterState::Offloading, None)
+            .is_err()
+        {
+            // Adapter was concurrently modified; skip.
+            continue;
+        }
+
+        // Remove container.
+        if let Err(e) = podman.rm(&adapter_id).await {
+            state_mgr.force_error(&adapter_id, &e.message);
+            continue;
+        }
+
+        // Remove image.
+        if let Err(e) = podman.rmi(&image_ref).await {
+            state_mgr.force_error(&adapter_id, &e.message);
+            continue;
+        }
+
+        // All cleanup succeeded — remove from in-memory state entirely.
+        let _ = state_mgr.remove_adapter(&adapter_id);
+    }
 }
 
 /// Spawn a background task that calls `offload_expired` every `interval_secs` seconds.
 pub fn spawn_offload_timer<P: PodmanExecutor + Send + Sync + 'static>(
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<P>,
-    _timeout: Duration,
-    _interval_secs: u64,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<P>,
+    timeout: Duration,
+    interval_secs: u64,
 ) -> tokio::task::JoinHandle<()> {
-    todo!("implemented in task group 4")
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(interval_secs)).await;
+            offload_expired(Arc::clone(&state_mgr), Arc::clone(&podman), timeout).await;
+        }
+    })
 }
 
 #[cfg(test)]
