@@ -8,6 +8,7 @@ use crate::models::CommandPayload;
 ///
 /// Returns `Ok(())` when the header value exactly matches
 /// `"Bearer <expected_token>"`.
+#[allow(unused_variables)]
 pub fn validate_bearer_token(
     authorization: Option<&str>,
     expected_token: &str,
@@ -25,6 +26,7 @@ pub fn validate_bearer_token(
 /// 5. `doors` array is present.
 ///
 /// Returns the deserialized [`CommandPayload`] on success.
+#[allow(unused_variables)]
 pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError> {
     todo!("implement validate_command_payload")
 }

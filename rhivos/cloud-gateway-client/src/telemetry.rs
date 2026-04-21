@@ -4,6 +4,7 @@ use crate::models::SignalUpdate;
 /// an aggregated JSON payload whenever any signal changes.
 ///
 /// Fields that have never been updated are omitted from the payload (REQ-8.3).
+#[allow(dead_code)]
 pub struct TelemetryState {
     vin: String,
     is_locked: Option<bool>,
@@ -14,6 +15,7 @@ pub struct TelemetryState {
 
 impl TelemetryState {
     /// Create a new, empty telemetry state for the given VIN.
+    #[allow(unused_variables)]
     pub fn new(vin: String) -> Self {
         todo!("implement TelemetryState::new")
     }
@@ -22,6 +24,7 @@ impl TelemetryState {
     ///
     /// Returns `Some(json)` on every call (telemetry is published on every
     /// signal change). Returns `None` only on internal serialization failure.
+    #[allow(unused_variables)]
     pub fn update(&mut self, signal: SignalUpdate) -> Option<String> {
         todo!("implement TelemetryState::update")
     }
