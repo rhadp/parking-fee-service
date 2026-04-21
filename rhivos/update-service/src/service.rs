@@ -157,7 +157,20 @@ impl<P: PodmanExecutor + Send + Sync + 'static> UpdateService<P> {
                 Ok(()) => {
                     // Transition to RUNNING
                     let _ = state_mgr.transition(&adapter_id_task, AdapterState::Running, None);
-                    // Container monitor is started in task group 4.
+                    // Spawn container monitor to detect exit events.
+                    let monitor_state = Arc::clone(&state_mgr);
+                    let monitor_podman = Arc::clone(&podman);
+                    let monitor_id = adapter_id_task.clone();
+                    let monitor_image = image_ref_owned.clone();
+                    tokio::spawn(async move {
+                        crate::monitor::monitor_container(
+                            monitor_id,
+                            monitor_image,
+                            monitor_state,
+                            monitor_podman,
+                        )
+                        .await;
+                    });
                 }
             }
         });

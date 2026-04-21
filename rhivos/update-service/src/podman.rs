@@ -46,7 +46,7 @@ struct MockInner {
     stop_result: Mutex<Result<(), String>>,
     rm_result: Mutex<Result<(), String>>,
     rmi_result: Mutex<Result<(), String>>,
-    wait_result: Mutex<Result<i32, String>>,
+    wait_result: Mutex<Option<Result<i32, String>>>,
     stop_overrides: Mutex<HashMap<String, Result<(), String>>>,
     pull_calls: Mutex<Vec<String>>,
     inspect_calls: Mutex<Vec<String>>,
@@ -71,7 +71,7 @@ impl MockPodmanExecutor {
                 stop_result: Mutex::new(Ok(())),
                 rm_result: Mutex::new(Ok(())),
                 rmi_result: Mutex::new(Ok(())),
-                wait_result: Mutex::new(Ok(0)),
+                wait_result: Mutex::new(None), // None = block forever (default for tests)
                 stop_overrides: Mutex::new(HashMap::new()),
                 pull_calls: Mutex::new(Vec::new()),
                 inspect_calls: Mutex::new(Vec::new()),
@@ -109,7 +109,7 @@ impl MockPodmanExecutor {
     }
 
     pub fn set_wait_result(&self, result: Result<i32, PodmanError>) {
-        *self.inner.wait_result.lock().unwrap() = result.map_err(|e| e.message);
+        *self.inner.wait_result.lock().unwrap() = Some(result.map_err(|e| e.message));
     }
 
     pub fn set_stop_result_for(&self, adapter_id: &str, result: Result<(), PodmanError>) {
@@ -257,12 +257,12 @@ impl PodmanExecutor for MockPodmanExecutor {
             .lock()
             .unwrap()
             .push(adapter_id.to_string());
-        self.inner
-            .wait_result
-            .lock()
-            .unwrap()
-            .clone()
-            .map_err(|msg| PodmanError::new(&msg))
+        let result = self.inner.wait_result.lock().unwrap().clone();
+        match result {
+            Some(r) => r.map_err(|msg| PodmanError::new(&msg)),
+            // None = block indefinitely (simulates a long-running container in tests).
+            None => std::future::pending::<Result<i32, PodmanError>>().await,
+        }
     }
 }
 

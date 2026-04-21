@@ -1,4 +1,10 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Proto compilation wired in task group 5
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(false)
+        .compile(
+            &["../../proto/update/update_service.proto"],
+            &["../../proto"],
+        )?;
     Ok(())
 }
