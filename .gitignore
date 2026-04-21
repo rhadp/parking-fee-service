@@ -6,6 +6,7 @@ stuff.md
 stuff.json
 **/mcp.json
 hack/**
+prompts.md
 
 # Rust build artifacts
 **/target/
