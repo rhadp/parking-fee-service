@@ -115,7 +115,8 @@ pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
 ///
 /// Checks:
 /// - `command_id` is non-empty → `InvalidCommand`
-/// - all `doors` values are "driver" → `UnsupportedDoor`
+/// - `doors` contains "driver" → `InvalidCommand` (03-REQ-2.1)
+/// - all `doors` values are "driver" → `UnsupportedDoor` (03-REQ-2.2)
 pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
     if cmd.command_id.is_empty() {
         return Err(CommandError::InvalidCommand(
@@ -123,12 +124,22 @@ pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
         ));
     }
 
+    // Check for unsupported doors first (03-REQ-2.2 takes priority over 2.1
+    // for arrays containing non-"driver" values).
     for door in &cmd.doors {
         if door != "driver" {
             return Err(CommandError::UnsupportedDoor(format!(
                 "unsupported door: {door}"
             )));
         }
+    }
+
+    // Then ensure "driver" is actually present (03-REQ-2.1).
+    // This catches the empty doors array case.
+    if !cmd.doors.contains(&"driver".to_string()) {
+        return Err(CommandError::InvalidCommand(
+            "doors must contain \"driver\"".to_string(),
+        ));
     }
 
     Ok(())
@@ -202,6 +213,17 @@ mod tests {
         let result = validate_command(&cmd);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().reason(), "unsupported_door");
+    }
+
+    // 03-REQ-2.1: Empty doors array rejected with "invalid_command"
+    // Addresses minor review finding: empty doors passes validation but violates REQ-2.1
+    #[test]
+    fn test_validate_empty_doors() {
+        let json = r#"{"command_id":"x","action":"lock","doors":[]}"#;
+        let cmd = parse_command(json).expect("should parse");
+        let result = validate_command(&cmd);
+        assert!(result.is_err(), "empty doors must be rejected");
+        assert_eq!(result.unwrap_err().reason(), "invalid_command");
     }
 
     // TS-03-E3: Invalid JSON returns InvalidJson error
