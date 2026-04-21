@@ -1,18 +1,21 @@
+pub mod adapter;
+pub mod config;
+pub mod monitor;
+pub mod offload;
+pub mod podman;
+pub mod service;
+pub mod state;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    for arg in &args[1..] {
-        if arg.starts_with('-') {
-            eprintln!("usage: update-service");
-            std::process::exit(1);
+    if args.len() < 2 || args[1] != "serve" {
+        if args.iter().skip(1).any(|a| a.starts_with('-')) {
+            eprintln!("usage: update-service serve");
+            std::process::exit(0);
         }
+        println!("usage: update-service serve");
+        std::process::exit(0);
     }
-    println!("update-service v0.1.0");
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_compiles() {
-        assert!(true);
-    }
+    println!("update-service v{}", env!("CARGO_PKG_VERSION"));
+    todo!("implemented in task group 5")
 }

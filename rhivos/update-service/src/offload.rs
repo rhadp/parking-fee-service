@@ -1,0 +1,118 @@
+use std::sync::Arc;
+use std::time::Duration;
+
+use crate::podman::PodmanExecutor;
+use crate::state::StateManager;
+
+/// Iterate over STOPPED adapters whose inactivity timeout has elapsed,
+/// transition them to OFFLOADING, and clean up via podman rm/rmi.
+pub async fn offload_expired<P: PodmanExecutor + Send + Sync + 'static>(
+    _state_mgr: Arc<StateManager>,
+    _podman: Arc<P>,
+    _timeout: Duration,
+) {
+    todo!("implemented in task group 4")
+}
+
+/// Spawn a background task that calls `offload_expired` every `interval_secs` seconds.
+pub fn spawn_offload_timer<P: PodmanExecutor + Send + Sync + 'static>(
+    _state_mgr: Arc<StateManager>,
+    _podman: Arc<P>,
+    _timeout: Duration,
+    _interval_secs: u64,
+) -> tokio::task::JoinHandle<()> {
+    todo!("implemented in task group 4")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapter::{AdapterEntry, AdapterState};
+    use crate::podman::MockPodmanExecutor;
+    use crate::state::StateManager;
+    use std::sync::Arc;
+    use tokio::sync::broadcast;
+
+    fn make_stopped_entry(adapter_id: &str, image_ref: &str) -> AdapterEntry {
+        AdapterEntry {
+            adapter_id: adapter_id.to_string(),
+            image_ref: image_ref.to_string(),
+            checksum_sha256: "sha256:abc".to_string(),
+            state: AdapterState::Stopped,
+            job_id: "job-1".to_string(),
+            stopped_at: Some(std::time::Instant::now()),
+            error_message: None,
+        }
+    }
+
+    fn make_state_mgr() -> (Arc<StateManager>, broadcast::Receiver<crate::adapter::AdapterStateEvent>) {
+        let (tx, rx) = broadcast::channel(128);
+        (Arc::new(StateManager::new(tx)), rx)
+    }
+
+    // TS-07-13: STOPPED adapter is offloaded after timeout
+    #[tokio::test]
+    async fn test_offload_after_timeout() {
+        let (sm, _rx) = make_state_mgr();
+        let podman = Arc::new(MockPodmanExecutor::new());
+        let adapter_id = "adapter-a-v1";
+        let image_ref = "registry.example.com/adapter-a:v1";
+
+        sm.create_adapter(make_stopped_entry(adapter_id, image_ref));
+
+        // Use a very short timeout so the adapter is eligible
+        let timeout = Duration::from_millis(1);
+        tokio::time::sleep(Duration::from_millis(10)).await; // ensure stopped_at is in the past
+
+        offload_expired(Arc::clone(&sm), Arc::clone(&podman), timeout).await;
+
+        assert!(
+            sm.get_adapter(adapter_id).is_none(),
+            "adapter should be removed after offload"
+        );
+        assert!(
+            podman.rm_calls().contains(&adapter_id.to_string()),
+            "podman rm should be called"
+        );
+        assert!(
+            podman.rmi_calls().contains(&image_ref.to_string()),
+            "podman rmi should be called"
+        );
+    }
+
+    // TS-07-E12: Offload cleanup failure transitions adapter to ERROR
+    #[tokio::test]
+    async fn test_offload_failure_error() {
+        use crate::podman::PodmanError;
+
+        let (sm, _rx) = make_state_mgr();
+        let podman = Arc::new(MockPodmanExecutor::new());
+        let adapter_id = "adapter-a-v1";
+        let image_ref = "registry.example.com/adapter-a:v1";
+
+        podman.set_rm_result(Ok(()));
+        podman.set_rmi_result(Err(PodmanError::new("image in use")));
+
+        sm.create_adapter(make_stopped_entry(adapter_id, image_ref));
+
+        let timeout = Duration::from_millis(1);
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        offload_expired(Arc::clone(&sm), Arc::clone(&podman), timeout).await;
+
+        let adapter = sm.get_adapter(adapter_id).expect("adapter should still exist on failure");
+        assert_eq!(
+            adapter.state,
+            AdapterState::Error,
+            "adapter should be in ERROR state after offload failure"
+        );
+    }
+
+    // TS-07-P6: Offload timing correctness property test
+    #[test]
+    #[ignore]
+    fn proptest_offload_timing_correctness() {
+        // For any timeout T, offloading does not occur before T has elapsed
+        // Implemented as part of task group 4 verification
+    }
+}
