@@ -1,10 +1,11 @@
-use crate::models::SignalUpdate;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::models::{SignalUpdate, TelemetryMessage};
 
 /// Accumulates the latest value for each VSS telemetry signal and produces
 /// an aggregated JSON payload whenever any signal changes.
 ///
 /// Fields that have never been updated are omitted from the payload (REQ-8.3).
-#[allow(dead_code)]
 pub struct TelemetryState {
     vin: String,
     is_locked: Option<bool>,
@@ -15,18 +16,43 @@ pub struct TelemetryState {
 
 impl TelemetryState {
     /// Create a new, empty telemetry state for the given VIN.
-    #[allow(unused_variables)]
     pub fn new(vin: String) -> Self {
-        todo!("implement TelemetryState::new")
+        TelemetryState {
+            vin,
+            is_locked: None,
+            latitude: None,
+            longitude: None,
+            parking_active: None,
+        }
     }
 
     /// Apply a signal update and return the aggregated JSON payload.
     ///
     /// Returns `Some(json)` on every call (telemetry is published on every
     /// signal change). Returns `None` only on internal serialization failure.
-    #[allow(unused_variables)]
     pub fn update(&mut self, signal: SignalUpdate) -> Option<String> {
-        todo!("implement TelemetryState::update")
+        match signal {
+            SignalUpdate::IsLocked(v) => self.is_locked = Some(v),
+            SignalUpdate::Latitude(v) => self.latitude = Some(v),
+            SignalUpdate::Longitude(v) => self.longitude = Some(v),
+            SignalUpdate::ParkingActive(v) => self.parking_active = Some(v),
+        }
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let msg = TelemetryMessage {
+            vin: self.vin.clone(),
+            is_locked: self.is_locked,
+            latitude: self.latitude,
+            longitude: self.longitude,
+            parking_active: self.parking_active,
+            timestamp,
+        };
+
+        serde_json::to_string(&msg).ok()
     }
 }
 
