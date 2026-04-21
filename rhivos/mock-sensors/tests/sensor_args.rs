@@ -158,3 +158,117 @@ fn test_door_sensor_unreachable_broker() {
         "expected connection error on stderr"
     );
 }
+
+// ── TS-09-P2: CLI argument validation property test ──────────────────────────
+//
+// Property 2 from design.md: For any invocation with missing required arguments,
+// the tool exits with a non-zero code and prints an error to stderr.
+// Tests multiple argument subset combinations per binary (09-REQ-1.E1, 09-REQ-2.E1, 09-REQ-3.E1).
+
+/// TS-09-P2: location-sensor — all incomplete argument subsets exit non-zero.
+/// Invariant: any invocation missing at least one of --lat or --lon must fail.
+#[test]
+fn test_location_sensor_arg_validation_property() {
+    // All subsets of required args where at least one is missing.
+    let invalid_arg_sets: &[&[&str]] = &[
+        &[],                             // no args at all
+        &["--lat=48.13"],                 // missing --lon
+        &["--lon=11.58"],                 // missing --lat
+        &["--broker-addr=http://x:1"],    // only optional flag, missing required
+        &["--lat=48.13", "--broker-addr=http://x:1"], // missing --lon with optional
+        &["--lon=11.58", "--broker-addr=http://x:1"], // missing --lat with optional
+    ];
+
+    for (i, args) in invalid_arg_sets.iter().enumerate() {
+        let out = Command::new(env!("CARGO_BIN_EXE_location-sensor"))
+            .args(*args)
+            .output()
+            .unwrap_or_else(|e| panic!("case {i}: failed to start: {e}"));
+        assert!(
+            !out.status.success(),
+            "case {i}: expected non-zero exit for args {:?}, got {:?}",
+            args,
+            out.status.code()
+        );
+        assert!(
+            !out.stderr.is_empty(),
+            "case {i}: expected error on stderr for args {:?}",
+            args
+        );
+    }
+}
+
+/// TS-09-P2: speed-sensor — all incomplete argument subsets exit non-zero.
+/// Invariant: any invocation missing --speed must fail.
+#[test]
+fn test_speed_sensor_arg_validation_property() {
+    let invalid_arg_sets: &[&[&str]] = &[
+        &[],                             // no args at all
+        &["--broker-addr=http://x:1"],   // only optional flag
+    ];
+
+    for (i, args) in invalid_arg_sets.iter().enumerate() {
+        let out = Command::new(env!("CARGO_BIN_EXE_speed-sensor"))
+            .args(*args)
+            .output()
+            .unwrap_or_else(|e| panic!("case {i}: failed to start: {e}"));
+        assert!(
+            !out.status.success(),
+            "case {i}: expected non-zero exit for args {:?}, got {:?}",
+            args,
+            out.status.code()
+        );
+        assert!(
+            !out.stderr.is_empty(),
+            "case {i}: expected error on stderr for args {:?}",
+            args
+        );
+    }
+}
+
+/// TS-09-P2: door-sensor — all incomplete argument subsets exit non-zero.
+/// Invariant: any invocation missing both --open and --closed must fail.
+#[test]
+fn test_door_sensor_arg_validation_property() {
+    let invalid_arg_sets: &[&[&str]] = &[
+        &[],                             // no args at all
+        &["--broker-addr=http://x:1"],   // only optional flag
+    ];
+
+    for (i, args) in invalid_arg_sets.iter().enumerate() {
+        let out = Command::new(env!("CARGO_BIN_EXE_door-sensor"))
+            .args(*args)
+            .output()
+            .unwrap_or_else(|e| panic!("case {i}: failed to start: {e}"));
+        assert!(
+            !out.status.success(),
+            "case {i}: expected non-zero exit for args {:?}, got {:?}",
+            args,
+            out.status.code()
+        );
+        assert!(
+            !out.stderr.is_empty(),
+            "case {i}: expected error on stderr for args {:?}",
+            args
+        );
+    }
+}
+
+/// TS-09-P2: door-sensor — --open and --closed are mutually exclusive.
+/// Providing both should result in a usage error.
+#[test]
+fn test_door_sensor_mutual_exclusion() {
+    let out = Command::new(env!("CARGO_BIN_EXE_door-sensor"))
+        .args(["--open", "--closed"])
+        .output()
+        .expect("failed to start door-sensor");
+    assert!(
+        !out.status.success(),
+        "expected non-zero exit when both --open and --closed are given, got {:?}",
+        out.status.code()
+    );
+    assert!(
+        !out.stderr.is_empty(),
+        "expected error on stderr for mutually exclusive flags"
+    );
+}

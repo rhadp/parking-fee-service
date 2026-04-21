@@ -174,10 +174,11 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 - [x] 5. Wiring verification
   - [x] 5.1 Run mock sensor integration tests against DATA_BROKER
     - Added TestLocationSensor, TestSpeedSensor, TestDoorSensorOpen, TestDoorSensorClosed
-      to tests/mock-apps/sensor_test.go. Tests skip when DATA_BROKER is unreachable or
-      does not expose kuksa.VALService (the real kuksa-databroker v0.5.0 uses kuksa.val.v2.VAL;
-      see docs/errata/09_mock_apps_sensor_proto_compat.md).
-    - Also added TestSensorsUnreachableBroker and TestSensorSmoke.
+      to tests/mock-apps/sensor_test.go. Tests use a mock kuksa.val.v1 VAL gRPC server
+      (startMockVALServer) to capture published datapoints and verify correct VSS paths
+      and typed values (double for lat/lon, float for speed, bool for door state).
+    - Generated Go proto stubs at tests/mock-apps/pb/kuksa_val_v1/ from vendored proto.
+    - Also added TestSensorsUnreachableBroker and TestSensorSmoke (with value verification).
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-SMOKE-1_
 
   - [x] 5.2 Run parking-operator smoke test
@@ -191,22 +192,26 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - _Test Spec: TS-09-SMOKE-3_
 
   - [x] 5.4 Run property tests
-    - Parking operator session integrity (TS-09-P3): Added TestSessionIntegrityProperty
-      to mock/parking-operator/server_test.go with 10 timestamp/duration combinations.
-    - Parking operator session uniqueness (TS-09-P4/P5): Already covered by
-      TestSessionIDUniqueness in mock/parking-operator/server_test.go.
-    - Bearer token enforcement (TS-09-P6): Already covered by TestBearerTokenEnvVar
+    - Sensor publish-and-exit (TS-09-P1): Added TestSensorPublishProperty to
+      tests/mock-apps/sensor_test.go — 10 lat/lon combos, 8 speed values, 4 door states
+      verified against mock VAL server with full value assertion.
+    - Sensor argument validation (TS-09-P2): Added parameterized property tests
+      (test_*_arg_validation_property, test_door_sensor_mutual_exclusion) to
+      rhivos/mock-sensors/tests/sensor_args.rs — multiple missing-arg subsets per binary.
+    - Parking operator session integrity (TS-09-P3): TestSessionIntegrityProperty
+      in mock/parking-operator/server_test.go with 10 timestamp/duration combinations.
+    - Parking operator session uniqueness (TS-09-P4/P5): TestSessionIDUniqueness
+      in mock/parking-operator/server_test.go.
+    - Bearer token enforcement (TS-09-P6): TestBearerTokenEnvVar
       in tests/mock-apps/companion_test.go.
-    - Sensor argument validation (TS-09-P2): Covered by TestLookupMissingArgs,
-      TestInstallMissingArgs, TestMissingToken, TestMissingVIN in tests/mock-apps/.
-    - _Test Spec: TS-09-P2, TS-09-P3, TS-09-P4, TS-09-P5, TS-09-P6_
+    - _Test Spec: TS-09-P1, TS-09-P2, TS-09-P3, TS-09-P4, TS-09-P5, TS-09-P6_
 
   - [x] 5.V Verify task group 5
     - [x] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
     - [x] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
     - [x] All existing tests still pass: `make test`
     - [x] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
-          (sensor tests skip cleanly against v2 DATA_BROKER; all other tests pass)
+          (sensor tests now use mock VAL server for full value verification)
 
 - [x] 6. Checkpoint - All Tests Green
   - All unit, integration, property, and smoke tests pass

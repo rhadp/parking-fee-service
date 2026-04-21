@@ -5,28 +5,24 @@
 // TS-09-3: door-sensor publishes IsOpen=true to DATA_BROKER when invoked with --open.
 // TS-09-4: door-sensor publishes IsOpen=false to DATA_BROKER when invoked with --closed.
 // TS-09-SMOKE-1: All three mock sensors publish values and a subscriber confirms receipt.
+// TS-09-P1: Sensor publish-and-exit property — various inputs exit 0 and publish correct values.
 //
-// These tests require:
-//  1. The Rust mock-sensor binaries built via `cd rhivos && cargo build -p mock-sensors`.
-//  2. A running DATA_BROKER that exposes kuksa.val.v1.VALService on port 55556.
-//
-// Per docs/errata/09_mock_apps_sensor_proto_compat.md, the production-pinned
-// kuksa-databroker:0.5.0 only exposes kuksa.val.v2.VAL (not v1).  These tests
-// therefore skip gracefully when DATA_BROKER is unreachable or returns an error
-// that indicates the v1 service is unavailable.  The argument-validation tests
-// (TS-09-E1..E4) in rhivos/mock-sensors/tests/sensor_args.rs do NOT require
-// DATA_BROKER and always run.
+// These tests use a mock kuksa.val.v1 VAL gRPC server to capture published values,
+// eliminating the need for a real DATA_BROKER and avoiding v1/v2 proto incompatibility
+// (see docs/errata/09_mock_apps_sensor_proto_compat.md).
 package mockappstests
 
 import (
-	"net"
+	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
-	"time"
+
+	valpb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/kuksa_val_v1"
 )
 
 // findRustBinary returns the path to a built Rust binary from rhivos/target/debug/<name>.
@@ -45,138 +41,346 @@ func findRustBinary(t *testing.T, name string) string {
 	return binPath
 }
 
-// isBrokerReachable checks whether DATA_BROKER is listening on the given address.
-// Returns true only if a TCP connection can be established.
-func isBrokerReachable(addr string) bool {
-	conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
-	if err != nil {
-		return false
+// findEntry searches published entries for a matching VSS path.
+func findEntry(entries []publishedEntry, path string) *publishedEntry {
+	for _, e := range entries {
+		if e.Path == path {
+			return &e
+		}
 	}
-	conn.Close()
-	return true
+	return nil
 }
 
-// skipIfBrokerUnreachable skips the test if DATA_BROKER is not available.
-func skipIfBrokerUnreachable(t *testing.T) {
-	t.Helper()
-	brokerHost := "localhost:55556"
-	if !isBrokerReachable(brokerHost) {
-		t.Skipf("DATA_BROKER is not reachable at %s; skipping sensor integration test", brokerHost)
-	}
-}
-
-// runSensor executes a sensor binary with the given args. Returns stdout, stderr, and the exit code.
-// If the stderr contains a v1-API-not-available message, the test is skipped
-// (per errata: production DATA_BROKER exposes only v2 API).
-func runSensor(t *testing.T, binary string, args ...string) (string, string, int) {
-	t.Helper()
-	stdout, stderr, code := runBinary(t, binary, args...)
-
-	// If the sensor exits 1 with a v1-related error, skip rather than fail.
-	// This handles the case where DATA_BROKER is reachable but only exposes v2.
-	if code != 0 && (strings.Contains(stderr, "Unimplemented") ||
-		strings.Contains(stderr, "unimplemented") ||
-		strings.Contains(stderr, "unknown service") ||
-		strings.Contains(stderr, "StatusCode::Unimplemented")) {
-		t.Skipf("DATA_BROKER does not expose kuksa.val.v1.VALService (v2-only deployment); "+
-			"skipping per docs/errata/09_mock_apps_sensor_proto_compat.md. stderr=%q", stderr)
-	}
-	return stdout, stderr, code
-}
-
-// TS-09-1: location-sensor --lat=48.1351 --lon=11.5820 publishes coordinates and exits 0.
+// TS-09-1: location-sensor --lat=48.1351 --lon=11.5820 publishes Latitude and Longitude
+// to DATA_BROKER via kuksa.val.v1 Set RPC, and exits 0.
+// Verifies actual published VSS values via mock VAL server (09-REQ-1.1).
 func TestLocationSensor(t *testing.T) {
-	skipIfBrokerUnreachable(t)
 	binary := findRustBinary(t, "location-sensor")
+	valAddr, mockVal := startMockVALServer(t)
 
-	_, stderr, code := runSensor(t, binary,
+	_, stderr, code := runBinary(t, binary,
 		"--lat=48.1351",
 		"--lon=11.5820",
+		"--broker-addr=http://"+valAddr,
 	)
 
 	if code != 0 {
-		t.Errorf("expected exit 0, got %d (stderr=%q)", code, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr=%q)", code, stderr)
+	}
+
+	entries := mockVal.getEntries()
+
+	// Verify Vehicle.CurrentLocation.Latitude
+	latEntry := findEntry(entries, "Vehicle.CurrentLocation.Latitude")
+	if latEntry == nil {
+		t.Fatal("expected Vehicle.CurrentLocation.Latitude entry, got none")
+	}
+	latVal, ok := latEntry.Value.Value.(*valpb.Datapoint_Double)
+	if !ok {
+		t.Fatalf("expected double value for Latitude, got %T", latEntry.Value.Value)
+	}
+	if math.Abs(latVal.Double-48.1351) > 1e-6 {
+		t.Errorf("expected Latitude=48.1351, got %v", latVal.Double)
+	}
+
+	// Verify Vehicle.CurrentLocation.Longitude
+	lonEntry := findEntry(entries, "Vehicle.CurrentLocation.Longitude")
+	if lonEntry == nil {
+		t.Fatal("expected Vehicle.CurrentLocation.Longitude entry, got none")
+	}
+	lonVal, ok := lonEntry.Value.Value.(*valpb.Datapoint_Double)
+	if !ok {
+		t.Fatalf("expected double value for Longitude, got %T", lonEntry.Value.Value)
+	}
+	if math.Abs(lonVal.Double-11.5820) > 1e-6 {
+		t.Errorf("expected Longitude=11.5820, got %v", lonVal.Double)
 	}
 }
 
-// TS-09-2: speed-sensor --speed=0.0 publishes Vehicle.Speed and exits 0.
+// TS-09-2: speed-sensor --speed=0.0 publishes Vehicle.Speed to DATA_BROKER and exits 0.
+// Verifies actual published VSS value via mock VAL server (09-REQ-2.1).
 func TestSpeedSensor(t *testing.T) {
-	skipIfBrokerUnreachable(t)
 	binary := findRustBinary(t, "speed-sensor")
+	valAddr, mockVal := startMockVALServer(t)
 
-	_, stderr, code := runSensor(t, binary,
+	_, stderr, code := runBinary(t, binary,
 		"--speed=0.0",
+		"--broker-addr=http://"+valAddr,
 	)
 
 	if code != 0 {
-		t.Errorf("expected exit 0, got %d (stderr=%q)", code, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr=%q)", code, stderr)
+	}
+
+	entries := mockVal.getEntries()
+	speedEntry := findEntry(entries, "Vehicle.Speed")
+	if speedEntry == nil {
+		t.Fatal("expected Vehicle.Speed entry, got none")
+	}
+	speedVal, ok := speedEntry.Value.Value.(*valpb.Datapoint_Float)
+	if !ok {
+		t.Fatalf("expected float value for Speed, got %T", speedEntry.Value.Value)
+	}
+	if speedVal.Float != 0.0 {
+		t.Errorf("expected Speed=0.0, got %v", speedVal.Float)
 	}
 }
 
 // TS-09-3: door-sensor --open publishes IsOpen=true to DATA_BROKER and exits 0.
+// Verifies actual published VSS value via mock VAL server (09-REQ-3.1).
 func TestDoorSensorOpen(t *testing.T) {
-	skipIfBrokerUnreachable(t)
 	binary := findRustBinary(t, "door-sensor")
+	valAddr, mockVal := startMockVALServer(t)
 
-	_, stderr, code := runSensor(t, binary, "--open")
+	_, stderr, code := runBinary(t, binary,
+		"--open",
+		"--broker-addr=http://"+valAddr,
+	)
 
 	if code != 0 {
-		t.Errorf("expected exit 0 for --open, got %d (stderr=%q)", code, stderr)
+		t.Fatalf("expected exit 0 for --open, got %d (stderr=%q)", code, stderr)
+	}
+
+	entries := mockVal.getEntries()
+	doorEntry := findEntry(entries, "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen")
+	if doorEntry == nil {
+		t.Fatal("expected Vehicle.Cabin.Door.Row1.DriverSide.IsOpen entry, got none")
+	}
+	boolVal, ok := doorEntry.Value.Value.(*valpb.Datapoint_Bool)
+	if !ok {
+		t.Fatalf("expected bool value for IsOpen, got %T", doorEntry.Value.Value)
+	}
+	if !boolVal.Bool {
+		t.Errorf("expected IsOpen=true for --open, got false")
 	}
 }
 
 // TS-09-4: door-sensor --closed publishes IsOpen=false to DATA_BROKER and exits 0.
+// Verifies actual published VSS value via mock VAL server (09-REQ-3.1).
 func TestDoorSensorClosed(t *testing.T) {
-	skipIfBrokerUnreachable(t)
 	binary := findRustBinary(t, "door-sensor")
+	valAddr, mockVal := startMockVALServer(t)
 
-	_, stderr, code := runSensor(t, binary, "--closed")
+	_, stderr, code := runBinary(t, binary,
+		"--closed",
+		"--broker-addr=http://"+valAddr,
+	)
 
 	if code != 0 {
-		t.Errorf("expected exit 0 for --closed, got %d (stderr=%q)", code, stderr)
+		t.Fatalf("expected exit 0 for --closed, got %d (stderr=%q)", code, stderr)
+	}
+
+	entries := mockVal.getEntries()
+	doorEntry := findEntry(entries, "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen")
+	if doorEntry == nil {
+		t.Fatal("expected Vehicle.Cabin.Door.Row1.DriverSide.IsOpen entry, got none")
+	}
+	boolVal, ok := doorEntry.Value.Value.(*valpb.Datapoint_Bool)
+	if !ok {
+		t.Fatalf("expected bool value for IsOpen, got %T", doorEntry.Value.Value)
+	}
+	if boolVal.Bool {
+		t.Errorf("expected IsOpen=false for --closed, got true")
 	}
 }
 
-// TS-09-SMOKE-1: End-to-end smoke test — all three sensors publish values without error.
-// Does not verify the values in DATA_BROKER (requires v1 read API or grpcurl).
-// Verifies only that all three binaries exit 0 when DATA_BROKER is reachable.
+// TS-09-SMOKE-1: End-to-end smoke test — all three sensors publish correct values.
+// Uses a mock VAL server to verify each sensor publishes the expected VSS signal.
 func TestSensorSmoke(t *testing.T) {
-	skipIfBrokerUnreachable(t)
-
 	locationBin := findRustBinary(t, "location-sensor")
 	speedBin := findRustBinary(t, "speed-sensor")
 	doorBin := findRustBinary(t, "door-sensor")
 
+	valAddr, mockVal := startMockVALServer(t)
+	brokerArg := "--broker-addr=http://" + valAddr
+
 	tests := []struct {
-		name   string
-		binary string
-		args   []string
+		name       string
+		binary     string
+		args       []string
+		expectPath string
 	}{
-		{"location", locationBin, []string{"--lat=48.13", "--lon=11.58"}},
-		{"speed", speedBin, []string{"--speed=0.0"}},
-		{"door-closed", doorBin, []string{"--closed"}},
+		{"location", locationBin, []string{"--lat=48.13", "--lon=11.58", brokerArg}, "Vehicle.CurrentLocation.Latitude"},
+		{"speed", speedBin, []string{"--speed=0.0", brokerArg}, "Vehicle.Speed"},
+		{"door-closed", doorBin, []string{"--closed", brokerArg}, "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, stderr, code := runSensor(t, tc.binary, tc.args...)
+			_, stderr, code := runBinary(t, tc.binary, tc.args...)
 			if code != 0 {
 				t.Errorf("%s: expected exit 0, got %d (stderr=%q)", tc.name, code, stderr)
 			}
 		})
 	}
+
+	// Verify all expected VSS paths were published
+	entries := mockVal.getEntries()
+	expectedPaths := []string{
+		"Vehicle.CurrentLocation.Latitude",
+		"Vehicle.CurrentLocation.Longitude",
+		"Vehicle.Speed",
+		"Vehicle.Cabin.Door.Row1.DriverSide.IsOpen",
+	}
+	for _, path := range expectedPaths {
+		if findEntry(entries, path) == nil {
+			t.Errorf("expected VSS path %q to be published, but was not found", path)
+		}
+	}
 }
 
-// TS-09-E4 (via Go): sensor binaries exit 1 when DATA_BROKER is unreachable.
+// TS-09-P1: Sensor publish-and-exit property test.
+// For various valid inputs, verifies that each sensor exits 0 and publishes
+// the correct VSS value to DATA_BROKER (Design Property 1, 09-REQ-1.1, 09-REQ-2.1, 09-REQ-3.1).
+func TestSensorPublishProperty(t *testing.T) {
+	locationBin := findRustBinary(t, "location-sensor")
+	speedBin := findRustBinary(t, "speed-sensor")
+	doorBin := findRustBinary(t, "door-sensor")
+
+	// Property: For any valid lat/lon, location-sensor publishes correct values and exits 0.
+	t.Run("location-sensor", func(t *testing.T) {
+		latLonCases := []struct {
+			lat float64
+			lon float64
+		}{
+			{0.0, 0.0},
+			{48.1351, 11.5820},
+			{-33.8688, 151.2093},   // Sydney
+			{90.0, 180.0},          // max boundary
+			{-90.0, -180.0},        // min boundary
+			{51.5074, -0.1278},     // London
+			{35.6762, 139.6503},    // Tokyo
+			{-22.9068, -43.1729},   // Rio
+			{0.0001, 0.0001},       // near origin
+			{89.9999, -179.9999},   // near pole/date line
+		}
+
+		for _, tc := range latLonCases {
+			valAddr, mockVal := startMockVALServer(t)
+			_, stderr, code := runBinary(t, locationBin,
+				fmt.Sprintf("--lat=%v", tc.lat),
+				fmt.Sprintf("--lon=%v", tc.lon),
+				"--broker-addr=http://"+valAddr,
+			)
+			if code != 0 {
+				t.Errorf("lat=%.4f lon=%.4f: expected exit 0, got %d (stderr=%q)", tc.lat, tc.lon, code, stderr)
+				continue
+			}
+
+			entries := mockVal.getEntries()
+			latEntry := findEntry(entries, "Vehicle.CurrentLocation.Latitude")
+			if latEntry == nil {
+				t.Errorf("lat=%.4f lon=%.4f: Latitude not published", tc.lat, tc.lon)
+				continue
+			}
+			latDP, ok := latEntry.Value.Value.(*valpb.Datapoint_Double)
+			if !ok {
+				t.Errorf("lat=%.4f lon=%.4f: Latitude not a double", tc.lat, tc.lon)
+				continue
+			}
+			if math.Abs(latDP.Double-tc.lat) > 1e-4 {
+				t.Errorf("lat=%.4f lon=%.4f: Latitude=%v, want %v", tc.lat, tc.lon, latDP.Double, tc.lat)
+			}
+
+			lonEntry := findEntry(entries, "Vehicle.CurrentLocation.Longitude")
+			if lonEntry == nil {
+				t.Errorf("lat=%.4f lon=%.4f: Longitude not published", tc.lat, tc.lon)
+				continue
+			}
+			lonDP, ok := lonEntry.Value.Value.(*valpb.Datapoint_Double)
+			if !ok {
+				t.Errorf("lat=%.4f lon=%.4f: Longitude not a double", tc.lat, tc.lon)
+				continue
+			}
+			if math.Abs(lonDP.Double-tc.lon) > 1e-4 {
+				t.Errorf("lat=%.4f lon=%.4f: Longitude=%v, want %v", tc.lat, tc.lon, lonDP.Double, tc.lon)
+			}
+		}
+	})
+
+	// Property: For any valid speed, speed-sensor publishes correct value and exits 0.
+	t.Run("speed-sensor", func(t *testing.T) {
+		speedCases := []float32{0.0, 1.0, 50.5, 120.0, 200.0, 250.0, 0.001, 999.9}
+
+		for _, speed := range speedCases {
+			valAddr, mockVal := startMockVALServer(t)
+			_, stderr, code := runBinary(t, speedBin,
+				fmt.Sprintf("--speed=%v", speed),
+				"--broker-addr=http://"+valAddr,
+			)
+			if code != 0 {
+				t.Errorf("speed=%v: expected exit 0, got %d (stderr=%q)", speed, code, stderr)
+				continue
+			}
+
+			entries := mockVal.getEntries()
+			speedEntry := findEntry(entries, "Vehicle.Speed")
+			if speedEntry == nil {
+				t.Errorf("speed=%v: Vehicle.Speed not published", speed)
+				continue
+			}
+			speedDP, ok := speedEntry.Value.Value.(*valpb.Datapoint_Float)
+			if !ok {
+				t.Errorf("speed=%v: Vehicle.Speed not a float", speed)
+				continue
+			}
+			if math.Abs(float64(speedDP.Float-speed)) > 1e-3 {
+				t.Errorf("speed=%v: published=%v", speed, speedDP.Float)
+			}
+		}
+	})
+
+	// Property: For any door state (open/closed), door-sensor publishes correct bool and exits 0.
+	t.Run("door-sensor", func(t *testing.T) {
+		doorCases := []struct {
+			flag     string
+			expected bool
+		}{
+			{"--open", true},
+			{"--closed", false},
+			{"--open", true},   // verify reproducibility
+			{"--closed", false},
+		}
+
+		for _, tc := range doorCases {
+			valAddr, mockVal := startMockVALServer(t)
+			_, stderr, code := runBinary(t, doorBin,
+				tc.flag,
+				"--broker-addr=http://"+valAddr,
+			)
+			if code != 0 {
+				t.Errorf("flag=%s: expected exit 0, got %d (stderr=%q)", tc.flag, code, stderr)
+				continue
+			}
+
+			entries := mockVal.getEntries()
+			doorEntry := findEntry(entries, "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen")
+			if doorEntry == nil {
+				t.Errorf("flag=%s: IsOpen not published", tc.flag)
+				continue
+			}
+			boolDP, ok := doorEntry.Value.Value.(*valpb.Datapoint_Bool)
+			if !ok {
+				t.Errorf("flag=%s: IsOpen not a bool", tc.flag)
+				continue
+			}
+			if boolDP.Bool != tc.expected {
+				t.Errorf("flag=%s: IsOpen=%v, want %v", tc.flag, boolDP.Bool, tc.expected)
+			}
+		}
+	})
+}
+
+// TS-09-E4 (via Go): sensor binaries exit non-zero when DATA_BROKER is unreachable.
 // This covers the same requirement as Rust's test_*_unreachable_broker tests
-// but from the Go integration test side.
+// but from the Go integration test side (09-REQ-1.E2, 09-REQ-2.E2, 09-REQ-3.E2).
 func TestSensorsUnreachableBroker(t *testing.T) {
 	unreachableAddr := "http://localhost:59998" // nothing listening here
 
 	tests := []struct {
-		name   string
-		bin    string
-		args   []string
+		name string
+		bin  string
+		args []string
 	}{
 		{
 			"location-sensor",

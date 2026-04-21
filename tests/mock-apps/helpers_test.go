@@ -12,10 +12,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	adapterpb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/adapter"
+	valpb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/kuksa_val_v1"
 	updatepb "github.com/rhadp/parking-fee-service/tests/mock-apps/pb/update"
 	"google.golang.org/grpc"
 )
@@ -260,4 +262,63 @@ func startMockAdapterServer(t *testing.T) string {
 	t.Cleanup(func() { srv.Stop() })
 
 	return lis.Addr().String()
+}
+
+// ---------------------------------------------------------------------------
+// Mock kuksa.val.v1 VAL server — captures Set calls for sensor verification
+// ---------------------------------------------------------------------------
+
+// publishedEntry records a single datapoint published via the Set RPC.
+type publishedEntry struct {
+	Path  string
+	Value *valpb.Datapoint
+}
+
+// mockVALServer implements VALServiceServer and records every published entry.
+type mockVALServer struct {
+	valpb.UnimplementedVALServiceServer
+	mu      sync.Mutex
+	entries []publishedEntry
+}
+
+func (s *mockVALServer) Set(_ context.Context, req *valpb.SetRequest) (*valpb.SetResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, u := range req.Updates {
+		if u.Entry != nil {
+			s.entries = append(s.entries, publishedEntry{
+				Path:  u.Entry.Path,
+				Value: u.Entry.Value,
+			})
+		}
+	}
+	return &valpb.SetResponse{}, nil
+}
+
+// getEntries returns a snapshot of all published entries.
+func (s *mockVALServer) getEntries() []publishedEntry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := make([]publishedEntry, len(s.entries))
+	copy(cp, s.entries)
+	return cp
+}
+
+// startMockVALServer starts a mock kuksa.val.v1 VAL gRPC server on a random port.
+// Returns the server address (host:port) and the mock server for entry inspection.
+func startMockVALServer(t *testing.T) (string, *mockVALServer) {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for mock VAL server: %v", err)
+	}
+
+	mockSrv := &mockVALServer{}
+	srv := grpc.NewServer()
+	valpb.RegisterVALServiceServer(srv, mockSrv)
+
+	go srv.Serve(lis) //nolint
+	t.Cleanup(func() { srv.Stop() })
+
+	return lis.Addr().String(), mockSrv
 }
