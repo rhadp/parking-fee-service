@@ -210,6 +210,7 @@ mod tests {
     /// TS-08-8: Correct POST /parking/start request is sent.
     ///
     /// Verifies: 08-REQ-2.1
+    /// Asserts request body contains vehicle_id, zone_id, and timestamp fields.
     #[tokio::test]
     async fn test_start_session_request() {
         let mock_server = MockServer::start().await;
@@ -230,11 +231,33 @@ mod tests {
         let resp = resp.unwrap();
         assert_eq!(resp.session_id, "s1");
         assert_eq!(resp.rate.rate_type, "per_hour");
+        assert!((resp.rate.amount - 2.50).abs() < f64::EPSILON);
+        assert_eq!(resp.rate.currency, "EUR");
+
+        // Verify the request body contains vehicle_id, zone_id, and timestamp.
+        let requests = mock_server
+            .received_requests()
+            .await
+            .expect("request recording must be enabled");
+        assert_eq!(requests.len(), 1, "exactly one request expected");
+        let body: serde_json::Value =
+            serde_json::from_slice(&requests[0].body).expect("body must be valid JSON");
+        assert_eq!(body["vehicle_id"], "DEMO-VIN-001", "body must contain vehicle_id");
+        assert_eq!(body["zone_id"], "zone-a", "body must contain zone_id");
+        assert!(
+            body.get("timestamp").is_some(),
+            "body must contain timestamp field"
+        );
+        assert!(
+            body["timestamp"].is_number(),
+            "timestamp must be a number"
+        );
     }
 
     /// TS-08-9: Correct POST /parking/stop request is sent.
     ///
     /// Verifies: 08-REQ-2.2, 08-REQ-2.4
+    /// Asserts request body contains session_id and timestamp fields.
     #[tokio::test]
     async fn test_stop_session_request() {
         let mock_server = MockServer::start().await;
@@ -256,6 +279,25 @@ mod tests {
         assert_eq!(resp.session_id, "sess-1");
         assert_eq!(resp.duration_seconds, 3600);
         assert!((resp.total_amount - 2.50).abs() < f64::EPSILON);
+        assert_eq!(resp.currency, "EUR");
+
+        // Verify the request body contains session_id and timestamp.
+        let requests = mock_server
+            .received_requests()
+            .await
+            .expect("request recording must be enabled");
+        assert_eq!(requests.len(), 1, "exactly one request expected");
+        let body: serde_json::Value =
+            serde_json::from_slice(&requests[0].body).expect("body must be valid JSON");
+        assert_eq!(body["session_id"], "sess-1", "body must contain session_id");
+        assert!(
+            body.get("timestamp").is_some(),
+            "body must contain timestamp field"
+        );
+        assert!(
+            body["timestamp"].is_number(),
+            "timestamp must be a number"
+        );
     }
 
     /// TS-08-10: Start response is parsed into StartResponse with rate.
