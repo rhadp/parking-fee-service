@@ -28,19 +28,19 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [x] 4.2 Verify unit tests for telemetry (TS-04-7, TS-04-8, TS-04-9) pass
   - [x] 4.3 Verify unit test for registration message (TS-04-P1) passes
   - [x] 4.V Verify task group 4
-- [ ] 5. Implement NATS client
-  - [ ] 5.1 Implement `NatsClient::connect()` with exponential backoff retry (1s, 2s, 4s, max 5 attempts) _Requirements:_ [04-REQ-2.1], [04-REQ-2.2], [04-REQ-2.E1]
-  - [ ] 5.2 Implement `NatsClient::subscribe_commands()` for `vehicles.{VIN}.commands` _Requirements:_ [04-REQ-2.3]
-  - [ ] 5.3 Implement `NatsClient::publish_registration()`, `publish_response()`, `publish_telemetry()` for outbound NATS messages _Requirements:_ [04-REQ-4.1], [04-REQ-4.2], [04-REQ-7.1], [04-REQ-8.1]
-  - [ ] 5.4 Add `tracing` instrumentation to all NATS operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.3], [04-REQ-10.4]
-  - [ ] 5.V Verify task group 5: `cargo build -p cloud-gateway-client` compiles without errors
-- [ ] 6. Implement DATA_BROKER client
-  - [ ] 6.1 Implement `BrokerClient::connect()` for gRPC connection to DATA_BROKER _Requirements:_ [04-REQ-3.1], [04-REQ-3.E1]
-  - [ ] 6.2 Implement `BrokerClient::write_command()` to write to `Vehicle.Command.Door.Lock` _Requirements:_ [04-REQ-6.3]
-  - [ ] 6.3 Implement `BrokerClient::subscribe_responses()` to observe `Vehicle.Command.Door.Response` _Requirements:_ [04-REQ-3.3], [04-REQ-7.1], [04-REQ-7.2], [04-REQ-7.E1]
-  - [ ] 6.4 Implement `BrokerClient::subscribe_telemetry()` to observe IsLocked, Latitude, Longitude, SessionActive signals _Requirements:_ [04-REQ-3.2]
-  - [ ] 6.5 Add `tracing` instrumentation to all DATA_BROKER operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.4]
-  - [ ] 6.V Verify task group 6: `cargo build -p cloud-gateway-client` compiles without errors
+- [x] 5. Implement NATS client
+  - [x] 5.1 Implement `NatsClient::connect()` with exponential backoff retry (1s, 2s, 4s, max 5 attempts) _Requirements:_ [04-REQ-2.1], [04-REQ-2.2], [04-REQ-2.E1]
+  - [x] 5.2 Implement `NatsClient::subscribe_commands()` for `vehicles.{VIN}.commands` _Requirements:_ [04-REQ-2.3]
+  - [x] 5.3 Implement `NatsClient::publish_registration()`, `publish_response()`, `publish_telemetry()` for outbound NATS messages _Requirements:_ [04-REQ-4.1], [04-REQ-4.2], [04-REQ-7.1], [04-REQ-8.1]
+  - [x] 5.4 Add `tracing` instrumentation to all NATS operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.3], [04-REQ-10.4]
+  - [x] 5.V Verify task group 5: `cargo build -p cloud-gateway-client` compiles without errors
+- [x] 6. Implement DATA_BROKER client
+  - [x] 6.1 Implement `BrokerClient::connect()` for gRPC connection to DATA_BROKER _Requirements:_ [04-REQ-3.1], [04-REQ-3.E1]
+  - [x] 6.2 Implement `BrokerClient::write_command()` to write to `Vehicle.Command.Door.Lock` _Requirements:_ [04-REQ-6.3]
+  - [x] 6.3 Implement `BrokerClient::subscribe_responses()` to observe `Vehicle.Command.Door.Response` _Requirements:_ [04-REQ-3.3], [04-REQ-7.1], [04-REQ-7.2], [04-REQ-7.E1]
+  - [x] 6.4 Implement `BrokerClient::subscribe_telemetry()` to observe IsLocked, Latitude, Longitude, SessionActive signals _Requirements:_ [04-REQ-3.2]
+  - [x] 6.5 Add `tracing` instrumentation to all DATA_BROKER operations _Requirements:_ [04-REQ-10.1], [04-REQ-10.2], [04-REQ-10.4]
+  - [x] 6.V Verify task group 6: `cargo build -p cloud-gateway-client` compiles without errors
 - [ ] 7. Implement main and wiring
   - [ ] 7.1 Implement `main()` with startup sequencing: config -> NATS -> DATA_BROKER -> registration -> spawn tasks _Requirements:_ [04-REQ-9.1], [04-REQ-9.2]
   - [ ] 7.2 Implement command processing loop: receive from NATS, validate, write to DATA_BROKER _Requirements:_ [04-REQ-5.2], [04-REQ-6.3]
