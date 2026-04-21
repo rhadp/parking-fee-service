@@ -62,12 +62,14 @@ pub trait OperatorApi: Send + Sync {
 /// Concrete PARKING_OPERATOR REST client backed by `reqwest`.
 ///
 /// Implements retry with exponential backoff (1 s, 2 s, 4 s) for all
-/// outbound REST calls.
-#[allow(dead_code)] // fields used once implementation is complete (task group 3)
+/// outbound REST calls. Total of 4 attempts (1 initial + 3 retries).
 pub struct OperatorClient {
     base_url: String,
     client: reqwest::Client,
 }
+
+/// Delay (in seconds) between retry attempts: 1 s, 2 s, 4 s.
+const RETRY_DELAYS_SECS: &[u64] = &[1, 2, 4];
 
 impl OperatorClient {
     /// Create a new client targeting `base_url`.
@@ -77,20 +79,83 @@ impl OperatorClient {
             client: reqwest::Client::new(),
         }
     }
+
+    /// Execute a POST request to `path` with `body`, retrying up to 3 times
+    /// with exponential backoff (1 s, 2 s, 4 s) on failure or non-200 status.
+    async fn post_with_retry<Req, Resp>(
+        &self,
+        path: &str,
+        body: &Req,
+    ) -> Result<Resp, OperatorError>
+    where
+        Req: serde::Serialize,
+        Resp: for<'de> serde::Deserialize<'de>,
+    {
+        let url = format!("{}{}", self.base_url, path);
+        let mut last_err = OperatorError::Unavailable("no attempts made".to_string());
+
+        // 1 initial attempt + 3 retries = 4 total attempts
+        let delays: Vec<Option<u64>> = std::iter::once(None)
+            .chain(RETRY_DELAYS_SECS.iter().copied().map(Some))
+            .collect();
+
+        for (attempt, delay_opt) in delays.iter().enumerate() {
+            if let Some(secs) = delay_opt {
+                tokio::time::sleep(tokio::time::Duration::from_secs(*secs)).await;
+            }
+
+            match self.client.post(&url).json(body).send().await {
+                Ok(resp) if resp.status().is_success() => match resp.json::<Resp>().await {
+                    Ok(parsed) => return Ok(parsed),
+                    Err(e) => {
+                        last_err =
+                            OperatorError::Unavailable(format!("response parse error: {e}"));
+                        tracing::warn!(attempt = attempt + 1, %last_err, "parse failed");
+                    }
+                },
+                Ok(resp) => {
+                    let status = resp.status();
+                    last_err = OperatorError::Unavailable(format!("HTTP {status}"));
+                    tracing::warn!(attempt = attempt + 1, %last_err, "non-2xx response");
+                }
+                Err(e) => {
+                    last_err = OperatorError::Unavailable(format!("request error: {e}"));
+                    tracing::warn!(attempt = attempt + 1, %last_err, "request failed");
+                }
+            }
+        }
+
+        Err(last_err)
+    }
 }
 
 #[async_trait]
 impl OperatorApi for OperatorClient {
     async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!("implement OperatorClient::start_session")
+        let body = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64,
+        };
+        self.post_with_retry("/parking/start", &body).await
     }
 
-    async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        todo!("implement OperatorClient::stop_session")
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let body = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64,
+        };
+        self.post_with_retry("/parking/stop", &body).await
     }
 }
 
