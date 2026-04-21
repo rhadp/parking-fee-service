@@ -14,36 +14,49 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
+- [x] 1. Write failing spec tests
   - Write integration tests that verify DATA_BROKER connectivity, signal availability, read/write operations, and subscriptions. All tests will fail initially since the compose.yml is not yet configured for dual listeners.
 
-  - [ ] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
+  - [x] 1.1 Create test module `tests/databroker/` with Go test file and module initialization
     - Set up Go module and initial test file structure
+    - Added tests/databroker/go.mod (module github.com/rhadp/parking-fee-service/tests/databroker, go 1.22)
+    - Added ./tests/databroker to go.work workspace
+    - Added cd tests/databroker to Makefile lint and check targets
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
 
-  - [ ] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
+  - [x] 1.2 Implement TCP connectivity test: gRPC connect to `localhost:55556`, verify metadata query succeeds
+    - TestTCPConnectivity in tests/databroker/signal_test.go; skips when container not running
     - _Test Spec: TS-02-1_
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2_
 
-  - [ ] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
+  - [x] 1.3 Implement UDS connectivity test: gRPC connect to `unix:///tmp/kuksa-databroker.sock`, verify metadata query succeeds
+    - TestUDSConnectivity in tests/databroker/signal_test.go; effectiveUDSSocket() checks both /tmp/kuksa/ and /tmp/ paths
     - _Test Spec: TS-02-2_
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2_
 
-  - [ ] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
+  - [x] 1.4 Implement standard VSS signal metadata tests: verify all 5 standard signals present with correct types
+    - TestStandardVSSSignalMetadata, TestPropertySignalCompleteness in tests/databroker/signal_test.go and property_test.go
     - _Test Spec: TS-02-4, TS-02-P1_
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2_
 
-  - [ ] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
+  - [x] 1.5 Implement custom VSS signal metadata tests: verify all 3 custom signals present with correct types
+    - TestCustomVSSSignalMetadata in tests/databroker/signal_test.go; also covered by TestPropertySignalCompleteness
     - _Test Spec: TS-02-5, TS-02-P1_
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
 
-  - [ ] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
+  - [x] 1.6 Implement signal set/get tests for TCP and UDS, including cross-transport consistency and subscription tests
+    - TCP: TestSignalSetGetViaTCP, TestPermissiveMode
+    - UDS: TestSignalSetGetViaUDS
+    - Cross-transport: TestCrossTransportTCPWriteUDSRead, TestCrossTransportUDSWriteTCPRead
+    - Subscriptions: TestSubscriptionViaTCP, TestSubscriptionCrossTransport (pubsub_test.go)
+    - Properties: TestPropertyWriteReadRoundtrip, TestPropertyCrossTransportEquivalence (property_test.go)
     - _Test Spec: TS-02-6, TS-02-7, TS-02-8, TS-02-9, TS-02-10, TS-02-11, TS-02-P4_
     - _Requirements: 02-REQ-4.1, 02-REQ-8.1, 02-REQ-8.2, 02-REQ-9.1, 02-REQ-9.2, 02-REQ-10.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and compile (expected: tests fail because compose.yml is not yet configured for dual listeners)
+    - Result: go test -c -o /dev/null ./... → PASS; TestComposeTCPListener, TestComposeUDSSocket, TestComposeUDSVolume FAIL (expected); all live gRPC tests SKIP (container not running); make check → PASS
     ```
     cd tests/databroker && go test -run TestCompile ./... 2>&1 || echo "Tests compile but fail as expected"
     ```
