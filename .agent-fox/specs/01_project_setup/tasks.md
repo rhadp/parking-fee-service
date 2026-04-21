@@ -92,7 +92,7 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 2_
     _Note: All structure/workspace/makefile tests pass. Infra tests (TS-01-23, 24, 25) still fail — task 5 scope. Updated Makefile with all required targets (proto, infra-up, infra-down, test-setup) and per-module Go commands._
 
-- [ ] 3. Implement skeleton binaries and placeholder tests
+- [x] 3. Implement skeleton binaries and placeholder tests
   _Add version printing, flag handling, and placeholder tests to all skeletons._
 
   - [x] 3.1 Implement Rust skeleton `main.rs` for each crate: print `"{component-name} v0.1.0"` to stdout, exit 0; handle unknown flags with usage message to stderr, exit non-zero
@@ -115,10 +115,10 @@ This task list implements the project setup specification through an incremental
     _Requirements: 01-REQ-8.2_
     _Note: Implemented as part of task group 2 — TestCompiles added to backend/* and mock/* modules._
 
-  - [ ] 3.V Verify: run `cargo test --workspace` in `rhivos/` and `go test ./...` from repo root; confirm all tests pass
+  - [x] 3.V Verify: run `cargo test --workspace` in `rhivos/` and `go test ./...` from repo root; confirm all tests pass
     _Test Spec: TS-01-9, TS-01-12, TS-01-28, TS-01-29_
     _Verification step for Task Group 3_
-    _Note: 3 pre-existing spec 09 sensor_tests.rs failures remain (see docs/errata/01_skeleton_vs_spec09_sensors.md). All spec 01 tests pass._
+    _Note: 8 pre-existing spec 09 sensor_tests.rs failures remain (see docs/errata/01_skeleton_vs_spec09_sensors.md). All spec 01 tests pass. `make test` (test-rust excludes mock-sensors) and all Go module tests pass._
 
 - [ ] 4. Create proto definitions
   _Create shared .proto files with full message and service definitions._
