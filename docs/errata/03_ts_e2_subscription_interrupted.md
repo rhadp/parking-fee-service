@@ -3,7 +3,7 @@
 **Spec:** 03_locking_service  
 **Requirement:** 03-REQ-1.E2  
 **Test Spec Entry:** TS-03-E2  
-**Status:** Open — no automated test; behaviour is implemented but not verified in CI
+**Status:** Open — resubscription logic implemented; no automated test in CI
 
 ## Summary
 
@@ -27,15 +27,28 @@ This test spec entry has no corresponding automated test because:
 ## Implementation Status
 
 The resubscription logic is implemented in `rhivos/locking-service/src/main.rs`:
-- On subscription stream error, the service logs a warning and retries subscription
-  up to 5 attempts before exiting with a non-zero exit code.
-- The retry loop includes logging at the `warn!` level.
+
+- When the subscription stream ends (`receiver.recv()` returns `None`), the service
+  calls `resubscribe()` which attempts up to 3 resubscription attempts with
+  exponential backoff delays of 1s, 2s, 4s.
+- Each attempt logs a warning containing the word "Resubscribing" at the `warn!` level.
+- On successful resubscription, the new receiver replaces the old one and the main
+  loop continues processing commands.
+- If all 3 attempts fail, the service exits with a non-zero exit code.
+
+## Spec Underdefinition
+
+03-REQ-1.E2 states the service SHALL attempt to resubscribe "up to a maximum number
+of attempts" without specifying the actual maximum. The implementation uses 3 attempts
+(distinct from the connection retry count of 5 in `GrpcBrokerClient::connect`). This
+number is documented in the code constants `MAX_RESUBSCRIBE_ATTEMPTS` and
+`RESUBSCRIBE_DELAYS_MS` but is not defined by the requirements.
 
 ## Affected Test Spec Entry
 
 | Entry | Expected Assertion |
 |-------|--------------------|
-| TS-03-E2 | `logs_contain("resubscribing")` after DATA_BROKER restart |
+| TS-03-E2 | `logs_contain("Resubscribing")` after DATA_BROKER restart |
 
 ## Resolution
 
@@ -47,11 +60,3 @@ To close this gap, one of the following would be needed:
 2. **Add a mock DATA_BROKER for stream interruption testing**: A lightweight gRPC
    server in the integration test module that sends a stream termination, which
    would allow verifying the resubscription path without a real DATA_BROKER.
-
-## Minor Findings Addressed
-
-The Skeptic review noted (minor finding `1ab0456df59009a2`) that 03-REQ-1.E2 does
-not specify the maximum resubscription count. The implementation uses 5 attempts
-(matching the connection retry count in `GrpcBrokerClient::connect`). This number
-is documented in the code but not in the requirements, which is an underdefinition
-in the spec.

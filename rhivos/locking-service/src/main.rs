@@ -15,9 +15,10 @@ pub mod testing;
 #[cfg(test)]
 pub mod proptest_cases;
 
-use broker::{BrokerClient, GrpcBrokerClient, SIGNAL_COMMAND, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
+use broker::{BrokerClient, BrokerError, GrpcBrokerClient, SIGNAL_COMMAND, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
 use command::{parse_command, validate_command, CommandError};
 use response::failure_response;
+use tokio::sync::mpsc;
 
 /// Extract command_id from a raw JSON string without full deserialization.
 /// Used when parse_command fails (e.g. missing required field) to still
@@ -58,6 +59,41 @@ async fn handle_command_payload(broker: &impl BrokerClient, json: &str, lock_sta
             }
         },
     }
+}
+
+/// Maximum number of resubscription attempts before exiting (03-REQ-1.E2).
+const MAX_RESUBSCRIBE_ATTEMPTS: usize = 3;
+
+/// Delays between resubscription attempts in milliseconds (exponential backoff).
+const RESUBSCRIBE_DELAYS_MS: [u64; MAX_RESUBSCRIBE_ATTEMPTS] = [1000, 2000, 4000];
+
+/// Attempt to resubscribe to a signal with exponential backoff.
+///
+/// Returns the new receiver on success, or `BrokerError` if all attempts
+/// are exhausted (03-REQ-1.E2).
+async fn resubscribe(
+    broker: &mut GrpcBrokerClient,
+    signal: &str,
+) -> Result<mpsc::Receiver<String>, BrokerError> {
+    for (attempt, &delay) in RESUBSCRIBE_DELAYS_MS.iter().enumerate() {
+        tracing::warn!(
+            "Resubscribing to {signal} (attempt {}/{MAX_RESUBSCRIBE_ATTEMPTS}), waiting {delay}ms",
+            attempt + 1,
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+        match broker.subscribe(signal).await {
+            Ok(rx) => {
+                tracing::info!("Resubscribed to {signal} successfully");
+                return Ok(rx);
+            }
+            Err(e) => {
+                tracing::error!("Resubscribe attempt {} failed: {e}", attempt + 1);
+            }
+        }
+    }
+    Err(BrokerError::Transport(format!(
+        "Failed to resubscribe to {signal} after {MAX_RESUBSCRIBE_ATTEMPTS} attempts"
+    )))
 }
 
 async fn shutdown_signal() {
@@ -136,8 +172,17 @@ async fn main() {
                         handle_command_payload(&broker, &json, &mut lock_state).await;
                     }
                     None => {
-                        tracing::warn!("Subscription stream ended, shutting down");
-                        break;
+                        // Subscription stream ended — attempt resubscription (03-REQ-1.E2).
+                        tracing::warn!("Subscription stream interrupted");
+                        match resubscribe(&mut broker, SIGNAL_COMMAND).await {
+                            Ok(new_rx) => {
+                                receiver = new_rx;
+                            }
+                            Err(e) => {
+                                tracing::error!("Resubscription exhausted: {e}");
+                                std::process::exit(1);
+                            }
+                        }
                     }
                 }
             }
