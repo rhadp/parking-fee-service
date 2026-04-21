@@ -5,6 +5,9 @@
 package databroker
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -107,4 +110,159 @@ func TestComposePermissiveMode(t *testing.T) {
 			t.Fatalf("compose.yml command args contain auth flag %q; databroker must run in permissive mode", flag)
 		}
 	}
+}
+
+// TestVSSOverlayFormat validates the VSS overlay JSON file structure without requiring a running
+// container. It verifies that all 3 custom signals are present with correct types, that
+// intermediate branch nodes are defined (required by kuksa-databroker's nested tree format),
+// and that all entries have descriptions.
+//
+// Test Spec: TS-02-5, TS-02-P1
+// Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4
+func TestVSSOverlayFormat(t *testing.T) {
+	root := findRepoRoot(t)
+	overlayPath := filepath.Join(root, "deployments", "vss-overlay.json")
+	data, err := os.ReadFile(overlayPath)
+	if err != nil {
+		t.Fatalf("failed to read vss-overlay.json: %v", err)
+	}
+
+	// Subtest 1: valid JSON syntax
+	t.Run("valid_json", func(t *testing.T) {
+		var v any
+		if err := json.Unmarshal(data, &v); err != nil {
+			t.Fatalf("vss-overlay.json is not valid JSON: %v", err)
+		}
+	})
+
+	// Parse overlay into a nested map for structural inspection.
+	var overlay map[string]any
+	if err := json.Unmarshal(data, &overlay); err != nil {
+		t.Fatalf("cannot parse vss-overlay.json as JSON object: %v", err)
+	}
+
+	// Helper: navigate a nested children-based VSS tree by dot-separated path.
+	getNode := func(path string) (map[string]any, bool) {
+		parts := strings.Split(path, ".")
+		current := overlay
+		for i, part := range parts {
+			node, ok := current[part]
+			if !ok {
+				return nil, false
+			}
+			nodeMap, ok := node.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			if i == len(parts)-1 {
+				return nodeMap, true
+			}
+			// Navigate into children for intermediate nodes.
+			children, ok := nodeMap["children"]
+			if !ok {
+				return nil, false
+			}
+			childrenMap, ok := children.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			current = childrenMap
+		}
+		return nil, false
+	}
+
+	// Subtest 2: Vehicle.Parking.SessionActive exists
+	t.Run("SessionActive_exists", func(t *testing.T) {
+		if _, ok := getNode("Vehicle.Parking.SessionActive"); !ok {
+			t.Fatal("Vehicle.Parking.SessionActive not found in vss-overlay.json")
+		}
+	})
+
+	// Subtest 3: Vehicle.Parking.SessionActive has datatype boolean
+	t.Run("SessionActive_boolean", func(t *testing.T) {
+		node, ok := getNode("Vehicle.Parking.SessionActive")
+		if !ok {
+			t.Skip("Vehicle.Parking.SessionActive not found; already reported")
+		}
+		if dt, _ := node["datatype"].(string); dt != "boolean" {
+			t.Fatalf("Vehicle.Parking.SessionActive datatype = %q, want %q", dt, "boolean")
+		}
+	})
+
+	// Subtest 4: Vehicle.Command.Door.Lock exists
+	t.Run("DoorLock_exists", func(t *testing.T) {
+		if _, ok := getNode("Vehicle.Command.Door.Lock"); !ok {
+			t.Fatal("Vehicle.Command.Door.Lock not found in vss-overlay.json")
+		}
+	})
+
+	// Subtest 5: Vehicle.Command.Door.Lock has datatype string
+	t.Run("DoorLock_string", func(t *testing.T) {
+		node, ok := getNode("Vehicle.Command.Door.Lock")
+		if !ok {
+			t.Skip("Vehicle.Command.Door.Lock not found; already reported")
+		}
+		if dt, _ := node["datatype"].(string); dt != "string" {
+			t.Fatalf("Vehicle.Command.Door.Lock datatype = %q, want %q", dt, "string")
+		}
+	})
+
+	// Subtest 6: Vehicle.Command.Door.Response exists
+	t.Run("DoorResponse_exists", func(t *testing.T) {
+		if _, ok := getNode("Vehicle.Command.Door.Response"); !ok {
+			t.Fatal("Vehicle.Command.Door.Response not found in vss-overlay.json")
+		}
+	})
+
+	// Subtest 7: Vehicle.Command.Door.Response has datatype string
+	t.Run("DoorResponse_string", func(t *testing.T) {
+		node, ok := getNode("Vehicle.Command.Door.Response")
+		if !ok {
+			t.Skip("Vehicle.Command.Door.Response not found; already reported")
+		}
+		if dt, _ := node["datatype"].(string); dt != "string" {
+			t.Fatalf("Vehicle.Command.Door.Response datatype = %q, want %q", dt, "string")
+		}
+	})
+
+	// Subtest 8: intermediate branch nodes are defined (required by kuksa-databroker nested format)
+	t.Run("branch_nodes_defined", func(t *testing.T) {
+		branches := []string{
+			"Vehicle",
+			"Vehicle.Parking",
+			"Vehicle.Command",
+			"Vehicle.Command.Door",
+		}
+		for _, branch := range branches {
+			node, ok := getNode(branch)
+			if !ok {
+				t.Errorf("branch node %q missing from vss-overlay.json", branch)
+				continue
+			}
+			nodeType, _ := node["type"].(string)
+			if nodeType != "branch" {
+				t.Errorf("node %q has type=%q, want %q", branch, nodeType, "branch")
+			}
+		}
+	})
+
+	// Subtest 9: all custom signals have non-empty descriptions
+	t.Run("signals_have_descriptions", func(t *testing.T) {
+		signals := []string{
+			"Vehicle.Parking.SessionActive",
+			"Vehicle.Command.Door.Lock",
+			"Vehicle.Command.Door.Response",
+		}
+		for _, sig := range signals {
+			node, ok := getNode(sig)
+			if !ok {
+				t.Errorf("signal %q missing; cannot check description", sig)
+				continue
+			}
+			desc, _ := node["description"].(string)
+			if strings.TrimSpace(desc) == "" {
+				t.Errorf("signal %q has empty description", sig)
+			}
+		}
+	})
 }
