@@ -8,12 +8,21 @@ use crate::models::CommandPayload;
 ///
 /// Returns `Ok(())` when the header value exactly matches
 /// `"Bearer <expected_token>"`.
-#[allow(unused_variables)]
 pub fn validate_bearer_token(
     authorization: Option<&str>,
     expected_token: &str,
 ) -> Result<(), AuthError> {
-    todo!("implement validate_bearer_token")
+    match authorization {
+        None => Err(AuthError::MissingHeader),
+        Some(header) => {
+            let expected = format!("Bearer {}", expected_token);
+            if header == expected {
+                Ok(())
+            } else {
+                Err(AuthError::InvalidToken)
+            }
+        }
+    }
 }
 
 /// Validate the raw bytes of an inbound command payload.
@@ -26,9 +35,54 @@ pub fn validate_bearer_token(
 /// 5. `doors` array is present.
 ///
 /// Returns the deserialized [`CommandPayload`] on success.
-#[allow(unused_variables)]
 pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError> {
-    todo!("implement validate_command_payload")
+    // Step 1: Parse as generic JSON value.
+    let value: serde_json::Value = serde_json::from_slice(payload)
+        .map_err(|e| ValidationError::InvalidJson(e.to_string()))?;
+
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ValidationError::InvalidJson("payload is not a JSON object".to_string()))?;
+
+    // Step 2: Validate `command_id` — must be present and non-empty string.
+    match obj.get("command_id") {
+        None => return Err(ValidationError::MissingField("command_id".to_string())),
+        Some(v) => {
+            let s = v
+                .as_str()
+                .ok_or_else(|| ValidationError::MissingField("command_id".to_string()))?;
+            if s.is_empty() {
+                return Err(ValidationError::MissingField("command_id".to_string()));
+            }
+        }
+    }
+
+    // Step 3: Validate `action` — must be present.
+    let action = match obj.get("action") {
+        None => return Err(ValidationError::MissingField("action".to_string())),
+        Some(v) => v
+            .as_str()
+            .ok_or_else(|| ValidationError::MissingField("action".to_string()))?,
+    };
+
+    // Step 4: Validate `action` value — must be "lock" or "unlock".
+    if action != "lock" && action != "unlock" {
+        return Err(ValidationError::InvalidAction(action.to_string()));
+    }
+
+    // Step 5: Validate `doors` — must be present and be an array.
+    match obj.get("doors") {
+        None => return Err(ValidationError::MissingField("doors".to_string())),
+        Some(v) => {
+            if !v.is_array() {
+                return Err(ValidationError::MissingField("doors".to_string()));
+            }
+        }
+    }
+
+    // All checks passed — deserialize into the typed struct.
+    // Individual door element values are not validated here (REQ-6.4).
+    serde_json::from_slice(payload).map_err(|e| ValidationError::InvalidJson(e.to_string()))
 }
 
 // ─────────────────────────────────────────────────────────
