@@ -377,18 +377,127 @@ mod tests {
     }
 
     // TS-07-P2: Single adapter invariant property test
+    // For any sequence of 2..5 sequential InstallAdapter calls with distinct
+    // image refs, at most one adapter is in RUNNING state after each settles.
     #[test]
     #[ignore]
     fn proptest_single_adapter_invariant() {
-        // At most one adapter RUNNING at any time across any sequence of installs
-        // Implemented as part of task group 3 verification
+        use proptest::prelude::*;
+
+        let config = ProptestConfig { cases: 10, ..Default::default() };
+        proptest!(config, |(count in 2usize..5)| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result: Result<(), String> = rt.block_on(async {
+                let (tx, _rx) = broadcast::channel(128);
+                let state_mgr = Arc::new(StateManager::new(tx.clone()));
+                let podman = Arc::new(MockPodmanExecutor::new());
+                let svc = UpdateService::new(
+                    Arc::clone(&state_mgr),
+                    Arc::clone(&podman),
+                    tx,
+                );
+
+                for i in 0..count {
+                    let img = format!("registry.example.com/adapter-{}:v1", i);
+                    let checksum = format!("sha256:check{}", i);
+                    podman.set_pull_result(Ok(()));
+                    podman.set_inspect_result(Ok(checksum.clone()));
+                    podman.set_run_result(Ok(()));
+                    svc.install_adapter(&img, &checksum)
+                        .await
+                        .map_err(|e| format!("{}", e))?;
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                    let running_count = state_mgr
+                        .list_adapters()
+                        .iter()
+                        .filter(|a| a.state == AdapterState::Running)
+                        .count();
+                    if running_count > 1 {
+                        return Err(format!(
+                            "Expected at most 1 RUNNING adapter, found {}",
+                            running_count
+                        ));
+                    }
+                }
+                Ok(())
+            });
+            prop_assert!(result.is_ok(), "{}", result.err().unwrap_or_default());
+        });
     }
 
     // TS-07-P4: Event delivery completeness property test (service level)
+    // For N subscribers (1..3), all active subscribers receive identical
+    // event sequences when an adapter is installed via the service layer.
     #[test]
     #[ignore]
     fn proptest_event_delivery_completeness_service() {
-        // All active subscribers receive the same events
-        // Implemented as part of task group 3 verification
+        use proptest::prelude::*;
+
+        let config = ProptestConfig { cases: 10, ..Default::default() };
+        proptest!(config, |(n_subs in 1usize..4)| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result: Result<(), String> = rt.block_on(async {
+                let (tx, _rx) = broadcast::channel(128);
+                let state_mgr = Arc::new(StateManager::new(tx.clone()));
+                let podman = Arc::new(MockPodmanExecutor::new());
+                let svc = UpdateService::new(
+                    Arc::clone(&state_mgr),
+                    Arc::clone(&podman),
+                    tx,
+                );
+
+                // Create subscribers before triggering events.
+                let mut subscribers: Vec<_> = (0..n_subs)
+                    .map(|_| svc.subscribe())
+                    .collect();
+
+                // Install an adapter (triggers state transition events).
+                podman.set_pull_result(Ok(()));
+                podman.set_inspect_result(Ok("sha256:abc".to_string()));
+                podman.set_run_result(Ok(()));
+                svc.install_adapter("registry.example.com/test:v1", "sha256:abc")
+                    .await
+                    .map_err(|e| format!("{}", e))?;
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+                // Collect events from each subscriber.
+                let all_events: Vec<Vec<_>> = subscribers
+                    .iter_mut()
+                    .map(|rx| {
+                        let mut events = Vec::new();
+                        while let Ok(event) = rx.try_recv() {
+                            events.push((
+                                event.adapter_id.clone(),
+                                event.old_state.clone(),
+                                event.new_state.clone(),
+                            ));
+                        }
+                        events
+                    })
+                    .collect();
+
+                if all_events[0].is_empty() {
+                    return Err("Subscriber 0 received no events".to_string());
+                }
+
+                // All subscribers must receive identical event sequences.
+                for i in 1..n_subs {
+                    if all_events[i] != all_events[0] {
+                        return Err(format!(
+                            "Subscriber {} received {:?}, but subscriber 0 received {:?}",
+                            i, all_events[i], all_events[0]
+                        ));
+                    }
+                }
+                Ok(())
+            });
+            prop_assert!(result.is_ok(), "{}", result.err().unwrap_or_default());
+        });
     }
 }

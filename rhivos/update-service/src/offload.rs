@@ -145,10 +145,53 @@ mod tests {
     }
 
     // TS-07-P6: Offload timing correctness property test
+    // For any inactivity timeout T (2..10 seconds), an adapter that just
+    // entered STOPPED state is NOT offloaded when offload_expired runs
+    // immediately (elapsed time ≈ 0 < T).
     #[test]
     #[ignore]
     fn proptest_offload_timing_correctness() {
-        // For any timeout T, offloading does not occur before T has elapsed
-        // Implemented as part of task group 4 verification
+        use proptest::prelude::*;
+
+        proptest!(|(timeout_secs in 2u64..10)| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result: Result<(), String> = rt.block_on(async {
+                let (tx, _rx) = broadcast::channel(128);
+                let state_mgr = Arc::new(StateManager::new(tx));
+                let podman = Arc::new(MockPodmanExecutor::new());
+                let adapter_id = "adapter-a-v1";
+                let image_ref = "registry.example.com/adapter-a:v1";
+
+                // Create adapter with stopped_at = now.
+                state_mgr.create_adapter(make_stopped_entry(adapter_id, image_ref));
+
+                let timeout = Duration::from_secs(timeout_secs);
+                // Call offload immediately — adapter was JUST stopped.
+                offload_expired(
+                    Arc::clone(&state_mgr),
+                    Arc::clone(&podman),
+                    timeout,
+                )
+                .await;
+
+                let adapter = state_mgr.get_adapter(adapter_id);
+                if adapter.is_none() {
+                    return Err(format!(
+                        "Adapter was offloaded immediately, but timeout is {}s",
+                        timeout_secs
+                    ));
+                }
+                if adapter.unwrap().state != AdapterState::Stopped {
+                    return Err(
+                        "Adapter should still be STOPPED before timeout".to_string(),
+                    );
+                }
+                Ok(())
+            });
+            prop_assert!(result.is_ok(), "{}", result.err().unwrap_or_default());
+        });
     }
 }

@@ -536,10 +536,62 @@ mod tests {
     }
 
     // TS-07-P5: Checksum verification soundness property test
+    // For any digest != checksum, the adapter transitions to ERROR and
+    // the image is removed via rmi.
     #[test]
     #[ignore]
     fn proptest_checksum_verification_soundness() {
-        // For any digest != checksum: adapter -> ERROR and rmi called
-        // Implemented as part of task group 3 verification
+        use proptest::prelude::*;
+
+        let config = ProptestConfig { cases: 20, ..Default::default() };
+        proptest!(config, |(
+            digest_suffix in "[a-f0-9]{8}",
+            checksum_suffix in "[a-f0-9]{8}"
+        )| {
+            let digest = format!("sha256:{}", digest_suffix);
+            let checksum = format!("sha256:{}", checksum_suffix);
+            prop_assume!(digest != checksum);
+
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result: Result<(), String> = rt.block_on(async {
+                let (tx, _rx) = broadcast::channel(128);
+                let state_mgr = Arc::new(StateManager::new(tx.clone()));
+                let podman = Arc::new(MockPodmanExecutor::new());
+                let svc = UpdateService::new(
+                    Arc::clone(&state_mgr),
+                    Arc::clone(&podman),
+                    tx,
+                );
+
+                podman.set_pull_result(Ok(()));
+                podman.set_inspect_result(Ok(digest));
+
+                let image_ref = "registry.example.com/test-img:v1";
+                svc.install_adapter(image_ref, &checksum)
+                    .await
+                    .map_err(|e| format!("{}", e))?;
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+                let adapter = state_mgr
+                    .get_adapter("test-img-v1")
+                    .ok_or_else(|| "adapter not found in state".to_string())?;
+                if adapter.state != crate::adapter::AdapterState::Error {
+                    return Err(format!(
+                        "Expected ERROR state, got {:?}",
+                        adapter.state
+                    ));
+                }
+                if !podman.rmi_calls().contains(&image_ref.to_string()) {
+                    return Err(
+                        "Expected rmi call for mismatched checksum".to_string(),
+                    );
+                }
+                Ok(())
+            });
+            prop_assert!(result.is_ok(), "{}", result.err().unwrap_or_default());
+        });
     }
 }

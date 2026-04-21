@@ -260,11 +260,38 @@ mod tests {
     async fn test_no_historical_replay() {
         let (sm, _early_rx) = make_state_mgr();
         sm.create_adapter(make_entry("my-adapter-v1", "registry/my-adapter:v1"));
+
+        // Drive through several transitions before the late subscriber connects.
         sm.transition("my-adapter-v1", AdapterState::Downloading, None)
             .unwrap();
-        // Subscribe late — no events should be pending
+        sm.transition("my-adapter-v1", AdapterState::Installing, None)
+            .unwrap();
+        sm.transition("my-adapter-v1", AdapterState::Running, None)
+            .unwrap();
+
+        // Subscribe late — no historical events should be pending.
         let mut late_rx = sm.subscribe();
-        assert!(late_rx.try_recv().is_err());
+        assert!(
+            late_rx.try_recv().is_err(),
+            "should not receive historical events"
+        );
+
+        // Trigger a new transition after subscribing.
+        sm.transition("my-adapter-v1", AdapterState::Stopped, None)
+            .unwrap();
+
+        // Late subscriber should receive only the new event.
+        let event = late_rx
+            .try_recv()
+            .expect("should receive event after subscription");
+        assert_eq!(event.old_state, AdapterState::Running);
+        assert_eq!(event.new_state, AdapterState::Stopped);
+
+        // No further events should be pending.
+        assert!(
+            late_rx.try_recv().is_err(),
+            "should only receive events occurring after subscription"
+        );
     }
 
     // TS-07-E15: No subscribers active — no error on transition
@@ -294,18 +321,116 @@ mod tests {
     }
 
     // TS-07-P3: State transition validity property test
+    // For any sequence of transition attempts, every emitted event follows
+    // the valid state machine edges.
     #[test]
     #[ignore]
     fn proptest_state_transition_validity() {
-        // Validates that all transitions follow the state machine edges
-        // Implemented as part of task group 3 verification
+        use proptest::prelude::*;
+
+        let valid_transitions: Vec<(AdapterState, AdapterState)> = vec![
+            (AdapterState::Unknown, AdapterState::Downloading),
+            (AdapterState::Downloading, AdapterState::Installing),
+            (AdapterState::Downloading, AdapterState::Error),
+            (AdapterState::Installing, AdapterState::Running),
+            (AdapterState::Installing, AdapterState::Error),
+            (AdapterState::Running, AdapterState::Stopped),
+            (AdapterState::Running, AdapterState::Error),
+            (AdapterState::Stopped, AdapterState::Running),
+            (AdapterState::Stopped, AdapterState::Offloading),
+            (AdapterState::Offloading, AdapterState::Error),
+        ];
+
+        // Generate a random sequence of target state indices and verify
+        // every emitted event is a valid edge.
+        proptest!(|(targets in prop::collection::vec(0usize..7, 1..10))| {
+            let (tx, mut rx) = broadcast::channel(128);
+            let sm = StateManager::new(tx);
+            sm.create_adapter(make_entry("test-adapter", "reg/test:v1"));
+
+            let all_states = [
+                AdapterState::Unknown,
+                AdapterState::Downloading,
+                AdapterState::Installing,
+                AdapterState::Running,
+                AdapterState::Stopped,
+                AdapterState::Error,
+                AdapterState::Offloading,
+            ];
+
+            for &target_idx in &targets {
+                let target = all_states[target_idx].clone();
+                // Attempt may succeed or fail — we only care about emitted events.
+                let _ = sm.transition("test-adapter", target, None);
+            }
+
+            // Verify every emitted event is a valid transition.
+            while let Ok(event) = rx.try_recv() {
+                let pair = (event.old_state.clone(), event.new_state.clone());
+                prop_assert!(
+                    valid_transitions.iter().any(|v| v.0 == pair.0 && v.1 == pair.1),
+                    "Invalid transition emitted: {:?} -> {:?}",
+                    pair.0,
+                    pair.1
+                );
+            }
+        });
     }
 
     // TS-07-P4: Event delivery completeness property test
+    // For N subscribers (1..3), all active subscribers receive identical
+    // event sequences for any series of state transitions.
     #[test]
     #[ignore]
     fn proptest_event_delivery_completeness() {
-        // Validates all subscribers receive same events
-        // Implemented as part of task group 3 verification
+        use proptest::prelude::*;
+
+        proptest!(|(n_subscribers in 1usize..4)| {
+            let (tx, _) = broadcast::channel(128);
+            let sm = StateManager::new(tx);
+
+            // Create subscribers before any events are emitted.
+            let mut subscribers: Vec<_> = (0..n_subscribers)
+                .map(|_| sm.subscribe())
+                .collect();
+
+            // Drive transitions to produce events.
+            sm.create_adapter(make_entry("test-adapter", "reg/test:v1"));
+            let _ = sm.transition("test-adapter", AdapterState::Downloading, None);
+            let _ = sm.transition("test-adapter", AdapterState::Installing, None);
+            let _ = sm.transition("test-adapter", AdapterState::Running, None);
+
+            // Collect events from each subscriber.
+            let all_events: Vec<Vec<(String, AdapterState, AdapterState)>> = subscribers
+                .iter_mut()
+                .map(|rx| {
+                    let mut events = Vec::new();
+                    while let Ok(event) = rx.try_recv() {
+                        events.push((
+                            event.adapter_id.clone(),
+                            event.old_state.clone(),
+                            event.new_state.clone(),
+                        ));
+                    }
+                    events
+                })
+                .collect();
+
+            // All subscribers must have received at least one event.
+            prop_assert!(
+                !all_events[0].is_empty(),
+                "Subscriber 0 received no events"
+            );
+
+            // All subscribers must have received identical event sequences.
+            for i in 1..n_subscribers {
+                prop_assert_eq!(
+                    &all_events[i],
+                    &all_events[0],
+                    "Subscriber {} received different events than subscriber 0",
+                    i
+                );
+            }
+        });
     }
 }
