@@ -154,7 +154,9 @@ func TestMissingVIN(t *testing.T) {
 	}
 }
 
-// TS-09-E5 / 09-REQ-7.E3: companion-app-cli exits 1 when CLOUD_GATEWAY returns non-2xx.
+// 09-REQ-7.E3: companion-app-cli exits 1 when CLOUD_GATEWAY returns non-2xx.
+// (No dedicated TS-09-Exx entry exists; coverage matrix maps 09-REQ-7.E3 to TS-09-E11
+// which actually tests parking-app-cli. This test provides the real companion-app coverage.)
 func TestCompanionHTTPError(t *testing.T) {
 	mock := newMockHTTPServer(t, 500, `{"error":"internal server error"}`)
 	binary := companionBin(t)
