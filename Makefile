@@ -1,0 +1,23 @@
+.PHONY: build test lint check clean
+
+build:
+	cd rhivos && cargo build -p mock-sensors
+	cd mock && go build ./...
+
+lint:
+	cd rhivos && cargo clippy -p mock-sensors -- -D warnings
+	cd mock && go vet ./...
+	cd tests/mock-apps && go vet ./...
+
+test:
+	cd rhivos && cargo test -p mock-sensors
+	cd mock && go test -v ./...
+	cd tests/mock-apps && go test -v ./...
+
+check: lint
+	cd rhivos && cargo test -p mock-sensors --no-run
+	cd tests/mock-apps && go test -c -o /dev/null ./...
+
+clean:
+	cd rhivos && cargo clean
+	cd mock && go clean ./...
