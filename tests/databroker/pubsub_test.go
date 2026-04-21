@@ -103,6 +103,98 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 	}
 }
 
+// TestPropertySubscriptionDelivery verifies that for any signal, subscribing and then
+// setting a new value delivers the update to the subscriber. This is the property test
+// covering all 8 signals systematically, complementing the targeted TS-02-10/TS-02-11 tests.
+// Test Spec: TS-02-P4
+// Requirement: 02-REQ-10.1
+func TestPropertySubscriptionDelivery(t *testing.T) {
+	skipIfGrpcurlMissing(t)
+	skipIfTCPNotReachable(t)
+
+	// Each signal is tested with a type-appropriate value and a substring to look for
+	// in the subscription output.
+	type subCase struct {
+		signal  string
+		pubReq  string // full PublishValueRequest JSON
+		checkIn string // substring expected in the subscription output (case-insensitive)
+	}
+
+	cases := []subCase{
+		{
+			signal:  "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
+			pubReq:  `{"signal_id": {"path": "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked"}, "value": {"bool_value": true}}`,
+			checkIn: "true",
+		},
+		{
+			signal:  "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen",
+			pubReq:  `{"signal_id": {"path": "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"}, "value": {"bool_value": true}}`,
+			checkIn: "true",
+		},
+		{
+			signal:  "Vehicle.CurrentLocation.Latitude",
+			pubReq:  `{"signal_id": {"path": "Vehicle.CurrentLocation.Latitude"}, "value": {"double_value": 52.5200}}`,
+			checkIn: "52",
+		},
+		{
+			signal:  "Vehicle.CurrentLocation.Longitude",
+			pubReq:  `{"signal_id": {"path": "Vehicle.CurrentLocation.Longitude"}, "value": {"double_value": 13.4050}}`,
+			checkIn: "13",
+		},
+		{
+			signal:  "Vehicle.Speed",
+			pubReq:  `{"signal_id": {"path": "Vehicle.Speed"}, "value": {"float_value": 120.0}}`,
+			checkIn: "120",
+		},
+		{
+			signal:  "Vehicle.Parking.SessionActive",
+			pubReq:  `{"signal_id": {"path": "Vehicle.Parking.SessionActive"}, "value": {"bool_value": true}}`,
+			checkIn: "true",
+		},
+		{
+			signal:  "Vehicle.Command.Door.Lock",
+			pubReq:  `{"signal_id": {"path": "Vehicle.Command.Door.Lock"}, "value": {"string_value": "sub-delivery-test"}}`,
+			checkIn: "sub-delivery-test",
+		},
+		{
+			signal:  "Vehicle.Command.Door.Response",
+			pubReq:  `{"signal_id": {"path": "Vehicle.Command.Door.Response"}, "value": {"string_value": "sub-resp-test"}}`,
+			checkIn: "sub-resp-test",
+		},
+	}
+
+	const target = "localhost:55556"
+
+	for _, tc := range cases {
+		t.Run(tc.signal, func(t *testing.T) {
+			// Start subscriber in a goroutine; give it 5 seconds to capture output.
+			type result struct{ out string }
+			ch := make(chan result, 1)
+			go func() {
+				out := subscribeAndCapture(t, target, tc.signal, 5*time.Second)
+				ch <- result{out}
+			}()
+
+			// Allow subscriber to establish before publishing.
+			time.Sleep(300 * time.Millisecond)
+
+			// Publish the value.
+			grpcurlTCP(t, "PublishValue", tc.pubReq)
+
+			// Wait for the subscriber output.
+			select {
+			case r := <-ch:
+				if !strings.Contains(strings.ToLower(r.out), strings.ToLower(tc.checkIn)) {
+					t.Errorf("subscriber did not receive expected value %q for %s\noutput: %s",
+						tc.checkIn, tc.signal, r.out)
+				}
+			case <-time.After(6 * time.Second):
+				t.Errorf("timed out waiting for subscription update for %s", tc.signal)
+			}
+		})
+	}
+}
+
 // TestPermissiveModeWithArbitraryToken verifies that the DATA_BROKER accepts requests
 // even when an invalid/arbitrary authorization token is provided in the metadata.
 // In permissive mode, the broker must not reject requests based on token content.
