@@ -22,6 +22,14 @@ import (
 const version = "0.1.0"
 
 func main() {
+	// Handle --version flag (01-REQ-4.2, 01-REQ-4.4).
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-version" {
+			fmt.Println("cloud-gateway v0.1.0")
+			return
+		}
+	}
+
 	// Load configuration (06-REQ-6.1).
 	cfgPath := os.Getenv("CONFIG_PATH")
 	if cfgPath == "" {

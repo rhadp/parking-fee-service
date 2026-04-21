@@ -60,6 +60,7 @@ clean:
 # Generate Go code from proto definitions
 proto:
 	@command -v protoc >/dev/null 2>&1 || { echo "Error: protoc is required but not installed. Install protoc and protoc-gen-go." >&2; exit 1; }
+	mkdir -p gen
 	protoc --proto_path=proto --go_out=gen --go-grpc_out=gen $$(find proto -name '*.proto')
 
 # Start local infrastructure (NATS + Kuksa Databroker)

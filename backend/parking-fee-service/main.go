@@ -19,6 +19,14 @@ import (
 const version = "0.1.0"
 
 func main() {
+	// Handle --version flag (01-REQ-4.2, 01-REQ-4.4).
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-version" {
+			fmt.Println("parking-fee-service v0.1.0")
+			return
+		}
+	}
+
 	// Determine config file path (CONFIG_PATH env var, default "config.json").
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {

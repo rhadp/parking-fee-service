@@ -124,9 +124,9 @@ func cmdStatus(cfg config, vin, commandID string) error {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: companion-app-cli <command> [flags]")
-		fmt.Fprintln(os.Stderr, "commands: lock, unlock, status")
-		os.Exit(1)
+		// No arguments → print version and exit 0 (01-REQ-4.2, 01-REQ-4.4).
+		fmt.Println("companion-app-cli v0.1.0")
+		return
 	}
 
 	subcommand := os.Args[1]

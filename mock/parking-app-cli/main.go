@@ -81,9 +81,9 @@ func printJSON(v any) {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: parking-app-cli <command> [flags]")
-		fmt.Fprintln(os.Stderr, "commands: lookup, adapter-info, install, list, status, remove, watch, start-session, stop-session")
-		os.Exit(1)
+		// No arguments → print version and exit 0 (01-REQ-4.2, 01-REQ-4.4).
+		fmt.Println("parking-app-cli v0.1.0")
+		return
 	}
 
 	subcommand := os.Args[1]

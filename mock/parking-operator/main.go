@@ -14,8 +14,9 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: parking-operator serve [--port=PORT]")
-		os.Exit(1)
+		// No arguments → print version and exit 0 (01-REQ-4.2, 01-REQ-4.4).
+		fmt.Println("parking-operator v0.1.0")
+		return
 	}
 
 	switch os.Args[1] {
