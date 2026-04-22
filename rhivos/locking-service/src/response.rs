@@ -15,13 +15,33 @@ pub struct CommandResponse {
 }
 
 /// Build a success response JSON string.
-pub fn success_response(_command_id: &str) -> String {
-    todo!()
+pub fn success_response(command_id: &str) -> String {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before UNIX epoch")
+        .as_secs() as i64;
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp,
+    };
+    serde_json::to_string(&resp).expect("CommandResponse serialization should not fail")
 }
 
 /// Build a failure response JSON string.
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!()
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before UNIX epoch")
+        .as_secs() as i64;
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp,
+    };
+    serde_json::to_string(&resp).expect("CommandResponse serialization should not fail")
 }
 
 #[cfg(test)]

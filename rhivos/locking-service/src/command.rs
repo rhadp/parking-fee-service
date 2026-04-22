@@ -50,13 +50,42 @@ impl CommandError {
 }
 
 /// Parse a JSON string into a LockCommand.
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!()
+///
+/// Distinguishes JSON syntax errors (InvalidJson) from structural/data
+/// errors such as missing fields or unrecognised enum variants (InvalidCommand).
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    serde_json::from_str(json).map_err(|e| {
+        use serde_json::error::Category;
+        match e.classify() {
+            Category::Syntax | Category::Eof | Category::Io => {
+                CommandError::InvalidJson(e.to_string())
+            }
+            Category::Data => CommandError::InvalidCommand(e.to_string()),
+        }
+    })
 }
 
 /// Validate a parsed LockCommand for business rules.
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!()
+///
+/// Checks that command_id is non-empty and that doors contains only "driver".
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id must not be empty".to_string(),
+        ));
+    }
+    if cmd.doors.iter().any(|d| d != "driver") {
+        return Err(CommandError::UnsupportedDoor(format!(
+            "unsupported door value in {:?}",
+            cmd.doors
+        )));
+    }
+    if !cmd.doors.contains(&"driver".to_string()) {
+        return Err(CommandError::InvalidCommand(
+            "doors must contain \"driver\"".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

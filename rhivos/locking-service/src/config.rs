@@ -3,7 +3,7 @@
 /// Returns the value of `DATABROKER_ADDR` if set,
 /// otherwise returns `http://localhost:55556`.
 pub fn get_databroker_addr() -> String {
-    todo!()
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| "http://localhost:55556".to_string())
 }
 
 #[cfg(test)]

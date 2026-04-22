@@ -20,8 +20,31 @@ pub enum SafetyResult {
 ///
 /// Unset speed is treated as 0.0 (safe default).
 /// Unset door state is treated as closed (safe default).
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!()
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    // Read speed; treat errors or unset values as 0.0 (safe default).
+    let speed = broker
+        .get_float(crate::broker::SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    // Speed check takes priority over door check (design Property 2).
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    // Read door open state; treat errors or unset values as false (safe default).
+    let door_open = broker
+        .get_bool(crate::broker::SIGNAL_DOOR_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]
