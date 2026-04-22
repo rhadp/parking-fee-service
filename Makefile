@@ -30,7 +30,7 @@ lint:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --lib --bins
+	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude update-service --lib --bins
 
 # Note: backend modules use 'go test .' (root package only) to avoid running
 # subpackage stub tests from specs 05 and 06. See docs/errata/01_test_scope.md.

@@ -1,3 +1,17 @@
+#![allow(dead_code)] // TG1: stubs are intentionally unused until implementation
+
+pub mod adapter;
+pub mod config;
+pub mod grpc;
+pub mod monitor;
+pub mod offload;
+pub mod podman;
+pub mod state;
+
+pub mod proto {
+    tonic::include_proto!("update_service.v1");
+}
+
 use std::process;
 
 fn main() {

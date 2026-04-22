@@ -14,8 +14,9 @@ The spec 01 `make test` and `make check` targets do not run the full
 Two types of exclusions apply:
 
 - **Crate exclusions** (`--exclude`): `cloud-gateway-client` (spec 04 TG1
-  stubs) contains failing tests that require implementation from spec 04.
-  It is excluded entirely until that spec is implemented.
+  stubs) and `update-service` (spec 07 TG1 stubs) contain failing tests
+  that require implementation from their respective specs. They are excluded
+  entirely until those specs are implemented.
   `locking-service` was previously excluded (spec 03 TG1 stubs) but is now
   included after spec 03 task group 3 implementation.
 
@@ -86,6 +87,7 @@ code generation.
 Once the relevant specs implement the required components, the Makefile should
 be updated to:
 - Remove `--exclude cloud-gateway-client` (after spec 04 implementation)
+- Remove `--exclude update-service` (after spec 07 implementation)
 - ~~Remove `--exclude locking-service` (after spec 03 implementation)~~ Done
 - Use `cargo test --workspace` without `--lib --bins` (after spec 09)
 - Include `mock/parking-operator` in `test-go` (after spec 09)
