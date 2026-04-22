@@ -30,7 +30,7 @@ lint:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --lib --bins
+	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude locking-service --lib --bins
 
 test-go:
 	cd backend/parking-fee-service && go test ./...

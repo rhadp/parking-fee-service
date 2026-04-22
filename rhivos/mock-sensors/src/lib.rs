@@ -1,3 +1,16 @@
+/// Generated code from vendored kuksa.val.v1 proto files.
+pub mod kuksa {
+    pub mod val {
+        pub mod v1 {
+            tonic::include_proto!("kuksa.val.v1");
+        }
+    }
+}
+
+use kuksa::val::v1::{
+    datapoint::Value, val_client::ValClient, Datapoint, DataEntry, EntryUpdate, Field, SetRequest,
+};
+
 /// Value types that can be published to the DATA_BROKER.
 pub enum DatapointValue {
     /// 64-bit floating point (e.g., latitude, longitude).
@@ -16,11 +29,34 @@ pub enum DatapointValue {
 /// * `path` - The VSS signal path (e.g., `Vehicle.Speed`).
 /// * `value` - The value to publish.
 pub async fn publish_datapoint(
-    _broker_addr: &str,
-    _path: &str,
-    _value: DatapointValue,
+    broker_addr: &str,
+    path: &str,
+    value: DatapointValue,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    todo!("publish_datapoint not yet implemented")
+    let dp_value = match value {
+        DatapointValue::Double(v) => Value::DoubleValue(v),
+        DatapointValue::Float(v) => Value::FloatValue(v),
+        DatapointValue::Bool(v) => Value::BoolValue(v),
+    };
+
+    let mut client = ValClient::connect(broker_addr.to_string()).await?;
+
+    let request = tonic::Request::new(SetRequest {
+        updates: vec![EntryUpdate {
+            entry: Some(DataEntry {
+                path: path.to_string(),
+                value: Some(Datapoint {
+                    timestamp: 0,
+                    value: Some(dp_value),
+                }),
+                actuator_target: None,
+            }),
+            fields: vec![Field::Value as i32],
+        }],
+    });
+
+    client.set(request).await?;
+    Ok(())
 }
 
 #[cfg(test)]

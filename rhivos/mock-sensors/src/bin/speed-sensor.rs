@@ -1,19 +1,40 @@
+use clap::Parser;
+use mock_sensors::{publish_datapoint, DatapointValue};
 use std::process;
 
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 && args[1].starts_with('-') {
-        eprintln!("Usage: speed-sensor [--speed=<kph>] [--broker-addr=<addr>]");
-        eprintln!("  RHIVOS speed sensor mock.");
-        process::exit(1);
-    }
-    println!("speed-sensor v0.1.0");
+/// RHIVOS speed sensor mock.
+///
+/// Publishes vehicle speed to DATA_BROKER via kuksa.val.v1 gRPC Set RPC.
+#[derive(Parser)]
+#[command(name = "speed-sensor")]
+struct Cli {
+    /// Speed value in km/h (Vehicle.Speed)
+    #[arg(long)]
+    speed: f32,
+
+    /// DATA_BROKER gRPC address
+    #[arg(long, env = "DATABROKER_ADDR", default_value = "http://localhost:55556")]
+    broker_addr: String,
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_compiles() {
-        assert!(true);
+#[tokio::main]
+async fn main() {
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("{e}");
+            process::exit(1);
+        }
+    };
+
+    if let Err(e) = publish_datapoint(
+        &cli.broker_addr,
+        "Vehicle.Speed",
+        DatapointValue::Float(cli.speed),
+    )
+    .await
+    {
+        eprintln!("Error publishing speed: {e}");
+        process::exit(1);
     }
 }
