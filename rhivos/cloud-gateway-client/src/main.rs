@@ -26,6 +26,7 @@ async fn main() -> ExitCode {
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
+        .with_writer(std::io::stderr)
         .init();
 
     // Task 7.1: Startup sequencing — REQ-9.1, REQ-9.2
