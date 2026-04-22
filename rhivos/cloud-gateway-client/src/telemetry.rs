@@ -1,0 +1,115 @@
+//! Telemetry state aggregation.
+//!
+//! Maintains current telemetry state from DATA_BROKER signal updates.
+//! Produces aggregated JSON payloads on each change, omitting fields
+//! that have never been set.
+
+use crate::models::SignalUpdate;
+
+/// Maintains current values for all telemetry signals.
+///
+/// Tracks which signals have been received at least once and produces
+/// aggregated JSON payloads on each update.
+#[allow(dead_code)]
+pub struct TelemetryState {
+    vin: String,
+    is_locked: Option<bool>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    parking_active: Option<bool>,
+}
+
+impl TelemetryState {
+    /// Create a new telemetry state for the given VIN.
+    pub fn new(_vin: String) -> Self {
+        todo!("TelemetryState::new not yet implemented")
+    }
+
+    /// Apply a signal update and return the aggregated JSON if state changed.
+    ///
+    /// Returns `Some(json_string)` with all currently known fields, or
+    /// `None` if the update is a no-op (not currently implemented — always
+    /// returns Some for any update).
+    pub fn update(&mut self, _signal: SignalUpdate) -> Option<String> {
+        todo!("TelemetryState::update not yet implemented")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // TS-04-7: Telemetry state produces JSON on first update
+    #[test]
+    fn test_telemetry_first_update() {
+        let mut state = TelemetryState::new("VIN-001".to_string());
+        let result = state.update(SignalUpdate::IsLocked(true));
+
+        assert!(result.is_some(), "first update should produce JSON");
+        let json = result.unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("should be valid JSON");
+
+        assert_eq!(parsed["vin"], "VIN-001");
+        assert_eq!(parsed["is_locked"], true);
+        assert!(parsed.get("timestamp").is_some(), "should have timestamp");
+        assert!(
+            parsed.get("latitude").is_none(),
+            "unset field should be omitted"
+        );
+        assert!(
+            parsed.get("longitude").is_none(),
+            "unset field should be omitted"
+        );
+        assert!(
+            parsed.get("parking_active").is_none(),
+            "unset field should be omitted"
+        );
+    }
+
+    // TS-04-8: Telemetry state omits unset fields
+    #[test]
+    fn test_telemetry_omits_unset_fields() {
+        let mut state = TelemetryState::new("VIN-001".to_string());
+        let result = state.update(SignalUpdate::Latitude(48.1351));
+
+        assert!(result.is_some());
+        let json = result.unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("should be valid JSON");
+
+        assert_eq!(parsed["latitude"], 48.1351);
+        assert!(
+            parsed.get("is_locked").is_none(),
+            "is_locked should be omitted"
+        );
+        assert!(
+            parsed.get("longitude").is_none(),
+            "longitude should be omitted"
+        );
+        assert!(
+            parsed.get("parking_active").is_none(),
+            "parking_active should be omitted"
+        );
+    }
+
+    // TS-04-9: Telemetry state includes all known fields
+    #[test]
+    fn test_telemetry_all_known_fields() {
+        let mut state = TelemetryState::new("VIN-001".to_string());
+        state.update(SignalUpdate::IsLocked(true));
+        state.update(SignalUpdate::Latitude(48.1351));
+        state.update(SignalUpdate::Longitude(11.582));
+        let result = state.update(SignalUpdate::ParkingActive(true));
+
+        assert!(result.is_some());
+        let json = result.unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("should be valid JSON");
+
+        assert_eq!(parsed["is_locked"], true);
+        assert_eq!(parsed["latitude"], 48.1351);
+        assert_eq!(parsed["longitude"], 11.582);
+        assert_eq!(parsed["parking_active"], true);
+    }
+}
