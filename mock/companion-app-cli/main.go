@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 func main() {
-	// Stub: will be implemented in task group 4.
+	fmt.Println("companion-app-cli v0.1.0")
 }

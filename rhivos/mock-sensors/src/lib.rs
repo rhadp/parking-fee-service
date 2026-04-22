@@ -22,3 +22,11 @@ pub async fn publish_datapoint(
 ) -> Result<(), Box<dyn std::error::Error>> {
     todo!("publish_datapoint not yet implemented")
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_compiles() {
+        assert!(true);
+    }
+}

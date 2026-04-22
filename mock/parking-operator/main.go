@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 func main() {
-	// Stub: will be implemented in task group 3.
+	fmt.Println("parking-operator v0.1.0")
 }
