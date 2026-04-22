@@ -10,23 +10,21 @@ pub fn get_databroker_addr() -> String {
 mod tests {
     use super::*;
 
-    // TS-03-3: Verify default address when DATABROKER_ADDR is not set.
+    // TS-03-3: Verify default and custom address from DATABROKER_ADDR env var.
+    //
+    // Both checks run in a single test to avoid a race condition: when run in
+    // parallel, set_var/remove_var on a shared env var causes data races.
     #[test]
-    fn test_databroker_addr_default() {
-        // SAFETY: env var mutation is safe in single-threaded test context.
-        unsafe { std::env::remove_var("DATABROKER_ADDR") };
-        let addr = get_databroker_addr();
-        assert_eq!(addr, "http://localhost:55556");
-    }
-
-    // TS-03-3: Verify custom address from DATABROKER_ADDR env var.
-    #[test]
-    fn test_databroker_addr_env() {
-        // SAFETY: env var mutation is safe in single-threaded test context.
+    fn test_databroker_addr() {
+        // Test custom address first.
+        // SAFETY: env var mutation in single-threaded test context.
         unsafe { std::env::set_var("DATABROKER_ADDR", "http://10.0.0.5:55556") };
         let addr = get_databroker_addr();
         assert_eq!(addr, "http://10.0.0.5:55556");
-        // Clean up.
+
+        // Now test default by removing the env var.
         unsafe { std::env::remove_var("DATABROKER_ADDR") };
+        let addr = get_databroker_addr();
+        assert_eq!(addr, "http://localhost:55556");
     }
 }

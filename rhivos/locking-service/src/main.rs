@@ -20,8 +20,9 @@ use response::failure_response;
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    // No args or --help: print usage and exit 0.
+    // No args or --help: print version to stdout, usage to stderr, exit 0.
     if args.len() < 2 || args[1] == "--help" || args[1] == "-h" {
+        println!("locking-service v{}", env!("CARGO_PKG_VERSION"));
         print_usage();
         std::process::exit(0);
     }
