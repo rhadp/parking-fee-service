@@ -124,33 +124,38 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 3_
     _Note: cargo test --workspace --lib --bins: 8 tests pass (it_compiles for all 5 crates + 3 sensor binaries). All Go modules in test-go pass. make check (lint + test) passes. Spec 09 integration tests (cli_tests.rs, server_test.go) excluded via --lib --bins and test-go scoping; documented in docs/errata/01_test_scope.md._
 
-- [ ] 4. Create proto definitions
+- [x] 4. Create proto definitions
   _Create shared .proto files with full message and service definitions._
 
-  - [ ] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
+  - [x] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
+    _Note: Moved from flat proto/update_service.proto to proto/update/update_service.proto. Contains AdapterState enum, all 5 RPC methods with request/response messages, package update_service.v1._
 
-  - [ ] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
+  - [x] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
+    _Note: Moved from flat proto/parking_adaptor.proto to proto/adapter/adapter_service.proto. Updated to match design spec: StartSessionRequest has vehicle_id+zone_id, StopSessionRequest has session_id, uses SessionStatus and ParkingRate message names, package parking_adaptor.v1._
 
-  - [ ] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
+  - [x] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
+    _Note: New file. VehicleCommand with command_id/action/doors/source/vin/timestamp, CommandResponse with command_id/status/reason/timestamp, CloudGateway service with RelayCommand RPC, package gateway.v1._
 
-  - [ ] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
+  - [x] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
+    _Note: New file. Datapoint with oneof value types, DataEntry, View/Field enums, Get/Set/Subscribe RPCs, VAL service, package kuksa.val.v1._
 
-  - [ ] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
+  - [x] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
     _Test Spec: TS-01-16, TS-01-17_
     _Requirements: 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
+    _Note: All 4 proto files verified: syntax="proto3", package declaration, go_package option present._
 
-  - [ ] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
+  - [x] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
     _Test Spec: TS-01-17, TS-01-P5_
     _Verification step for Task Group 4_
-    _Note: All 4 proto files parse without errors (protoc exit code 0). Each file has syntax="proto3", package declaration, and go_package option. make check passes._
+    _Note: All 4 proto files parse without errors (protoc exit code 0). Each file has syntax="proto3", package declaration, and go_package option. make check passes. make test-setup passes (all 14 test groups)._
 
 - [ ] 5. Create infrastructure configuration and Makefile
   _Set up Podman Compose, NATS config, VSS overlay, and root Makefile._
