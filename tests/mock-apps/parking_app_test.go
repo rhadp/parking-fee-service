@@ -1,13 +1,120 @@
 package mockapps_test
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	adaptorpb "github.com/rhadp/parking-fee-service/gen/parking_adaptor/v1"
+	updatepb "github.com/rhadp/parking-fee-service/gen/update_service/v1"
+	"google.golang.org/grpc"
 )
+
+// ---------------------------------------------------------------------------
+// Mock gRPC servers
+// ---------------------------------------------------------------------------
+
+// mockUpdateService implements the UpdateService gRPC server for testing.
+type mockUpdateService struct {
+	updatepb.UnimplementedUpdateServiceServer
+}
+
+func (m *mockUpdateService) InstallAdapter(_ context.Context, req *updatepb.InstallAdapterRequest) (*updatepb.InstallAdapterResponse, error) {
+	return &updatepb.InstallAdapterResponse{
+		JobId:     "j1",
+		AdapterId: "a1",
+		State:     updatepb.AdapterState_DOWNLOADING,
+	}, nil
+}
+
+func (m *mockUpdateService) ListAdapters(_ context.Context, _ *updatepb.ListAdaptersRequest) (*updatepb.ListAdaptersResponse, error) {
+	return &updatepb.ListAdaptersResponse{
+		Adapters: []*updatepb.AdapterInfo{
+			{
+				AdapterId: "a1",
+				State:     updatepb.AdapterState_RUNNING,
+				ImageRef:  "registry/adapter:v1",
+			},
+		},
+	}, nil
+}
+
+func (m *mockUpdateService) GetAdapterStatus(_ context.Context, req *updatepb.GetAdapterStatusRequest) (*updatepb.GetAdapterStatusResponse, error) {
+	return &updatepb.GetAdapterStatusResponse{
+		AdapterId: req.GetAdapterId(),
+		State:     updatepb.AdapterState_RUNNING,
+		ImageRef:  "registry/adapter:v1",
+	}, nil
+}
+
+func (m *mockUpdateService) RemoveAdapter(_ context.Context, req *updatepb.RemoveAdapterRequest) (*updatepb.RemoveAdapterResponse, error) {
+	return &updatepb.RemoveAdapterResponse{}, nil
+}
+
+// mockParkingAdaptor implements the ParkingAdaptor gRPC server for testing.
+type mockParkingAdaptor struct {
+	adaptorpb.UnimplementedParkingAdaptorServer
+}
+
+func (m *mockParkingAdaptor) StartSession(_ context.Context, req *adaptorpb.StartSessionRequest) (*adaptorpb.StartSessionResponse, error) {
+	return &adaptorpb.StartSessionResponse{
+		SessionId: "s1",
+		Status:    "active",
+		Rate: &adaptorpb.ParkingRate{
+			RateType: "per_hour",
+			Amount:   2.50,
+			Currency: "EUR",
+		},
+	}, nil
+}
+
+func (m *mockParkingAdaptor) StopSession(_ context.Context, _ *adaptorpb.StopSessionRequest) (*adaptorpb.StopSessionResponse, error) {
+	return &adaptorpb.StopSessionResponse{
+		SessionId:       "s1",
+		Status:          "stopped",
+		DurationSeconds: 3600,
+		TotalAmount:     2.50,
+		Currency:        "EUR",
+	}, nil
+}
+
+// startMockUpdateService starts a gRPC server with a mock UpdateService and
+// returns the listener address. The server is stopped when the test completes.
+func startMockUpdateService(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := grpc.NewServer()
+	updatepb.RegisterUpdateServiceServer(srv, &mockUpdateService{})
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(func() { srv.Stop() })
+
+	return lis.Addr().String()
+}
+
+// startMockParkingAdaptor starts a gRPC server with a mock ParkingAdaptor and
+// returns the listener address. The server is stopped when the test completes.
+func startMockParkingAdaptor(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := grpc.NewServer()
+	adaptorpb.RegisterParkingAdaptorServer(srv, &mockParkingAdaptor{})
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(func() { srv.Stop() })
+
+	return lis.Addr().String()
+}
 
 // ---------------------------------------------------------------------------
 // TS-09-5: Parking App CLI Lookup
@@ -97,21 +204,14 @@ func TestAdapterInfo(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestInstall(t *testing.T) {
-	// Start a TCP listener to act as a mock gRPC endpoint.
-	// In task group 4, this will be upgraded to a proper gRPC mock server
-	// with proto-generated types returning InstallAdapterResponse.
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lis.Close()
+	addr := startMockUpdateService(t)
 
 	binary := buildBinary(t, "parking-app-cli")
 	stdout, stderr, exitCode := runBinary(t, binary,
 		"install",
 		"--image-ref=registry/adapter:v1",
 		"--checksum=sha256:abc",
-		"--update-addr="+lis.Addr().String(),
+		"--update-addr="+addr,
 	)
 
 	if exitCode != 0 {
@@ -130,16 +230,12 @@ func TestInstall(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestList(t *testing.T) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lis.Close()
+	addr := startMockUpdateService(t)
 
 	binary := buildBinary(t, "parking-app-cli")
 	stdout, stderr, exitCode := runBinary(t, binary,
 		"list",
-		"--update-addr="+lis.Addr().String(),
+		"--update-addr="+addr,
 	)
 
 	if exitCode != 0 {
@@ -157,17 +253,13 @@ func TestList(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestAdapterStatus(t *testing.T) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lis.Close()
+	addr := startMockUpdateService(t)
 
 	binary := buildBinary(t, "parking-app-cli")
 	stdout, stderr, exitCode := runBinary(t, binary,
 		"status",
 		"--adapter-id=a1",
-		"--update-addr="+lis.Addr().String(),
+		"--update-addr="+addr,
 	)
 
 	if exitCode != 0 {
@@ -189,26 +281,27 @@ func TestAdapterStatus(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRemove(t *testing.T) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lis.Close()
+	addr := startMockUpdateService(t)
 
 	binary := buildBinary(t, "parking-app-cli")
 	stdout, stderr, exitCode := runBinary(t, binary,
 		"remove",
 		"--adapter-id=a1",
-		"--update-addr="+lis.Addr().String(),
+		"--update-addr="+addr,
 	)
 
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d\nstderr: %s", exitCode, stderr)
 	}
 
-	// Verify the CLI actually called RemoveAdapter and produced output.
-	if len(stdout) == 0 && len(stderr) == 0 {
-		t.Error("expected some output confirming adapter removal")
+	// Verify the CLI confirms removal with meaningful output containing
+	// the adapter ID (addresses skeptic finding about weak assertion).
+	if !strings.Contains(stdout, "a1") {
+		t.Errorf("expected stdout to contain adapter_id 'a1', got: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "removed") {
+		t.Errorf("expected stdout to contain 'removed', got: %s", stdout)
 	}
 }
 
@@ -218,17 +311,13 @@ func TestRemove(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStartSession(t *testing.T) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lis.Close()
+	addr := startMockParkingAdaptor(t)
 
 	binary := buildBinary(t, "parking-app-cli")
 	stdout, stderr, exitCode := runBinary(t, binary,
 		"start-session",
 		"--zone-id=zone-demo-1",
-		"--adaptor-addr="+lis.Addr().String(),
+		"--adaptor-addr="+addr,
 	)
 
 	if exitCode != 0 {
@@ -246,16 +335,12 @@ func TestStartSession(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStopSession(t *testing.T) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lis.Close()
+	addr := startMockParkingAdaptor(t)
 
 	binary := buildBinary(t, "parking-app-cli")
 	stdout, stderr, exitCode := runBinary(t, binary,
 		"stop-session",
-		"--adaptor-addr="+lis.Addr().String(),
+		"--adaptor-addr="+addr,
 	)
 
 	if exitCode != 0 {

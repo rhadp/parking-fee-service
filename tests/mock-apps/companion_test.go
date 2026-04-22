@@ -79,8 +79,14 @@ func TestLockCommand(t *testing.T) {
 
 func TestUnlockCommand(t *testing.T) {
 	var receivedBody []byte
+	var receivedAuth string
+	var receivedPath string
+	var receivedMethod string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuth = r.Header.Get("Authorization")
+		receivedPath = r.URL.Path
+		receivedMethod = r.Method
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
@@ -104,6 +110,18 @@ func TestUnlockCommand(t *testing.T) {
 
 	if !strings.Contains(stdout, "cmd-2") {
 		t.Errorf("expected stdout to contain 'cmd-2', got: %s", stdout)
+	}
+
+	if receivedMethod != "POST" {
+		t.Errorf("expected POST request, got: %s", receivedMethod)
+	}
+
+	if receivedPath != "/vehicles/VIN001/commands" {
+		t.Errorf("expected path '/vehicles/VIN001/commands', got: %s", receivedPath)
+	}
+
+	if receivedAuth != "Bearer test-token" {
+		t.Errorf("expected Authorization 'Bearer test-token', got: %s", receivedAuth)
 	}
 
 	// Verify request body contains unlock command
