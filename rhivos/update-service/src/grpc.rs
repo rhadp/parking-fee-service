@@ -56,33 +56,188 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
     /// Returns immediately with DOWNLOADING state; actual pull/run happens asynchronously.
     pub async fn install_adapter(
         &self,
-        _image_ref: &str,
-        _checksum_sha256: &str,
+        image_ref: &str,
+        checksum_sha256: &str,
     ) -> Result<InstallResponse, ServiceError> {
-        todo!()
+        // Validate inputs (REQ-1.E1, REQ-1.E2).
+        if image_ref.is_empty() {
+            return Err(ServiceError::InvalidArgument(
+                "image_ref is required".to_string(),
+            ));
+        }
+        if checksum_sha256.is_empty() {
+            return Err(ServiceError::InvalidArgument(
+                "checksum_sha256 is required".to_string(),
+            ));
+        }
+
+        let adapter_id = crate::adapter::derive_adapter_id(image_ref);
+        let job_id = uuid::Uuid::new_v4().to_string();
+
+        // Create adapter entry with initial UNKNOWN state.
+        let entry = AdapterEntry {
+            adapter_id: adapter_id.clone(),
+            image_ref: image_ref.to_string(),
+            checksum_sha256: checksum_sha256.to_string(),
+            state: AdapterState::Unknown,
+            job_id: job_id.clone(),
+            stopped_at: None,
+            error_message: None,
+        };
+        self.state_manager.create_adapter(entry);
+
+        // Transition to DOWNLOADING before returning.
+        let _ = self
+            .state_manager
+            .transition(&adapter_id, AdapterState::Downloading, None);
+
+        // Spawn async task for pull → verify → run pipeline.
+        let state_mgr = self.state_manager.clone();
+        let podman = self.podman.clone();
+        let image = image_ref.to_string();
+        let checksum = checksum_sha256.to_string();
+        let aid = adapter_id.clone();
+
+        tokio::spawn(async move {
+            // Single-adapter constraint: stop any currently running adapter (REQ-2.1).
+            if let Some(running) = state_mgr.get_running_adapter() {
+                if running.adapter_id != aid {
+                    match podman.stop(&running.adapter_id).await {
+                        Ok(()) => {
+                            let _ = state_mgr.transition(
+                                &running.adapter_id,
+                                AdapterState::Stopped,
+                                None,
+                            );
+                        }
+                        Err(e) => {
+                            // REQ-2.E1: stop failure → old adapter ERROR, proceed anyway.
+                            let _ = state_mgr.transition(
+                                &running.adapter_id,
+                                AdapterState::Error,
+                                Some(e.message.clone()),
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Pull image (REQ-1.2).
+            if let Err(e) = podman.pull(&image).await {
+                let _ =
+                    state_mgr.transition(&aid, AdapterState::Error, Some(e.message));
+                return;
+            }
+
+            // Inspect digest and verify checksum (REQ-1.3).
+            let digest = match podman.inspect_digest(&image).await {
+                Ok(d) => d,
+                Err(e) => {
+                    let _ = state_mgr.transition(
+                        &aid,
+                        AdapterState::Error,
+                        Some(e.message),
+                    );
+                    return;
+                }
+            };
+
+            if digest.trim() != checksum {
+                // REQ-1.E4: checksum mismatch → ERROR, remove image.
+                let _ = state_mgr.transition(
+                    &aid,
+                    AdapterState::Error,
+                    Some("checksum_mismatch".to_string()),
+                );
+                let _ = podman.rmi(&image).await;
+                return;
+            }
+
+            // Transition to INSTALLING (REQ-1.4).
+            let _ = state_mgr.transition(&aid, AdapterState::Installing, None);
+
+            // Run container (REQ-1.4).
+            if let Err(e) = podman.run(&aid, &image).await {
+                let _ =
+                    state_mgr.transition(&aid, AdapterState::Error, Some(e.message));
+                return;
+            }
+
+            // Transition to RUNNING (REQ-1.5).
+            let _ = state_mgr.transition(&aid, AdapterState::Running, None);
+        });
+
+        Ok(InstallResponse {
+            job_id,
+            adapter_id,
+            state: AdapterState::Downloading,
+        })
     }
 
     /// Remove an adapter (stop if running, remove container and image).
-    pub async fn remove_adapter(&self, _adapter_id: &str) -> Result<(), ServiceError> {
-        todo!()
+    pub async fn remove_adapter(&self, adapter_id: &str) -> Result<(), ServiceError> {
+        let entry = self
+            .state_manager
+            .get_adapter(adapter_id)
+            .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))?;
+
+        // Stop if currently running (REQ-5.1).
+        if entry.state == AdapterState::Running {
+            if let Err(e) = self.podman.stop(adapter_id).await {
+                let _ = self.state_manager.transition(
+                    adapter_id,
+                    AdapterState::Error,
+                    Some(e.message.clone()),
+                );
+            }
+        }
+
+        // Remove container (REQ-5.1).
+        if let Err(e) = self.podman.rm(adapter_id).await {
+            let _ = self.state_manager.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message.clone()),
+            );
+            return Err(ServiceError::Internal(e.message));
+        }
+
+        // Remove image (REQ-5.1).
+        if let Err(e) = self.podman.rmi(&entry.image_ref).await {
+            let _ = self.state_manager.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message.clone()),
+            );
+            return Err(ServiceError::Internal(e.message));
+        }
+
+        // Remove from in-memory state (REQ-5.2).
+        self.state_manager
+            .remove_adapter(adapter_id)
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
+
+        Ok(())
     }
 
     /// Get the current status of an adapter.
     pub async fn get_adapter_status(
         &self,
-        _adapter_id: &str,
+        adapter_id: &str,
     ) -> Result<AdapterEntry, ServiceError> {
-        todo!()
+        self.state_manager
+            .get_adapter(adapter_id)
+            .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))
     }
 
     /// List all known adapters.
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!()
+        self.state_manager.list_adapters()
     }
 
     /// Subscribe to adapter state events.
     pub fn watch_adapter_states(&self) -> broadcast::Receiver<AdapterStateEvent> {
-        todo!()
+        self.broadcaster.subscribe()
     }
 }
 

@@ -22,6 +22,116 @@ impl std::fmt::Display for PodmanError {
 
 impl std::error::Error for PodmanError {}
 
+/// Real podman executor that shells out to the podman CLI via
+/// `tokio::process::Command`.
+pub struct RealPodmanExecutor;
+
+#[async_trait]
+impl PodmanExecutor for RealPodmanExecutor {
+    async fn pull(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["pull", image_ref])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        Ok(())
+    }
+
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["image", "inspect", "--format", "{{.Digest}}", image_ref])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        let digest = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(digest)
+    }
+
+    async fn run(&self, adapter_id: &str, image_ref: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args([
+                "run",
+                "-d",
+                "--name",
+                adapter_id,
+                "--network=host",
+                image_ref,
+            ])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        Ok(())
+    }
+
+    async fn stop(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["stop", adapter_id])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        Ok(())
+    }
+
+    async fn rm(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rm", adapter_id])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        Ok(())
+    }
+
+    async fn rmi(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["rmi", image_ref])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        Ok(())
+    }
+
+    async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
+        let output = tokio::process::Command::new("podman")
+            .args(["wait", adapter_id])
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(&e.to_string()))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::new(stderr.trim()));
+        }
+        let code_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let code = code_str
+            .parse::<i32>()
+            .map_err(|e| PodmanError::new(&format!("failed to parse exit code: {e}")))?;
+        Ok(code)
+    }
+}
+
 /// Trait abstracting podman CLI operations for testability.
 #[async_trait]
 pub trait PodmanExecutor: Send + Sync {

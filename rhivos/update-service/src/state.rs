@@ -1,5 +1,6 @@
 use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
 use std::collections::HashMap;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast;
 
 /// Errors from state manager operations.
@@ -36,46 +37,94 @@ impl StateManager {
     }
 
     /// Insert a new adapter entry.
-    pub fn create_adapter(&self, _entry: AdapterEntry) {
-        todo!()
+    pub fn create_adapter(&self, entry: AdapterEntry) {
+        let mut adapters = self.adapters.lock().unwrap();
+        adapters.insert(entry.adapter_id.clone(), entry);
     }
 
     /// Transition an adapter to a new state, emitting an event.
     pub fn transition(
         &self,
-        _adapter_id: &str,
-        _new_state: AdapterState,
-        _error_msg: Option<String>,
+        adapter_id: &str,
+        new_state: AdapterState,
+        error_msg: Option<String>,
     ) -> Result<(), StateError> {
-        todo!()
+        let mut adapters = self.adapters.lock().unwrap();
+        let entry = adapters.get_mut(adapter_id).ok_or(StateError::NotFound)?;
+
+        let old_state = entry.state;
+        entry.state = new_state;
+
+        if let Some(msg) = error_msg {
+            entry.error_message = Some(msg);
+        }
+
+        if new_state == AdapterState::Stopped {
+            entry.stopped_at = Some(Instant::now());
+        }
+
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state,
+            new_state,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        };
+
+        // Ignore send error — no subscribers is a valid state (REQ-8.E1).
+        let _ = self.broadcaster.send(event);
+
+        Ok(())
     }
 
     /// Look up an adapter by ID.
-    pub fn get_adapter(&self, _adapter_id: &str) -> Option<AdapterEntry> {
-        todo!()
+    pub fn get_adapter(&self, adapter_id: &str) -> Option<AdapterEntry> {
+        let adapters = self.adapters.lock().unwrap();
+        adapters.get(adapter_id).cloned()
     }
 
     /// Return all known adapters.
     pub fn list_adapters(&self) -> Vec<AdapterEntry> {
-        todo!()
+        let adapters = self.adapters.lock().unwrap();
+        adapters.values().cloned().collect()
     }
 
     /// Remove an adapter from state entirely.
-    pub fn remove_adapter(&self, _adapter_id: &str) -> Result<(), StateError> {
-        todo!()
+    pub fn remove_adapter(&self, adapter_id: &str) -> Result<(), StateError> {
+        let mut adapters = self.adapters.lock().unwrap();
+        if adapters.remove(adapter_id).is_some() {
+            Ok(())
+        } else {
+            Err(StateError::NotFound)
+        }
     }
 
     /// Return the currently RUNNING adapter, if any.
     pub fn get_running_adapter(&self) -> Option<AdapterEntry> {
-        todo!()
+        let adapters = self.adapters.lock().unwrap();
+        adapters
+            .values()
+            .find(|e| e.state == AdapterState::Running)
+            .cloned()
     }
 
     /// Return adapters in STOPPED state whose stopped_at exceeds `timeout`.
     pub fn get_offload_candidates(
         &self,
-        _timeout: std::time::Duration,
+        timeout: std::time::Duration,
     ) -> Vec<AdapterEntry> {
-        todo!()
+        let adapters = self.adapters.lock().unwrap();
+        adapters
+            .values()
+            .filter(|e| {
+                e.state == AdapterState::Stopped
+                    && e.stopped_at
+                        .is_some_and(|stopped| stopped.elapsed() >= timeout)
+            })
+            .cloned()
+            .collect()
     }
 
     /// Access the broadcast sender (for subscribing).
