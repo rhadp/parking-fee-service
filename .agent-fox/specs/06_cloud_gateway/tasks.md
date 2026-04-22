@@ -73,20 +73,20 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [ ] All spec tests FAIL (red): `cd backend && go test -v ./cloud-gateway/... 2>&1 | grep FAIL`
     - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
 
-- [ ] 2. Model and config modules
-  - [ ] 2.1 Implement model package
+- [x] 2. Model and config modules
+  - [x] 2.1 Implement model package
     - Define types: `Config`, `TokenMapping`, `Command`, `CommandResponse`
     - Add JSON struct tags for all fields
     - `CommandResponse.Reason` uses `omitempty` tag
     - _Requirements: 06-REQ-6.2, 06-REQ-7.2_
 
-  - [ ] 2.2 Implement config package
+  - [x] 2.2 Implement config package
     - `LoadConfig(path string) (*Config, error)`: read JSON file, unmarshal into Config
     - `(c *Config) GetVINForToken(token string) (string, bool)`: lookup VIN by token
     - If file not found or invalid JSON: return error
     - _Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.E1_
 
-  - [ ] 2.3 Implement auth middleware
+  - [x] 2.3 Implement auth middleware
     - `Middleware(cfg *Config) func(http.Handler) http.Handler`
     - Extract `Authorization: Bearer <token>` from header
     - Validate token via `cfg.GetVINForToken(token)` -- return 401 if not found
@@ -95,11 +95,11 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Set `Content-Type: application/json` on error responses
     - _Requirements: 06-REQ-3.1, 06-REQ-3.2, 06-REQ-3.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [ ] _Test Spec: TS-06-8, TS-06-9, TS-06-11, TS-06-12, TS-06-E4, TS-06-E5, TS-06-E7, TS-06-E8, TS-06-P1, TS-06-P4_
+  - [x] 2.V Verify task group 2
+    - [x] Config and auth tests pass: `cd backend && go test -v ./cloud-gateway/config/... ./cloud-gateway/auth/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [x] _Test Spec: TS-06-8, TS-06-9, TS-06-11, TS-06-12, TS-06-E4, TS-06-E5, TS-06-E7, TS-06-E8, TS-06-P1, TS-06-P4_
 
 - [ ] 3. Store module
   - [ ] 3.1 Implement store package

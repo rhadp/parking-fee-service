@@ -1,5 +1,11 @@
 package config
 
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
 // Config holds the service configuration loaded from a JSON file.
 type Config struct {
 	Port                  int            `json:"port"`
@@ -16,10 +22,25 @@ type TokenMapping struct {
 
 // LoadConfig reads and parses the JSON configuration file at the given path.
 func LoadConfig(path string) (*Config, error) {
-	return nil, nil // stub
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading config file: %w", err)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing config JSON: %w", err)
+	}
+
+	return &cfg, nil
 }
 
 // GetVINForToken returns the VIN associated with the given bearer token.
 func (c *Config) GetVINForToken(token string) (string, bool) {
-	return "", false // stub
+	for _, tm := range c.Tokens {
+		if tm.Token == token {
+			return tm.VIN, true
+		}
+	}
+	return "", false
 }
