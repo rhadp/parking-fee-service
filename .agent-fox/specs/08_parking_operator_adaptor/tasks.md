@@ -24,15 +24,15 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
-  - [x] 1.1 Add dependencies to parking-operator-adaptor Cargo.toml
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Add dependencies to parking-operator-adaptor Cargo.toml
     - Add: serde, serde_json, tokio, tonic, prost, tracing, tracing-subscriber, reqwest, proptest (dev), wiremock (dev)
     - Vendor kuksa.val.v1 proto definitions into `rhivos/parking-operator-adaptor/proto/`
     - Vendor parking_adaptor.proto (from spec 01 group 6) into `rhivos/parking-operator-adaptor/proto/`
     - Add tonic-build to build.rs for proto code generation
     - _Test Spec: TS-08-1 through TS-08-22_
 
-  - [x] 1.2 Write config and session state unit tests
+  - [ ] 1.2 Write config and session state unit tests
     - Create `rhivos/parking-operator-adaptor/src/config.rs` with test module
     - `test_config_defaults` — TS-08-18
     - `test_config_custom_values` — TS-08-19
@@ -45,7 +45,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_get_rate_inactive` — TS-08-7
     - _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
 
-  - [x] 1.3 Write operator REST client unit tests
+  - [ ] 1.3 Write operator REST client unit tests
     - Create `rhivos/parking-operator-adaptor/src/operator.rs` with test module
     - `test_start_session_request` — TS-08-8
     - `test_stop_session_request` — TS-08-9
@@ -55,7 +55,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_retry_on_non_200` — TS-08-E5
     - _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
 
-  - [x] 1.4 Write event processing and gRPC handler tests
+  - [ ] 1.4 Write event processing and gRPC handler tests
     - Create `rhivos/parking-operator-adaptor/src/event_loop.rs` with test module
     - `test_lock_event_starts_session` — TS-08-11
     - `test_unlock_event_stops_session` — TS-08-12
@@ -65,7 +65,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_manual_stop_override` — TS-08-17
     - _Test Spec: TS-08-2, TS-08-3, TS-08-11, TS-08-12, TS-08-13, TS-08-14, TS-08-16, TS-08-17_
 
-  - [x] 1.5 Write edge case and override tests
+  - [ ] 1.5 Write edge case and override tests
     - `test_start_session_already_active` — TS-08-E1
     - `test_stop_session_no_active` — TS-08-E2
     - `test_lock_event_noop_when_active` — TS-08-E6
@@ -74,7 +74,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_override_resumes_autonomous` — TS-08-E11
     - _Test Spec: TS-08-E1, TS-08-E2, TS-08-E6, TS-08-E7, TS-08-E9, TS-08-E11_
 
-  - [x] 1.6 Write property tests
+  - [ ] 1.6 Write property tests
     - `proptest_session_state_consistency` — TS-08-P1
     - `proptest_idempotent_lock_events` — TS-08-P2
     - `proptest_override_non_persistence` — TS-08-P3
@@ -83,59 +83,59 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `proptest_sequential_event_processing` — TS-08-P6
     - _Test Spec: TS-08-P1 through TS-08-P6_
 
-  - [x] 1.V Verify task group 1
-    - [x] All test files compile: `cd rhivos && cargo test -p parking-operator-adaptor --no-run`
-    - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+  - [ ] 1.V Verify task group 1
+    - [ ] All test files compile: `cd rhivos && cargo test -p parking-operator-adaptor --no-run`
+    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [x] 2. Config and session state modules
-  - [x] 2.1 Implement config module
+- [ ] 2. Config and session state modules
+  - [ ] 2.1 Implement config module
     - Read all 5 env vars with defaults: PARKING_OPERATOR_URL, DATA_BROKER_ADDR, GRPC_PORT, VEHICLE_ID, ZONE_ID
     - Validate GRPC_PORT is a valid u16
     - Return Config struct or error
     - _Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.3, 08-REQ-7.4, 08-REQ-7.5, 08-REQ-7.E1_
 
-  - [x] 2.2 Implement session module
+  - [ ] 2.2 Implement session module
     - Define `SessionState`, `Rate`, `Session` structs
     - Implement `Session::new()`, `start()`, `stop()`, `is_active()`, `status()`, `rate()`
     - start() populates all fields, stop() clears them
     - _Requirements: 08-REQ-6.1, 08-REQ-6.2, 08-REQ-6.3_
 
-  - [x] 2.V Verify task group 2
-    - [x] Config and session tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- config session`
-    - [x] All existing tests still pass: `cd rhivos && cargo test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [x] _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
+  - [ ] 2.V Verify task group 2
+    - [ ] Config and session tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- config session`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [ ] _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
 
-- [x] 3. Operator REST client
-  - [x] 3.1 Implement operator module
+- [ ] 3. Operator REST client
+  - [ ] 3.1 Implement operator module
     - Define `OperatorClient` with reqwest::Client and base_url
     - Implement `start_session(vehicle_id, zone_id)`: POST /parking/start with JSON body
     - Implement `stop_session(session_id)`: POST /parking/stop with JSON body
     - Parse responses into StartResponse / StopResponse structs
     - _Requirements: 08-REQ-2.1, 08-REQ-2.2, 08-REQ-2.3, 08-REQ-2.4_
 
-  - [x] 3.2 Implement retry logic
+  - [ ] 3.2 Implement retry logic
     - Wrap REST calls with retry: max 3 retries, exponential backoff 1s, 2s, 4s
     - Retry on connection error, timeout, or non-200 status
     - Return OperatorError after all retries exhausted
     - _Requirements: 08-REQ-2.E1, 08-REQ-2.E2_
 
-  - [x] 3.V Verify task group 3
-    - [x] Operator tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- operator`
-    - [x] All existing tests still pass: `cd rhivos && cargo test`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [x] _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
+  - [ ] 3.V Verify task group 3
+    - [ ] Operator tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- operator`
+    - [ ] All existing tests still pass: `cd rhivos && cargo test`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [ ] _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
 
-- [x] 4. DATA_BROKER client, gRPC server, and event loop
-  - [x] 4.1 Implement broker module
+- [ ] 4. DATA_BROKER client, gRPC server, and event loop
+  - [ ] 4.1 Implement broker module
     - Implement BrokerClient with tonic-generated kuksa.val.v1 client
     - `connect(addr)`: establish gRPC channel with retry (1s, 2s, 4s, up to 5 attempts)
     - `subscribe_bool(signal)`: create kuksa Subscribe stream for IsLocked
     - `set_bool(signal, value)`: kuksa Set for Vehicle.Parking.SessionActive
     - _Requirements: 08-REQ-3.1, 08-REQ-3.2, 08-REQ-3.E3_
 
-  - [x] 4.2 Implement gRPC server
+  - [ ] 4.2 Implement gRPC server
     - Implement ParkingAdaptorService with tonic from parking_adaptor.proto
     - StartSession: validate no active session, delegate to operator, update session, publish signal
     - StopSession: validate active session, delegate to operator, clear session, publish signal
@@ -143,14 +143,14 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - GetRate: read session rate, return response
     - _Requirements: 08-REQ-1.1, 08-REQ-1.2, 08-REQ-1.3, 08-REQ-1.4, 08-REQ-1.5, 08-REQ-1.E1, 08-REQ-1.E2_
 
-  - [x] 4.3 Implement event loop
+  - [ ] 4.3 Implement event loop
     - Create SessionEvent enum for serialized processing
     - Use tokio::mpsc channel to receive events from both DATA_BROKER subscription and gRPC handlers
     - Process events sequentially: lock→start, unlock→stop, manual start/stop, queries
     - Handle idempotent cases (lock when active, unlock when inactive)
     - _Requirements: 08-REQ-3.3, 08-REQ-3.4, 08-REQ-3.E1, 08-REQ-3.E2, 08-REQ-5.1, 08-REQ-5.2, 08-REQ-5.3, 08-REQ-9.1, 08-REQ-9.2_
 
-  - [x] 4.4 Implement main entry point
+  - [ ] 4.4 Implement main entry point
     - Parse config, connect to DATA_BROKER with retry
     - Publish initial SessionActive=false
     - Subscribe to IsLocked signal
@@ -160,20 +160,20 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - Log startup info and ready message
     - _Requirements: 08-REQ-4.3, 08-REQ-8.1, 08-REQ-8.2, 08-REQ-8.3, 08-REQ-8.E1_
 
-  - [x] 4.V Verify task group 4
-    - [x] Binary compiles: `cd rhivos && cargo build -p parking-operator-adaptor`
-    - [x] All unit tests pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [x] Property tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- --include-ignored proptest`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+  - [ ] 4.V Verify task group 4
+    - [ ] Binary compiles: `cd rhivos && cargo build -p parking-operator-adaptor`
+    - [ ] All unit tests pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [ ] Property tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- --include-ignored proptest`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [x] 5. Integration test validation
-  - [x] 5.1 Create integration test module
+- [ ] 5. Integration test validation
+  - [ ] 5.1 Create integration test module
     - Create `tests/parking-operator-adaptor/` Go module (or add to existing test structure)
     - Shared helpers: start/stop databroker, start/stop mock operator HTTP server, start/stop adaptor, gRPC client helpers
     - Add `go.work` entry for `./tests/parking-operator-adaptor`
     - _Test Spec: TS-08-15, TS-08-20, TS-08-21, TS-08-E8, TS-08-E12_
 
-  - [x] 5.2 Write and run integration tests
+  - [ ] 5.2 Write and run integration tests
     - `TestInitialSessionActive` — TS-08-15: verify SessionActive=false on startup
     - `TestStartupLogging` — TS-08-20: verify log output
     - `TestGracefulShutdown` — TS-08-21: verify clean exit on SIGTERM
@@ -181,42 +181,42 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `TestSessionLostOnRestart` — TS-08-E12: verify session state lost on restart
     - _Test Spec: TS-08-15, TS-08-20, TS-08-21, TS-08-E8, TS-08-E12_
 
-  - [x] 5.3 Write and run smoke tests
+  - [ ] 5.3 Write and run smoke tests
     - `TestLockStartUnlockStopFlow` — TS-08-SMOKE-1: end-to-end autonomous flow
     - `TestManualOverrideFlow` — TS-08-SMOKE-2: manual gRPC start/stop
     - `TestOverrideThenAutonomousResume` — TS-08-SMOKE-3: manual override then autonomous resume
     - _Test Spec: TS-08-SMOKE-1, TS-08-SMOKE-2, TS-08-SMOKE-3_
 
-  - [x] 5.V Verify task group 5
-    - [x] All integration tests pass: `cd tests/parking-operator-adaptor && go test -v ./...`
-    - [x] All unit tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [x] All requirements 08-REQ-1 through 08-REQ-9 acceptance criteria met
+  - [ ] 5.V Verify task group 5
+    - [ ] All integration tests pass: `cd tests/parking-operator-adaptor && go test -v ./...`
+    - [ ] All unit tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [ ] All requirements 08-REQ-1 through 08-REQ-9 acceptance criteria met
 
-- [x] 6. Wiring verification
-  - [x] 6.1 Verify all requirements covered
+- [ ] 6. Wiring verification
+  - [ ] 6.1 Verify all requirements covered
     - Cross-check every 08-REQ-* requirement against test results
     - Confirm all edge case tests pass
     - Confirm all property tests pass
     - _Requirements: all 08-REQ-*_
 
-  - [x] 6.2 Verify integration with dependencies
+  - [ ] 6.2 Verify integration with dependencies
     - Confirm DATA_BROKER subscription works with spec 02 (Kuksa Databroker)
     - Confirm gRPC proto compatibility with spec 01 group 6 (parking_adaptor.proto)
     - Confirm Cargo workspace membership from spec 01 group 3
     - _Dependencies: 01_project_setup groups 3, 6; 02_data_broker group 2_
 
-  - [x] 6.3 Verify operational readiness
+  - [ ] 6.3 Verify operational readiness
     - Confirm startup logging includes all config values
     - Confirm graceful shutdown works
     - Confirm container builds successfully
     - _Requirements: 08-REQ-8.1, 08-REQ-8.2, 08-REQ-8.3_
 
-  - [x] 6.V Verify task group 6
-    - [x] Full test suite passes: `cd rhivos && cargo test -p parking-operator-adaptor && cd tests/parking-operator-adaptor && go test -v ./...`
-    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [x] All smoke tests pass
-    - [x] Traceability table complete — all requirements mapped to passing tests
+  - [ ] 6.V Verify task group 6
+    - [ ] Full test suite passes: `cd rhivos && cargo test -p parking-operator-adaptor && cd tests/parking-operator-adaptor && go test -v ./...`
+    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [ ] All smoke tests pass
+    - [ ] Traceability table complete — all requirements mapped to passing tests
 
 ### Checkbox States
 
