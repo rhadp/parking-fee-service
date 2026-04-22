@@ -19,8 +19,12 @@
 //! - TS-04-12: End-to-end telemetry on signal change
 //! - TS-04-13: Self-registration on startup
 //! - TS-04-14: Command rejected with invalid token
+//! - TS-04-15: NATS reconnection with exponential backoff
+//! - TS-04-SMOKE-1: Service starts with valid configuration
+//! - TS-04-SMOKE-2: Service exits on missing VIN
+//! - TS-04-SMOKE-3: Service publishes registration on startup
 
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
 use cloud_gateway_client::broker_client::kuksa::val::v1::{
@@ -66,6 +70,23 @@ fn start_service(vin: &str) -> ServiceGuard {
         .spawn()
         .expect("failed to start cloud-gateway-client binary");
     ServiceGuard(child)
+}
+
+/// Start the cloud-gateway-client binary with captured stderr.
+///
+/// Returns the raw `Child` so the caller can read captured output after
+/// killing or waiting on the process.
+fn start_service_with_output(vin: &str) -> Child {
+    Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env("VIN", vin)
+        .env("NATS_URL", NATS_URL)
+        .env("DATABROKER_ADDR", BROKER_ADDR)
+        .env("BEARER_TOKEN", BEARER_TOKEN)
+        .env("RUST_LOG", "info")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start cloud-gateway-client binary")
 }
 
 /// Connect to the NATS server.
@@ -467,5 +488,275 @@ async fn test_e2e_command_rejected_invalid_token() {
     assert!(
         response_result.is_err(),
         "no command response should be published when bearer token is invalid"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TS-04-SMOKE-1: Service starts with valid configuration
+// ---------------------------------------------------------------------------
+
+/// TS-04-SMOKE-1: Service starts with valid configuration.
+///
+/// Validates: [04-REQ-2.1], [04-REQ-3.1]
+///
+/// GIVEN NATS container is running on localhost:4222
+/// GIVEN DATA_BROKER container is running on localhost:55556
+/// GIVEN env VIN="SMOKE-VIN"
+/// WHEN CLOUD_GATEWAY_CLIENT binary is executed
+/// THEN the process starts without error
+///   AND logs contain "Connected to NATS"
+///   AND logs contain "Connected to DATA_BROKER"
+#[tokio::test]
+#[ignore]
+async fn test_smoke_service_starts_with_valid_config() {
+    let vin = "SMOKE-START-VIN";
+    let nats = connect_nats().await;
+
+    // Subscribe to status BEFORE starting service to catch the registration
+    // message, which proves the service completed its full startup sequence.
+    let mut status_sub = nats
+        .subscribe(format!("vehicles.{vin}.status"))
+        .await
+        .expect("failed to subscribe to status");
+
+    // Start service with captured stderr.
+    let mut child = start_service_with_output(vin);
+
+    // Wait for the registration message — this proves the service connected
+    // to both NATS and DATA_BROKER and completed the startup sequence.
+    timeout(Duration::from_secs(10), status_sub.next())
+        .await
+        .expect("service did not publish registration within 10 seconds")
+        .expect("status subscription yielded None");
+
+    // Allow final log messages to flush.
+    sleep(Duration::from_millis(200)).await;
+
+    // Kill the service and collect output.
+    child.kill().expect("failed to kill service");
+    let output = child.wait_with_output().expect("failed to get output");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Connected to NATS"),
+        "logs should contain 'Connected to NATS', got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("Connected to DATA_BROKER"),
+        "logs should contain 'Connected to DATA_BROKER', got:\n{stderr}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TS-04-SMOKE-2: Service exits on missing VIN
+// ---------------------------------------------------------------------------
+
+/// TS-04-SMOKE-2: Service exits on missing VIN.
+///
+/// Validates: [04-REQ-1.E1]
+///
+/// GIVEN env VIN is not set
+/// WHEN CLOUD_GATEWAY_CLIENT binary is executed
+/// THEN the process exits with code 1
+///   AND stderr contains "VIN"
+#[tokio::test]
+#[ignore]
+async fn test_smoke_exits_on_missing_vin() {
+    let output = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env_remove("VIN")
+        .env("RUST_LOG", "error")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("failed to run service");
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "service should exit with code 1 when VIN is missing"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("VIN"),
+        "stderr should mention VIN, got:\n{stderr}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TS-04-SMOKE-3: Service publishes registration on startup
+// ---------------------------------------------------------------------------
+
+/// TS-04-SMOKE-3: Service publishes registration on startup.
+///
+/// Validates: [04-REQ-4.1]
+///
+/// GIVEN NATS container is running on localhost:4222
+/// GIVEN DATA_BROKER container is running on localhost:55556
+/// GIVEN NATS subscriber is listening on "vehicles.SMOKE-VIN.status"
+/// GIVEN env VIN="SMOKE-VIN"
+/// WHEN CLOUD_GATEWAY_CLIENT binary is executed
+/// THEN within 5 seconds, a registration message is received on
+///   "vehicles.SMOKE-VIN.status"
+#[tokio::test]
+#[ignore]
+async fn test_smoke_registration_on_startup() {
+    let vin = "SMOKE-REG-VIN";
+    let nats = connect_nats().await;
+
+    // Subscribe to registration BEFORE starting the service.
+    let mut status_sub = nats
+        .subscribe(format!("vehicles.{vin}.status"))
+        .await
+        .expect("failed to subscribe to status");
+
+    let _guard = start_service(vin);
+
+    // Wait for the registration message within 5 seconds.
+    let msg = timeout(Duration::from_secs(5), status_sub.next())
+        .await
+        .expect("did not receive registration message within 5 seconds")
+        .expect("status subscription yielded None");
+
+    let received = std::str::from_utf8(&msg.payload)
+        .expect("registration payload is not valid UTF-8");
+    let parsed: serde_json::Value =
+        serde_json::from_str(received).expect("registration payload is not valid JSON");
+
+    assert_eq!(
+        parsed["vin"], vin,
+        "registration should contain correct VIN"
+    );
+    assert_eq!(
+        parsed["status"], "online",
+        "registration should have status:online"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TS-04-15: NATS reconnection with exponential backoff
+// ---------------------------------------------------------------------------
+
+/// TS-04-15: NATS reconnection with exponential backoff.
+///
+/// Validates: [04-REQ-2.2], [04-REQ-2.E1]
+///
+/// GIVEN NATS server is not running (unreachable URL)
+/// WHEN CLOUD_GATEWAY_CLIENT is started
+/// THEN the service attempts to connect with exponential backoff
+///   AND after 5 failed attempts, the service exits with code 1
+///
+/// Note: The implementation uses delays of 1s, 2s, 4s, 8s between 5
+/// connection attempts, totaling ~15 seconds. See
+/// `docs/errata/04_nats_reconnection_delays.md` for the specification
+/// inconsistency.
+#[tokio::test]
+#[ignore]
+async fn test_nats_reconnection_backoff() {
+    // Use a port where no NATS server is listening.
+    let unreachable_nats = "nats://127.0.0.1:19876";
+
+    let start = std::time::Instant::now();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env("VIN", "BACKOFF-VIN")
+        .env("NATS_URL", unreachable_nats)
+        .env("DATABROKER_ADDR", BROKER_ADDR)
+        .env("RUST_LOG", "info")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("failed to run service");
+
+    let elapsed = start.elapsed();
+
+    // Service should exit with code 1 after all retries are exhausted.
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "service should exit with code 1 after NATS retries exhausted"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Verify logs indicate retries occurred.
+    assert!(
+        stderr.contains("NATS connection failed")
+            || stderr.contains("retries exhausted")
+            || stderr.contains("RetriesExhausted"),
+        "stderr should mention NATS connection failure, got:\n{stderr}"
+    );
+
+    // Verify exponential backoff timing.
+    // Total delays: 1s + 2s + 4s + 8s = 15s, plus connection attempt time.
+    // Allow tolerance: at least 12 seconds (delays may be slightly shorter
+    // due to fast connection-refused errors), at most 45 seconds.
+    assert!(
+        elapsed.as_secs() >= 12,
+        "should take at least 12 seconds for backoff delays, took {elapsed:?}"
+    );
+    assert!(
+        elapsed.as_secs() <= 45,
+        "should take at most 45 seconds, took {elapsed:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TS-04-P6 (partial): Startup determinism — broker unreachable
+// ---------------------------------------------------------------------------
+
+/// Startup determinism: DATA_BROKER unreachable exits before registration.
+///
+/// Validates: [04-REQ-3.E1], [04-REQ-9.2] (partial)
+///
+/// GIVEN NATS is running but DATA_BROKER is unreachable
+/// WHEN CLOUD_GATEWAY_CLIENT is started
+/// THEN the service exits with code 1
+///   AND no registration message is published to NATS
+///
+/// This verifies that a failure at step 3 (DATA_BROKER connection) prevents
+/// step 4 (self-registration) and beyond from executing.
+#[tokio::test]
+#[ignore]
+async fn test_startup_exits_on_unreachable_broker() {
+    let vin = "BROKER-FAIL-VIN";
+    let nats = connect_nats().await;
+
+    // Subscribe to status to verify NO registration is published.
+    let mut status_sub = nats
+        .subscribe(format!("vehicles.{vin}.status"))
+        .await
+        .expect("failed to subscribe to status");
+
+    // Start service with an unreachable DATA_BROKER address.
+    let output = Command::new(env!("CARGO_BIN_EXE_cloud-gateway-client"))
+        .env("VIN", vin)
+        .env("NATS_URL", NATS_URL)
+        .env("DATABROKER_ADDR", "http://127.0.0.1:19877")
+        .env("RUST_LOG", "info")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("failed to run service");
+
+    // Service should exit with code 1.
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "service should exit with code 1 when DATA_BROKER is unreachable"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("DATA_BROKER") || stderr.contains("broker"),
+        "stderr should mention DATA_BROKER failure, got:\n{stderr}"
+    );
+
+    // Verify no registration was published (startup determinism: step 3
+    // failure prevents step 4).
+    let reg_result = timeout(Duration::from_secs(1), status_sub.next()).await;
+    assert!(
+        reg_result.is_err(),
+        "no registration should be published when DATA_BROKER connection fails"
     );
 }
