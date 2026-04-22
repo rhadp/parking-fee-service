@@ -133,8 +133,42 @@ func TestComposePermissiveMode(t *testing.T) {
 	}
 }
 
+// navigateOverlay traverses a nested JSON overlay structure following the given
+// dot-separated path segments (e.g., ["Vehicle", "Parking", "SessionActive"]).
+// Branch nodes are expected to hold their children under a "children" key.
+// Returns the node at the final path segment, or nil if the path is invalid.
+func navigateOverlay(root map[string]interface{}, segments []string) map[string]interface{} {
+	current := root
+	for i, seg := range segments {
+		nodeRaw, ok := current[seg]
+		if !ok {
+			return nil
+		}
+		node, ok := nodeRaw.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		// If this is not the last segment, descend into "children".
+		if i < len(segments)-1 {
+			childrenRaw, ok := node["children"]
+			if !ok {
+				return nil
+			}
+			children, ok := childrenRaw.(map[string]interface{})
+			if !ok {
+				return nil
+			}
+			current = children
+		} else {
+			return node
+		}
+	}
+	return nil
+}
+
 // TestVSSOverlayFormat verifies that the VSS overlay JSON file is valid and
-// defines all 3 custom signals with correct types and branch nodes.
+// defines all 3 custom signals with correct types and branch nodes by properly
+// navigating the JSON tree structure.
 // TS-02-5 | Requirement: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3
 func TestVSSOverlayFormat(t *testing.T) {
 	root := repoRoot(t)
@@ -149,7 +183,7 @@ func TestVSSOverlayFormat(t *testing.T) {
 		t.Fatalf("vss-overlay.json is not valid JSON: %v", err)
 	}
 
-	// Navigate the tree to verify structure.
+	// Verify each custom signal by navigating the tree to its exact location.
 	type signalCheck struct {
 		path     string
 		datatype string
@@ -160,37 +194,87 @@ func TestVSSOverlayFormat(t *testing.T) {
 		{"Vehicle.Command.Door.Response", "string"},
 	}
 
-	content := string(data)
 	for _, sig := range signals {
 		t.Run(sig.path, func(t *testing.T) {
-			// Check signal name is present.
-			parts := strings.Split(sig.path, ".")
-			leafName := parts[len(parts)-1]
-			if !strings.Contains(content, leafName) {
-				t.Errorf("overlay missing signal leaf %q for path %s", leafName, sig.path)
+			segments := strings.Split(sig.path, ".")
+			node := navigateOverlay(overlay, segments)
+			if node == nil {
+				t.Fatalf("signal %s not found at expected path in overlay JSON tree", sig.path)
 			}
-			// Check datatype is present.
-			if !strings.Contains(content, sig.datatype) {
-				t.Errorf("overlay missing datatype %q for signal %s", sig.datatype, sig.path)
+			dt, ok := node["datatype"]
+			if !ok {
+				t.Fatalf("signal %s has no 'datatype' field", sig.path)
 			}
-		})
-	}
-
-	// Verify branch nodes exist for custom signal paths.
-	branches := []string{"Parking", "Command", "Door"}
-	for _, branch := range branches {
-		t.Run("branch_"+branch, func(t *testing.T) {
-			if !strings.Contains(content, branch) {
-				t.Errorf("overlay missing branch node %q", branch)
+			dtStr, ok := dt.(string)
+			if !ok {
+				t.Fatalf("signal %s 'datatype' is not a string: %T", sig.path, dt)
+			}
+			if dtStr != sig.datatype {
+				t.Errorf("signal %s: expected datatype %q, got %q", sig.path, sig.datatype, dtStr)
 			}
 		})
 	}
 
-	// Verify all branch nodes have type "branch".
-	t.Run("branch_types", func(t *testing.T) {
-		if !strings.Contains(content, `"type": "branch"`) &&
-			!strings.Contains(content, `"type":"branch"`) {
-			t.Error("overlay does not contain branch type declarations")
-		}
-	})
+	// Verify branch nodes by navigating to each intermediate path and checking
+	// their "type" field is "branch".
+	type branchCheck struct {
+		path string
+	}
+	branches := []branchCheck{
+		{"Vehicle"},
+		{"Vehicle.Parking"},
+		{"Vehicle.Command"},
+		{"Vehicle.Command.Door"},
+	}
+
+	for _, bc := range branches {
+		t.Run("branch/"+bc.path, func(t *testing.T) {
+			segments := strings.Split(bc.path, ".")
+			node := navigateOverlay(overlay, segments)
+			if node == nil {
+				t.Fatalf("branch node %s not found in overlay JSON tree", bc.path)
+			}
+			nodeType, ok := node["type"]
+			if !ok {
+				t.Fatalf("branch node %s has no 'type' field", bc.path)
+			}
+			typeStr, ok := nodeType.(string)
+			if !ok {
+				t.Fatalf("branch node %s 'type' is not a string: %T", bc.path, nodeType)
+			}
+			if typeStr != "branch" {
+				t.Errorf("branch node %s: expected type %q, got %q", bc.path, "branch", typeStr)
+			}
+			// Branch nodes must have a "children" field.
+			if _, ok := node["children"]; !ok {
+				t.Errorf("branch node %s has no 'children' field", bc.path)
+			}
+			// Branch nodes should have a description.
+			if _, ok := node["description"]; !ok {
+				t.Errorf("branch node %s has no 'description' field", bc.path)
+			}
+		})
+	}
+
+	// Verify leaf signal nodes have a valid "type" field (sensor or actuator).
+	for _, sig := range signals {
+		t.Run("leaf_type/"+sig.path, func(t *testing.T) {
+			segments := strings.Split(sig.path, ".")
+			node := navigateOverlay(overlay, segments)
+			if node == nil {
+				t.Fatalf("signal %s not found", sig.path)
+			}
+			nodeType, ok := node["type"]
+			if !ok {
+				t.Fatalf("signal %s has no 'type' field", sig.path)
+			}
+			typeStr, ok := nodeType.(string)
+			if !ok {
+				t.Fatalf("signal %s 'type' is not a string", sig.path)
+			}
+			if typeStr != "sensor" && typeStr != "actuator" && typeStr != "attribute" {
+				t.Errorf("signal %s: expected type sensor/actuator/attribute, got %q", sig.path, typeStr)
+			}
+		})
+	}
 }

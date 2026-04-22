@@ -163,6 +163,12 @@ func TestEdgeCaseMissingOverlay(t *testing.T) {
 		t.Fatalf("failed to rename overlay: %v", err)
 	}
 	t.Cleanup(func() {
+		// Podman compose may create a directory at overlayPath when the
+		// bind-mount source is missing. Remove it before restoring the file.
+		info, err := os.Stat(overlayPath)
+		if err == nil && info.IsDir() {
+			os.RemoveAll(overlayPath)
+		}
 		os.Rename(backupPath, overlayPath)
 	})
 
