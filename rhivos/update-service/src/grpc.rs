@@ -1,8 +1,12 @@
 use crate::adapter::{AdapterEntry, AdapterState, AdapterStateEvent};
 use crate::podman::PodmanExecutor;
+use crate::proto;
 use crate::state::StateManager;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::broadcast;
+use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::StreamExt;
 
 /// Response from the install_adapter operation.
 #[derive(Debug)]
@@ -31,6 +35,45 @@ impl std::fmt::Display for ServiceError {
 }
 
 impl std::error::Error for ServiceError {}
+
+impl From<ServiceError> for tonic::Status {
+    fn from(err: ServiceError) -> Self {
+        match err {
+            ServiceError::InvalidArgument(msg) => tonic::Status::invalid_argument(msg),
+            ServiceError::NotFound(msg) => tonic::Status::not_found(msg),
+            ServiceError::Internal(msg) => tonic::Status::internal(msg),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Type conversions: internal <-> proto
+// ---------------------------------------------------------------------------
+
+fn adapter_state_to_proto(state: AdapterState) -> i32 {
+    match state {
+        AdapterState::Unknown => proto::AdapterState::Unknown as i32,
+        AdapterState::Downloading => proto::AdapterState::Downloading as i32,
+        AdapterState::Installing => proto::AdapterState::Installing as i32,
+        AdapterState::Running => proto::AdapterState::Running as i32,
+        AdapterState::Stopped => proto::AdapterState::Stopped as i32,
+        AdapterState::Error => proto::AdapterState::Error as i32,
+        AdapterState::Offloading => proto::AdapterState::Offloading as i32,
+    }
+}
+
+fn event_to_proto(event: AdapterStateEvent) -> proto::AdapterStateEvent {
+    proto::AdapterStateEvent {
+        adapter_id: event.adapter_id,
+        old_state: adapter_state_to_proto(event.old_state),
+        new_state: adapter_state_to_proto(event.new_state),
+        timestamp: event.timestamp,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Core service implementation (business logic, testable without gRPC)
+// ---------------------------------------------------------------------------
 
 /// Core service implementation, parameterized by a PodmanExecutor for testability.
 pub struct UpdateServiceImpl<P: PodmanExecutor> {
@@ -244,6 +287,116 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
     /// Subscribe to adapter state events.
     pub fn watch_adapter_states(&self) -> broadcast::Receiver<AdapterStateEvent> {
         self.broadcaster.subscribe()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tonic gRPC trait implementation
+// ---------------------------------------------------------------------------
+
+/// Wrapper that implements the generated tonic `UpdateService` trait,
+/// delegating to `UpdateServiceImpl` for business logic.
+pub struct GrpcUpdateService {
+    inner: UpdateServiceImpl<crate::podman::RealPodmanExecutor>,
+}
+
+impl GrpcUpdateService {
+    pub fn new(
+        state_manager: Arc<StateManager>,
+        podman: Arc<crate::podman::RealPodmanExecutor>,
+        broadcaster: broadcast::Sender<AdapterStateEvent>,
+    ) -> Self {
+        Self {
+            inner: UpdateServiceImpl::new(state_manager, podman, broadcaster),
+        }
+    }
+}
+
+type WatchStream = Pin<
+    Box<dyn tokio_stream::Stream<Item = Result<proto::AdapterStateEvent, tonic::Status>> + Send>,
+>;
+
+#[tonic::async_trait]
+impl proto::update_service_server::UpdateService for GrpcUpdateService {
+    async fn install_adapter(
+        &self,
+        request: tonic::Request<proto::InstallAdapterRequest>,
+    ) -> Result<tonic::Response<proto::InstallAdapterResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let resp = self
+            .inner
+            .install_adapter(&req.image_ref, &req.checksum_sha256)
+            .await
+            .map_err(tonic::Status::from)?;
+
+        Ok(tonic::Response::new(proto::InstallAdapterResponse {
+            job_id: resp.job_id,
+            adapter_id: resp.adapter_id,
+            state: adapter_state_to_proto(resp.state),
+        }))
+    }
+
+    type WatchAdapterStatesStream = WatchStream;
+
+    async fn watch_adapter_states(
+        &self,
+        _request: tonic::Request<proto::WatchAdapterStatesRequest>,
+    ) -> Result<tonic::Response<Self::WatchAdapterStatesStream>, tonic::Status> {
+        let rx = self.inner.watch_adapter_states();
+        let stream = BroadcastStream::new(rx).filter_map(|result| match result {
+            Ok(event) => Some(Ok(event_to_proto(event))),
+            Err(_) => None, // Skip lagged messages
+        });
+        Ok(tonic::Response::new(Box::pin(stream)))
+    }
+
+    async fn list_adapters(
+        &self,
+        _request: tonic::Request<proto::ListAdaptersRequest>,
+    ) -> Result<tonic::Response<proto::ListAdaptersResponse>, tonic::Status> {
+        let adapters = self.inner.list_adapters();
+        let proto_adapters = adapters
+            .into_iter()
+            .map(|a| proto::AdapterInfo {
+                adapter_id: a.adapter_id,
+                state: adapter_state_to_proto(a.state),
+                image_ref: a.image_ref,
+            })
+            .collect();
+
+        Ok(tonic::Response::new(proto::ListAdaptersResponse {
+            adapters: proto_adapters,
+        }))
+    }
+
+    async fn remove_adapter(
+        &self,
+        request: tonic::Request<proto::RemoveAdapterRequest>,
+    ) -> Result<tonic::Response<proto::RemoveAdapterResponse>, tonic::Status> {
+        let req = request.into_inner();
+        self.inner
+            .remove_adapter(&req.adapter_id)
+            .await
+            .map_err(tonic::Status::from)?;
+        Ok(tonic::Response::new(proto::RemoveAdapterResponse {}))
+    }
+
+    async fn get_adapter_status(
+        &self,
+        request: tonic::Request<proto::GetAdapterStatusRequest>,
+    ) -> Result<tonic::Response<proto::GetAdapterStatusResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let entry = self
+            .inner
+            .get_adapter_status(&req.adapter_id)
+            .await
+            .map_err(tonic::Status::from)?;
+
+        Ok(tonic::Response::new(proto::GetAdapterStatusResponse {
+            adapter_id: entry.adapter_id,
+            state: adapter_state_to_proto(entry.state),
+            image_ref: entry.image_ref,
+        }))
     }
 }
 

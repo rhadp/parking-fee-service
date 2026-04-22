@@ -177,8 +177,8 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] _Test Spec: TS-07-13, TS-07-15, TS-07-16, TS-07-E12, TS-07-E16, TS-07-P6_
 
-- [ ] 5. gRPC service and main
-  - [ ] 5.1 Implement gRPC service
+- [x] 5. gRPC service and main
+  - [x] 5.1 Implement gRPC service
     - Implement `UpdateService` tonic trait:
       - `install_adapter`: validate inputs, delegate to install orchestration, return response
       - `watch_adapter_states`: subscribe to broadcast channel, stream events to client
@@ -188,7 +188,7 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - Map errors to gRPC status codes (INVALID_ARGUMENT, NOT_FOUND, INTERNAL)
     - _Requirements: 07-REQ-1.E1, 07-REQ-1.E2, 07-REQ-4.E1, 07-REQ-4.E2, 07-REQ-5.E1, 07-REQ-5.E2_
 
-  - [ ] 5.2 Implement main
+  - [x] 5.2 Implement main
     - Read `CONFIG_PATH` env var, load config
     - Create broadcast channel, state manager, podman executor
     - Spawn offload timer task
@@ -198,13 +198,13 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - Handle SIGTERM/SIGINT via `tokio::signal` with 10s drain timeout
     - _Requirements: 07-REQ-7.3, 07-REQ-10.1, 07-REQ-10.2, 07-REQ-10.E1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All unit tests pass: `cd rhivos && cargo test -p update-service`
-    - [ ] Property tests pass: `cd rhivos && cargo test -p update-service -- --include-ignored proptest`
-    - [ ] Binary builds: `cd rhivos && cargo build -p update-service`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test` (parking-operator-adaptor has pre-existing todo!() failures unrelated to spec 07)
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-17, TS-07-18, TS-07-P1 through TS-07-P6_
+  - [x] 5.V Verify task group 5
+    - [x] All unit tests pass: `cd rhivos && cargo test -p update-service`
+    - [x] Property tests pass: `cd rhivos && cargo test -p update-service -- --include-ignored proptest`
+    - [x] Binary builds: `cd rhivos && cargo build -p update-service`
+    - [x] All existing tests still pass: `cd rhivos && cargo test` (parking-operator-adaptor has pre-existing todo!() failures unrelated to spec 07)
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-17, TS-07-18, TS-07-P1 through TS-07-P6_
 
 - [ ] 6. Wiring verification
   - [ ] 6.1 Run full unit test suite
