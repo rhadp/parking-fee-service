@@ -31,13 +31,28 @@ impl std::error::Error for ConfigError {}
 ///
 /// If the file does not exist, returns default configuration.
 /// If the file contains invalid JSON, returns an error.
-pub fn load_config(_path: &str) -> Result<Config, ConfigError> {
-    todo!()
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    match std::fs::read_to_string(path) {
+        Ok(contents) => {
+            let cfg: Config = serde_json::from_str(&contents).map_err(ConfigError::Parse)?;
+            Ok(cfg)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            tracing::warn!("config file not found at {path}, using defaults");
+            Ok(default_config())
+        }
+        Err(e) => Err(ConfigError::Io(e)),
+    }
 }
 
 /// Returns the built-in default configuration.
 pub fn default_config() -> Config {
-    todo!()
+    Config {
+        grpc_port: 50052,
+        registry_url: String::new(),
+        inactivity_timeout_secs: 86400,
+        container_storage_path: "/var/lib/containers/adapters/".to_string(),
+    }
 }
 
 #[cfg(test)]
