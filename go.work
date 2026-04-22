@@ -1,6 +1,8 @@
 go 1.22
 
 use (
+	./backend/parking-fee-service
+	./backend/cloud-gateway
 	./mock/companion-app-cli
 	./mock/parking-app-cli
 	./mock/parking-operator

@@ -7,3 +7,19 @@ edition = "2021"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
+
+[[bin]]
+name = "mock-sensors"
+path = "src/main.rs"
+
+[[bin]]
+name = "location-sensor"
+path = "src/bin/location-sensor.rs"
+
+[[bin]]
+name = "speed-sensor"
+path = "src/bin/speed-sensor.rs"
+
+[[bin]]
+name = "door-sensor"
+path = "src/bin/door-sensor.rs"

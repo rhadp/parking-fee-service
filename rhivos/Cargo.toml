@@ -1,5 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+    "locking-service",
+    "cloud-gateway-client",
+    "update-service",
+    "parking-operator-adaptor",
     "mock-sensors",
 ]
