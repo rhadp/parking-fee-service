@@ -1,3 +1,4 @@
+use crate::adapter::AdapterState;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 use std::sync::Arc;
@@ -8,12 +9,53 @@ use std::sync::Arc;
 /// - Exit code 0: transition to STOPPED.
 /// - Exit code non-zero: transition to ERROR.
 /// - podman wait failure: transition to ERROR.
+///
+/// Guards against race conditions: if the adapter is no longer in RUNNING
+/// state when `podman wait` returns (e.g., another operation stopped or
+/// removed it), the monitor does nothing.
 pub async fn monitor_container<P: PodmanExecutor>(
-    _adapter_id: &str,
-    _state_manager: Arc<StateManager>,
-    _podman: Arc<P>,
+    adapter_id: &str,
+    state_manager: Arc<StateManager>,
+    podman: Arc<P>,
 ) {
-    todo!()
+    let exit_result = podman.wait(adapter_id).await;
+
+    // Guard: only transition if the adapter is still in RUNNING state.
+    // This prevents races with explicit stop/remove operations that may
+    // have already transitioned the adapter while we were waiting.
+    let current = state_manager.get_adapter(adapter_id);
+    match current {
+        Some(entry) if entry.state == AdapterState::Running => {
+            match exit_result {
+                Ok(0) => {
+                    let _ = state_manager.transition(
+                        adapter_id,
+                        AdapterState::Stopped,
+                        None,
+                    );
+                }
+                Ok(code) => {
+                    let _ = state_manager.transition(
+                        adapter_id,
+                        AdapterState::Error,
+                        Some(format!("container exited with code {code}")),
+                    );
+                }
+                Err(e) => {
+                    let _ = state_manager.transition(
+                        adapter_id,
+                        AdapterState::Error,
+                        Some(e.message),
+                    );
+                }
+            }
+        }
+        _ => {
+            // Adapter no longer RUNNING (was stopped/removed/errored by
+            // another operation). Do nothing — the other operation already
+            // handled the transition.
+        }
+    }
 }
 
 #[cfg(test)]

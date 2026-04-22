@@ -1,4 +1,4 @@
-use crate::adapter::AdapterStateEvent;
+use crate::adapter::{AdapterState, AdapterStateEvent};
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 use std::sync::Arc;
@@ -7,12 +7,51 @@ use tokio::sync::broadcast;
 
 /// Run a single offload check: find STOPPED adapters past the inactivity
 /// timeout and clean them up (rm + rmi).
+///
+/// For each candidate:
+/// 1. Transition to OFFLOADING (emits event per REQ-6.4).
+/// 2. Remove container via `podman rm` (REQ-6.2).
+/// 3. Remove image via `podman rmi` (REQ-6.2).
+/// 4. Remove adapter from in-memory state (REQ-6.3).
+///
+/// If any cleanup step fails, the adapter transitions to ERROR (REQ-6.E1).
 pub async fn run_offload_check<P: PodmanExecutor>(
-    _state_manager: &StateManager,
-    _podman: &P,
-    _timeout: Duration,
+    state_manager: &StateManager,
+    podman: &P,
+    timeout: Duration,
 ) {
-    todo!()
+    let candidates = state_manager.get_offload_candidates(timeout);
+    for candidate in candidates {
+        // Transition to OFFLOADING (REQ-6.1, REQ-6.4).
+        let _ = state_manager.transition(
+            &candidate.adapter_id,
+            AdapterState::Offloading,
+            None,
+        );
+
+        // Remove container (REQ-6.2).
+        if let Err(e) = podman.rm(&candidate.adapter_id).await {
+            let _ = state_manager.transition(
+                &candidate.adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+            continue;
+        }
+
+        // Remove image (REQ-6.2).
+        if let Err(e) = podman.rmi(&candidate.image_ref).await {
+            let _ = state_manager.transition(
+                &candidate.adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+            continue;
+        }
+
+        // Remove from in-memory state (REQ-6.3).
+        let _ = state_manager.remove_adapter(&candidate.adapter_id);
+    }
 }
 
 /// Start the offload timer as a background task. Periodically checks for
@@ -20,13 +59,16 @@ pub async fn run_offload_check<P: PodmanExecutor>(
 ///
 /// `check_interval` controls how often the timer checks (configurable for tests).
 pub async fn start_offload_timer<P: PodmanExecutor + 'static>(
-    _state_manager: Arc<StateManager>,
-    _podman: Arc<P>,
+    state_manager: Arc<StateManager>,
+    podman: Arc<P>,
     _broadcaster: broadcast::Sender<AdapterStateEvent>,
-    _timeout: Duration,
-    _check_interval: Duration,
+    timeout: Duration,
+    check_interval: Duration,
 ) {
-    todo!()
+    loop {
+        tokio::time::sleep(check_interval).await;
+        run_offload_check(&state_manager, &*podman, timeout).await;
+    }
 }
 
 #[cfg(test)]

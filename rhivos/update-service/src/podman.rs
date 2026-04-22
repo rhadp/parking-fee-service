@@ -287,9 +287,21 @@ impl PodmanExecutor for MockPodmanExecutor {
     }
 
     async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
-        let mut state = self.inner.lock().unwrap();
-        state.wait_calls.push(adapter_id.to_string());
-        state.wait_results.pop_front().unwrap_or(Ok(0))
+        let result = {
+            let mut state = self.inner.lock().unwrap();
+            state.wait_calls.push(adapter_id.to_string());
+            state.wait_results.pop_front()
+        };
+        match result {
+            Some(r) => r,
+            None => {
+                // No result queued — block forever (simulates a container that
+                // is still running). The task is cancelled when the test runtime
+                // drops.
+                std::future::pending::<()>().await;
+                unreachable!()
+            }
+        }
     }
 }
 

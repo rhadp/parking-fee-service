@@ -165,6 +165,12 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
 
             // Transition to RUNNING (REQ-1.5).
             let _ = state_mgr.transition(&aid, AdapterState::Running, None);
+
+            // Monitor container exit (REQ-9.1, REQ-9.2, REQ-9.E1).
+            // This awaits `podman wait`, so the spawned task stays alive
+            // until the container exits. The guard inside monitor_container
+            // prevents races with explicit stop/remove operations.
+            crate::monitor::monitor_container(&aid, state_mgr, podman).await;
         });
 
         Ok(InstallResponse {
