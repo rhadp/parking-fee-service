@@ -33,15 +33,39 @@ pub struct Config {
 /// defaults where the variable is not set. Returns `ConfigError` if
 /// GRPC_PORT contains a non-numeric value.
 pub fn load_config() -> Result<Config, ConfigError> {
-    todo!("implement load_config")
+    let parking_operator_url = std::env::var("PARKING_OPERATOR_URL")
+        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+
+    let data_broker_addr = std::env::var("DATA_BROKER_ADDR")
+        .unwrap_or_else(|_| "http://localhost:55556".to_string());
+
+    let grpc_port_str = std::env::var("GRPC_PORT").unwrap_or_else(|_| "50053".to_string());
+    let grpc_port: u16 = grpc_port_str
+        .parse()
+        .map_err(|_| ConfigError(format!("GRPC_PORT is not a valid port number: {grpc_port_str}")))?;
+
+    let vehicle_id =
+        std::env::var("VEHICLE_ID").unwrap_or_else(|_| "DEMO-VIN-001".to_string());
+
+    let zone_id = std::env::var("ZONE_ID").unwrap_or_else(|_| "zone-demo-1".to_string());
+
+    Ok(Config {
+        parking_operator_url,
+        data_broker_addr,
+        grpc_port,
+        vehicle_id,
+        zone_id,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     // TS-08-18: Verify all config env vars have correct defaults.
     #[test]
+    #[serial]
     fn test_config_defaults() {
         // SAFETY: env var mutation is safe in single-threaded test context.
         unsafe {
@@ -61,6 +85,7 @@ mod tests {
 
     // TS-08-19: Verify all config env vars are read from the environment.
     #[test]
+    #[serial]
     fn test_config_custom_values() {
         // SAFETY: env var mutation is safe in single-threaded test context.
         unsafe {
@@ -89,6 +114,7 @@ mod tests {
 
     // TS-08-E10: Verify non-numeric GRPC_PORT causes error.
     #[test]
+    #[serial]
     fn test_config_invalid_grpc_port() {
         // SAFETY: env var mutation is safe in single-threaded test context.
         unsafe {
@@ -105,6 +131,7 @@ mod tests {
 
     // TS-08-1 Case 1: Verify default gRPC port is 50053 when GRPC_PORT not set.
     #[test]
+    #[serial]
     fn test_grpc_port_default() {
         // SAFETY: env var mutation is safe in single-threaded test context.
         unsafe {
@@ -116,6 +143,7 @@ mod tests {
 
     // TS-08-1 Case 2: Verify gRPC port is read from GRPC_PORT env var.
     #[test]
+    #[serial]
     fn test_grpc_port_custom() {
         // SAFETY: env var mutation is safe in single-threaded test context.
         unsafe {

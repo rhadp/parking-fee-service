@@ -42,19 +42,25 @@ impl Default for Session {
 impl Session {
     /// Create a new Session with no active session.
     pub fn new() -> Self {
-        todo!("implement Session::new")
+        Self { state: None }
     }
 
     /// Returns true if a session is currently active.
     pub fn is_active(&self) -> bool {
-        todo!("implement Session::is_active")
+        self.state.as_ref().is_some_and(|s| s.active)
     }
 
     /// Start a new session with the given parameters.
     ///
     /// Populates all fields and sets active to true.
-    pub fn start(&mut self, _session_id: String, _zone_id: String, _start_time: i64, _rate: Rate) {
-        todo!("implement Session::start")
+    pub fn start(&mut self, session_id: String, zone_id: String, start_time: i64, rate: Rate) {
+        self.state = Some(SessionState {
+            session_id,
+            zone_id,
+            start_time,
+            rate,
+            active: true,
+        });
     }
 
     /// Stop the active session.
@@ -62,17 +68,23 @@ impl Session {
     /// Returns the session_id if a session was active, None otherwise.
     /// Clears all session state.
     pub fn stop(&mut self) -> Option<String> {
-        todo!("implement Session::stop")
+        let session_id = self
+            .state
+            .as_ref()
+            .filter(|s| s.active)
+            .map(|s| s.session_id.clone());
+        self.state = None;
+        session_id
     }
 
     /// Get the current session state, if any.
     pub fn status(&self) -> Option<&SessionState> {
-        todo!("implement Session::status")
+        self.state.as_ref().filter(|s| s.active)
     }
 
     /// Get the current rate, if any.
     pub fn rate(&self) -> Option<&Rate> {
-        todo!("implement Session::rate")
+        self.status().map(|s| &s.rate)
     }
 }
 
