@@ -101,8 +101,8 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
     - [x] _Test Spec: TS-06-8, TS-06-9, TS-06-11, TS-06-12, TS-06-E4, TS-06-E5, TS-06-E7, TS-06-E8, TS-06-P1, TS-06-P4_
 
-- [ ] 3. Store module
-  - [ ] 3.1 Implement store package
+- [x] 3. Store module
+  - [x] 3.1 Implement store package
     - `NewStore() *Store`: initialize empty response map and timer map with mutex
     - `StoreResponse(resp CommandResponse)`: store response, cancel timer if exists
     - `GetResponse(commandID string) (*CommandResponse, bool)`: lookup by command ID
@@ -110,12 +110,12 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Timeout timer is cancelled when a real response arrives via `StoreResponse`
     - _Requirements: 06-REQ-1.3, 06-REQ-2.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
-    - [ ] Race detection clean: `cd backend && go test -race -v ./cloud-gateway/store/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [ ] _Test Spec: TS-06-3, TS-06-5, TS-06-P2, TS-06-P3, TS-06-P5_
+  - [x] 3.V Verify task group 3
+    - [x] Store tests pass: `cd backend && go test -v ./cloud-gateway/store/...`
+    - [x] Race detection clean: `cd backend && go test -race -v ./cloud-gateway/store/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [x] _Test Spec: TS-06-3, TS-06-5, TS-06-P2, TS-06-P3, TS-06-P5_
 
 - [ ] 4. NATS client and HTTP handlers
   - [ ] 4.1 Implement natsclient package
