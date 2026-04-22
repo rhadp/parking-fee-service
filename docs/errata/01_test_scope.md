@@ -38,16 +38,16 @@ Now included after spec 09 task group 5 implementation. Runs integration tests
 for all six mock tools (sensor, parking-operator, companion-app, parking-app)
 including smoke tests and property tests.
 
-### 4. Go tests/databroker excluded from test-go
+### 4. Go tests/databroker and tests/locking-service excluded from test-go
 
-`test-go` does not run `go test` in `tests/databroker/` because it contains
-spec 02 integration tests that require a running Kuksa Databroker container.
-Static compose tests (TestCompose*) are expected to fail until compose.yml is
-fully configured (task group 2). Live gRPC tests skip when the container is
-not running. Only `go vet` is run in the lint target.
+`test-go` does not run `go test` in `tests/databroker/` or
+`tests/locking-service/` because they contain integration tests that require
+a running Kuksa Databroker container (and for locking-service, the compiled
+Rust binary). Live gRPC tests skip when the container is not running.
+`go vet` is run in the lint target for both modules.
 
-**Impact:** Regressions in tests/databroker are not caught by `make test`.
-They are covered when spec 02 task group 2+ completes.
+**Impact:** Regressions in tests/databroker and tests/locking-service are not
+caught by `make test`. They are covered when infrastructure is available.
 
 ### 5. ~~Go backend modules scoped to root package~~ Partially resolved
 
