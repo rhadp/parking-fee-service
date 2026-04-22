@@ -23,6 +23,7 @@ lint:
 	cd mock/parking-operator && go vet ./...
 	cd tests/setup && go vet ./...
 	cd tests/mock-apps && go vet ./...
+	cd tests/databroker && go vet ./...
 
 # Run all tests
 # Note: Some crates/modules are excluded because they contain TG1 stub tests
@@ -31,7 +32,7 @@ lint:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude update-service --exclude parking-operator-adaptor
+	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude update-service --exclude parking-operator-adaptor --lib --bins
 
 # Note: backend modules use 'go test .' (root package only) to avoid running
 # subpackage stub tests from specs 05 and 06. See docs/errata/01_test_scope.md.

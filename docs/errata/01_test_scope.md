@@ -38,7 +38,18 @@ Now included after spec 09 task group 5 implementation. Runs integration tests
 for all six mock tools (sensor, parking-operator, companion-app, parking-app)
 including smoke tests and property tests.
 
-### 4. Go backend modules scoped to root package
+### 4. Go tests/databroker excluded from test-go
+
+`test-go` does not run `go test` in `tests/databroker/` because it contains
+spec 02 integration tests that require a running Kuksa Databroker container.
+Static compose tests (TestCompose*) are expected to fail until compose.yml is
+fully configured (task group 2). Live gRPC tests skip when the container is
+not running. Only `go vet` is run in the lint target.
+
+**Impact:** Regressions in tests/databroker are not caught by `make test`.
+They are covered when spec 02 task group 2+ completes.
+
+### 5. Go backend modules scoped to root package
 
 `test-go` uses `go test .` (root package only) instead of `go test ./...` for
 `backend/parking-fee-service` and `backend/cloud-gateway`. Subpackages
@@ -48,7 +59,7 @@ and 06 that fail until those specs are implemented.
 **Impact:** Regressions in backend subpackages are not caught by `make test`.
 They are covered when specs 05 and 06 are implemented.
 
-### 5. Sensor binary skeleton behavior
+### 6. Sensor binary skeleton behavior
 
 The mock-sensor binaries (`location-sensor`, `speed-sensor`, `door-sensor`)
 were implemented by spec 09 with full clap-based argument parsing. They require
@@ -59,14 +70,14 @@ The setup verification tests (TS-01-15) use `--help` to verify the binary name
 appears in output. The determinism test (TS-01-P2) uses `CombinedOutput` to
 compare across invocations.
 
-### 6. cloud-gateway-client does not reject unknown flags
+### 7. cloud-gateway-client does not reject unknown flags
 
 `cloud-gateway-client` does not implement flag parsing in its skeleton and
 ignores unknown flags (exits 0). This deviates from 01-REQ-4.E1 which states
 skeletons SHALL reject unrecognized flags. The unknown-flag test (TS-01-E4)
 excludes `cloud-gateway-client`. Flag parsing is spec 04's scope.
 
-### 7. Proto generated code module
+### 8. Proto generated code module
 
 The `make proto` target generates Go code into `gen/` at the repository root.
 `gen/` is a standalone Go module (`github.com/rhadp/parking-fee-service/gen`)
