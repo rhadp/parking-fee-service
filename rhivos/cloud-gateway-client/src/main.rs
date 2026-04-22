@@ -6,27 +6,16 @@
 //! 2. Outbound command response relay (DATA_BROKER -> NATS)
 //! 3. Outbound telemetry publishing (DATA_BROKER -> NATS)
 
-pub mod broker_client;
-pub mod command_validator;
-pub mod config;
-pub mod errors;
-pub mod models;
-pub mod nats_client;
-pub mod telemetry;
-
-#[cfg(test)]
-pub mod proptest_cases;
-
 use std::process::ExitCode;
 
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
-use crate::broker_client::BrokerClient;
-use crate::command_validator::{validate_bearer_token, validate_command_payload};
-use crate::config::Config;
-use crate::nats_client::NatsClient;
-use crate::telemetry::TelemetryState;
+use cloud_gateway_client::broker_client::BrokerClient;
+use cloud_gateway_client::command_validator::{validate_bearer_token, validate_command_payload};
+use cloud_gateway_client::config::Config;
+use cloud_gateway_client::nats_client::NatsClient;
+use cloud_gateway_client::telemetry::TelemetryState;
 
 #[tokio::main]
 async fn main() -> ExitCode {
