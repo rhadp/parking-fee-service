@@ -686,10 +686,16 @@ mod tests {
     fn proptest_single_adapter_invariant() {
         use proptest::prelude::*;
 
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        // Use current_thread runtime so tokio::time::pause() works,
+        // avoiding real wall-clock sleeps in each proptest case.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
         proptest!(|(count in 1usize..5)| {
             rt.block_on(async {
+                tokio::time::pause();
                 let mock = Arc::new(MockPodmanExecutor::new());
                 for _ in 0..count {
                     mock.set_pull_result(Ok(()));
@@ -716,6 +722,7 @@ mod tests {
                         "At most one adapter should be RUNNING, got {}", running_count
                     );
                 }
+                tokio::time::resume();
                 Ok::<(), proptest::test_runner::TestCaseError>(())
             })?;
         });
@@ -728,7 +735,11 @@ mod tests {
     fn proptest_checksum_verification_soundness() {
         use proptest::prelude::*;
 
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        // Use current_thread runtime so tokio::time::pause() works.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
         proptest!(|(
             digest in "sha256:[a-f0-9]{8}",
@@ -738,6 +749,7 @@ mod tests {
                 return Ok(());
             }
             rt.block_on(async {
+                tokio::time::pause();
                 let mock = Arc::new(MockPodmanExecutor::new());
                 mock.set_pull_result(Ok(()));
                 mock.set_inspect_result(Ok(digest.clone()));
@@ -756,6 +768,7 @@ mod tests {
                     mock.rmi_calls().contains(&image_ref.to_string()),
                     "image should be removed after mismatch"
                 );
+                tokio::time::resume();
                 Ok::<(), proptest::test_runner::TestCaseError>(())
             })?;
         });

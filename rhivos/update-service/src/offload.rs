@@ -209,10 +209,19 @@ mod tests {
     fn proptest_offload_timing_correctness() {
         use proptest::prelude::*;
 
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        // Use current_thread runtime so tokio::time::pause() works.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
         proptest!(|(timeout_secs in 2u64..5)| {
             rt.block_on(async {
+                // Pause time so sleeps advance instantly (no real wall-clock
+                // delay). The test verifies that a STOPPED adapter is NOT
+                // offloaded before the timeout when no offload timer runs.
+                tokio::time::pause();
+
                 let mock = Arc::new(MockPodmanExecutor::new());
                 mock.set_pull_result(Ok(()));
                 mock.set_inspect_result(Ok("sha256:abc".to_string()));
@@ -245,6 +254,10 @@ mod tests {
                 let adapter = state_mgr.get_adapter("adapter-v1");
                 prop_assert!(adapter.is_some(), "adapter should still exist before timeout");
                 prop_assert_eq!(adapter.unwrap().state, AdapterState::Stopped);
+
+                // Resume time for next proptest iteration
+                tokio::time::resume();
+
                 Ok::<(), proptest::test_runner::TestCaseError>(())
             })?;
         });
