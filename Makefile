@@ -34,7 +34,7 @@ lint:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude update-service --exclude parking-operator-adaptor --lib --bins
+	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude update-service --lib --bins
 
 # Note: backend/cloud-gateway uses 'go test .' (root package only) to avoid
 # running subpackage stub tests from spec 06. See docs/errata/01_test_scope.md.

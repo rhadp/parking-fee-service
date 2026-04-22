@@ -13,18 +13,18 @@ The spec 01 `make test` and `make check` targets do not run the full
 `cargo test --workspace`.
 
 - **Crate exclusions** (`--exclude`): `cloud-gateway-client` (spec 04 TG1
-  stubs), `update-service` (spec 07 TG1 stubs), and `parking-operator-adaptor`
-  (spec 08 TG1 stubs) contain failing tests that require implementation from
-  their respective specs. They are excluded entirely until those specs are
-  implemented.
+  stubs) and `update-service` (spec 07 TG1 stubs) contain failing tests that
+  require implementation from their respective specs. They are excluded entirely
+  until those specs are implemented.
   `locking-service` was previously excluded (spec 03 TG1 stubs) but is now
   included after spec 03 task group 3 implementation.
+  ~~`parking-operator-adaptor` was previously excluded (spec 08 TG1 stubs)~~
+  but is now included after spec 08 implementation.
   ~~`mock-sensors` integration tests were previously excluded via `--lib --bins`~~
   but are now included after spec 09 task group 5 implementation.
 
-**Impact:** Test regressions in cloud-gateway-client, update-service, and
-parking-operator-adaptor are not caught by `make test`. They are covered when
-specs 04, 07, and 08 are implemented.
+**Impact:** Test regressions in cloud-gateway-client and update-service are not
+caught by `make test`. They are covered when specs 04 and 07 are implemented.
 
 ### 2. ~~Go mock/parking-operator excluded from test-go~~ Resolved
 
@@ -92,7 +92,7 @@ Once the relevant specs implement the required components, the Makefile should
 be updated to:
 - Remove `--exclude cloud-gateway-client` (after spec 04 implementation)
 - Remove `--exclude update-service` (after spec 07 implementation)
-- Remove `--exclude parking-operator-adaptor` (after spec 08 implementation)
+- ~~Remove `--exclude parking-operator-adaptor` (after spec 08 implementation)~~ Done
 - ~~Remove `--exclude locking-service` (after spec 03 implementation)~~ Done
 - ~~Use `cargo test --workspace` without `--lib --bins` (after spec 09)~~ Done
 - ~~Include `mock/parking-operator` in `test-go` (after spec 09)~~ Done
