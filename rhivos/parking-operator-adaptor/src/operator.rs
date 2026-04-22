@@ -203,6 +203,20 @@ impl OperatorClient {
     }
 }
 
+impl crate::event_loop::OperatorApi for OperatorClient {
+    async fn start_session(
+        &self,
+        vehicle_id: &str,
+        zone_id: &str,
+    ) -> Result<StartResponse, OperatorError> {
+        OperatorClient::start_session(self, vehicle_id, zone_id).await
+    }
+
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        OperatorClient::stop_session(self, session_id).await
+    }
+}
+
 /// Get the current Unix timestamp in seconds.
 fn now_unix_timestamp() -> i64 {
     std::time::SystemTime::now()

@@ -12,14 +12,53 @@ use crate::session::{Rate, Session};
 ///
 /// Idempotent: lock while active or unlock while inactive are no-ops.
 pub async fn process_lock_event<B: BrokerClient, O: OperatorApi>(
-    _is_locked: bool,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    is_locked: bool,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
 ) -> Result<(), OperatorError> {
-    todo!("implement process_lock_event")
+    if is_locked {
+        // Lock event: start session if not already active.
+        if session.is_active() {
+            tracing::info!("lock event received but session already active, no-op");
+            return Ok(());
+        }
+        let resp = operator.start_session(vehicle_id, zone_id).await?;
+        let start_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock before Unix epoch")
+            .as_secs() as i64;
+        session.start(
+            resp.session_id,
+            zone_id.to_string(),
+            start_time,
+            rate_from_response(&resp.rate),
+        );
+        if let Err(e) = broker
+            .set_bool(crate::broker::SIGNAL_SESSION_ACTIVE, true)
+            .await
+        {
+            tracing::error!(error = %e, "failed to publish SessionActive=true to DATA_BROKER");
+        }
+    } else {
+        // Unlock event: stop session if active.
+        if !session.is_active() {
+            tracing::info!("unlock event received but no active session, no-op");
+            return Ok(());
+        }
+        let session_id = session.status().unwrap().session_id.clone();
+        let _resp = operator.stop_session(&session_id).await?;
+        session.stop();
+        if let Err(e) = broker
+            .set_bool(crate::broker::SIGNAL_SESSION_ACTIVE, false)
+            .await
+        {
+            tracing::error!(error = %e, "failed to publish SessionActive=false to DATA_BROKER");
+        }
+    }
+    Ok(())
 }
 
 /// Process a manual StartSession request.
@@ -27,13 +66,37 @@ pub async fn process_lock_event<B: BrokerClient, O: OperatorApi>(
 /// Returns ALREADY_EXISTS-style error if a session is already active.
 /// Otherwise starts a session with the operator.
 pub async fn process_manual_start<B: BrokerClient, O: OperatorApi>(
-    _zone_id: &str,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
+    zone_id: &str,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
 ) -> Result<StartResponse, ManualStartError> {
-    todo!("implement process_manual_start")
+    if session.is_active() {
+        let existing_id = session.status().unwrap().session_id.clone();
+        return Err(ManualStartError::AlreadyExists(existing_id));
+    }
+    let resp = operator
+        .start_session(vehicle_id, zone_id)
+        .await
+        .map_err(ManualStartError::OperatorFailed)?;
+    let start_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before Unix epoch")
+        .as_secs() as i64;
+    session.start(
+        resp.session_id.clone(),
+        zone_id.to_string(),
+        start_time,
+        rate_from_response(&resp.rate),
+    );
+    if let Err(e) = broker
+        .set_bool(crate::broker::SIGNAL_SESSION_ACTIVE, true)
+        .await
+    {
+        tracing::error!(error = %e, "failed to publish SessionActive=true to DATA_BROKER");
+    }
+    Ok(resp)
 }
 
 /// Process a manual StopSession request.
@@ -41,11 +104,26 @@ pub async fn process_manual_start<B: BrokerClient, O: OperatorApi>(
 /// Returns FAILED_PRECONDITION-style error if no session is active.
 /// Otherwise stops the session with the operator.
 pub async fn process_manual_stop<B: BrokerClient, O: OperatorApi>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
 ) -> Result<StopResponse, ManualStopError> {
-    todo!("implement process_manual_stop")
+    if !session.is_active() {
+        return Err(ManualStopError::NoActiveSession);
+    }
+    let session_id = session.status().unwrap().session_id.clone();
+    let resp = operator
+        .stop_session(&session_id)
+        .await
+        .map_err(ManualStopError::OperatorFailed)?;
+    session.stop();
+    if let Err(e) = broker
+        .set_bool(crate::broker::SIGNAL_SESSION_ACTIVE, false)
+        .await
+    {
+        tracing::error!(error = %e, "failed to publish SessionActive=false to DATA_BROKER");
+    }
+    Ok(resp)
 }
 
 /// Error type for manual StartSession.
@@ -83,7 +161,6 @@ pub trait OperatorApi {
 }
 
 /// Convert an operator RateResponse to a session Rate.
-#[allow(dead_code)]
 fn rate_from_response(r: &RateResponse) -> Rate {
     Rate {
         rate_type: r.rate_type.clone(),
@@ -101,6 +178,7 @@ mod tests {
     };
 
     // TS-08-11: Verify lock event (IsLocked=true) triggers session start.
+    // Also covers TS-08-10: Verify session state populated from operator response.
     #[tokio::test]
     async fn test_lock_event_starts_session() {
         let mock_broker = MockBrokerClient::new();
@@ -126,8 +204,15 @@ mod tests {
         assert_eq!(calls[0].0, "DEMO-VIN-001");
         assert_eq!(calls[0].1, "zone-demo-1");
 
-        // Verify session is active.
+        // Verify session is active with correct state from operator response.
         assert!(session.is_active());
+        let state = session.status().expect("session should have state");
+        assert_eq!(state.session_id, "sess-1");
+        assert_eq!(state.zone_id, "zone-demo-1");
+        let rate = session.rate().expect("session should have rate");
+        assert_eq!(rate.rate_type, "per_hour");
+        assert!((rate.amount - 2.5).abs() < f64::EPSILON);
+        assert_eq!(rate.currency, "EUR");
 
         // Verify SessionActive was set to true.
         let broker_calls = mock_broker.set_bool_calls();
@@ -234,6 +319,7 @@ mod tests {
     }
 
     // TS-08-16: Verify manual StartSession works regardless of lock state.
+    // TS-08-2: Verify StartSession returns session_id, status, and rate.
     #[tokio::test]
     async fn test_manual_start_override() {
         let mock_broker = MockBrokerClient::new();
@@ -253,11 +339,15 @@ mod tests {
 
         assert!(resp.is_ok());
         let resp = resp.unwrap();
-        assert!(!resp.session_id.is_empty());
+        assert_eq!(resp.session_id, "sess-1");
+        assert_eq!(resp.rate.rate_type, "per_hour");
+        assert!((resp.rate.amount - 2.5).abs() < f64::EPSILON);
+        assert_eq!(resp.rate.currency, "EUR");
         assert!(session.is_active());
     }
 
     // TS-08-17: Verify manual StopSession works regardless of lock state.
+    // TS-08-3: Verify StopSession returns duration and cost.
     #[tokio::test]
     async fn test_manual_stop_override() {
         let mock_broker = MockBrokerClient::new();
@@ -277,6 +367,9 @@ mod tests {
         assert!(resp.is_ok());
         let resp = resp.unwrap();
         assert_eq!(resp.session_id, "sess-1");
+        assert_eq!(resp.duration_seconds, 3600);
+        assert!((resp.total_amount - 2.50).abs() < f64::EPSILON);
+        assert_eq!(resp.currency, "EUR");
         assert!(!session.is_active());
     }
 
