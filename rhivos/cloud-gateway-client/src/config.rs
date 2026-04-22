@@ -17,7 +17,23 @@ impl Config {
     /// Returns `ConfigError::MissingVin` if the `VIN` variable is not set.
     /// Other variables use defaults if not set.
     pub fn from_env() -> Result<Config, ConfigError> {
-        todo!("Config::from_env not yet implemented")
+        let vin = std::env::var("VIN").map_err(|_| ConfigError::MissingVin)?;
+
+        let nats_url =
+            std::env::var("NATS_URL").unwrap_or_else(|_| "nats://localhost:4222".to_string());
+
+        let databroker_addr = std::env::var("DATABROKER_ADDR")
+            .unwrap_or_else(|_| "http://localhost:55556".to_string());
+
+        let bearer_token =
+            std::env::var("BEARER_TOKEN").unwrap_or_else(|_| "demo-token".to_string());
+
+        Ok(Config {
+            vin,
+            nats_url,
+            databroker_addr,
+            bearer_token,
+        })
     }
 }
 
