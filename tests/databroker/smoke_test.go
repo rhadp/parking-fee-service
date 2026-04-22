@@ -71,7 +71,7 @@ func TestSmokeHealthCheck(t *testing.T) {
 		grpc.WithBlock(),
 	)
 	if err != nil {
-		t.Skipf("gRPC connection to DATA_BROKER failed (container not fully operational?): %v", err)
+		t.Skipf("gRPC connection to DATA_BROKER failed (container may not be fully operational): %v", err)
 	}
 	defer grpcConn.Close()
 

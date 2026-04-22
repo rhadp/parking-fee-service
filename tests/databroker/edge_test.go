@@ -115,35 +115,36 @@ func TestEdgeCaseOverlaySyntaxError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "podman", "compose", "up", "--no-start", "kuksa-databroker")
+	// Cleanup: bring down any started container regardless of outcome.
+	t.Cleanup(func() {
+		downCtx, downCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer downCancel()
+		downCmd := exec.CommandContext(downCtx, "podman", "compose", "down")
+		downCmd.Dir = filepath.Join(root, "deployments")
+		downCmd.CombinedOutput()
+	})
+
+	cmd := exec.CommandContext(ctx, "podman", "compose", "up", "-d", "kuksa-databroker")
 	cmd.Dir = filepath.Join(root, "deployments")
 	output, err := cmd.CombinedOutput()
 
-	// Even if compose up succeeds (creates container), try to start it.
-	if err == nil {
-		startCmd := exec.CommandContext(ctx, "podman", "compose", "up", "-d", "kuksa-databroker")
-		startCmd.Dir = filepath.Join(root, "deployments")
-		startCmd.CombinedOutput()
-
-		// Wait briefly for the container to fail.
-		time.Sleep(3 * time.Second)
-
-		// Check container status.
-		statusCmd := exec.CommandContext(ctx, "podman", "compose", "ps", "--format", "{{.Status}}")
-		statusCmd.Dir = filepath.Join(root, "deployments")
-		statusOutput, _ := statusCmd.CombinedOutput()
-
-		// Cleanup: bring down the container.
-		downCmd := exec.CommandContext(ctx, "podman", "compose", "down")
-		downCmd.Dir = filepath.Join(root, "deployments")
-		downCmd.CombinedOutput()
-
-		statusStr := string(statusOutput)
-		if strings.Contains(statusStr, "Up") {
-			t.Error("DATA_BROKER should not be running with invalid overlay")
-		}
+	if err != nil {
+		// Compose itself failed — this is the expected success case.
+		return
 	}
-	_ = output
+
+	// Compose returned success. Wait briefly and verify the container is NOT
+	// running (it should have exited due to the invalid overlay).
+	time.Sleep(3 * time.Second)
+
+	statusCmd := exec.CommandContext(ctx, "podman", "compose", "ps", "--format", "{{.Status}}", "kuksa-databroker")
+	statusCmd.Dir = filepath.Join(root, "deployments")
+	statusOutput, _ := statusCmd.CombinedOutput()
+	statusStr := strings.TrimSpace(string(statusOutput))
+
+	if strings.Contains(statusStr, "Up") {
+		t.Errorf("DATA_BROKER should not be running with invalid overlay; compose output: %s", string(output))
+	}
 }
 
 // TestEdgeCaseMissingOverlay verifies that the DATA_BROKER fails to start
@@ -173,22 +174,33 @@ func TestEdgeCaseMissingOverlay(t *testing.T) {
 	cmd.Dir = filepath.Join(root, "deployments")
 	output, err := cmd.CombinedOutput()
 
-	// Cleanup: bring down any started container.
-	downCmd := exec.CommandContext(ctx, "podman", "compose", "down")
-	downCmd.Dir = filepath.Join(root, "deployments")
-	downCmd.CombinedOutput()
+	// Cleanup: bring down any started container regardless of outcome.
+	t.Cleanup(func() {
+		downCtx, downCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer downCancel()
+		downCmd := exec.CommandContext(downCtx, "podman", "compose", "down")
+		downCmd.Dir = filepath.Join(root, "deployments")
+		downCmd.CombinedOutput()
+	})
 
-	if err == nil {
-		// If compose didn't fail, check if the container exited.
-		// The container might fail to start due to missing volume source.
-		outputStr := string(output)
-		if !strings.Contains(strings.ToLower(outputStr), "error") &&
-			!strings.Contains(strings.ToLower(outputStr), "no such file") {
-			t.Log("compose output:", outputStr)
-			// The container may have started but failed — check logs.
-		}
+	if err != nil {
+		// Compose itself failed — this is the expected success case.
+		return
 	}
-	// If err != nil, compose failed as expected — this is the success case.
+
+	// Compose returned success. The container may have been created but should
+	// have failed to start (missing volume source). Wait briefly and verify the
+	// container is NOT running.
+	time.Sleep(3 * time.Second)
+
+	statusCmd := exec.CommandContext(ctx, "podman", "compose", "ps", "--format", "{{.Status}}", "kuksa-databroker")
+	statusCmd.Dir = filepath.Join(root, "deployments")
+	statusOutput, _ := statusCmd.CombinedOutput()
+	statusStr := strings.TrimSpace(string(statusOutput))
+
+	if strings.Contains(statusStr, "Up") {
+		t.Errorf("DATA_BROKER should not be running with missing overlay; compose output: %s", string(output))
+	}
 }
 
 // TestImageVersion verifies that the running DATA_BROKER container uses the
