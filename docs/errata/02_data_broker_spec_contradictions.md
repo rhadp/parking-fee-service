@@ -59,7 +59,30 @@ both VSS versions with the same paths and types.
 **Resolution:** Tests verify signal existence and types without asserting
 the VSS version number.
 
-## 6. Subscription Delivery Semantics
+## 6. gRPC API Version Mismatch (v1 vs v2)
+
+The proto file at `proto/kuksa/val.proto` defines the `kuksa.val.v1.VAL`
+service with methods `Get`, `Set`, and `Subscribe`. However, the Kuksa
+Databroker 0.5.0 container serves `kuksa.val.v2.VAL` with a completely
+different method set (`GetValue`, `GetValues`, `PublishValue`, `ListMetadata`,
+`Subscribe`, `Actuate`, etc.).
+
+Calling v1 methods against the v2 server does not return `UNIMPLEMENTED` —
+instead, it returns empty responses with no error. This means all live
+integration tests that use the v1 gRPC client will get empty/incorrect
+results rather than errors when the container is running.
+
+**Impact:** All live integration tests (signal set/get, metadata queries,
+subscriptions) will fail or return empty results when the databroker
+container is actually running. Tests currently pass only because they SKIP
+when the container is not available.
+
+**Resolution:** The proto file must be updated to the v2 API
+(`kuksa.val.v2`) with correct method definitions and message types. Until
+then, live tests will SKIP gracefully when no container is running, and
+the smoke health check verifies only transport-level gRPC connectivity.
+
+## 7. Subscription Delivery Semantics
 
 TS-02-P4 asserts "exactly once" delivery, but the kuksa-databroker typically
 delivers an initial current-value event on subscription establishment. The

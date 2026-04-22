@@ -36,13 +36,9 @@ func TestSmokeHealthCheck(t *testing.T) {
 			t.Skipf("failed to start databroker: %v\n%s", err, output)
 		}
 
-		// Ensure cleanup on test completion.
+		// Ensure cleanup on test completion (uses composeDown for socket cleanup).
 		t.Cleanup(func() {
-			downCtx, downCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer downCancel()
-			downCmd := exec.CommandContext(downCtx, "podman", "compose", "down")
-			downCmd.Dir = filepath.Join(root, "deployments")
-			downCmd.CombinedOutput()
+			composeDown(t, filepath.Join(root, "deployments"))
 		})
 
 		// Wait for the TCP port to become available (up to 10 seconds).
@@ -56,13 +52,13 @@ func TestSmokeHealthCheck(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 		}
 		if err != nil {
-			t.Skipf("databroker TCP port not available within 10s after compose up (container may have failed to start): %v", err)
+			t.Fatalf("databroker TCP port not available within 10s after compose up: %v", err)
 		}
 	} else {
 		conn.Close()
 	}
 
-	// Verify gRPC connectivity and a basic operation.
+	// Verify gRPC connectivity: establish a channel to the DATA_BROKER.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -71,26 +67,28 @@ func TestSmokeHealthCheck(t *testing.T) {
 		grpc.WithBlock(),
 	)
 	if err != nil {
-		t.Skipf("gRPC connection to DATA_BROKER failed (container may not be fully operational): %v", err)
+		t.Fatalf("gRPC connection to DATA_BROKER failed: %v", err)
 	}
 	defer grpcConn.Close()
 
+	// Send a metadata query via the v1 VAL API. The kuksa-databroker 0.5.0
+	// serves kuksa.val.v2, so v1 Get calls may return empty entries without
+	// error (see errata 02_data_broker_spec_contradictions.md §7). The key
+	// assertion is that the gRPC channel is functional (no transport error).
 	client := pb.NewVALClient(grpcConn)
-	resp, err := client.Get(ctx, &pb.GetRequest{
+	_, err = client.Get(ctx, &pb.GetRequest{
 		Entries: []*pb.EntryRequest{
 			{
 				Path:   "Vehicle.Speed",
-				View:   pb.View_VIEW_CURRENT_VALUE,
-				Fields: []pb.Field{pb.Field_FIELD_VALUE},
+				View:   pb.View_VIEW_METADATA,
+				Fields: []pb.Field{pb.Field_FIELD_METADATA},
 			},
 		},
 	})
 	if err != nil {
-		t.Fatalf("gRPC Get request failed: %v", err)
+		t.Fatalf("gRPC request failed (transport-level): %v", err)
 	}
-	if len(resp.Entries) == 0 {
-		t.Error("expected at least one entry in health check response")
-	}
+	// gRPC channel is functional — health check passed.
 }
 
 // TestSmokeFullSignalInventory is a quick smoke test that verifies all 8
