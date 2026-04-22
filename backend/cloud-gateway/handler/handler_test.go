@@ -99,6 +99,14 @@ func TestCommandSubmissionSuccess(t *testing.T) {
 	if mock.lastCommand.CommandID != "cmd-001" {
 		t.Errorf("expected published command_id 'cmd-001', got '%s'", mock.lastCommand.CommandID)
 	}
+
+	// TS-06-2: Verify bearer token is propagated to the publisher (REST→NATS auth header flow).
+	if mock.lastToken != "demo-token-001" {
+		t.Errorf("expected published token 'demo-token-001', got '%s'", mock.lastToken)
+	}
+	if mock.lastVIN != "VIN12345" {
+		t.Errorf("expected published VIN 'VIN12345', got '%s'", mock.lastVIN)
+	}
 }
 
 // TS-06-4: Command Status Query Success
