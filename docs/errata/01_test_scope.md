@@ -9,14 +9,15 @@ The spec 01 `make test` and `make check` targets do not run the full
 ### 1. Rust crates excluded from test-rust
 
 `test-rust` uses `cargo test --workspace --exclude cloud-gateway-client
---exclude locking-service --lib --bins` instead of `cargo test --workspace`.
+--lib --bins` instead of `cargo test --workspace`.
 
 Two types of exclusions apply:
 
 - **Crate exclusions** (`--exclude`): `cloud-gateway-client` (spec 04 TG1
-  stubs) and `locking-service` (spec 03 TG1 stubs) contain failing tests that
-  require implementation from their respective specs. They are excluded entirely
-  until those specs are implemented.
+  stubs) contains failing tests that require implementation from spec 04.
+  It is excluded entirely until that spec is implemented.
+  `locking-service` was previously excluded (spec 03 TG1 stubs) but is now
+  included after spec 03 task group 3 implementation.
 
 - **Integration test exclusion** (`--lib --bins`): `rhivos/mock-sensors/tests/
   cli_tests.rs` contains integration tests from spec 09 that expect full CLI
@@ -49,7 +50,7 @@ They are covered when spec 09 is implemented.
 Once the relevant specs implement the required components, the Makefile should
 be updated to:
 - Remove `--exclude cloud-gateway-client` (after spec 04 implementation)
-- Remove `--exclude locking-service` (after spec 03 implementation)
+- ~~Remove `--exclude locking-service` (after spec 03 implementation)~~ Done
 - Use `cargo test --workspace` without `--lib --bins` (after spec 09)
 - Include `mock/parking-operator` in `test-go` (after spec 09)
 - Include `tests/mock-apps` in `test-go` (after spec 09)
