@@ -13,10 +13,20 @@ use crate::models::CommandPayload;
 /// Extracts the `Authorization` header and checks it matches
 /// `Bearer <expected_token>`.
 pub fn validate_bearer_token(
-    _headers: &HashMap<String, String>,
-    _expected_token: &str,
+    headers: &HashMap<String, String>,
+    expected_token: &str,
 ) -> Result<(), AuthError> {
-    todo!("validate_bearer_token not yet implemented")
+    let auth_header = headers.get("Authorization").ok_or(AuthError::MissingHeader)?;
+
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or(AuthError::InvalidToken)?;
+
+    if token == expected_token {
+        Ok(())
+    } else {
+        Err(AuthError::InvalidToken)
+    }
 }
 
 /// Validate a command payload.
@@ -28,8 +38,51 @@ pub fn validate_bearer_token(
 ///
 /// The `doors` array contents are not validated; that responsibility
 /// belongs to LOCKING_SERVICE.
-pub fn validate_command_payload(_payload: &[u8]) -> Result<CommandPayload, ValidationError> {
-    todo!("validate_command_payload not yet implemented")
+pub fn validate_command_payload(payload: &[u8]) -> Result<CommandPayload, ValidationError> {
+    // Phase 1: Parse as JSON
+    let value: serde_json::Value =
+        serde_json::from_slice(payload).map_err(|e| ValidationError::InvalidJson(e.to_string()))?;
+
+    // Phase 2: Validate required fields
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ValidationError::InvalidJson("expected JSON object".to_string()))?;
+
+    // command_id: must be present, a string, and non-empty
+    match obj.get("command_id") {
+        None => return Err(ValidationError::MissingField("command_id".to_string())),
+        Some(v) => match v.as_str() {
+            None => return Err(ValidationError::MissingField("command_id".to_string())),
+            Some("") => {
+                return Err(ValidationError::MissingField("command_id".to_string()));
+            }
+            _ => {}
+        },
+    }
+
+    // action: must be present, a string, and one of "lock" or "unlock"
+    match obj.get("action") {
+        None => return Err(ValidationError::MissingField("action".to_string())),
+        Some(v) => match v.as_str() {
+            None => return Err(ValidationError::MissingField("action".to_string())),
+            Some(s) if s != "lock" && s != "unlock" => {
+                return Err(ValidationError::InvalidAction(s.to_string()));
+            }
+            _ => {}
+        },
+    }
+
+    // doors: must be present and an array
+    match obj.get("doors") {
+        None => return Err(ValidationError::MissingField("doors".to_string())),
+        Some(v) if !v.is_array() => {
+            return Err(ValidationError::MissingField("doors".to_string()));
+        }
+        _ => {}
+    }
+
+    // All validations passed — deserialize to CommandPayload
+    serde_json::from_value(value).map_err(|e| ValidationError::InvalidJson(e.to_string()))
 }
 
 #[cfg(test)]
