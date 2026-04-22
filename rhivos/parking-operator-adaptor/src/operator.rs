@@ -1,5 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::time::Duration;
+use tracing::{info, warn};
+
+/// Maximum number of retries after the initial attempt.
+const MAX_RETRIES: u32 = 3;
+
+/// Base delay for exponential backoff in milliseconds.
+/// Retry delays: base * 2^0, base * 2^1, base * 2^2 → 1s, 2s, 4s.
+#[cfg(not(test))]
+const RETRY_BASE_MS: u64 = 1000;
+
+/// Shortened base delay for tests to avoid multi-second waits.
+#[cfg(test)]
+const RETRY_BASE_MS: u64 = 10;
 
 /// Error type for PARKING_OPERATOR REST client operations.
 #[derive(Debug)]
@@ -53,7 +67,6 @@ pub struct StopResponse {
 
 /// Request body for POST /parking/start.
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 struct StartRequest {
     vehicle_id: String,
     zone_id: String,
@@ -62,7 +75,6 @@ struct StartRequest {
 
 /// Request body for POST /parking/stop.
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 struct StopRequest {
     session_id: String,
     timestamp: i64,
@@ -72,7 +84,6 @@ struct StopRequest {
 ///
 /// Sends start/stop requests with retry logic (up to 3 retries,
 /// exponential backoff: 1s, 2s, 4s).
-#[allow(dead_code)]
 pub struct OperatorClient {
     client: reqwest::Client,
     base_url: String,
@@ -93,19 +104,111 @@ impl OperatorClient {
     /// Retries up to 3 times with exponential backoff on failure.
     pub async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!("implement start_session")
+        let url = format!("{}/parking/start", self.base_url);
+        let body = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp: now_unix_timestamp(),
+        };
+
+        let response_bytes = self.post_with_retry(&url, &body).await?;
+        serde_json::from_slice::<StartResponse>(&response_bytes)
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
 
     /// Stop a parking session with the PARKING_OPERATOR.
     ///
     /// Sends POST /parking/stop with {session_id, timestamp}.
     /// Retries up to 3 times with exponential backoff on failure.
-    pub async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        todo!("implement stop_session")
+    pub async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let url = format!("{}/parking/stop", self.base_url);
+        let body = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp: now_unix_timestamp(),
+        };
+
+        let response_bytes = self.post_with_retry(&url, &body).await?;
+        serde_json::from_slice::<StopResponse>(&response_bytes)
+            .map_err(|e| OperatorError::ParseError(e.to_string()))
     }
+
+    /// Send a POST request with retry logic.
+    ///
+    /// Retries up to `MAX_RETRIES` times with exponential backoff
+    /// (RETRY_BASE_MS * 2^attempt) on connection error, timeout, or non-200
+    /// HTTP status.
+    async fn post_with_retry<T: Serialize>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<Vec<u8>, OperatorError> {
+        let mut last_error = OperatorError::RequestFailed("no attempts made".to_string());
+
+        for attempt in 0..=MAX_RETRIES {
+            if attempt > 0 {
+                let delay_ms = RETRY_BASE_MS * 2u64.pow(attempt - 1);
+                info!(attempt, delay_ms, url, "retrying operator request");
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            }
+
+            match self.send_post(url, body).await {
+                Ok(bytes) => return Ok(bytes),
+                Err(e) => {
+                    warn!(
+                        attempt = attempt + 1,
+                        max_attempts = MAX_RETRIES + 1,
+                        error = %e,
+                        url,
+                        "operator request failed"
+                    );
+                    last_error = e;
+                }
+            }
+        }
+
+        Err(last_error)
+    }
+
+    /// Send a single POST request and check the response status.
+    ///
+    /// Returns the response body bytes on 200, or an OperatorError otherwise.
+    async fn send_post<T: Serialize>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<Vec<u8>, OperatorError> {
+        let response = self
+            .client
+            .post(url)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| OperatorError::RequestFailed(e.to_string()))?;
+
+        let status = response.status().as_u16();
+        if status != 200 {
+            let body_text = response.text().await.unwrap_or_default();
+            return Err(OperatorError::HttpError(status, body_text));
+        }
+
+        let body_bytes = response
+            .bytes()
+            .await
+            .map_err(|e| OperatorError::RequestFailed(e.to_string()))?;
+
+        Ok(body_bytes.to_vec())
+    }
+}
+
+/// Get the current Unix timestamp in seconds.
+fn now_unix_timestamp() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before Unix epoch")
+        .as_secs() as i64
 }
 
 #[cfg(test)]
