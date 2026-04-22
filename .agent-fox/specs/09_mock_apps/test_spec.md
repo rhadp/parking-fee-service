@@ -208,6 +208,57 @@ ASSERT proc.exit_code == 0
 ASSERT "a1" IN proc.stdout
 ```
 
+### TS-09-18: Parking App CLI Get Adapter Status
+
+**Requirement:** 09-REQ-5.4
+**Type:** integration
+**Description:** parking-app-cli status calls GetAdapterStatus on UPDATE_SERVICE.
+
+**Preconditions:**
+- Mock UPDATE_SERVICE gRPC server.
+
+**Input:**
+- `parking-app-cli status --adapter-id=a1`
+
+**Expected:**
+- GetAdapterStatus(adapter_id="a1") RPC called.
+- Response printed to stdout.
+- Exit code 0.
+
+**Assertion pseudocode:**
+```
+mock_us = startMockGRPCServer(GetAdapterStatus returns {adapter_id: "a1", state: RUNNING, image_ref: "registry/adapter:v1"})
+proc = exec("parking-app-cli", "status", "--adapter-id=a1",
+            "--update-addr=" + mock_us.addr)
+ASSERT proc.exit_code == 0
+ASSERT "a1" IN proc.stdout
+ASSERT "RUNNING" IN proc.stdout
+```
+
+### TS-09-19: Parking App CLI Remove Adapter
+
+**Requirement:** 09-REQ-5.5
+**Type:** integration
+**Description:** parking-app-cli remove calls RemoveAdapter on UPDATE_SERVICE.
+
+**Preconditions:**
+- Mock UPDATE_SERVICE gRPC server.
+
+**Input:**
+- `parking-app-cli remove --adapter-id=a1`
+
+**Expected:**
+- RemoveAdapter(adapter_id="a1") RPC called.
+- Exit code 0.
+
+**Assertion pseudocode:**
+```
+mock_us = startMockGRPCServer(RemoveAdapter returns {})
+proc = exec("parking-app-cli", "remove", "--adapter-id=a1",
+            "--update-addr=" + mock_us.addr)
+ASSERT proc.exit_code == 0
+```
+
 ### TS-09-9: Parking App CLI Start Session Override
 
 **Requirement:** 09-REQ-6.1
@@ -510,6 +561,28 @@ ASSERT proc.exit_code == 1
 ASSERT proc.stderr.len() > 0
 ```
 
+### TS-09-E12: Door Sensor Mutually Exclusive Flags
+
+**Requirement:** 09-REQ-3.E3
+**Type:** unit
+**Description:** door-sensor with both --open and --closed exits 1.
+
+**Preconditions:**
+- None.
+
+**Input:**
+- `door-sensor --open --closed`
+
+**Expected:**
+- Exit code 1. Stderr contains usage error.
+
+**Assertion pseudocode:**
+```
+proc = exec("door-sensor", "--open", "--closed")
+ASSERT proc.exit_code == 1
+ASSERT proc.stderr.len() > 0
+```
+
 ### TS-09-E4: Sensor Unreachable DATA_BROKER
 
 **Requirement:** 09-REQ-1.E2, 09-REQ-2.E2, 09-REQ-3.E2
@@ -768,26 +841,28 @@ FOR i IN 1..100:
     ids.add(resp.session_id)
 ```
 
-### TS-09-P5: Parking Operator Session Uniqueness
+### TS-09-P5: Parking Operator Concurrent Session Uniqueness
 
 **Property:** Property 5 from design.md
 **Validates:** 09-REQ-8.2, 09-REQ-8.5
 **Type:** property
-**Description:** For any POST /parking/start request, the server generates a unique UUID-format session_id and stores the session in memory.
+**Description:** For any number of concurrent start requests, all generated session_ids are unique UUIDs. Unlike TS-09-P4 (sequential), this test fires requests in parallel to exercise mutex-protected session creation.
 
-**For any:** N concurrent or sequential start requests (N = 1..100).
-**Invariant:** All returned session_ids are distinct and match UUID format.
+**For any:** N concurrent start requests (N = 50), sent from parallel goroutines.
+**Invariant:** All returned session_ids are distinct, match UUID format, and no request fails.
 
 **Assertion pseudocode:**
 ```
+results = parallelDo(50, func(i):
+    return POST("/parking/start", {vehicle_id: "V"+i, zone_id: "z1", timestamp: i})
+)
 ids = set()
-FOR i IN 1..100:
-    resp = POST("/parking/start", {vehicle_id: "V"+i, zone_id: "z1", timestamp: i})
+FOR resp IN results:
     ASSERT resp.status == 200
     ASSERT UUID_REGEX.matches(resp.json().session_id)
     ASSERT resp.json().session_id NOT IN ids
     ids.add(resp.json().session_id)
-ASSERT len(ids) == 100
+ASSERT len(ids) == 50
 ```
 
 ### TS-09-P6: Bearer Token Enforcement
@@ -887,6 +962,7 @@ ASSERT proc_status.exit_code == 0
 | 09-REQ-3.2 | TS-09-3 | integration |
 | 09-REQ-3.E1 | TS-09-E3 | unit |
 | 09-REQ-3.E2 | TS-09-E4 | unit |
+| 09-REQ-3.E3 | TS-09-E12 | unit |
 | 09-REQ-4.1 | TS-09-5 | integration |
 | 09-REQ-4.2 | TS-09-6 | integration |
 | 09-REQ-4.3 | TS-09-5 | integration |
@@ -895,8 +971,8 @@ ASSERT proc_status.exit_code == 0
 | 09-REQ-5.1 | TS-09-7 | integration |
 | 09-REQ-5.2 | TS-09-8 | integration |
 | 09-REQ-5.3 | — | manual |
-| 09-REQ-5.4 | TS-09-8 | integration |
-| 09-REQ-5.5 | TS-09-8 | integration |
+| 09-REQ-5.4 | TS-09-18 | integration |
+| 09-REQ-5.5 | TS-09-19 | integration |
 | 09-REQ-5.6 | TS-09-7 | integration |
 | 09-REQ-5.E1 | TS-09-E10 | unit |
 | 09-REQ-5.E2 | TS-09-E10 | unit |

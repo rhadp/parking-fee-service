@@ -63,6 +63,7 @@ This document specifies the requirements for the Mock Apps (Phase 1.2 / 2.1 / 2.
 
 1. [09-REQ-3.E1] IF neither `--open` nor `--closed` is provided, THEN THE tool SHALL print a usage error to stderr and exit with code 1.
 2. [09-REQ-3.E2] IF the DATA_BROKER is unreachable, THEN THE tool SHALL print an error to stderr and exit with code 1.
+3. [09-REQ-3.E3] IF both `--open` and `--closed` are provided simultaneously, THEN THE tool SHALL print a usage error to stderr and exit with code 1.
 
 ### Requirement 4: Parking App CLI - Operator Discovery
 
@@ -126,7 +127,7 @@ This document specifies the requirements for the Mock Apps (Phase 1.2 / 2.1 / 2.
 #### Edge Cases
 
 1. [09-REQ-7.E1] IF `--vin` is missing, THEN THE tool SHALL print a usage error to stderr and exit with code 1.
-2. [09-REQ-7.E2] IF no bearer token is provided via flag or environment variable, THEN THE tool SHALL print an error to stderr and exit with code 1.
+2. [09-REQ-7.E2] IF no bearer token is provided via flag or environment variable, THEN THE tool SHALL print an error mentioning "token" to stderr and exit with code 1.
 3. [09-REQ-7.E3] IF the CLOUD_GATEWAY returns a non-2xx response, THEN THE tool SHALL print the HTTP status and body to stderr and exit with code 1.
 
 ### Requirement 8: Mock Parking Operator Server
@@ -135,9 +136,9 @@ This document specifies the requirements for the Mock Apps (Phase 1.2 / 2.1 / 2.
 
 #### Acceptance Criteria
 
-1. [09-REQ-8.1] WHEN `parking-operator serve` is invoked, THE tool SHALL start an HTTP server on the port specified by `--port` flag or `PORT` environment variable (default: 8080) and listen until SIGTERM or SIGINT is received.
-2. [09-REQ-8.2] THE server SHALL handle `POST /parking/start` accepting `{"vehicle_id", "zone_id", "timestamp"}` and returning `{"session_id": "<uuid>", "status": "active", "rate": {"rate_type": "per_hour", "amount": 2.50, "currency": "EUR"}}` with HTTP 200.
-3. [09-REQ-8.3] THE server SHALL handle `POST /parking/stop` accepting `{"session_id", "timestamp"}` and returning `{"session_id", "status": "stopped", "duration_seconds", "total_amount", "currency": "EUR"}` with HTTP 200, where `total_amount = rate * duration_hours`.
+1. [09-REQ-8.1] WHEN `parking-operator serve` is invoked, THE tool SHALL start an HTTP server on the port specified by `--port` flag or `PORT` environment variable (default: 9090) and listen until SIGTERM or SIGINT is received.
+2. [09-REQ-8.2] THE server SHALL handle `POST /parking/start` accepting `{"vehicle_id", "zone_id", "timestamp"}` (where `timestamp` is a Unix timestamp in seconds, int64) and returning `{"session_id": "<uuid>", "status": "active", "rate": {"rate_type": "per_hour", "amount": 2.50, "currency": "EUR"}}` with HTTP 200.
+3. [09-REQ-8.3] THE server SHALL handle `POST /parking/stop` accepting `{"session_id", "timestamp"}` (where `timestamp` is a Unix timestamp in seconds, int64) and returning `{"session_id", "status": "stopped", "duration_seconds", "total_amount", "currency": "EUR"}` with HTTP 200, where `total_amount = rate * duration_hours`.
 4. [09-REQ-8.4] THE server SHALL handle `GET /parking/status/{session_id}` and return the current session state as JSON with HTTP 200.
 5. [09-REQ-8.5] THE server SHALL store sessions in memory, generating UUID-format `session_id` values and calculating duration on stop.
 

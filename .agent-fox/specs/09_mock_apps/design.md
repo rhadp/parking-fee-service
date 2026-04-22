@@ -65,8 +65,14 @@ sequenceDiagram
 1. **lib.rs** — Shared helper: `publish_datapoint(broker_addr, path, value)` connecting to DATA_BROKER via kuksa.val.v1 gRPC `Set` RPC.
 2. **bin/location-sensor.rs** — Parses `--lat`, `--lon`, `--broker-addr` args; calls `publish_datapoint` twice (Latitude, Longitude).
 3. **bin/speed-sensor.rs** — Parses `--speed`, `--broker-addr` args; calls `publish_datapoint` once (Speed).
-4. **bin/door-sensor.rs** — Parses `--open`/`--closed`, `--broker-addr` args; calls `publish_datapoint` once (IsOpen).
+4. **bin/door-sensor.rs** — Parses `--open`/`--closed`, `--broker-addr` args (mutually exclusive via clap `ArgGroup`); calls `publish_datapoint` once (IsOpen).
 5. **build.rs** — tonic-build code generation from vendored `proto/` kuksa.val.v1 protos.
+
+**Known limitation — kuksa.val.v1 vs v2:** The mock sensors target the kuksa.val.v1
+gRPC API. The production kuksa-databroker v0.5.0 exposes kuksa.val.v2.VAL only.
+Integration tests against the real broker therefore skip when the v1 service is
+unavailable. A stub v1-compatible gRPC server is used for automated testing. See
+`docs/errata/09_mock_apps_sensor_proto_compat.md` for details.
 
 #### Go Mock CLI Apps (`mock/`)
 
@@ -167,6 +173,138 @@ pub async fn publish_datapoint(
 | `start-session` | ParkingAdaptor | `StartSession(zone_id)` |
 | `stop-session` | ParkingAdaptor | `StopSession()` |
 
+### gRPC Proto Dependencies
+
+parking-app-cli task groups 4.3 and 4.4 consume gRPC services defined by prior
+specs. The proto files are created by specs 07 and 08 respectively and live in
+the repository's `proto/` directory. Their definitions are reproduced here for
+implementer reference.
+
+#### UpdateService (`proto/update_service.proto`)
+
+- **Package:** `update_service.v1`
+- **Source spec:** 07_update_service
+
+```protobuf
+syntax = "proto3";
+package update_service.v1;
+
+enum AdapterState {
+    UNKNOWN      = 0;
+    DOWNLOADING  = 1;
+    INSTALLING   = 2;
+    RUNNING      = 3;
+    STOPPED      = 4;
+    ERROR        = 5;
+    OFFLOADING   = 6;
+}
+
+message InstallAdapterRequest {
+    string image_ref       = 1;
+    string checksum_sha256 = 2;
+}
+message InstallAdapterResponse {
+    string       job_id     = 1;
+    string       adapter_id = 2;
+    AdapterState state      = 3;
+}
+
+message WatchAdapterStatesRequest {}
+message AdapterStateEvent {
+    string       adapter_id = 1;
+    AdapterState old_state  = 2;
+    AdapterState new_state  = 3;
+    uint64       timestamp  = 4; // Unix seconds
+}
+
+message ListAdaptersRequest {}
+message AdapterInfo {
+    string       adapter_id = 1;
+    AdapterState state      = 2;
+    string       image_ref  = 3;
+}
+message ListAdaptersResponse {
+    repeated AdapterInfo adapters = 1;
+}
+
+message RemoveAdapterRequest  { string adapter_id = 1; }
+message RemoveAdapterResponse {}
+
+message GetAdapterStatusRequest  { string adapter_id = 1; }
+message GetAdapterStatusResponse {
+    string       adapter_id = 1;
+    AdapterState state      = 2;
+    string       image_ref  = 3;
+}
+
+service UpdateService {
+    rpc InstallAdapter    (InstallAdapterRequest)       returns (InstallAdapterResponse);
+    rpc WatchAdapterStates(WatchAdapterStatesRequest)   returns (stream AdapterStateEvent);
+    rpc ListAdapters      (ListAdaptersRequest)         returns (ListAdaptersResponse);
+    rpc RemoveAdapter     (RemoveAdapterRequest)        returns (RemoveAdapterResponse);
+    rpc GetAdapterStatus  (GetAdapterStatusRequest)     returns (GetAdapterStatusResponse);
+}
+```
+
+#### ParkingAdaptor (`proto/parking_adaptor.proto`)
+
+- **Package:** `parking_adaptor.v1`
+- **Source spec:** 08_parking_operator_adaptor
+
+```protobuf
+syntax = "proto3";
+package parking_adaptor.v1;
+
+message StartSessionRequest  { string zone_id = 1; }
+message StartSessionResponse {
+    string session_id = 1;
+    string status     = 2;
+    Rate   rate       = 3;
+}
+
+message StopSessionRequest  {}
+message StopSessionResponse {
+    string session_id      = 1;
+    string status          = 2;
+    uint64 duration_seconds = 3;
+    double total_amount    = 4;
+    string currency        = 5;
+}
+
+message GetStatusRequest  {}
+message GetStatusResponse {
+    bool   active    = 1;
+    string session_id = 2;
+    string zone_id   = 3;
+    int64  start_time = 4;
+    Rate   rate      = 5;
+}
+
+message GetRateRequest  {}
+message GetRateResponse {
+    Rate rate = 1;
+}
+
+message Rate {
+    string rate_type = 1; // "per_hour" | "flat_fee"
+    double amount    = 2;
+    string currency  = 3;
+}
+
+service ParkingAdaptor {
+    rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+    rpc StopSession (StopSessionRequest)  returns (StopSessionResponse);
+    rpc GetStatus   (GetStatusRequest)    returns (GetStatusResponse);
+    rpc GetRate     (GetRateRequest)      returns (GetRateResponse);
+}
+```
+
+#### Go code generation
+
+The Go mock CLI apps generate Go stubs from these protos via `protoc` with
+`protoc-gen-go` and `protoc-gen-go-grpc`. The `Makefile proto` target handles
+this. Generated code goes into `mock/gen/`.
+
 ## Data Models
 
 ### Session (parking-operator in-memory)
@@ -177,8 +315,8 @@ type Session struct {
     VehicleID  string    `json:"vehicle_id"`
     ZoneID     string    `json:"zone_id"`
     Status     string    `json:"status"`       // "active" | "stopped"
-    StartTime  int64     `json:"start_time"`
-    StopTime   int64     `json:"stop_time,omitempty"`
+    StartTime  int64     `json:"start_time"`    // Unix timestamp in seconds
+    StopTime   int64     `json:"stop_time,omitempty"` // Unix timestamp in seconds
     Duration   uint64    `json:"duration_seconds,omitempty"`
     TotalAmt   float64   `json:"total_amount,omitempty"`
     Currency   string    `json:"currency,omitempty"`

@@ -31,7 +31,8 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - Ensure `rhivos/mock-sensors/` has `src/lib.rs` with module declarations and stub `publish_datapoint` function
     - Add dev-dependencies: `tokio` (test features)
     - Create argument validation tests for each sensor binary (exit code checks)
-    - _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
+    - Include door-sensor mutual exclusion test (both --open and --closed)
+    - _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4, TS-09-E12_
 
   - [ ] 1.2 Set up Go test infrastructure for mock apps
     - Create `tests/mock-apps/` Go module with test helpers (mock HTTP server, mock gRPC server, process runner)
@@ -60,9 +61,11 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestAdapterInfo` — TS-09-6: adapter-info queries metadata
     - `TestInstall` — TS-09-7: install calls InstallAdapter RPC
     - `TestList` — TS-09-8: list calls ListAdapters RPC
+    - `TestAdapterStatus` — TS-09-18: status calls GetAdapterStatus RPC
+    - `TestRemove` — TS-09-19: remove calls RemoveAdapter RPC
     - `TestStartSession` — TS-09-9: start-session calls StartSession RPC
     - `TestStopSession` — TS-09-10: stop-session calls StopSession RPC
-    - _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10_
+    - _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-18, TS-09-19_
 
   - [ ] 1.V Verify task group 1
     - [ ] Rust test files compile: `cd rhivos && cargo test -p mock-sensors --no-run`
@@ -125,7 +128,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - _Requirements: 09-REQ-8.2, 09-REQ-8.3, 09-REQ-8.4, 09-REQ-8.E1, 09-REQ-8.E2, 09-REQ-8.E3_
 
   - [ ] 3.3 Implement serve subcommand
-    - Parse `--port` flag with default 8080
+    - Parse `--port` flag with default 9090
     - Start HTTP server with graceful shutdown on SIGTERM/SIGINT
     - Log listening address to stderr
     - _Requirements: 09-REQ-8.1_
@@ -154,6 +157,8 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
   - [ ] 4.3 Implement parking-app-cli gRPC subcommands (UPDATE_SERVICE)
     - Subcommands: `install`, `watch`, `list`, `remove`, `status`
     - gRPC client targeting UPDATE_SERVICE from `--update-addr` or `UPDATE_SERVICE_ADDR` (default: `localhost:50052`)
+    - Proto source: `proto/update_service.proto` (package `update_service.v1`, service `UpdateService`; see design.md § gRPC Proto Dependencies)
+    - Generate Go stubs via `make proto` before building
     - `watch` streams events until EOF or SIGINT
     - Print responses to stdout, errors to stderr
     - _Requirements: 09-REQ-5.1, 09-REQ-5.2, 09-REQ-5.3, 09-REQ-5.4, 09-REQ-5.5, 09-REQ-5.6, 09-REQ-5.E1, 09-REQ-5.E2_
@@ -161,6 +166,8 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
   - [ ] 4.4 Implement parking-app-cli session override subcommands
     - Subcommands: `start-session`, `stop-session`
     - gRPC client targeting PARKING_OPERATOR_ADAPTOR from `--adaptor-addr` or `ADAPTOR_ADDR` (default: `localhost:50053`)
+    - Proto source: `proto/parking_adaptor.proto` (package `parking_adaptor.v1`, service `ParkingAdaptor`; see design.md § gRPC Proto Dependencies)
+    - Generate Go stubs via `make proto` before building
     - Print responses to stdout, errors to stderr
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3, 09-REQ-6.E1_
 
@@ -169,7 +176,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [ ] CLI tests pass: `cd mock && go test -v ./...`
     - [ ] All existing tests still pass: `make check` clean; integration tests in tests/mock-apps all pass
     - [ ] No linter warnings: `cd mock && go vet ./...`
-    - [ ] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
+    - [ ] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-18, TS-09-19, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
 
 - [ ] 5. Wiring verification
   - [ ] 5.1 Run mock sensor integration tests against DATA_BROKER
@@ -239,6 +246,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 | 09-REQ-3.2 | TS-09-3 | 2.5 | tests/mock-apps::TestDoorSensor |
 | 09-REQ-3.E1 | TS-09-E3 | 2.5 | mock-sensors::test_door_sensor_missing_args |
 | 09-REQ-3.E2 | TS-09-E4 | 2.5 | mock-sensors::test_sensor_unreachable_broker |
+| 09-REQ-3.E3 | TS-09-E12 | 2.5 | mock-sensors::test_door_sensor_mutual_exclusion |
 | 09-REQ-4.1 | TS-09-5 | 4.2 | tests/mock-apps::TestLookup |
 | 09-REQ-4.2 | TS-09-6 | 4.2 | tests/mock-apps::TestAdapterInfo |
 | 09-REQ-4.3 | TS-09-5 | 4.2 | tests/mock-apps::TestLookup |
@@ -247,8 +255,8 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 | 09-REQ-5.1 | TS-09-7 | 4.3 | tests/mock-apps::TestInstall |
 | 09-REQ-5.2 | TS-09-8 | 4.3 | tests/mock-apps::TestList |
 | 09-REQ-5.3 | — | 4.3 | manual verification |
-| 09-REQ-5.4 | TS-09-8 | 4.3 | tests/mock-apps::TestAdapterStatus |
-| 09-REQ-5.5 | TS-09-8 | 4.3 | tests/mock-apps::TestRemove |
+| 09-REQ-5.4 | TS-09-18 | 4.3 | tests/mock-apps::TestAdapterStatus |
+| 09-REQ-5.5 | TS-09-19 | 4.3 | tests/mock-apps::TestRemove |
 | 09-REQ-5.6 | TS-09-7 | 4.3 | tests/mock-apps::TestInstall |
 | 09-REQ-5.E1 | TS-09-E10 | 4.3 | tests/mock-apps::TestInstallMissingArgs |
 | 09-REQ-5.E2 | TS-09-E10 | 4.3 | tests/mock-apps::TestInstallGRPCError |

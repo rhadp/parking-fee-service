@@ -80,7 +80,7 @@ Simulates an external parking operator's REST API. Endpoints:
 ### Connections
 
 - Receives requests from PARKING_OPERATOR_ADAPTOR
-- Default port: 8080
+- Default port: 9090
 
 ## Mock Sensors
 
