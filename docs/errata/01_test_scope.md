@@ -9,42 +9,34 @@ The spec 01 `make test` and `make check` targets do not run the full
 ### 1. Rust crates excluded from test-rust
 
 `test-rust` uses `cargo test --workspace --exclude cloud-gateway-client
---lib --bins` instead of `cargo test --workspace`.
-
-Two types of exclusions apply:
+--exclude update-service --exclude parking-operator-adaptor` instead of
+`cargo test --workspace`.
 
 - **Crate exclusions** (`--exclude`): `cloud-gateway-client` (spec 04 TG1
-  stubs) and `update-service` (spec 07 TG1 stubs) contain failing tests
-  that require implementation from their respective specs. They are excluded
-  entirely until those specs are implemented.
+  stubs), `update-service` (spec 07 TG1 stubs), and `parking-operator-adaptor`
+  (spec 08 TG1 stubs) contain failing tests that require implementation from
+  their respective specs. They are excluded entirely until those specs are
+  implemented.
   `locking-service` was previously excluded (spec 03 TG1 stubs) but is now
   included after spec 03 task group 3 implementation.
+  ~~`mock-sensors` integration tests were previously excluded via `--lib --bins`~~
+  but are now included after spec 09 task group 5 implementation.
 
-- **Integration test exclusion** (`--lib --bins`): `rhivos/mock-sensors/tests/
-  cli_tests.rs` contains integration tests from spec 09 that expect full CLI
-  argument parsing and broker connection logic. The spec 01 placeholder tests
-  (`it_compiles`) are all unit tests and pass correctly.
+**Impact:** Test regressions in cloud-gateway-client, update-service, and
+parking-operator-adaptor are not caught by `make test`. They are covered when
+specs 04, 07, and 08 are implemented.
 
-**Impact:** Test regressions in cloud-gateway-client, locking-service, and
-mock-sensors integration tests are not caught by `make test`. They are covered
-when specs 03, 04, and 09 are implemented.
+### 2. ~~Go mock/parking-operator excluded from test-go~~ Resolved
 
-### 2. Go mock/parking-operator excluded from test-go
+~~`test-go` does not run `go test` in `mock/parking-operator/`.~~
+Now included after spec 09 implementation.
 
-`test-go` does not run `go test` in `mock/parking-operator/` because
-`server_test.go` (spec 09) contains integration tests that require the HTTP
-server routes to be implemented.
+### 3. ~~Go tests/mock-apps excluded from test-go~~ Resolved
 
-**Impact:** Regressions in mock/parking-operator are not caught by `make test`.
-They are covered when spec 09 is implemented.
-
-### 3. Go tests/mock-apps excluded from test-go
-
-`test-go` does not run `go test` in `tests/mock-apps/` because the tests
-(spec 09) require mock app CLI implementations that are not yet complete.
-
-**Impact:** Regressions in tests/mock-apps are not caught by `make test`.
-They are covered when spec 09 is implemented.
+~~`test-go` does not run `go test` in `tests/mock-apps/`.~~
+Now included after spec 09 task group 5 implementation. Runs integration tests
+for all six mock tools (sensor, parking-operator, companion-app, parking-app)
+including smoke tests and property tests.
 
 ### 4. Go backend modules scoped to root package
 
@@ -88,8 +80,9 @@ Once the relevant specs implement the required components, the Makefile should
 be updated to:
 - Remove `--exclude cloud-gateway-client` (after spec 04 implementation)
 - Remove `--exclude update-service` (after spec 07 implementation)
+- Remove `--exclude parking-operator-adaptor` (after spec 08 implementation)
 - ~~Remove `--exclude locking-service` (after spec 03 implementation)~~ Done
-- Use `cargo test --workspace` without `--lib --bins` (after spec 09)
-- Include `mock/parking-operator` in `test-go` (after spec 09)
-- Include `tests/mock-apps` in `test-go` (after spec 09)
+- ~~Use `cargo test --workspace` without `--lib --bins` (after spec 09)~~ Done
+- ~~Include `mock/parking-operator` in `test-go` (after spec 09)~~ Done
+- ~~Include `tests/mock-apps` in `test-go` (after spec 09)~~ Done
 - Use `go test ./...` for backend modules (after specs 05 and 06)
