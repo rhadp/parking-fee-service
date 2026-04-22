@@ -348,13 +348,14 @@ func TestRustSkeletonBinaries(t *testing.T) {
 		t.Fatalf("cargo build failed: %v\n%s", err, string(out))
 	}
 
-	// Service binaries: print version and exit 0
+	// Service binaries that still have skeleton behavior: print version and exit 0.
+	// cloud-gateway-client is excluded — spec 04 replaced the skeleton with a
+	// full implementation that requires environment configuration to run.
 	services := []struct {
 		name           string
 		expectInOutput string
 	}{
 		{"locking-service", "locking-service"},
-		{"cloud-gateway-client", "cloud-gateway-client"},
 		{"update-service", "update-service"},
 		{"parking-operator-adaptor", "parking-operator-adaptor"},
 	}
@@ -459,10 +460,10 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 		t.Fatalf("cargo build failed: %v\n%s", err, string(out))
 	}
 
-	// Service binaries (exit 0, print version to stdout)
+	// Service binaries with skeleton behavior (exit 0, print version to stdout).
+	// cloud-gateway-client excluded — fully implemented by spec 04.
 	services := []string{
 		"locking-service",
-		"cloud-gateway-client",
 		"update-service",
 		"parking-operator-adaptor",
 	}
