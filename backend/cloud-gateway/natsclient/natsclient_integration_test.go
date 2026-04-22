@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,35 @@ import (
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/natsclient"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/store"
 )
+
+// safeBuffer is a thread-safe wrapper around bytes.Buffer for use in tests
+// where concurrent goroutines write to the buffer (e.g., NATS callbacks logging).
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (sb *safeBuffer) Write(p []byte) (n int, err error) {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.buf.Write(p)
+}
+
+func (sb *safeBuffer) String() string {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.buf.String()
+}
+
+func (sb *safeBuffer) Bytes() []byte {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	// Return a copy to avoid races after releasing the lock.
+	b := sb.buf.Bytes()
+	cp := make([]byte, len(b))
+	copy(cp, b)
+	return cp
+}
 
 // TS-06-P6: NATS Header Propagation (Property Test)
 // Property 5: For any command published to NATS, the message contains the
@@ -50,6 +80,12 @@ func TestPropertyNATSHeaderPropagation(t *testing.T) {
 				t.Fatalf("failed to subscribe: %v", err)
 			}
 			defer sub.Unsubscribe()
+
+			// Flush to ensure the subscription is registered on the server
+			// before we publish, avoiding a subscribe-before-publish race.
+			if err := rawNC.Flush(); err != nil {
+				t.Fatalf("failed to flush: %v", err)
+			}
 
 			cmd := model.Command{
 				CommandID: "p6-" + tc.token,
@@ -136,9 +172,10 @@ func TestNATSResponseSubscription(t *testing.T) {
 // Requirement: 06-REQ-5.3
 // The service subscribes to telemetry on NATS and logs it without storing.
 func TestTelemetrySubscriptionLogging(t *testing.T) {
-	// Capture log output by setting a custom default logger.
-	var logBuf bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	// Capture log output using a thread-safe buffer since NATS callbacks
+	// write from a separate goroutine.
+	logBuf := &safeBuffer{}
+	logger := slog.New(slog.NewTextHandler(logBuf, nil))
 	slog.SetDefault(logger)
 
 	nc, err := natsclient.Connect("nats://localhost:4222", 3)
@@ -175,11 +212,12 @@ func TestTelemetrySubscriptionLogging(t *testing.T) {
 		t.Error("expected log output for telemetry, got none")
 	}
 
-	if !bytes.Contains(logBuf.Bytes(), []byte("VIN12345")) {
+	logBytes := logBuf.Bytes()
+	if !bytes.Contains(logBytes, []byte("VIN12345")) {
 		t.Errorf("expected log to contain 'VIN12345', got: %s", logs)
 	}
 
-	if !bytes.Contains(logBuf.Bytes(), []byte("telemetry")) {
+	if !bytes.Contains(logBytes, []byte("telemetry")) {
 		t.Errorf("expected log to contain 'telemetry', got: %s", logs)
 	}
 }
