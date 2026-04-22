@@ -4,13 +4,12 @@
 //! Produces aggregated JSON payloads on each change, omitting fields
 //! that have never been set.
 
-use crate::models::SignalUpdate;
+use crate::models::{SignalUpdate, TelemetryMessage};
 
 /// Maintains current values for all telemetry signals.
 ///
 /// Tracks which signals have been received at least once and produces
 /// aggregated JSON payloads on each update.
-#[allow(dead_code)]
 pub struct TelemetryState {
     vin: String,
     is_locked: Option<bool>,
@@ -21,17 +20,41 @@ pub struct TelemetryState {
 
 impl TelemetryState {
     /// Create a new telemetry state for the given VIN.
-    pub fn new(_vin: String) -> Self {
-        todo!("TelemetryState::new not yet implemented")
+    pub fn new(vin: String) -> Self {
+        TelemetryState {
+            vin,
+            is_locked: None,
+            latitude: None,
+            longitude: None,
+            parking_active: None,
+        }
     }
 
     /// Apply a signal update and return the aggregated JSON if state changed.
     ///
-    /// Returns `Some(json_string)` with all currently known fields, or
-    /// `None` if the update is a no-op (not currently implemented — always
-    /// returns Some for any update).
-    pub fn update(&mut self, _signal: SignalUpdate) -> Option<String> {
-        todo!("TelemetryState::update not yet implemented")
+    /// Returns `Some(json_string)` with all currently known fields.
+    /// Fields that have never been set are omitted from the JSON output.
+    pub fn update(&mut self, signal: SignalUpdate) -> Option<String> {
+        match signal {
+            SignalUpdate::IsLocked(v) => self.is_locked = Some(v),
+            SignalUpdate::Latitude(v) => self.latitude = Some(v),
+            SignalUpdate::Longitude(v) => self.longitude = Some(v),
+            SignalUpdate::ParkingActive(v) => self.parking_active = Some(v),
+        }
+
+        let msg = TelemetryMessage {
+            vin: self.vin.clone(),
+            is_locked: self.is_locked,
+            latitude: self.latitude,
+            longitude: self.longitude,
+            parking_active: self.parking_active,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock before UNIX epoch")
+                .as_secs(),
+        };
+
+        Some(serde_json::to_string(&msg).expect("telemetry serialization failed"))
     }
 }
 
