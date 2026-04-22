@@ -26,20 +26,20 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up Rust test infrastructure for mock sensors
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up Rust test infrastructure for mock sensors
     - Ensure `rhivos/mock-sensors/` has `src/lib.rs` with module declarations and stub `publish_datapoint` function
     - Add dev-dependencies: `tokio` (test features)
     - Create argument validation tests for each sensor binary (exit code checks)
     - Include door-sensor mutual exclusion test (both --open and --closed)
     - _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4, TS-09-E12_
 
-  - [ ] 1.2 Set up Go test infrastructure for mock apps
+  - [x] 1.2 Set up Go test infrastructure for mock apps
     - Create `tests/mock-apps/` Go module with test helpers (mock HTTP server, mock gRPC server, process runner)
     - Add `go.work` entry for `./tests/mock-apps`
     - _Test Spec: TS-09-5 through TS-09-17_
 
-  - [ ] 1.3 Write parking-operator unit tests
+  - [x] 1.3 Write parking-operator unit tests
     - `TestStartSession` — TS-09-14: POST /parking/start returns session with UUID and rate
     - `TestStopSession` — TS-09-15: POST /parking/stop returns duration and total_amount
     - `TestSessionStatus` — TS-09-16: GET /parking/status returns session state
@@ -48,7 +48,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestMalformedRequest` — TS-09-E9: malformed body returns 400
     - _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-E7, TS-09-E8, TS-09-E9, TS-09-P5_
 
-  - [ ] 1.4 Write companion-app-cli tests
+  - [x] 1.4 Write companion-app-cli tests
     - `TestLockCommand` — TS-09-11: lock sends correct POST with auth header
     - `TestUnlockCommand` — TS-09-12: unlock sends correct POST
     - `TestStatusCommand` — TS-09-13: status sends correct GET
@@ -56,7 +56,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestMissingVIN` — TS-09-E6: exits 1 without VIN
     - _Test Spec: TS-09-11, TS-09-12, TS-09-13, TS-09-E5, TS-09-E6, TS-09-P6_
 
-  - [ ] 1.5 Write parking-app-cli tests
+  - [x] 1.5 Write parking-app-cli tests
     - `TestLookup` — TS-09-5: lookup queries PARKING_FEE_SERVICE
     - `TestAdapterInfo` — TS-09-6: adapter-info queries metadata
     - `TestInstall` — TS-09-7: install calls InstallAdapter RPC
@@ -67,11 +67,11 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - `TestStopSession` — TS-09-10: stop-session calls StopSession RPC
     - _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-18, TS-09-19_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] Rust test files compile: `cd rhivos && cargo test -p mock-sensors --no-run`
-    - [ ] Go test files compile: `cd tests/mock-apps && go test -c ./...`
-    - [ ] All spec tests FAIL (red phase)
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] Rust test files compile: `cd rhivos && cargo test -p mock-sensors --no-run`
+    - [x] Go test files compile: `cd tests/mock-apps && go test -c ./...`
+    - [x] All spec tests FAIL (red phase)
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
 
 - [ ] 2. Rust mock sensors
   - [ ] 2.1 Vendor kuksa.val.v1 proto files

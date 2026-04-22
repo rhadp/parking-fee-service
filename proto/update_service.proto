@@ -1,0 +1,60 @@
+syntax = "proto3";
+package update_service.v1;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/update_service/v1;update_service_v1";
+
+enum AdapterState {
+    UNKNOWN      = 0;
+    DOWNLOADING  = 1;
+    INSTALLING   = 2;
+    RUNNING      = 3;
+    STOPPED      = 4;
+    ERROR        = 5;
+    OFFLOADING   = 6;
+}
+
+message InstallAdapterRequest {
+    string image_ref       = 1;
+    string checksum_sha256 = 2;
+}
+message InstallAdapterResponse {
+    string       job_id     = 1;
+    string       adapter_id = 2;
+    AdapterState state      = 3;
+}
+
+message WatchAdapterStatesRequest {}
+message AdapterStateEvent {
+    string       adapter_id = 1;
+    AdapterState old_state  = 2;
+    AdapterState new_state  = 3;
+    uint64       timestamp  = 4; // Unix seconds
+}
+
+message ListAdaptersRequest {}
+message AdapterInfo {
+    string       adapter_id = 1;
+    AdapterState state      = 2;
+    string       image_ref  = 3;
+}
+message ListAdaptersResponse {
+    repeated AdapterInfo adapters = 1;
+}
+
+message RemoveAdapterRequest  { string adapter_id = 1; }
+message RemoveAdapterResponse {}
+
+message GetAdapterStatusRequest  { string adapter_id = 1; }
+message GetAdapterStatusResponse {
+    string       adapter_id = 1;
+    AdapterState state      = 2;
+    string       image_ref  = 3;
+}
+
+service UpdateService {
+    rpc InstallAdapter    (InstallAdapterRequest)       returns (InstallAdapterResponse);
+    rpc WatchAdapterStates(WatchAdapterStatesRequest)   returns (stream AdapterStateEvent);
+    rpc ListAdapters      (ListAdaptersRequest)         returns (ListAdaptersResponse);
+    rpc RemoveAdapter     (RemoveAdapterRequest)        returns (RemoveAdapterResponse);
+    rpc GetAdapterStatus  (GetAdapterStatusRequest)     returns (GetAdapterStatusResponse);
+}

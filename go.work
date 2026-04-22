@@ -1,0 +1,9 @@
+go 1.22
+
+use (
+	./mock/companion-app-cli
+	./mock/parking-app-cli
+	./mock/parking-operator
+	./tests/mock-apps
+	./tests/setup
+)
