@@ -6,6 +6,7 @@
 //! 2. Outbound command response relay (DATA_BROKER -> NATS)
 //! 3. Outbound telemetry publishing (DATA_BROKER -> NATS)
 
+pub mod broker_client;
 pub mod command_validator;
 pub mod config;
 pub mod errors;
