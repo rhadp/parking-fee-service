@@ -136,8 +136,8 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
     - [x] _Test Spec: TS-05-2, TS-05-3, TS-05-11, TS-05-P1, TS-05-P2_
 
-- [ ] 4. HTTP handlers and main
-  - [ ] 4.1 Implement handler package
+- [x] 4. HTTP handlers and main
+  - [x] 4.1 Implement handler package
     - `NewOperatorHandler(store *store.Store, zones []model.Zone, threshold float64) http.HandlerFunc`:
       - Parse and validate lat/lon query params
       - Call `geo.FindMatchingZones`, then `store.GetOperatorsByZoneIDs`
@@ -153,7 +153,7 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Use `{"error":"<message>"}` format for errors
     - _Requirements: 05-REQ-1.1, 05-REQ-1.E1, 05-REQ-1.E2, 05-REQ-1.E3, 05-REQ-2.1, 05-REQ-2.E1, 05-REQ-3.1, 05-REQ-5.1, 05-REQ-5.2, 05-REQ-5.3_
 
-  - [ ] 4.2 Implement main package
+  - [x] 4.2 Implement main package
     - Read `CONFIG_PATH` env var (default "config.json")
     - Call `config.LoadConfig`, create `store.Store`
     - Register routes using Go 1.22 ServeMux patterns:
@@ -166,13 +166,13 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - Use `log/slog` for structured logging
     - _Requirements: 05-REQ-4.1, 05-REQ-6.1, 05-REQ-6.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All handler tests pass: `cd backend && go test -v ./parking-fee-service/handler/...`
-    - [ ] All spec tests pass: `cd backend && go test -v ./parking-fee-service/...`
-    - [ ] Binary builds: `cd backend && go build ./parking-fee-service/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
-    - [ ] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
+  - [x] 4.V Verify task group 4
+    - [x] All handler tests pass: `cd backend && go test -v ./parking-fee-service/handler/...`
+    - [x] All spec tests pass: `cd backend && go test -v ./parking-fee-service/...`
+    - [x] Binary builds: `cd backend && go build ./parking-fee-service/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
+    - [x] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
 
 - [ ] 5. Wiring verification
   - [ ] 5.1 Run full test suite

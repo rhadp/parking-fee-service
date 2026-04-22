@@ -34,10 +34,11 @@ test: test-rust test-go
 test-rust:
 	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --exclude update-service --exclude parking-operator-adaptor --lib --bins
 
-# Note: backend modules use 'go test .' (root package only) to avoid running
-# subpackage stub tests from specs 05 and 06. See docs/errata/01_test_scope.md.
+# Note: backend/cloud-gateway uses 'go test .' (root package only) to avoid
+# running subpackage stub tests from spec 06. See docs/errata/01_test_scope.md.
+# backend/parking-fee-service uses './...' as spec 05 is fully implemented.
 test-go:
-	cd backend/parking-fee-service && go test .
+	cd backend/parking-fee-service && go test ./...
 	cd backend/cloud-gateway && go test .
 	cd mock/parking-app-cli && go test ./...
 	cd mock/companion-app-cli && go test ./...

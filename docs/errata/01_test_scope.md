@@ -49,15 +49,16 @@ not running. Only `go vet` is run in the lint target.
 **Impact:** Regressions in tests/databroker are not caught by `make test`.
 They are covered when spec 02 task group 2+ completes.
 
-### 5. Go backend modules scoped to root package
+### 5. ~~Go backend modules scoped to root package~~ Partially resolved
 
-`test-go` uses `go test .` (root package only) instead of `go test ./...` for
-`backend/parking-fee-service` and `backend/cloud-gateway`. Subpackages
-(`config/`, `store/`, `handler/`, etc.) contain TG1 stub tests from specs 05
-and 06 that fail until those specs are implemented.
+~~`test-go` uses `go test .` (root package only) instead of `go test ./...` for
+`backend/parking-fee-service` and `backend/cloud-gateway`.~~
+`backend/parking-fee-service` now uses `go test ./...` after spec 05 task
+group 4 implementation. `backend/cloud-gateway` still uses `go test .` because
+spec 06 subpackage tests are not yet implemented.
 
-**Impact:** Regressions in backend subpackages are not caught by `make test`.
-They are covered when specs 05 and 06 are implemented.
+**Impact:** Regressions in backend/cloud-gateway subpackages are not caught by
+`make test`. They are covered when spec 06 is implemented.
 
 ### 6. Sensor binary skeleton behavior
 
@@ -96,4 +97,5 @@ be updated to:
 - ~~Use `cargo test --workspace` without `--lib --bins` (after spec 09)~~ Done
 - ~~Include `mock/parking-operator` in `test-go` (after spec 09)~~ Done
 - ~~Include `tests/mock-apps` in `test-go` (after spec 09)~~ Done
-- Use `go test ./...` for backend modules (after specs 05 and 06)
+- ~~Use `go test ./...` for backend/parking-fee-service (after spec 05)~~ Done
+- Use `go test ./...` for backend/cloud-gateway (after spec 06)
