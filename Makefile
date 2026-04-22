@@ -24,9 +24,9 @@ lint:
 	cd tests/setup && go vet ./...
 
 # Run all tests
-# Note: integration test suites from other specs (mock-sensors cli_tests,
-# mock/parking-operator server_test, tests/mock-apps) are excluded because
-# they require implementations from specs 09+. See docs/errata/01_test_scope.md.
+# Note: Some crates/modules are excluded because they contain TG1 stub tests
+# from other specs that are expected to fail until those specs are implemented.
+# See docs/errata/01_test_scope.md for details.
 test: test-rust test-go
 
 test-rust:

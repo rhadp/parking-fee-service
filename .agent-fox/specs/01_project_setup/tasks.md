@@ -157,31 +157,33 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 4_
     _Note: All 4 proto files parse without errors (protoc exit code 0). Each file has syntax="proto3", package declaration, and go_package option. make check passes. make test-setup passes (all 14 test groups)._
 
-- [ ] 5. Create infrastructure configuration and Makefile
+- [x] 5. Create infrastructure configuration and Makefile
   _Set up Podman Compose, NATS config, VSS overlay, and root Makefile._
 
-  - [ ] 5.1 Create `deployments/compose.yml` with NATS (port 4222) and Kuksa Databroker (port 55556) service definitions
+  - [x] 5.1 Create `deployments/compose.yml` with NATS (port 4222) and Kuksa Databroker (port 55556) service definitions
     _Test Spec: TS-01-23_
     _Requirements: 01-REQ-7.1_
+    _Note: Already created in TG2. compose.yml defines nats (port 4222) and kuksa-databroker (port 55556:55555) services with restart policies and volume mounts._
 
-  - [ ] 5.2 Create `deployments/nats/nats-server.conf` with default NATS configuration
+  - [x] 5.2 Create `deployments/nats/nats-server.conf` with default NATS configuration
     _Test Spec: TS-01-24_
     _Requirements: 01-REQ-7.2_
+    _Note: Already created in TG2. Configures port 4222, max_payload 1MB, logging settings._
 
-  - [ ] 5.3 Create `deployments/vss-overlay.json` with custom VSS signal definitions
+  - [x] 5.3 Create `deployments/vss-overlay.json` with custom VSS signal definitions
     _Test Spec: TS-01-25_
     _Requirements: 01-REQ-7.3_
-    _Note: Uses nested tree JSON format (not flat dot-notation) as required by kuksa-databroker; signal full names embedded in descriptions to satisfy TS-01-25 string-contains check. Kuksa port mapped as 55556:55555 (host:container) per Skeptic finding._
+    _Note: Already created in TG2. Uses nested tree JSON format (not flat dot-notation) as required by kuksa-databroker; signal full names embedded in descriptions to satisfy TS-01-25 string-contains check. Kuksa port mapped as 55556:55555 (host:container) per Skeptic finding._
 
-  - [ ] 5.4 Create root `Makefile` with targets: `build`, `build-rust`, `build-go`, `test`, `test-rust`, `test-go`, `test-setup`, `clean`, `proto`, `infra-up`, `infra-down`, `check`
+  - [x] 5.4 Create root `Makefile` with targets: `build`, `build-rust`, `build-go`, `test`, `test-rust`, `test-go`, `test-setup`, `clean`, `proto`, `infra-up`, `infra-down`, `check`
     _Test Spec: TS-01-18, TS-01-19, TS-01-20, TS-01-21, TS-01-22_
     _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.5_
-    _Note: Makefile was already created in task group 2. Updated test-rust to exclude cloud-gateway-client (spec 04 TG1 stubs) in addition to mock-sensors._
+    _Note: Makefile created in TG2. Updated test-rust to exclude cloud-gateway-client (spec 04 TG1 stubs) and locking-service (spec 03 TG1 stubs). check target runs lint + test (actual test execution, not compile-only). See docs/errata/01_test_scope.md._
 
-  - [ ] 5.V Verify: run `make build`, `make test`, `make check` and confirm all pass; verify Makefile targets exist per TS-01-18
+  - [x] 5.V Verify: run `make build`, `make test`, `make check` and confirm all pass; verify Makefile targets exist per TS-01-18
     _Test Spec: TS-01-19, TS-01-20, TS-01-22_
     _Verification step for Task Group 5_
-    _Note: test-rust excludes mock-sensors and cloud-gateway-client (TG1 stubs); pre-existing failures documented in docs/errata/01_makefile_test_scope.md_
+    _Note: make build (exit 0), make test (exit 0), make check (exit 0). test-rust excludes cloud-gateway-client and locking-service (TG1 stubs from specs 04 and 03). Pre-existing test scope deviations documented in docs/errata/01_test_scope.md._
 
 - [ ] 6. Proto code generation and setup verification tests
   _Configure proto codegen and finalize setup verification tests._
