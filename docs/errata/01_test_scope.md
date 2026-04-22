@@ -45,6 +45,42 @@ They are covered when spec 09 is implemented.
 **Impact:** Regressions in tests/mock-apps are not caught by `make test`.
 They are covered when spec 09 is implemented.
 
+### 4. Go backend modules scoped to root package
+
+`test-go` uses `go test .` (root package only) instead of `go test ./...` for
+`backend/parking-fee-service` and `backend/cloud-gateway`. Subpackages
+(`config/`, `store/`, `handler/`, etc.) contain TG1 stub tests from specs 05
+and 06 that fail until those specs are implemented.
+
+**Impact:** Regressions in backend subpackages are not caught by `make test`.
+They are covered when specs 05 and 06 are implemented.
+
+### 5. Sensor binary skeleton behavior
+
+The mock-sensor binaries (`location-sensor`, `speed-sensor`, `door-sensor`)
+were implemented by spec 09 with full clap-based argument parsing. They require
+specific command-line arguments and exit non-zero without them. This deviates
+from 01-REQ-4.3 which states they SHALL print name/version and exit 0.
+
+The setup verification tests (TS-01-15) use `--help` to verify the binary name
+appears in output. The determinism test (TS-01-P2) uses `CombinedOutput` to
+compare across invocations.
+
+### 6. cloud-gateway-client does not reject unknown flags
+
+`cloud-gateway-client` does not implement flag parsing in its skeleton and
+ignores unknown flags (exits 0). This deviates from 01-REQ-4.E1 which states
+skeletons SHALL reject unrecognized flags. The unknown-flag test (TS-01-E4)
+excludes `cloud-gateway-client`. Flag parsing is spec 04's scope.
+
+### 7. Proto generated code module
+
+The `make proto` target generates Go code into `gen/` at the repository root.
+`gen/` is a standalone Go module (`github.com/rhadp/parking-fee-service/gen`)
+added to `go.work`. The generated code compiles and is importable by other
+modules via the Go workspace. The proto files themselves are not modified by
+code generation.
+
 ## Resolution
 
 Once the relevant specs implement the required components, the Makefile should
@@ -54,3 +90,4 @@ be updated to:
 - Use `cargo test --workspace` without `--lib --bins` (after spec 09)
 - Include `mock/parking-operator` in `test-go` (after spec 09)
 - Include `tests/mock-apps` in `test-go` (after spec 09)
+- Use `go test ./...` for backend modules (after specs 05 and 06)

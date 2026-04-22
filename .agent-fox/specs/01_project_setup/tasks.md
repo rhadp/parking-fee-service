@@ -185,38 +185,38 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 5_
     _Note: make build (exit 0), make test (exit 0), make check (exit 0). test-rust excludes cloud-gateway-client and locking-service (TG1 stubs from specs 04 and 03). Pre-existing test scope deviations documented in docs/errata/01_test_scope.md._
 
-- [ ] 6. Proto code generation and setup verification tests
+- [x] 6. Proto code generation and setup verification tests
   _Configure proto codegen and finalize setup verification tests._
 
-  - [ ] 6.1 Implement `make proto` target to generate Go code from proto definitions using protoc
+  - [x] 6.1 Implement `make proto` target to generate Go code from proto definitions using protoc
     _Test Spec: TS-01-32_
     _Requirements: 01-REQ-10.1, 01-REQ-10.2, 01-REQ-10.3_
-    _Note: Already implemented in task group 5 (Makefile proto target with protoc invocation)._
+    _Note: Fixed proto target to use --go_opt=module and --go-grpc_opt=module for clean output. Created gen/ Go module with go.mod, added to go.work. Generated code compiles and is importable._
 
-  - [ ] 6.2 Add protoc-not-installed error handling to `make proto`
+  - [x] 6.2 Add protoc-not-installed error handling to `make proto`
     _Test Spec: TS-01-E11_
     _Requirements: 01-REQ-10.E1_
-    _Note: Already implemented in task group 5 (Makefile checks `command -v protoc`, prints error, exits 1)._
+    _Note: Makefile checks `command -v protoc`, prints error, exits 1. Verified by TestMakeProtoFailsWhenProtocMissing._
 
-  - [ ] 6.3 Write build-command-based setup verification tests in `tests/setup/`: TestRustBuild, TestGoBuild, TestProtoValidation
+  - [x] 6.3 Write build-command-based setup verification tests in `tests/setup/`: TestRustBuild, TestGoBuild, TestProtoValidation
     _Test Spec: TS-01-30, TS-01-31_
     _Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.4_
-    _Note: Added tests/setup/build_verification_test.go with TestRustBuild, TestGoBuild, TestProtoFilesValidate._
+    _Note: Created tests/setup/build_verification_test.go with 27 test functions covering TS-01-9 through TS-01-32, property tests (P1, P2, P5), edge cases (E1-E6, E9, E11), and smoke tests (SMOKE-1, SMOKE-3). All 39 setup tests pass._
 
-  - [ ] 6.4 Add toolchain-skip logic to setup tests (skip when cargo/go/protoc not on PATH)
+  - [x] 6.4 Add toolchain-skip logic to setup tests (skip when cargo/go/protoc not on PATH)
     _Test Spec: TS-01-E10_
     _Requirements: 01-REQ-9.E1_
-    _Note: Each test in build_verification_test.go calls exec.LookPath and t.Skip if the tool is absent._
+    _Note: Every test that invokes cargo, go, protoc, or make calls exec.LookPath first and t.Skip if the tool is absent._
 
-  - [ ] 6.5 Add `make test-setup` target to Makefile
+  - [x] 6.5 Add `make test-setup` target to Makefile
     _Test Spec: TS-01-30_
     _Requirements: 01-REQ-9.3_
-    _Note: Already implemented in task group 5 (Makefile test-setup target runs `go test -v ./...` in tests/setup/)._
+    _Note: Already implemented in TG5 (Makefile test-setup target runs `go test -v ./...` in tests/setup/). Verified: 39 tests PASS._
 
-  - [ ] 6.V Verify: run `make proto`, `make test-setup`, and `make check`; confirm all pass
+  - [x] 6.V Verify: run `make proto`, `make test-setup`, and `make check`; confirm all pass
     _Test Spec: TS-01-32, TS-01-30, TS-01-P1_
     _Verification step for Task Group 6_
-    _Note: make test-setup: 17 tests PASS. make check: lint + compile gates PASS._
+    _Note: make proto: generates Go code to gen/ module. make test-setup: 39 tests PASS. make check: lint + test PASS. Also fixed test-go scoping (go test . for backend modules), make check now runs actual tests (not compile-only)._
 
 - [ ] 7. Wiring verification
   _End-to-end verification that all components are correctly wired together._

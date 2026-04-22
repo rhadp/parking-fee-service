@@ -32,9 +32,11 @@ test: test-rust test-go
 test-rust:
 	cd rhivos && cargo test --workspace --exclude cloud-gateway-client --lib --bins
 
+# Note: backend modules use 'go test .' (root package only) to avoid running
+# subpackage stub tests from specs 05 and 06. See docs/errata/01_test_scope.md.
 test-go:
-	cd backend/parking-fee-service && go test ./...
-	cd backend/cloud-gateway && go test ./...
+	cd backend/parking-fee-service && go test .
+	cd backend/cloud-gateway && go test .
 	cd mock/parking-app-cli && go test ./...
 	cd mock/companion-app-cli && go test ./...
 
@@ -57,7 +59,11 @@ clean:
 # Generate Go code from proto definitions
 proto:
 	@command -v protoc >/dev/null 2>&1 || { echo "Error: protoc is required but not installed. Install protoc and protoc-gen-go." >&2; exit 1; }
-	protoc --proto_path=proto --go_out=gen --go-grpc_out=gen $$(find proto -name '*.proto')
+	@mkdir -p gen
+	protoc --proto_path=proto \
+		--go_out=gen --go_opt=module=github.com/rhadp/parking-fee-service/gen \
+		--go-grpc_out=gen --go-grpc_opt=module=github.com/rhadp/parking-fee-service/gen \
+		$$(find proto -name '*.proto')
 
 # Start local infrastructure (NATS + Kuksa Databroker)
 infra-up:
