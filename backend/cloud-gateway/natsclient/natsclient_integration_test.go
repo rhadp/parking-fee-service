@@ -3,7 +3,9 @@
 package natsclient_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/model"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/natsclient"
+	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/store"
 )
 
 // TS-06-P6: NATS Header Propagation (Property Test)
@@ -79,5 +82,104 @@ func TestPropertyNATSHeaderPropagation(t *testing.T) {
 				t.Errorf("expected command_id %q, got %q", cmd.CommandID, received.CommandID)
 			}
 		})
+	}
+}
+
+// TS-06-6: NATS Response Subscription
+// Requirements: 06-REQ-5.1, 06-REQ-5.2
+// The service subscribes to command responses on NATS and stores them.
+func TestNATSResponseSubscription(t *testing.T) {
+	nc, err := natsclient.Connect("nats://localhost:4222", 3)
+	if err != nil {
+		t.Fatalf("failed to connect to NATS: %v", err)
+	}
+	defer nc.Drain()
+
+	s := store.NewStore()
+
+	// Subscribe to responses.
+	if err := nc.SubscribeResponses(s); err != nil {
+		t.Fatalf("failed to subscribe to responses: %v", err)
+	}
+
+	// Connect a raw NATS publisher to simulate a vehicle response.
+	rawNC, err := nats.Connect("nats://localhost:4222")
+	if err != nil {
+		t.Fatalf("failed to connect raw NATS client: %v", err)
+	}
+	defer rawNC.Close()
+
+	// Publish a command response.
+	respData, _ := json.Marshal(model.CommandResponse{
+		CommandID: "cmd-005",
+		Status:    "success",
+	})
+	if err := rawNC.Publish("vehicles.VIN12345.command_responses", respData); err != nil {
+		t.Fatalf("failed to publish response: %v", err)
+	}
+	rawNC.Flush()
+
+	// Allow subscription processing time.
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify the response was stored.
+	resp, found := s.GetResponse("cmd-005")
+	if !found {
+		t.Fatal("expected response for cmd-005 to be stored, but not found")
+	}
+	if resp.Status != "success" {
+		t.Errorf("expected status 'success', got '%s'", resp.Status)
+	}
+}
+
+// TS-06-7: Telemetry Subscription Logging
+// Requirement: 06-REQ-5.3
+// The service subscribes to telemetry on NATS and logs it without storing.
+func TestTelemetrySubscriptionLogging(t *testing.T) {
+	// Capture log output by setting a custom default logger.
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	slog.SetDefault(logger)
+
+	nc, err := natsclient.Connect("nats://localhost:4222", 3)
+	if err != nil {
+		t.Fatalf("failed to connect to NATS: %v", err)
+	}
+	defer nc.Drain()
+
+	// Subscribe to telemetry.
+	if err := nc.SubscribeTelemetry(); err != nil {
+		t.Fatalf("failed to subscribe to telemetry: %v", err)
+	}
+
+	// Connect a raw NATS publisher to simulate telemetry.
+	rawNC, err := nats.Connect("nats://localhost:4222")
+	if err != nil {
+		t.Fatalf("failed to connect raw NATS client: %v", err)
+	}
+	defer rawNC.Close()
+
+	// Publish telemetry data.
+	telemetryData := `{"speed": 60, "location": {"lat": 48.137, "lon": 11.575}}`
+	if err := rawNC.Publish("vehicles.VIN12345.telemetry", []byte(telemetryData)); err != nil {
+		t.Fatalf("failed to publish telemetry: %v", err)
+	}
+	rawNC.Flush()
+
+	// Allow subscription processing time.
+	time.Sleep(200 * time.Millisecond)
+
+	logs := logBuf.String()
+
+	if len(logs) == 0 {
+		t.Error("expected log output for telemetry, got none")
+	}
+
+	if !bytes.Contains(logBuf.Bytes(), []byte("VIN12345")) {
+		t.Errorf("expected log to contain 'VIN12345', got: %s", logs)
+	}
+
+	if !bytes.Contains(logBuf.Bytes(), []byte("telemetry")) {
+		t.Errorf("expected log to contain 'telemetry', got: %s", logs)
 	}
 }
