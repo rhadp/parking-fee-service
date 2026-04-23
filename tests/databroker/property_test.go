@@ -88,7 +88,14 @@ func TestPropertyWriteReadRoundtrip(t *testing.T) {
 			desc: "bool_true",
 			dp:   &pb.Datapoint{Value: &pb.Datapoint_BoolValue{BoolValue: true}},
 			check: func(t *testing.T, e *pb.DataEntry) {
-				if !e.Value.GetBoolValue() {
+				if e.Value == nil {
+					t.Fatal("expected non-nil Datapoint")
+				}
+				bv, ok := e.Value.Value.(*pb.Datapoint_BoolValue)
+				if !ok {
+					t.Fatalf("expected BoolValue oneof variant, got %T", e.Value.Value)
+				}
+				if !bv.BoolValue {
 					t.Error("expected true, got false")
 				}
 			},
@@ -100,14 +107,18 @@ func TestPropertyWriteReadRoundtrip(t *testing.T) {
 			check: func(t *testing.T, e *pb.DataEntry) {
 				// The bool_true case above set this signal to true.
 				// Now we set it to false and verify the value changed.
-				// In proto3, bool false is the default, so GetBoolValue()
-				// returns false for both unset and explicitly-set-false.
-				// However, since we know the previous value was true, getting
-				// false back confirms the server stored our explicit false.
+				// In proto3, GetBoolValue() returns false for both unset
+				// and explicitly-set-false. We use a type assertion on the
+				// oneof variant to definitively confirm the server returned
+				// a BoolValue (not an unset or different-type value).
 				if e.Value == nil {
-					t.Fatal("expected non-nil value")
+					t.Fatal("expected non-nil Datapoint")
 				}
-				if e.Value.GetBoolValue() {
+				bv, ok := e.Value.Value.(*pb.Datapoint_BoolValue)
+				if !ok {
+					t.Fatalf("expected BoolValue oneof variant, got %T", e.Value.Value)
+				}
+				if bv.BoolValue {
 					t.Error("expected false after setting bool to false, got true")
 				}
 			},

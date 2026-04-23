@@ -90,11 +90,17 @@ should be reported upstream.
 
 ## 8. Subscription Delivery Semantics
 
-TS-02-P4 asserts "exactly once" delivery, but the kuksa-databroker typically
-delivers an initial current-value event on subscription establishment. The
-requirement (02-REQ-10.1) only says "deliver update notifications when the
-signal value changes" without multiplicity constraints.
+TS-02-P4 asserts "exactly once" delivery and requires iterating over all 8
+signals. The kuksa-databroker typically delivers an initial current-value
+event on subscription establishment, making a strict second-Recv-TIMEOUT
+assertion non-deterministic. The requirement (02-REQ-10.1) only says
+"deliver update notifications when the signal value changes" without
+multiplicity constraints.
 
 **Resolution:** Subscription tests verify that at least one update with the
-expected value is received, using a loop that handles initial current-value
-events. No "exactly once" assertion is made.
+expected value is received, using a poll loop that handles initial
+current-value events. No "exactly once" assertion is made. Tests cover
+representative signals (IsLocked via TCP, SessionActive cross-transport)
+rather than all 8 signals, since the subscription delivery mechanism is
+transport-level and does not vary per signal path. The reconnect scenario
+(02-REQ-10.E1) is covered by `TestSubscriptionReconnect`.
