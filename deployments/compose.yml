@@ -20,8 +20,8 @@ services:
       - "0.0.0.0"
       - "--port"
       - "55555"
-      - "--metadata"
-      - "/vss-overlay.json"
+      - "--vss"
+      - "vss_release_4.0.json,/vss-overlay.json"
       - "--unix-socket"
       - "/tmp/kuksa-databroker.sock"
     restart: unless-stopped

@@ -38,16 +38,27 @@ container, the host path becomes `/tmp/kuksa/kuksa-databroker.sock`.
 - `/tmp/kuksa/kuksa-databroker.sock` (bind mount layout)
 - `/tmp/kuksa-databroker.sock` (direct mount layout)
 
-## 4. Overlay File Format and Path
+## 4. Overlay File Format, Path, and CLI Flag
 
 The spec documents reference three different overlay formats/paths:
 - Glossary: "A YAML file"
-- `design.md`: `deployments/vss/overlay.vspec`
+- `design.md`: `deployments/vss/overlay.vspec` with `--vss` flag
 - `tasks.md`: `deployments/vss-overlay.json`
 
-**Resolution:** Tests use `deployments/vss-overlay.json` (JSON format), which
-is the actual file that exists in the repository and is used by the compose.yml
-volume mount.
+Additionally, the design specifies `--metadata` as the CLI flag, but
+kuksa-databroker 0.5.0 uses `--vss` to load VSS metadata files. The
+`--metadata` flag does not exist in the binary; passing it causes the
+overlay to be silently ignored (no error, but no signals loaded).
+
+The `--vss` flag accepts a comma-separated list of files. When specified
+explicitly, it REPLACES the default (`vss_release_4.0.json`), so the
+standard VSS tree must be included alongside the custom overlay:
+`--vss vss_release_4.0.json,/vss-overlay.json`.
+
+**Resolution:** compose.yml uses `--vss vss_release_4.0.json,/vss-overlay.json`
+to load both the standard VSS 4.0 tree and the custom overlay. Tests use
+`deployments/vss-overlay.json` (JSON format), which is the actual file that
+exists in the repository and is volume-mounted into the container.
 
 ## 5. VSS Version
 

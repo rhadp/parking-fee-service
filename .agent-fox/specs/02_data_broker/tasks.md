@@ -81,7 +81,8 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 
   - [x] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
     - _Requirements: 02-REQ-6.4_
-    - Uses `--metadata /vss-overlay.json` to load custom overlay; overlay file volume-mounted at /vss-overlay.json
+    - Uses `--vss vss_release_4.0.json,/vss-overlay.json` to load both the standard VSS 4.0 tree and custom overlay; overlay file volume-mounted at /vss-overlay.json
+    - Note: kuksa-databroker 0.5.0 uses `--vss` flag (not `--metadata`); comma-separated list loads multiple files; when `--vss` is explicit, the default tree must be included
 
   - [x] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
     - _Requirements: 02-REQ-7.1_
@@ -167,16 +168,19 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [x] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
-    - `TestSmokeHealthCheck` in tests/databroker/smoke_test.go; if port 55556 not reachable, requires podman and brings up `kuksa-databroker` service, waits 10s for port, verifies GetValue via gRPC, tears down via t.Cleanup
+    - `TestSmokeHealthCheck` in tests/databroker/smoke_test.go; uses `ensureDatabrokerRunning` helper to start container if not running, verifies gRPC metadata query returns populated entries for Vehicle.Speed, tears down via t.Cleanup
+    - Fixed: compose.yml was using invalid `--metadata` flag; changed to `--vss vss_release_4.0.json,/vss-overlay.json` per kuksa-databroker 0.5.0 CLI (see errata §4)
+    - Fixed: strengthened assertions to verify response content (non-empty entries) instead of only checking transport connectivity
 
   - [x] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
     - _Test Spec: TS-02-SMOKE-2_
     - _Requirements: 02-REQ-5.1, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3_
-    - `TestSmokeFullSignalInventory` in tests/databroker/smoke_test.go; queries ListMetadata for all 8 signals and reports any missing by name
+    - `TestSmokeFullSignalInventory` in tests/databroker/smoke_test.go; uses `ensureDatabrokerRunning` to bootstrap container if needed, queries metadata for all 8 signals, reports missing signals with foundCount assertion
+    - Fixed: now uses `ensureDatabrokerRunning` instead of `skipIfTCPUnreachable` so the test can actually run and verify signals (previously always SKIP)
 
   - [x] 5.V Verify task group 5
-    - [x] All smoke tests compile and skip gracefully when Podman/databroker unavailable; PASS when databroker is running
-    - Result: TestSmokeHealthCheck PASS (started container, verified gRPC, tore down); TestSmokeFullSignalInventory SKIP (TCP unreachable after health check teardown); 0 FAIL; make check EXIT_CODE: 0
+    - [x] All smoke tests compile and PASS with live container; skip gracefully when Podman unavailable
+    - Result: TestSmokeHealthCheck PASS (started container, verified gRPC metadata with populated entries); TestSmokeFullSignalInventory PASS (all 8/8 signals found — 5 standard + 3 custom); 0 FAIL; make check EXIT_CODE: 0
     ```
     cd tests/databroker && go test -run "TestSmoke" -v ./...
     ```
@@ -192,7 +196,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [x] 6.2 Verify compose.yml contains all required configuration: pinned image, dual listener args, port mapping, volume mounts, overlay flag, no auth flags
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1, 02-REQ-3.2, 02-REQ-4.1, 02-REQ-6.4, 02-REQ-7.1_
     - Verified by TestComposePinnedImage, TestComposeTCPPort, TestComposeTCPListener, TestComposeUDSSocket, TestComposeUDSVolume, TestComposeVSSOverlay, TestComposePermissiveMode (all PASS)
-    - compose.yml: image=ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0, ports=55556:55555, args=--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --metadata /vss-overlay.json, volume=/tmp/kuksa:/tmp, no auth flags
+    - compose.yml: image=ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0, ports=55556:55555, args=--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss vss_release_4.0.json,/vss-overlay.json, volume=/tmp/kuksa:/tmp, no auth flags
 
   - [x] 6.V Verify task group 6
     - [x] Final wiring verification: `go test -v ./tests/databroker/...` → 11 PASS, 18 SKIP, 0 FAIL; `make check` → PASS (all quality gates green)

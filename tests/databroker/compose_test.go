@@ -110,12 +110,21 @@ func TestComposeVSSOverlay(t *testing.T) {
 	}
 
 	// Check that the command references the overlay via a flag.
-	// Accept --vss, --metadata, or similar overlay flags.
+	// The kuksa-databroker 0.5.0 uses --vss for loading metadata files.
+	// Accept --vss or --metadata for backward compatibility with older
+	// versions or alternative configurations.
 	hasVSSFlag := strings.Contains(content, "--vss") ||
 		strings.Contains(content, "--metadata")
 
 	if !hasVSSFlag {
 		t.Error("compose.yml command does not reference the VSS overlay via --vss or --metadata flag")
+	}
+
+	// Verify the standard VSS tree is also loaded (not just the overlay).
+	// Without the standard tree, the 5 standard signals won't be available.
+	if !strings.Contains(content, "vss_release_4.0.json") {
+		t.Error("compose.yml command does not load the standard VSS tree (vss_release_4.0.json); " +
+			"standard signals like Vehicle.Speed will not be available")
 	}
 }
 
