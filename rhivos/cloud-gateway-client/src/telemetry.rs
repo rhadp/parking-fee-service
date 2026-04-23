@@ -32,9 +32,24 @@ impl TelemetryState {
 
     /// Apply a signal update and return the aggregated JSON if state changed.
     ///
-    /// Returns `Some(json_string)` with all currently known fields.
+    /// Returns `Some(json_string)` when the signal value differs from the
+    /// previously stored value (or is received for the first time).
+    /// Returns `None` if the signal value is identical to the current state,
+    /// suppressing spurious telemetry publishes on duplicate updates.
+    ///
     /// Fields that have never been set are omitted from the JSON output.
     pub fn update(&mut self, signal: SignalUpdate) -> Option<String> {
+        let changed = match &signal {
+            SignalUpdate::IsLocked(v) => self.is_locked != Some(*v),
+            SignalUpdate::Latitude(v) => self.latitude != Some(*v),
+            SignalUpdate::Longitude(v) => self.longitude != Some(*v),
+            SignalUpdate::ParkingActive(v) => self.parking_active != Some(*v),
+        };
+
+        if !changed {
+            return None;
+        }
+
         match signal {
             SignalUpdate::IsLocked(v) => self.is_locked = Some(v),
             SignalUpdate::Latitude(v) => self.latitude = Some(v),
@@ -113,6 +128,50 @@ mod tests {
         assert!(
             parsed.get("parking_active").is_none(),
             "parking_active should be omitted"
+        );
+    }
+
+    // Duplicate suppression: repeated identical updates return None.
+    // Validates the design contract: "Returns Some(json) if state changed,
+    // None if duplicate." Ensures spurious telemetry is not published when
+    // DATA_BROKER re-delivers unchanged values (e.g. on reconnect).
+    #[test]
+    fn test_telemetry_suppresses_duplicate() {
+        let mut state = TelemetryState::new("VIN-001".to_string());
+
+        // First update: new value → Some
+        let result = state.update(SignalUpdate::IsLocked(true));
+        assert!(result.is_some(), "first update should produce JSON");
+
+        // Duplicate update: same value → None
+        let result = state.update(SignalUpdate::IsLocked(true));
+        assert!(result.is_none(), "duplicate update should return None");
+
+        // Changed update: different value → Some
+        let result = state.update(SignalUpdate::IsLocked(false));
+        assert!(result.is_some(), "changed value should produce JSON");
+        let json = result.unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("should be valid JSON");
+        assert_eq!(parsed["is_locked"], false);
+
+        // Duplicate again
+        let result = state.update(SignalUpdate::IsLocked(false));
+        assert!(result.is_none(), "duplicate after change should return None");
+
+        // Different signal type: new field → Some
+        let result = state.update(SignalUpdate::Latitude(48.0));
+        assert!(result.is_some(), "new signal type should produce JSON");
+
+        // Duplicate of different signal type
+        let result = state.update(SignalUpdate::Latitude(48.0));
+        assert!(result.is_none(), "duplicate latitude should return None");
+
+        // Changed latitude
+        let result = state.update(SignalUpdate::Latitude(49.0));
+        assert!(
+            result.is_some(),
+            "changed latitude should produce JSON"
         );
     }
 
