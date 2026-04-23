@@ -28,7 +28,6 @@ pub struct SessionState {
 ///
 /// Wraps an `Option<SessionState>` and provides methods for
 /// starting, stopping, and querying the session.
-#[allow(dead_code)]
 pub struct Session {
     state: Option<SessionState>,
 }
