@@ -51,12 +51,24 @@ func (s *Store) GetResponse(commandID string) (*model.CommandResponse, bool) {
 
 // StartTimeout starts a timer that stores a timeout response if no real
 // response arrives within the given duration.
+//
+// The lock is held while creating and registering the timer so that
+// StoreResponse can always find and cancel a pending timer. The timer
+// callback also acquires the lock and checks whether a real response
+// already exists before writing, guarding against the race where the
+// timer goroutine is enqueued before StoreResponse calls Stop().
 func (s *Store) StartTimeout(commandID string, duration time.Duration) {
+	s.mu.Lock()
 	timer := time.AfterFunc(duration, func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
 		// Only store the timeout if no real response has arrived.
+		// This guard is essential: even when StoreResponse calls
+		// timer.Stop(), Stop can return false if the timer has already
+		// fired (goroutine enqueued). In that case the goroutine will
+		// acquire the lock after StoreResponse releases it; this check
+		// prevents overwriting the real response with a timeout.
 		if _, exists := s.responses[commandID]; !exists {
 			s.responses[commandID] = model.CommandResponse{
 				CommandID: commandID,
@@ -65,8 +77,6 @@ func (s *Store) StartTimeout(commandID string, duration time.Duration) {
 		}
 		delete(s.timers, commandID)
 	})
-
-	s.mu.Lock()
 	s.timers[commandID] = timer
 	s.mu.Unlock()
 }
