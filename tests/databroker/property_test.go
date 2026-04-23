@@ -98,11 +98,17 @@ func TestPropertyWriteReadRoundtrip(t *testing.T) {
 			desc: "bool_false",
 			dp:   &pb.Datapoint{Value: &pb.Datapoint_BoolValue{BoolValue: false}},
 			check: func(t *testing.T, e *pb.DataEntry) {
-				// Note: proto3 default for bool is false, so GetBoolValue()
+				// The bool_true case above set this signal to true.
+				// Now we set it to false and verify the value changed.
+				// In proto3, bool false is the default, so GetBoolValue()
 				// returns false for both unset and explicitly-set-false.
-				// We verify the set succeeded by checking the value field is present.
+				// However, since we know the previous value was true, getting
+				// false back confirms the server stored our explicit false.
 				if e.Value == nil {
-					t.Error("expected non-nil value")
+					t.Fatal("expected non-nil value")
+				}
+				if e.Value.GetBoolValue() {
+					t.Error("expected false after setting bool to false, got true")
 				}
 			},
 		},

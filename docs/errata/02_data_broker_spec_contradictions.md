@@ -59,30 +59,36 @@ both VSS versions with the same paths and types.
 **Resolution:** Tests verify signal existence and types without asserting
 the VSS version number.
 
-## 6. gRPC API Version Mismatch (v1 vs v2)
+## 6. gRPC API Version (v1 vs v2)
 
-The proto file at `proto/kuksa/val.proto` defines the `kuksa.val.v1.VAL`
-service with methods `Get`, `Set`, and `Subscribe`. However, the Kuksa
-Databroker 0.5.0 container serves `kuksa.val.v2.VAL` with a completely
-different method set (`GetValue`, `GetValues`, `PublishValue`, `ListMetadata`,
-`Subscribe`, `Actuate`, etc.).
+The design document specifies `kuksa.val.v2` gRPC API with methods
+`GetValue`, `GetValues`, `PublishValue`, `ListMetadata`, `Actuate`, and
+`Subscribe`. The proto file at `proto/kuksa/val.proto` defines the
+`kuksa.val.v1.VAL` service with methods `Get`, `Set`, and `Subscribe`.
 
-Calling v1 methods against the v2 server does not return `UNIMPLEMENTED` —
-instead, it returns empty responses with no error. This means all live
-integration tests that use the v1 gRPC client will get empty/incorrect
-results rather than errors when the container is running.
+kuksa-databroker 0.5.0 serves **both** the v1 and v2 APIs simultaneously.
+The v1 API (`kuksa.val.v1.VAL`) exposes `Get`, `Set`, and `Subscribe`
+with `EntryRequest`/`EntryUpdate` message types — exactly matching our
+proto definition. The v2 API (`kuksa.val.v2.VAL`) uses a different method
+set (`GetValue`, `PublishValue`, `ListMetadata`, etc.).
 
-**Impact:** All live integration tests (signal set/get, metadata queries,
-subscriptions) will fail or return empty results when the databroker
-container is actually running. Tests currently pass only because they SKIP
-when the container is not available.
+**Resolution:** The integration tests use the v1 API client, which is
+compatible with kuksa-databroker 0.5.0. `TestAPICompatibilityCheck`
+validates at runtime that the server populates v1 response fields
+correctly (non-empty entries, non-nil metadata). If the container serves
+only v2 in a future version, this check will fail with a diagnostic
+message.
 
-**Resolution:** The proto file must be updated to the v2 API
-(`kuksa.val.v2`) with correct method definitions and message types. Until
-then, live tests will SKIP gracefully when no container is running, and
-the smoke health check verifies only transport-level gRPC connectivity.
+## 7. Non-Existent Signal Error Code
 
-## 7. Subscription Delivery Semantics
+02-REQ-8.E1 requires the DATA_BROKER to return `gRPC NOT_FOUND` when a
+client sets a non-existent signal. The test (`TestEdgeCaseNonExistentSignal`)
+strictly asserts `codes.NotFound` per this requirement. If the actual
+kuksa-databroker returns a different error code (e.g., `INVALID_ARGUMENT`),
+the test will fail — this would indicate a spec/implementation mismatch that
+should be reported upstream.
+
+## 8. Subscription Delivery Semantics
 
 TS-02-P4 asserts "exactly once" delivery, but the kuksa-databroker typically
 delivers an initial current-value event on subscription establishment. The

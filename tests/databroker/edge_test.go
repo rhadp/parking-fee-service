@@ -156,14 +156,14 @@ func TestEdgeCaseNonExistentSignal(t *testing.T) {
 		t.Fatal("expected error when setting non-existent signal, got nil")
 	}
 
-	// The error should indicate the signal was not found.
+	// 02-REQ-8.E1 requires the DATA_BROKER to return a gRPC NOT_FOUND error
+	// when a client attempts to set a signal that does not exist in the VSS tree.
 	st, ok := status.FromError(err)
 	if !ok {
 		t.Fatalf("expected gRPC status error, got: %v", err)
 	}
-	// Accept NOT_FOUND or similar error codes indicating the signal doesn't exist.
-	if st.Code() != codes.NotFound && st.Code() != codes.InvalidArgument {
-		t.Errorf("expected NOT_FOUND or INVALID_ARGUMENT error, got %v: %s",
+	if st.Code() != codes.NotFound {
+		t.Errorf("expected NOT_FOUND error per 02-REQ-8.E1, got %v: %s",
 			st.Code(), st.Message())
 	}
 }
