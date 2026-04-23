@@ -209,3 +209,316 @@ impl ParkingAdaptor for ParkingAdaptorService {
         Ok(Response::new(response))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::broker::parking_adaptor::v1::parking_adaptor_server::ParkingAdaptor;
+    use crate::operator::{OperatorError, RateResponse};
+
+    /// Spawn a one-shot event handler that processes one ManualStart event
+    /// and replies with the given result.
+    async fn handle_manual_start(
+        mut rx: mpsc::Receiver<SessionEvent>,
+        result: Result<StartResponse, ManualStartError>,
+    ) {
+        if let Some(SessionEvent::ManualStart { reply, .. }) = rx.recv().await {
+            let _ = reply.send(result);
+        }
+    }
+
+    /// Spawn a one-shot event handler that processes one ManualStop event
+    /// and replies with the given result.
+    async fn handle_manual_stop(
+        mut rx: mpsc::Receiver<SessionEvent>,
+        result: Result<StopResponse, ManualStopError>,
+    ) {
+        if let Some(SessionEvent::ManualStop { reply, .. }) = rx.recv().await {
+            let _ = reply.send(result);
+        }
+    }
+
+    // TS-08-E1 (gRPC wire level): Verify StartSession returns ALREADY_EXISTS
+    // gRPC status code when a session is already active.
+    // Addresses review finding: gRPC mapping not tested at wire level.
+    #[tokio::test]
+    async fn test_start_session_already_exists_grpc_status() {
+        let (tx, rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(handle_manual_start(
+            rx,
+            Err(ManualStartError::AlreadyExists("sess-existing".to_string())),
+        ));
+
+        let request = tonic::Request::new(StartSessionRequest {
+            vehicle_id: String::new(),
+            zone_id: "zone-b".to_string(),
+        });
+
+        let result = ParkingAdaptor::start_session(&svc, request).await;
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(
+            status.code(),
+            tonic::Code::AlreadyExists,
+            "StartSession on active session should return ALREADY_EXISTS"
+        );
+        assert!(
+            status.message().contains("sess-existing"),
+            "error message should contain existing session_id"
+        );
+    }
+
+    // TS-08-E2 (gRPC wire level): Verify StopSession returns FAILED_PRECONDITION
+    // gRPC status code when no session is active.
+    // Addresses review finding: gRPC mapping not tested at wire level.
+    #[tokio::test]
+    async fn test_stop_session_no_active_grpc_status() {
+        let (tx, rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(handle_manual_stop(
+            rx,
+            Err(ManualStopError::NoActiveSession),
+        ));
+
+        let request = tonic::Request::new(StopSessionRequest {
+            session_id: String::new(),
+        });
+
+        let result = ParkingAdaptor::stop_session(&svc, request).await;
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(
+            status.code(),
+            tonic::Code::FailedPrecondition,
+            "StopSession with no active session should return FAILED_PRECONDITION"
+        );
+    }
+
+    // Verify StartSession returns UNAVAILABLE when operator call fails.
+    #[tokio::test]
+    async fn test_start_session_operator_unavailable_grpc_status() {
+        let (tx, rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(handle_manual_start(
+            rx,
+            Err(ManualStartError::OperatorFailed(
+                OperatorError::RequestFailed("connection refused".to_string()),
+            )),
+        ));
+
+        let request = tonic::Request::new(StartSessionRequest {
+            vehicle_id: String::new(),
+            zone_id: "zone-a".to_string(),
+        });
+
+        let result = ParkingAdaptor::start_session(&svc, request).await;
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(
+            status.code(),
+            tonic::Code::Unavailable,
+            "StartSession with operator failure should return UNAVAILABLE"
+        );
+    }
+
+    // Verify StopSession returns UNAVAILABLE when operator call fails.
+    #[tokio::test]
+    async fn test_stop_session_operator_unavailable_grpc_status() {
+        let (tx, rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(handle_manual_stop(
+            rx,
+            Err(ManualStopError::OperatorFailed(
+                OperatorError::RequestFailed("connection refused".to_string()),
+            )),
+        ));
+
+        let request = tonic::Request::new(StopSessionRequest {
+            session_id: String::new(),
+        });
+
+        let result = ParkingAdaptor::stop_session(&svc, request).await;
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(
+            status.code(),
+            tonic::Code::Unavailable,
+            "StopSession with operator failure should return UNAVAILABLE"
+        );
+    }
+
+    // Verify StartSession returns correct response fields on success.
+    #[tokio::test]
+    async fn test_start_session_success_grpc_response() {
+        let (tx, rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(handle_manual_start(
+            rx,
+            Ok(StartResponse {
+                session_id: "sess-42".to_string(),
+                status: "active".to_string(),
+                rate: RateResponse {
+                    rate_type: "per_hour".to_string(),
+                    amount: 3.0,
+                    currency: "USD".to_string(),
+                },
+            }),
+        ));
+
+        let request = tonic::Request::new(StartSessionRequest {
+            vehicle_id: String::new(),
+            zone_id: "zone-a".to_string(),
+        });
+
+        let result = ParkingAdaptor::start_session(&svc, request).await;
+        assert!(result.is_ok());
+        let resp = result.unwrap().into_inner();
+        assert_eq!(resp.session_id, "sess-42");
+        assert_eq!(resp.status, "active");
+        let rate = resp.rate.expect("rate should be present");
+        assert_eq!(rate.rate_type, "per_hour");
+        assert!((rate.amount - 3.0).abs() < f64::EPSILON);
+        assert_eq!(rate.currency, "USD");
+    }
+
+    // Verify StopSession returns correct response fields on success.
+    #[tokio::test]
+    async fn test_stop_session_success_grpc_response() {
+        let (tx, rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(handle_manual_stop(
+            rx,
+            Ok(StopResponse {
+                session_id: "sess-42".to_string(),
+                status: "completed".to_string(),
+                duration_seconds: 7200,
+                total_amount: 6.0,
+                currency: "USD".to_string(),
+            }),
+        ));
+
+        let request = tonic::Request::new(StopSessionRequest {
+            session_id: String::new(),
+        });
+
+        let result = ParkingAdaptor::stop_session(&svc, request).await;
+        assert!(result.is_ok());
+        let resp = result.unwrap().into_inner();
+        assert_eq!(resp.session_id, "sess-42");
+        assert_eq!(resp.status, "completed");
+        assert_eq!(resp.duration_seconds, 7200);
+        assert!((resp.total_amount - 6.0).abs() < f64::EPSILON);
+        assert_eq!(resp.currency, "USD");
+    }
+
+    // Verify GetStatus returns session details via gRPC wire level.
+    #[tokio::test]
+    async fn test_get_status_active_grpc_response() {
+        let (tx, mut rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(async move {
+            if let Some(SessionEvent::QueryStatus { reply }) = rx.recv().await {
+                let _ = reply.send(Some(crate::session::SessionState {
+                    session_id: "sess-1".to_string(),
+                    zone_id: "zone-a".to_string(),
+                    start_time: 1_700_000_000,
+                    rate: crate::session::Rate {
+                        rate_type: "per_hour".to_string(),
+                        amount: 2.5,
+                        currency: "EUR".to_string(),
+                    },
+                    active: true,
+                }));
+            }
+        });
+
+        let request = tonic::Request::new(GetStatusRequest {});
+        let result = ParkingAdaptor::get_status(&svc, request).await;
+        assert!(result.is_ok());
+        let resp = result.unwrap().into_inner();
+        assert!(resp.active);
+        assert_eq!(resp.session_id, "sess-1");
+        assert_eq!(resp.zone_id, "zone-a");
+        assert_eq!(resp.start_time, 1_700_000_000);
+        let rate = resp.rate.expect("rate should be present in GetStatus response");
+        assert_eq!(rate.rate_type, "per_hour");
+        assert!((rate.amount - 2.5).abs() < f64::EPSILON);
+        assert_eq!(rate.currency, "EUR");
+    }
+
+    // Verify GetStatus returns inactive with empty fields when no session.
+    #[tokio::test]
+    async fn test_get_status_inactive_grpc_response() {
+        let (tx, mut rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(async move {
+            if let Some(SessionEvent::QueryStatus { reply }) = rx.recv().await {
+                let _ = reply.send(None);
+            }
+        });
+
+        let request = tonic::Request::new(GetStatusRequest {});
+        let result = ParkingAdaptor::get_status(&svc, request).await;
+        assert!(result.is_ok());
+        let resp = result.unwrap().into_inner();
+        assert!(!resp.active);
+        assert_eq!(resp.session_id, "");
+        assert_eq!(resp.zone_id, "");
+        assert!(resp.rate.is_none());
+    }
+
+    // Verify GetRate returns rate via gRPC wire level.
+    #[tokio::test]
+    async fn test_get_rate_active_grpc_response() {
+        let (tx, mut rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(async move {
+            if let Some(SessionEvent::QueryRate { reply }) = rx.recv().await {
+                let _ = reply.send(Some(crate::session::Rate {
+                    rate_type: "flat_fee".to_string(),
+                    amount: 5.0,
+                    currency: "EUR".to_string(),
+                }));
+            }
+        });
+
+        let request = tonic::Request::new(GetRateRequest {});
+        let result = ParkingAdaptor::get_rate(&svc, request).await;
+        assert!(result.is_ok());
+        let resp = result.unwrap().into_inner();
+        assert_eq!(resp.rate_type, "flat_fee");
+        assert!((resp.amount - 5.0).abs() < f64::EPSILON);
+        assert_eq!(resp.currency, "EUR");
+    }
+
+    // Verify GetRate returns empty rate when no session.
+    #[tokio::test]
+    async fn test_get_rate_inactive_grpc_response() {
+        let (tx, mut rx) = mpsc::channel(16);
+        let svc = ParkingAdaptorService::new(tx);
+
+        tokio::spawn(async move {
+            if let Some(SessionEvent::QueryRate { reply }) = rx.recv().await {
+                let _ = reply.send(None);
+            }
+        });
+
+        let request = tonic::Request::new(GetRateRequest {});
+        let result = ParkingAdaptor::get_rate(&svc, request).await;
+        assert!(result.is_ok());
+        let resp = result.unwrap().into_inner();
+        assert_eq!(resp.rate_type, "");
+        assert!((resp.amount - 0.0).abs() < f64::EPSILON);
+        assert_eq!(resp.currency, "");
+    }
+}
