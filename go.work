@@ -12,4 +12,5 @@ use (
 	./tests/mock-apps
 	./tests/parking-operator-adaptor
 	./tests/setup
+	./tests/update-service
 )

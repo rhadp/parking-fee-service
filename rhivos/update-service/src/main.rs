@@ -72,12 +72,20 @@ async fn main() {
         .parse()
         .expect("invalid listen address");
 
+    // Install signal handlers BEFORE logging "ready" so the process can
+    // handle SIGTERM/SIGINT immediately after the ready message appears.
+    // Signal handlers must be created synchronously (not inside an async
+    // fn body, which only runs when polled) to prevent a race where
+    // SIGTERM arrives between the "ready" log and handler registration
+    // (REQ-10.2, REQ-10.E1).
+    let shutdown = make_shutdown_signal();
+
     tracing::info!(%addr, "update-service ready, listening for gRPC connections");
 
     // Start the tonic server with graceful shutdown (REQ-10.2).
     let server = tonic::transport::Server::builder()
         .add_service(UpdateServiceServer::new(svc))
-        .serve_with_shutdown(addr, shutdown_signal());
+        .serve_with_shutdown(addr, shutdown);
 
     if let Err(e) = server.await {
         tracing::error!("gRPC server error: {e}");
@@ -85,42 +93,63 @@ async fn main() {
     }
 }
 
-/// Wait for SIGTERM or SIGINT, then allow a 10-second drain window
-/// before force-terminating (REQ-10.2, REQ-10.E1).
-async fn shutdown_signal() {
-    let ctrl_c = tokio::signal::ctrl_c();
+/// Create a future that resolves when SIGTERM or SIGINT is received.
+///
+/// Signal handlers are installed eagerly (when this function is called),
+/// not lazily (when the returned future is first polled). This is crucial
+/// because `async fn` bodies don't execute until polled, so
+/// `tokio::signal::unix::signal()` would not register the OS handler
+/// until the tokio runtime schedules the task — leaving a window where
+/// signals use the default (terminate) action.
+///
+/// After the signal fires, a 10-second backstop timer is started: if
+/// in-flight RPCs have not drained by then, the process force-exits
+/// with code 0 (REQ-10.E1).
+fn make_shutdown_signal() -> impl std::future::Future<Output = ()> {
+    // Install OS signal handlers NOW, synchronously. Using
+    // `tokio::signal::unix::signal()` instead of `tokio::signal::ctrl_c()`
+    // because `ctrl_c()` installs its handler lazily when polled, whereas
+    // `signal()` installs the handler immediately on construction.
+    #[cfg(unix)]
+    let mut sigterm = tokio::signal::unix::signal(
+        tokio::signal::unix::SignalKind::terminate(),
+    )
+    .expect("failed to install SIGTERM handler");
 
     #[cfg(unix)]
-    {
-        let mut sigterm = tokio::signal::unix::signal(
-            tokio::signal::unix::SignalKind::terminate(),
-        )
-        .expect("failed to install SIGTERM handler");
+    let mut sigint = tokio::signal::unix::signal(
+        tokio::signal::unix::SignalKind::interrupt(),
+    )
+    .expect("failed to install SIGINT handler");
 
-        tokio::select! {
-            _ = ctrl_c => {
-                tracing::info!("received SIGINT, initiating graceful shutdown");
-            }
-            _ = sigterm.recv() => {
-                tracing::info!("received SIGTERM, initiating graceful shutdown");
+    async move {
+        #[cfg(unix)]
+        {
+            tokio::select! {
+                _ = sigint.recv() => {
+                    tracing::info!("received SIGINT, initiating graceful shutdown");
+                }
+                _ = sigterm.recv() => {
+                    tracing::info!("received SIGTERM, initiating graceful shutdown");
+                }
             }
         }
-    }
 
-    #[cfg(not(unix))]
-    {
-        ctrl_c.await.ok();
-        tracing::info!("received SIGINT, initiating graceful shutdown");
-    }
+        #[cfg(not(unix))]
+        {
+            tokio::signal::ctrl_c().await.ok();
+            tracing::info!("received SIGINT, initiating graceful shutdown");
+        }
 
-    // REQ-10.E1: force-terminate after 10 seconds if in-flight RPCs
-    // have not completed. tonic's `serve_with_shutdown` handles the
-    // drain; we spawn a backstop timer that exits the process.
-    tokio::spawn(async {
-        tokio::time::sleep(Duration::from_secs(10)).await;
-        tracing::warn!("shutdown timeout reached, force-terminating");
-        std::process::exit(0);
-    });
+        // REQ-10.E1: force-terminate after 10 seconds if in-flight RPCs
+        // have not completed. tonic's `serve_with_shutdown` handles the
+        // drain; we spawn a backstop timer that exits the process.
+        tokio::spawn(async {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            tracing::warn!("shutdown timeout reached, force-terminating");
+            std::process::exit(0);
+        });
+    }
 }
 
 #[cfg(test)]
