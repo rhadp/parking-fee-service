@@ -1,12 +1,14 @@
 package setup_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TS-01-9: Cargo build succeeds for entire workspace
@@ -496,13 +498,21 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 	// Regex to normalize timestamps and ANSI escape codes for comparison.
 	// Matches ISO 8601 timestamps (e.g., 2026-04-23T14:41:54.998750Z).
 	timestampRe := regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[\.\d]*Z?`)
+	// Matches Go standard log timestamps (e.g., 2026/04/23 16:56:31).
+	goTimestampRe := regexp.MustCompile(`\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`)
 	ansiRe := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 	normalize := func(s string) string {
 		s = ansiRe.ReplaceAllString(s, "")
 		s = timestampRe.ReplaceAllString(s, "<TIMESTAMP>")
+		s = goTimestampRe.ReplaceAllString(s, "<TIMESTAMP>")
 		return s
 	}
+
+	// Timeout for binary execution. Full-implementation binaries may start
+	// servers or wait for connections; a short timeout captures deterministic
+	// startup output without hanging.
+	const execTimeout = 5 * time.Second
 
 	// Build Rust workspace first
 	cmd := exec.Command("cargo", "build", "--workspace")
@@ -515,13 +525,17 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 	t.Run("locking-service", func(t *testing.T) {
 		binPath := filepath.Join(root, "rhivos", "target", "debug", "locking-service")
 
-		out1, err1 := exec.Command(binPath).Output()
-		if err1 != nil {
+		ctx1, cancel1 := context.WithTimeout(context.Background(), execTimeout)
+		defer cancel1()
+		out1, err1 := exec.CommandContext(ctx1, binPath).Output()
+		if err1 != nil && ctx1.Err() == nil {
 			t.Fatalf("first invocation of locking-service failed: %v", err1)
 		}
 
-		out2, err2 := exec.Command(binPath).Output()
-		if err2 != nil {
+		ctx2, cancel2 := context.WithTimeout(context.Background(), execTimeout)
+		defer cancel2()
+		out2, err2 := exec.CommandContext(ctx2, binPath).Output()
+		if err2 != nil && ctx2.Err() == nil {
 			t.Fatalf("second invocation of locking-service failed: %v", err2)
 		}
 
@@ -544,8 +558,13 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 		t.Run(bin, func(t *testing.T) {
 			binPath := filepath.Join(root, "rhivos", "target", "debug", bin)
 
-			out1, _ := exec.Command(binPath).CombinedOutput()
-			out2, _ := exec.Command(binPath).CombinedOutput()
+			ctx1, cancel1 := context.WithTimeout(context.Background(), execTimeout)
+			defer cancel1()
+			out1, _ := exec.CommandContext(ctx1, binPath).CombinedOutput()
+
+			ctx2, cancel2 := context.WithTimeout(context.Background(), execTimeout)
+			defer cancel2()
+			out2, _ := exec.CommandContext(ctx2, binPath).CombinedOutput()
 
 			norm1 := normalize(string(out1))
 			norm2 := normalize(string(out2))
@@ -567,11 +586,15 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 
 	for _, mod := range goModules {
 		t.Run(mod, func(t *testing.T) {
-			cmd1 := exec.Command("go", "run", ".")
+			ctx1, cancel1 := context.WithTimeout(context.Background(), execTimeout)
+			defer cancel1()
+			cmd1 := exec.CommandContext(ctx1, "go", "run", ".")
 			cmd1.Dir = filepath.Join(root, mod)
 			out1, _ := cmd1.CombinedOutput()
 
-			cmd2 := exec.Command("go", "run", ".")
+			ctx2, cancel2 := context.WithTimeout(context.Background(), execTimeout)
+			defer cancel2()
+			cmd2 := exec.CommandContext(ctx2, "go", "run", ".")
 			cmd2.Dir = filepath.Join(root, mod)
 			out2, _ := cmd2.CombinedOutput()
 

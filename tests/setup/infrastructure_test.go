@@ -21,6 +21,21 @@ func requirePodmanCompose(t *testing.T) {
 	}
 }
 
+// requirePortsFree skips the test if the required infrastructure ports (4222
+// for NATS, 55556 for Kuksa Databroker) are already bound by another process.
+// Tests that start infra-up need these ports to be free.
+func requirePortsFree(t *testing.T) {
+	t.Helper()
+	ports := []string{"4222", "55556"}
+	for _, port := range ports {
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort("localhost", port), 1*time.Second)
+		if err == nil {
+			conn.Close()
+			t.Skipf("skipping: port %s is already in use by another process", port)
+		}
+	}
+}
+
 // ensureInfraDown runs make infra-down to clean up containers.
 // It does not fail the test on error (cleanup is best-effort).
 func ensureInfraDown(t *testing.T) {
@@ -158,6 +173,7 @@ func TestInfraDownNoContainers(t *testing.T) {
 // containers stop cleanly.
 func TestInfraLifecycleSmoke(t *testing.T) {
 	requirePodmanCompose(t)
+	requirePortsFree(t)
 
 	root := repoRoot(t)
 
@@ -212,6 +228,7 @@ func TestInfraLifecycleSmoke(t *testing.T) {
 // Property 3: Repeated infra-up/infra-down cycles leave a consistent state.
 func TestInfraIdempotency(t *testing.T) {
 	requirePodmanCompose(t)
+	requirePortsFree(t)
 
 	root := repoRoot(t)
 
@@ -289,6 +306,7 @@ func TestTestIsolationWithoutInfra(t *testing.T) {
 // already in use.
 func TestInfraPortConflict(t *testing.T) {
 	requirePodmanCompose(t)
+	requirePortsFree(t)
 
 	root := repoRoot(t)
 
