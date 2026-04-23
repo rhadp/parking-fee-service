@@ -12,6 +12,8 @@ import (
 	adaptorpb "github.com/rhadp/parking-fee-service/gen/parking_adaptor/v1"
 	updatepb "github.com/rhadp/parking-fee-service/gen/update_service/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ---------------------------------------------------------------------------
@@ -19,8 +21,15 @@ import (
 // ---------------------------------------------------------------------------
 
 // mockUpdateService implements the UpdateService gRPC server for testing.
+// It supports WatchAdapterStates streaming with configurable events and errors.
 type mockUpdateService struct {
 	updatepb.UnimplementedUpdateServiceServer
+	// watchEvents is the list of events to send on WatchAdapterStates stream.
+	// If nil, the default unimplemented behavior is used.
+	watchEvents []*updatepb.AdapterStateEvent
+	// watchError, if non-nil, is returned after sending watchEvents.
+	// This simulates a gRPC failure mid-stream (e.g., network loss).
+	watchError error
 }
 
 func (m *mockUpdateService) InstallAdapter(_ context.Context, req *updatepb.InstallAdapterRequest) (*updatepb.InstallAdapterResponse, error) {
@@ -53,6 +62,19 @@ func (m *mockUpdateService) GetAdapterStatus(_ context.Context, req *updatepb.Ge
 
 func (m *mockUpdateService) RemoveAdapter(_ context.Context, req *updatepb.RemoveAdapterRequest) (*updatepb.RemoveAdapterResponse, error) {
 	return &updatepb.RemoveAdapterResponse{}, nil
+}
+
+func (m *mockUpdateService) WatchAdapterStates(_ *updatepb.WatchAdapterStatesRequest, stream grpc.ServerStreamingServer[updatepb.AdapterStateEvent]) error {
+	for _, event := range m.watchEvents {
+		if err := stream.Send(event); err != nil {
+			return err
+		}
+	}
+	if m.watchError != nil {
+		return m.watchError
+	}
+	// Normal close: return nil to end the stream cleanly.
+	return nil
 }
 
 // mockParkingAdaptor implements the ParkingAdaptor gRPC server for testing.
@@ -114,6 +136,110 @@ func startMockParkingAdaptor(t *testing.T) string {
 	t.Cleanup(func() { srv.Stop() })
 
 	return lis.Addr().String()
+}
+
+// startMockUpdateServiceWithWatch starts a gRPC server with a mock UpdateService
+// that has configurable WatchAdapterStates behavior.
+func startMockUpdateServiceWithWatch(t *testing.T, events []*updatepb.AdapterStateEvent, watchErr error) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := grpc.NewServer()
+	updatepb.RegisterUpdateServiceServer(srv, &mockUpdateService{
+		watchEvents: events,
+		watchError:  watchErr,
+	})
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(func() { srv.Stop() })
+
+	return lis.Addr().String()
+}
+
+// ---------------------------------------------------------------------------
+// TS-09-WATCH: Parking App CLI Watch Adapter States (streaming)
+// Requirement: 09-REQ-5.3
+// Addresses Skeptic finding: no test covers WatchAdapterStates streaming RPC.
+// ---------------------------------------------------------------------------
+
+func TestWatch(t *testing.T) {
+	events := []*updatepb.AdapterStateEvent{
+		{
+			AdapterId: "a1",
+			OldState:  updatepb.AdapterState_DOWNLOADING,
+			NewState:  updatepb.AdapterState_INSTALLING,
+			Timestamp: 1700000001,
+		},
+		{
+			AdapterId: "a1",
+			OldState:  updatepb.AdapterState_INSTALLING,
+			NewState:  updatepb.AdapterState_RUNNING,
+			Timestamp: 1700000002,
+		},
+	}
+
+	addr := startMockUpdateServiceWithWatch(t, events, nil)
+
+	binary := buildBinary(t, "parking-app-cli")
+	stdout, stderr, exitCode := runBinary(t, binary,
+		"watch",
+		"--update-addr="+addr,
+	)
+
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d\nstderr: %s", exitCode, stderr)
+	}
+
+	// Verify both events were printed to stdout.
+	if !strings.Contains(stdout, "a1") {
+		t.Errorf("expected stdout to contain adapter_id 'a1', got: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "INSTALLING") {
+		t.Errorf("expected stdout to contain 'INSTALLING', got: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "RUNNING") {
+		t.Errorf("expected stdout to contain 'RUNNING', got: %s", stdout)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestWatchGRPCError: Watch stream exits 1 on genuine gRPC error
+// Requirement: 09-REQ-5.E2
+// Addresses Skeptic finding: runWatch treats all stream.Recv errors as normal
+// close — genuine gRPC failures should exit with code 1, not 0.
+// ---------------------------------------------------------------------------
+
+func TestWatchGRPCError(t *testing.T) {
+	// Send one event, then return a genuine gRPC error.
+	events := []*updatepb.AdapterStateEvent{
+		{
+			AdapterId: "a1",
+			OldState:  updatepb.AdapterState_UNKNOWN,
+			NewState:  updatepb.AdapterState_DOWNLOADING,
+			Timestamp: 1700000001,
+		},
+	}
+	watchErr := status.Error(codes.Internal, "server crashed")
+
+	addr := startMockUpdateServiceWithWatch(t, events, watchErr)
+
+	binary := buildBinary(t, "parking-app-cli")
+	_, stderr, exitCode := runBinary(t, binary,
+		"watch",
+		"--update-addr="+addr,
+	)
+
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1 on gRPC stream error, got %d\nstderr: %s", exitCode, stderr)
+	}
+
+	if len(stderr) == 0 {
+		t.Error("expected error message on stderr when gRPC stream fails")
+	}
 }
 
 // ---------------------------------------------------------------------------

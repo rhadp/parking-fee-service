@@ -199,6 +199,67 @@ func TestCompanionAppSmoke(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// TS-09-SMOKE-4: End-to-End Parking App CLI Lookup-Install
+// Requirement: 09-REQ-4.1, 09-REQ-5.1
+// Verifies parking-app-cli performs operator lookup via REST then adapter
+// install via gRPC in a single end-to-end flow.
+// ---------------------------------------------------------------------------
+
+func TestParkingAppLookupInstallSmoke(t *testing.T) {
+	// Start a mock PARKING_FEE_SERVICE (REST).
+	mockPFS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.URL.Path == "/operators" {
+			json.NewEncoder(w).Encode([]map[string]string{
+				{"operator_id": "op-1", "name": "Demo"},
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockPFS.Close()
+
+	// Start a mock UPDATE_SERVICE (gRPC).
+	mockUSAddr := startMockUpdateService(t)
+
+	binary := buildBinary(t, "parking-app-cli")
+
+	// --- Lookup ---
+	lookupStdout, lookupStderr, lookupExit := runBinary(t, binary,
+		"lookup",
+		"--lat=48.13",
+		"--lon=11.58",
+		"--service-addr="+mockPFS.URL,
+	)
+
+	if lookupExit != 0 {
+		t.Fatalf("lookup: expected exit code 0, got %d\nstderr: %s", lookupExit, lookupStderr)
+	}
+
+	if !strings.Contains(lookupStdout, "op-1") {
+		t.Errorf("lookup: expected stdout to contain 'op-1', got: %s", lookupStdout)
+	}
+
+	// --- Install ---
+	installStdout, installStderr, installExit := runBinary(t, binary,
+		"install",
+		"--image-ref=registry/adapter:v1",
+		"--checksum=sha256:abc",
+		"--update-addr="+mockUSAddr,
+	)
+
+	if installExit != 0 {
+		t.Fatalf("install: expected exit code 0, got %d\nstderr: %s", installExit, installStderr)
+	}
+
+	if !strings.Contains(installStdout, "j1") {
+		t.Errorf("install: expected stdout to contain job_id 'j1', got: %s", installStdout)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
