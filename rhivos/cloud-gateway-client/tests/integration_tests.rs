@@ -679,21 +679,30 @@ async fn test_nats_reconnection_backoff() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Verify logs indicate retries occurred.
+    // Verify logs indicate retries occurred and were exhausted.
     assert!(
-        stderr.contains("NATS connection failed")
-            || stderr.contains("retries exhausted")
-            || stderr.contains("RetriesExhausted"),
-        "stderr should mention NATS connection failure, got:\n{stderr}"
+        stderr.contains("retries exhausted"),
+        "stderr should mention retries exhausted, got:\n{stderr}"
+    );
+
+    // Verify exact attempt count: the implementation logs "NATS connection
+    // failed" once per attempt (4× "retrying" + 1× "all retries exhausted"),
+    // so we expect exactly 5 occurrences. This confirms the retry count is
+    // correct, not just the timing.
+    let attempt_count = stderr.matches("NATS connection failed").count();
+    assert_eq!(
+        attempt_count, 5,
+        "expected exactly 5 NATS connection failure log entries (5 attempts), got {attempt_count}"
     );
 
     // Verify exponential backoff timing.
     // Total delays: 1s + 2s + 4s + 8s = 15s, plus connection attempt time.
-    // Allow tolerance: at least 12 seconds (delays may be slightly shorter
-    // due to fast connection-refused errors), at most 45 seconds.
+    // Connection-refused errors are near-instant, so elapsed time is
+    // dominated by the sleep delays. We use a tight lower bound (14s) to
+    // confirm all 4 inter-attempt delays actually executed.
     assert!(
-        elapsed.as_secs() >= 12,
-        "should take at least 12 seconds for backoff delays, took {elapsed:?}"
+        elapsed.as_secs() >= 14,
+        "should take at least 14 seconds for backoff delays (1+2+4+8=15s), took {elapsed:?}"
     );
     assert!(
         elapsed.as_secs() <= 45,
