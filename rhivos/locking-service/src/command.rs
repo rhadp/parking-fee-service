@@ -159,12 +159,18 @@ mod tests {
         assert!(matches!(result, Err(CommandError::InvalidJson(_))));
     }
 
-    // TS-03-E4: Verify that a payload missing the action field is rejected.
+    // TS-03-E4: Verify that a payload missing the action field is rejected
+    // with InvalidCommand (not InvalidJson), since the JSON is syntactically
+    // valid but structurally incomplete.
     #[test]
     fn test_parse_missing_field() {
         let json = r#"{"command_id":"x","doors":["driver"]}"#;
         let result = parse_command(json);
         assert!(result.is_err());
+        assert!(
+            matches!(result, Err(CommandError::InvalidCommand(_))),
+            "missing field in valid JSON should be InvalidCommand, not InvalidJson"
+        );
     }
 
     // TS-03-E5: Verify that "rear_left" door is rejected with "unsupported_door".

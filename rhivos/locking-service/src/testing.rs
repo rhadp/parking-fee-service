@@ -13,6 +13,7 @@ pub struct MockBrokerClient {
     locked: Option<bool>,
     set_bool_calls: RefCell<Vec<(String, bool)>>,
     set_string_calls: RefCell<Vec<(String, String)>>,
+    fail_next_set_bool: RefCell<bool>,
     fail_next_set_string: RefCell<bool>,
 }
 
@@ -25,6 +26,7 @@ impl MockBrokerClient {
             locked: None,
             set_bool_calls: RefCell::new(Vec::new()),
             set_string_calls: RefCell::new(Vec::new()),
+            fail_next_set_bool: RefCell::new(false),
             fail_next_set_string: RefCell::new(false),
         }
     }
@@ -45,6 +47,11 @@ impl MockBrokerClient {
     pub fn with_locked(mut self, locked: Option<bool>) -> Self {
         self.locked = locked;
         self
+    }
+
+    /// Make the next set_bool call fail with a simulated RPC error.
+    pub fn fail_next_set_bool(&self) {
+        *self.fail_next_set_bool.borrow_mut() = true;
     }
 
     /// Make the next set_string call fail with a simulated RPC error.
@@ -83,6 +90,10 @@ impl BrokerClient for MockBrokerClient {
     }
 
     async fn set_bool(&self, signal: &str, value: bool) -> Result<(), BrokerError> {
+        if *self.fail_next_set_bool.borrow() {
+            *self.fail_next_set_bool.borrow_mut() = false;
+            return Err(BrokerError::RpcFailed("simulated set_bool failure".to_string()));
+        }
         self.set_bool_calls
             .borrow_mut()
             .push((signal.to_string(), value));

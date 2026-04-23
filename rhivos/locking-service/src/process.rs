@@ -47,11 +47,18 @@ async fn process_lock<B: BrokerClient>(
     match check_safety(broker).await {
         SafetyResult::Safe => {
             // Update lock state on DATA_BROKER (03-REQ-4.1).
-            if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, true).await {
-                tracing::error!(command_id = %cmd.command_id, "failed to set lock state: {e}");
+            // Only update in-memory lock_state on success to avoid divergence
+            // from DATA_BROKER state.
+            match broker.set_bool(SIGNAL_IS_LOCKED, true).await {
+                Ok(()) => {
+                    *lock_state = true;
+                    success_response(&cmd.command_id)
+                }
+                Err(e) => {
+                    tracing::error!(command_id = %cmd.command_id, "failed to set lock state: {e}");
+                    failure_response(&cmd.command_id, "broker_error")
+                }
             }
-            *lock_state = true;
-            success_response(&cmd.command_id)
         }
         SafetyResult::VehicleMoving => failure_response(&cmd.command_id, "vehicle_moving"),
         SafetyResult::DoorOpen => failure_response(&cmd.command_id, "door_open"),
@@ -70,11 +77,18 @@ async fn process_unlock<B: BrokerClient>(
     }
 
     // Update lock state on DATA_BROKER (03-REQ-4.2).
-    if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, false).await {
-        tracing::error!(command_id = %cmd.command_id, "failed to set lock state: {e}");
+    // Only update in-memory lock_state on success to avoid divergence
+    // from DATA_BROKER state.
+    match broker.set_bool(SIGNAL_IS_LOCKED, false).await {
+        Ok(()) => {
+            *lock_state = false;
+            success_response(&cmd.command_id)
+        }
+        Err(e) => {
+            tracing::error!(command_id = %cmd.command_id, "failed to set lock state: {e}");
+            failure_response(&cmd.command_id, "broker_error")
+        }
     }
-    *lock_state = false;
-    success_response(&cmd.command_id)
 }
 
 #[cfg(test)]
@@ -187,6 +201,44 @@ mod tests {
         assert!(
             mock.set_bool_calls().is_empty(),
             "no set_bool calls expected for idempotent unlock"
+        );
+    }
+
+    // Review finding: Verify lock_state is NOT updated when set_bool fails during
+    // lock, preventing in-memory state divergence from DATA_BROKER (03-REQ-4.1).
+    #[tokio::test]
+    async fn test_lock_state_unchanged_on_set_bool_failure() {
+        let mock = MockBrokerClient::new()
+            .with_speed(Some(0.0))
+            .with_door_open(Some(false));
+        mock.fail_next_set_bool();
+        let mut lock_state = false;
+        let response = process_command(&mock, &make_lock_cmd(), &mut lock_state).await;
+        let parsed: serde_json::Value = serde_json::from_str(&response).expect("valid JSON");
+        // The command should report failure since the state write failed.
+        assert_eq!(parsed["status"], "failed", "lock should fail when set_bool fails");
+        assert!(
+            !lock_state,
+            "lock_state must remain false when set_bool fails"
+        );
+    }
+
+    // Review finding: Verify lock_state is NOT updated when set_bool fails during
+    // unlock, preventing in-memory state divergence from DATA_BROKER (03-REQ-4.2).
+    #[tokio::test]
+    async fn test_unlock_state_unchanged_on_set_bool_failure() {
+        let mock = MockBrokerClient::new()
+            .with_speed(Some(0.0))
+            .with_door_open(Some(false));
+        mock.fail_next_set_bool();
+        let mut lock_state = true;
+        let response = process_command(&mock, &make_unlock_cmd(), &mut lock_state).await;
+        let parsed: serde_json::Value = serde_json::from_str(&response).expect("valid JSON");
+        // The command should report failure since the state write failed.
+        assert_eq!(parsed["status"], "failed", "unlock should fail when set_bool fails");
+        assert!(
+            lock_state,
+            "lock_state must remain true when set_bool fails"
         );
     }
 
