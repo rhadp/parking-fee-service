@@ -154,12 +154,19 @@ impl ParkingAdaptor for ParkingAdaptorService {
                 active: true,
                 start_time: s.start_time,
                 zone_id: s.zone_id,
+                rate: Some(ParkingRate {
+                    operator_id: String::new(),
+                    rate_type: s.rate.rate_type,
+                    amount: s.rate.amount,
+                    currency: s.rate.currency,
+                }),
             },
             None => SessionStatus {
                 session_id: String::new(),
                 active: false,
                 start_time: 0,
                 zone_id: String::new(),
+                rate: None,
             },
         };
 

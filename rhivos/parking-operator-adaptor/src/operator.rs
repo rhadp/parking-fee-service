@@ -402,6 +402,33 @@ mod tests {
         );
     }
 
+    // TS-08-E4 (stop variant): Verify stop_session error after all retries fail.
+    // Covers the gap identified in review finding [major][08-REQ-2.E1]:
+    // retry logic must apply to stop_session as well as start_session.
+    #[tokio::test]
+    async fn test_stop_retry_exhausted() {
+        let mock_server = wiremock::MockServer::start().await;
+
+        // Always fail the stop endpoint.
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/parking/stop"))
+            .respond_with(wiremock::ResponseTemplate::new(500))
+            .expect(4) // 1 initial + 3 retries = 4 total
+            .mount(&mock_server)
+            .await;
+
+        let client = OperatorClient::new(&mock_server.uri());
+        let resp = client.stop_session("sess-1").await;
+        assert!(resp.is_err(), "should fail after all retries exhausted");
+
+        let requests = mock_server.received_requests().await.unwrap();
+        assert_eq!(
+            requests.len(),
+            4,
+            "should have made 4 total requests (1 initial + 3 retries) for stop_session"
+        );
+    }
+
     // TS-08-E5: Verify non-200 HTTP status triggers retry.
     #[tokio::test]
     async fn test_retry_on_non_200() {
