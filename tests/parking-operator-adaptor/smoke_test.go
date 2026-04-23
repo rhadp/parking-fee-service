@@ -17,13 +17,14 @@ func TestLockStartUnlockStopFlow(t *testing.T) {
 	binary := buildAdaptor(t)
 	conn := connectTCP(t)
 	valClient := newVALClient(conn)
+	v2Client := newV2Client(conn)
 	mo := startMockOperator(t)
 	grpcPort := getFreePort(t)
 
 	env := adaptorEnv(grpcPort, mo.url())
 
 	// Reset IsLocked to false before starting.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	time.Sleep(300 * time.Millisecond)
 
 	startAdaptor(t, binary, env...)
@@ -32,7 +33,7 @@ func TestLockStartUnlockStopFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Step 1: Lock event → session should start.
-	setBool(t, valClient, signalIsLocked, true)
+	setBool(t, v2Client, signalIsLocked, true)
 	mo.waitForStartCalled(t, 1, 10*time.Second)
 
 	// Verify session is active via gRPC GetStatus.
@@ -51,7 +52,7 @@ func TestLockStartUnlockStopFlow(t *testing.T) {
 	waitForBool(t, valClient, signalSessionActive, true, 5*time.Second)
 
 	// Step 2: Unlock event → session should stop.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	mo.waitForStopCalled(t, 1, 10*time.Second)
 
 	// Verify session is inactive via gRPC GetStatus.
@@ -74,14 +75,14 @@ func TestManualOverrideFlow(t *testing.T) {
 
 	binary := buildAdaptor(t)
 	conn := connectTCP(t)
-	valClient := newVALClient(conn)
+	v2Client := newV2Client(conn)
 	mo := startMockOperator(t)
 	grpcPort := getFreePort(t)
 
 	env := adaptorEnv(grpcPort, mo.url())
 
 	// Reset IsLocked to false before starting.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	time.Sleep(300 * time.Millisecond)
 
 	startAdaptor(t, binary, env...)
@@ -139,14 +140,14 @@ func TestOverrideThenAutonomousResume(t *testing.T) {
 
 	binary := buildAdaptor(t)
 	conn := connectTCP(t)
-	valClient := newVALClient(conn)
+	v2Client := newV2Client(conn)
 	mo := startMockOperator(t)
 	grpcPort := getFreePort(t)
 
 	env := adaptorEnv(grpcPort, mo.url())
 
 	// Reset IsLocked to false before starting.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	time.Sleep(300 * time.Millisecond)
 
 	startAdaptor(t, binary, env...)
@@ -155,7 +156,7 @@ func TestOverrideThenAutonomousResume(t *testing.T) {
 	ctx := context.Background()
 
 	// Step 1: Autonomous start via lock event.
-	setBool(t, valClient, signalIsLocked, true)
+	setBool(t, v2Client, signalIsLocked, true)
 	mo.waitForStartCalled(t, 1, 10*time.Second)
 
 	status, err := adaptorClient.GetStatus(ctx, &pa.GetStatusRequest{})
@@ -184,9 +185,9 @@ func TestOverrideThenAutonomousResume(t *testing.T) {
 
 	// Step 3: Autonomous start via another lock event (override should not persist).
 	// First unlock then lock to create a new cycle.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	time.Sleep(500 * time.Millisecond)
-	setBool(t, valClient, signalIsLocked, true)
+	setBool(t, v2Client, signalIsLocked, true)
 	mo.waitForStartCalled(t, 2, 10*time.Second)
 
 	status, err = adaptorClient.GetStatus(ctx, &pa.GetStatusRequest{})
@@ -198,7 +199,7 @@ func TestOverrideThenAutonomousResume(t *testing.T) {
 	}
 
 	// Step 4: Autonomous stop via unlock event.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	mo.waitForStopCalled(t, 2, 10*time.Second)
 
 	status, err = adaptorClient.GetStatus(ctx, &pa.GetStatusRequest{})

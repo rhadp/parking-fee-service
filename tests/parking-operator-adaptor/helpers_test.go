@@ -19,6 +19,7 @@ import (
 	"time"
 
 	pb "github.com/rhadp/parking-fee-service/gen/kuksa/val/v1"
+	v2 "github.com/rhadp/parking-fee-service/gen/kuksa/val/v2"
 	pa "github.com/rhadp/parking-fee-service/gen/parking_adaptor/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -80,9 +81,18 @@ func connectTCP(t *testing.T) *grpc.ClientConn {
 	return conn
 }
 
-// newVALClient creates a VAL gRPC client from a connection.
+// newVALClient creates a v1 VAL gRPC client from a connection.
+// Used for Get operations (reading signal values) which work correctly
+// with corrected v1 field numbers.
 func newVALClient(conn *grpc.ClientConn) pb.VALClient {
 	return pb.NewVALClient(conn)
+}
+
+// newV2Client creates a v2 VAL gRPC client from a connection.
+// Used for PublishValue operations (writing signal values) because the
+// v1 Set RPC is non-functional in kuksa-databroker 0.5.0.
+func newV2Client(conn *grpc.ClientConn) v2.VALClient {
+	return v2.NewVALClient(conn)
 }
 
 // connectAdaptorGRPC creates a gRPC client connection to the parking-operator-adaptor
@@ -103,26 +113,25 @@ func connectAdaptorGRPC(t *testing.T, port int) pa.ParkingAdaptorClient {
 	return pa.NewParkingAdaptorClient(conn)
 }
 
-// setBool sets a boolean signal value on the DATA_BROKER.
-func setBool(t *testing.T, client pb.VALClient, path string, value bool) {
+// setBool sets a boolean signal value on the DATA_BROKER using the v2
+// PublishValue RPC. The v1 Set RPC is non-functional in kuksa-databroker
+// 0.5.0 — it returns success but does not update the signal value.
+func setBool(t *testing.T, v2Client v2.VALClient, path string, value bool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := client.Set(ctx, &pb.SetRequest{
-		Updates: []*pb.EntryUpdate{
-			{
-				Entry: &pb.DataEntry{
-					Path: path,
-					Value: &pb.Datapoint{
-						Value: &pb.Datapoint_BoolValue{BoolValue: value},
-					},
-				},
-				Fields: []pb.Field{pb.Field_FIELD_VALUE},
+	_, err := v2Client.PublishValue(ctx, &v2.PublishValueRequest{
+		SignalId: &v2.SignalID{
+			Signal: &v2.SignalID_Path{Path: path},
+		},
+		DataPoint: &v2.Datapoint{
+			Value: &v2.Value{
+				TypedValue: &v2.Value_Bool{Bool: value},
 			},
 		},
 	})
 	if err != nil {
-		t.Fatalf("Set bool(%q, %v) failed: %v", path, value, err)
+		t.Fatalf("PublishValue bool(%q, %v) failed: %v", path, value, err)
 	}
 }
 

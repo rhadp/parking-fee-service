@@ -295,6 +295,7 @@ type SessionStatus struct {
 	Active        bool                   `protobuf:"varint,2,opt,name=active,proto3" json:"active,omitempty"`
 	StartTime     int64                  `protobuf:"varint,3,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 	ZoneId        string                 `protobuf:"bytes,4,opt,name=zone_id,json=zoneId,proto3" json:"zone_id,omitempty"`
+	Rate          *ParkingRate           `protobuf:"bytes,5,opt,name=rate,proto3" json:"rate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -355,6 +356,13 @@ func (x *SessionStatus) GetZoneId() string {
 		return x.ZoneId
 	}
 	return ""
+}
+
+func (x *SessionStatus) GetRate() *ParkingRate {
+	if x != nil {
+		return x.Rate
+	}
+	return nil
 }
 
 type GetRateRequest struct {
@@ -485,14 +493,15 @@ const file_adapter_adapter_service_proto_rawDesc = "" +
 	"\x10duration_seconds\x18\x03 \x01(\x04R\x0fdurationSeconds\x12!\n" +
 	"\ftotal_amount\x18\x04 \x01(\x01R\vtotalAmount\x12\x1a\n" +
 	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\x12\n" +
-	"\x10GetStatusRequest\"~\n" +
+	"\x10GetStatusRequest\"\xb3\x01\n" +
 	"\rSessionStatus\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
 	"\x06active\x18\x02 \x01(\bR\x06active\x12\x1d\n" +
 	"\n" +
 	"start_time\x18\x03 \x01(\x03R\tstartTime\x12\x17\n" +
-	"\azone_id\x18\x04 \x01(\tR\x06zoneId\"\x10\n" +
+	"\azone_id\x18\x04 \x01(\tR\x06zoneId\x123\n" +
+	"\x04rate\x18\x05 \x01(\v2\x1f.parking_adaptor.v1.ParkingRateR\x04rate\"\x10\n" +
 	"\x0eGetRateRequest\"\x7f\n" +
 	"\vParkingRate\x12\x1f\n" +
 	"\voperator_id\x18\x01 \x01(\tR\n" +
@@ -531,19 +540,20 @@ var file_adapter_adapter_service_proto_goTypes = []any{
 }
 var file_adapter_adapter_service_proto_depIdxs = []int32{
 	7, // 0: parking_adaptor.v1.StartSessionResponse.rate:type_name -> parking_adaptor.v1.ParkingRate
-	0, // 1: parking_adaptor.v1.ParkingAdaptor.StartSession:input_type -> parking_adaptor.v1.StartSessionRequest
-	2, // 2: parking_adaptor.v1.ParkingAdaptor.StopSession:input_type -> parking_adaptor.v1.StopSessionRequest
-	4, // 3: parking_adaptor.v1.ParkingAdaptor.GetStatus:input_type -> parking_adaptor.v1.GetStatusRequest
-	6, // 4: parking_adaptor.v1.ParkingAdaptor.GetRate:input_type -> parking_adaptor.v1.GetRateRequest
-	1, // 5: parking_adaptor.v1.ParkingAdaptor.StartSession:output_type -> parking_adaptor.v1.StartSessionResponse
-	3, // 6: parking_adaptor.v1.ParkingAdaptor.StopSession:output_type -> parking_adaptor.v1.StopSessionResponse
-	5, // 7: parking_adaptor.v1.ParkingAdaptor.GetStatus:output_type -> parking_adaptor.v1.SessionStatus
-	7, // 8: parking_adaptor.v1.ParkingAdaptor.GetRate:output_type -> parking_adaptor.v1.ParkingRate
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	7, // 1: parking_adaptor.v1.SessionStatus.rate:type_name -> parking_adaptor.v1.ParkingRate
+	0, // 2: parking_adaptor.v1.ParkingAdaptor.StartSession:input_type -> parking_adaptor.v1.StartSessionRequest
+	2, // 3: parking_adaptor.v1.ParkingAdaptor.StopSession:input_type -> parking_adaptor.v1.StopSessionRequest
+	4, // 4: parking_adaptor.v1.ParkingAdaptor.GetStatus:input_type -> parking_adaptor.v1.GetStatusRequest
+	6, // 5: parking_adaptor.v1.ParkingAdaptor.GetRate:input_type -> parking_adaptor.v1.GetRateRequest
+	1, // 6: parking_adaptor.v1.ParkingAdaptor.StartSession:output_type -> parking_adaptor.v1.StartSessionResponse
+	3, // 7: parking_adaptor.v1.ParkingAdaptor.StopSession:output_type -> parking_adaptor.v1.StopSessionResponse
+	5, // 8: parking_adaptor.v1.ParkingAdaptor.GetStatus:output_type -> parking_adaptor.v1.SessionStatus
+	7, // 9: parking_adaptor.v1.ParkingAdaptor.GetRate:output_type -> parking_adaptor.v1.ParkingRate
+	6, // [6:10] is the sub-list for method output_type
+	2, // [2:6] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_adapter_adapter_service_proto_init() }

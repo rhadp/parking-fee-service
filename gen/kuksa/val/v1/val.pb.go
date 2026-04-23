@@ -435,31 +435,31 @@ type isDatapoint_Value interface {
 }
 
 type Datapoint_StringValue struct {
-	StringValue string `protobuf:"bytes,10,opt,name=string_value,json=stringValue,proto3,oneof"`
+	StringValue string `protobuf:"bytes,11,opt,name=string_value,json=stringValue,proto3,oneof"`
 }
 
 type Datapoint_BoolValue struct {
-	BoolValue bool `protobuf:"varint,11,opt,name=bool_value,json=boolValue,proto3,oneof"`
+	BoolValue bool `protobuf:"varint,12,opt,name=bool_value,json=boolValue,proto3,oneof"`
 }
 
 type Datapoint_Int32Value struct {
-	Int32Value int32 `protobuf:"varint,12,opt,name=int32_value,json=int32Value,proto3,oneof"`
+	Int32Value int32 `protobuf:"varint,13,opt,name=int32_value,json=int32Value,proto3,oneof"`
 }
 
 type Datapoint_Int64Value struct {
-	Int64Value int64 `protobuf:"varint,13,opt,name=int64_value,json=int64Value,proto3,oneof"`
+	Int64Value int64 `protobuf:"varint,14,opt,name=int64_value,json=int64Value,proto3,oneof"`
 }
 
 type Datapoint_Uint32Value struct {
-	Uint32Value uint32 `protobuf:"varint,14,opt,name=uint32_value,json=uint32Value,proto3,oneof"`
+	Uint32Value uint32 `protobuf:"varint,15,opt,name=uint32_value,json=uint32Value,proto3,oneof"`
 }
 
 type Datapoint_FloatValue struct {
-	FloatValue float32 `protobuf:"fixed32,15,opt,name=float_value,json=floatValue,proto3,oneof"`
+	FloatValue float32 `protobuf:"fixed32,17,opt,name=float_value,json=floatValue,proto3,oneof"`
 }
 
 type Datapoint_DoubleValue struct {
-	DoubleValue float64 `protobuf:"fixed64,16,opt,name=double_value,json=doubleValue,proto3,oneof"`
+	DoubleValue float64 `protobuf:"fixed64,18,opt,name=double_value,json=doubleValue,proto3,oneof"`
 }
 
 func (*Datapoint_StringValue) isDatapoint_Value() {}
@@ -1050,18 +1050,17 @@ const file_kuksa_val_proto_rawDesc = "" +
 	"\x0fkuksa/val.proto\x12\fkuksa.val.v1\"\xab\x02\n" +
 	"\tDatapoint\x12\x1c\n" +
 	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12#\n" +
-	"\fstring_value\x18\n" +
-	" \x01(\tH\x00R\vstringValue\x12\x1f\n" +
+	"\fstring_value\x18\v \x01(\tH\x00R\vstringValue\x12\x1f\n" +
 	"\n" +
-	"bool_value\x18\v \x01(\bH\x00R\tboolValue\x12!\n" +
-	"\vint32_value\x18\f \x01(\x05H\x00R\n" +
+	"bool_value\x18\f \x01(\bH\x00R\tboolValue\x12!\n" +
+	"\vint32_value\x18\r \x01(\x05H\x00R\n" +
 	"int32Value\x12!\n" +
-	"\vint64_value\x18\r \x01(\x03H\x00R\n" +
+	"\vint64_value\x18\x0e \x01(\x03H\x00R\n" +
 	"int64Value\x12#\n" +
-	"\fuint32_value\x18\x0e \x01(\rH\x00R\vuint32Value\x12!\n" +
-	"\vfloat_value\x18\x0f \x01(\x02H\x00R\n" +
+	"\fuint32_value\x18\x0f \x01(\rH\x00R\vuint32Value\x12!\n" +
+	"\vfloat_value\x18\x11 \x01(\x02H\x00R\n" +
 	"floatValue\x12#\n" +
-	"\fdouble_value\x18\x10 \x01(\x01H\x00R\vdoubleValueB\a\n" +
+	"\fdouble_value\x18\x12 \x01(\x01H\x00R\vdoubleValueB\a\n" +
 	"\x05value\"\xc4\x01\n" +
 	"\tDataEntry\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12-\n" +

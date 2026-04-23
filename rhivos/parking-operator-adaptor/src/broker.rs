@@ -5,10 +5,16 @@ use tokio::sync::mpsc;
 use tonic::transport::Channel;
 
 /// Generated code from vendored kuksa.val.v1 proto files.
+/// Retained for type re-exports (GetRequest, etc.) but no longer used
+/// for RPC calls — v1 Set is non-functional in kuksa-databroker 0.5.0.
+/// See docs/errata/04_kuksa_v2_api_migration.md.
 pub mod kuksa {
     pub mod val {
         pub mod v1 {
             tonic::include_proto!("kuksa.val.v1");
+        }
+        pub mod v2 {
+            tonic::include_proto!("kuksa.val.v2");
         }
     }
 }
@@ -20,9 +26,10 @@ pub mod parking_adaptor {
     }
 }
 
-use kuksa::val::v1::{
-    datapoint::Value, val_client::ValClient, DataEntry, Datapoint, EntryUpdate, Field, SetRequest,
-    SubscribeEntry, SubscribeRequest, View,
+use kuksa::val::v2::{
+    self,
+    val_client::ValClient as V2Client,
+    value::TypedValue,
 };
 
 /// Error type for broker operations.
@@ -71,12 +78,13 @@ const BACKOFF_DELAYS_SECS: [u64; 4] = [1, 2, 4, 8];
 /// Maximum number of resubscription attempts after stream interruption.
 const MAX_RESUBSCRIBE_ATTEMPTS: usize = 5;
 
-/// gRPC client for the kuksa.val.v1 DATA_BROKER.
+/// gRPC client for the kuksa DATA_BROKER.
 ///
-/// Wraps a tonic-generated `ValClient` and provides the `BrokerClient` trait
-/// implementation plus connection retry and subscription management.
+/// Uses the v2 API (`kuksa.val.v2.VAL`) for publishing values and
+/// subscribing to signal changes. The v1 API's `Set` RPC is
+/// non-functional in kuksa-databroker 0.5.0.
 pub struct GrpcBrokerClient {
-    client: ValClient<Channel>,
+    client: V2Client<Channel>,
 }
 
 impl GrpcBrokerClient {
@@ -97,7 +105,7 @@ impl GrpcBrokerClient {
             if let Some(secs) = delay {
                 tokio::time::sleep(Duration::from_secs(secs)).await;
             }
-            match ValClient::connect(addr.to_string()).await {
+            match V2Client::connect(addr.to_string()).await {
                 Ok(client) => {
                     tracing::info!("connected to DATA_BROKER on attempt {}", attempt_num + 1);
                     return Ok(Self { client });
@@ -123,6 +131,9 @@ impl GrpcBrokerClient {
     /// boolean values through the returned channel. On stream interruption,
     /// attempts to resubscribe up to `MAX_RESUBSCRIBE_ATTEMPTS` times.
     /// (08-REQ-3.2)
+    ///
+    /// Uses the v2 Subscribe RPC which returns `map<string, Datapoint>`
+    /// keyed by signal path.
     pub async fn subscribe_bool(
         &self,
         signal: &str,
@@ -148,21 +159,18 @@ impl GrpcBrokerClient {
         Ok(rx)
     }
 
-    /// Build a `SubscribeRequest` for a single VSS signal path.
-    fn make_subscribe_request(signal: &str) -> SubscribeRequest {
-        SubscribeRequest {
-            entries: vec![SubscribeEntry {
-                path: signal.to_string(),
-                view: View::CurrentValue as i32,
-                fields: vec![Field::Value as i32],
-            }],
+    /// Build a v2 `SubscribeRequest` for a single VSS signal path.
+    fn make_subscribe_request(signal: &str) -> v2::SubscribeRequest {
+        v2::SubscribeRequest {
+            signal_paths: vec![signal.to_string()],
+            buffer_size: 0,
         }
     }
 
     /// Run the subscription loop, attempting to resubscribe on stream errors.
     async fn subscription_loop(
-        client: &mut ValClient<Channel>,
-        mut stream: tonic::Streaming<kuksa::val::v1::SubscribeResponse>,
+        client: &mut V2Client<Channel>,
+        mut stream: tonic::Streaming<v2::SubscribeResponse>,
         signal: &str,
         tx: &mpsc::Sender<bool>,
     ) {
@@ -173,13 +181,15 @@ impl GrpcBrokerClient {
                 Ok(Some(response)) => {
                     // Reset resubscribe counter on successful message.
                     resubscribe_attempts = 0;
-                    for update in response.updates {
-                        if let Some(value) = update.value {
-                            if let Some(Value::BoolValue(b)) = value.value {
-                                if tx.send(b).await.is_err() {
-                                    tracing::info!("subscription receiver dropped, stopping");
-                                    return;
-                                }
+                    // v2 response.entries is a map<string, Datapoint>
+                    if let Some(dp) = response.entries.get(signal) {
+                        if let Some(v2::Value {
+                            typed_value: Some(TypedValue::Bool(b)),
+                        }) = &dp.value
+                        {
+                            if tx.send(*b).await.is_err() {
+                                tracing::info!("subscription receiver dropped, stopping");
+                                return;
                             }
                         }
                     }
@@ -219,9 +229,9 @@ impl GrpcBrokerClient {
     /// Returns `true` if resubscription succeeded, `false` if max attempts
     /// are exhausted.
     async fn try_resubscribe(
-        client: &mut ValClient<Channel>,
+        client: &mut V2Client<Channel>,
         signal: &str,
-        stream: &mut tonic::Streaming<kuksa::val::v1::SubscribeResponse>,
+        stream: &mut tonic::Streaming<v2::SubscribeResponse>,
         attempts: &mut usize,
     ) -> bool {
         *attempts += 1;
@@ -257,24 +267,26 @@ impl GrpcBrokerClient {
 }
 
 impl BrokerClient for GrpcBrokerClient {
+    /// Write a boolean signal value to DATA_BROKER using v2 PublishValue.
+    ///
+    /// The v1 Set RPC is non-functional in kuksa-databroker 0.5.0, so all
+    /// writes use the v2 PublishValue RPC instead.
     async fn set_bool(&self, signal: &str, value: bool) -> Result<(), BrokerError> {
-        let request = tonic::Request::new(SetRequest {
-            updates: vec![EntryUpdate {
-                entry: Some(DataEntry {
-                    path: signal.to_string(),
-                    value: Some(Datapoint {
-                        timestamp: 0,
-                        value: Some(Value::BoolValue(value)),
-                    }),
-                    actuator_target: None,
+        let request = tonic::Request::new(v2::PublishValueRequest {
+            signal_id: Some(v2::SignalId {
+                signal: Some(v2::signal_id::Signal::Path(signal.to_string())),
+            }),
+            data_point: Some(v2::Datapoint {
+                timestamp: None,
+                value: Some(v2::Value {
+                    typed_value: Some(TypedValue::Bool(value)),
                 }),
-                fields: vec![Field::Value as i32],
-            }],
+            }),
         });
 
         self.client
             .clone()
-            .set(request)
+            .publish_value(request)
             .await
             .map_err(|e| BrokerError::RpcFailed(e.to_string()))?;
         Ok(())

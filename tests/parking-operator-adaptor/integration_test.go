@@ -20,12 +20,18 @@ func TestInitialSessionActive(t *testing.T) {
 	binary := buildAdaptor(t)
 	conn := connectTCP(t)
 	valClient := newVALClient(conn)
+	v2Client := newV2Client(conn)
 	mo := startMockOperator(t)
 	grpcPort := getFreePort(t)
 
+	// Reset IsLocked to false so the adaptor doesn't auto-start a session on
+	// startup from leftover state of previous tests.
+	setBool(t, v2Client, signalIsLocked, false)
+	time.Sleep(300 * time.Millisecond)
+
 	// Set SessionActive to true before starting the adaptor, so we can verify
 	// that the adaptor resets it to false on startup.
-	setBool(t, valClient, signalSessionActive, true)
+	setBool(t, v2Client, signalSessionActive, true)
 
 	env := adaptorEnv(grpcPort, mo.url())
 	startAdaptor(t, binary, env...)
@@ -191,7 +197,7 @@ func TestSessionLostOnRestart(t *testing.T) {
 
 	binary := buildAdaptor(t)
 	conn := connectTCP(t)
-	valClient := newVALClient(conn)
+	v2Client := newV2Client(conn)
 	mo := startMockOperator(t)
 	grpcPort := getFreePort(t)
 
@@ -202,7 +208,7 @@ func TestSessionLostOnRestart(t *testing.T) {
 	adaptorClient1 := connectAdaptorGRPC(t, grpcPort)
 
 	// Trigger a lock event to start a session.
-	setBool(t, valClient, signalIsLocked, true)
+	setBool(t, v2Client, signalIsLocked, true)
 	mo.waitForStartCalled(t, 1, 10*time.Second)
 
 	// Verify session is active.
@@ -223,7 +229,7 @@ func TestSessionLostOnRestart(t *testing.T) {
 	}
 
 	// Reset IsLocked so the second instance doesn't immediately trigger.
-	setBool(t, valClient, signalIsLocked, false)
+	setBool(t, v2Client, signalIsLocked, false)
 	time.Sleep(500 * time.Millisecond)
 
 	// Second run: restart adaptor on the same port.

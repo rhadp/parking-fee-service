@@ -89,10 +89,43 @@ async fn main() {
         .parse()
         .expect("invalid listen address");
 
+    // Pre-register the shutdown signal handler so that SIGTERM is caught even
+    // before the gRPC server's serve_with_shutdown future is polled.
+    // tokio::signal::unix::signal() synchronously installs the OS handler on
+    // creation — the returned Signal only needs to be polled to *receive* the
+    // notification, but the registration itself is immediate. (08-REQ-8.3)
+    let shutdown = {
+        let ctrl_c = tokio::signal::ctrl_c();
+        #[cfg(unix)]
+        {
+            let mut sigterm = tokio::signal::unix::signal(
+                tokio::signal::unix::SignalKind::terminate(),
+            )
+            .expect("failed to install SIGTERM handler");
+            async move {
+                tokio::select! {
+                    _ = ctrl_c => {
+                        tracing::info!("received SIGINT, initiating graceful shutdown");
+                    }
+                    _ = sigterm.recv() => {
+                        tracing::info!("received SIGTERM, initiating graceful shutdown");
+                    }
+                }
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            async move {
+                ctrl_c.await.ok();
+                tracing::info!("received SIGINT, initiating graceful shutdown");
+            }
+        }
+    };
+
     // Start the gRPC server as a background task.
     let grpc_server = tonic::transport::Server::builder()
         .add_service(ParkingAdaptorServer::new(svc))
-        .serve_with_shutdown(addr, shutdown_signal());
+        .serve_with_shutdown(addr, shutdown);
 
     // Log ready message (08-REQ-8.2).
     tracing::info!(
@@ -186,32 +219,6 @@ async fn main() {
             }
             tracing::info!("event channel closed, event loop exiting");
         } => {}
-    }
-}
-
-/// Wait for a shutdown signal (SIGTERM or SIGINT) (08-REQ-8.3).
-async fn shutdown_signal() {
-    let ctrl_c = tokio::signal::ctrl_c();
-
-    #[cfg(unix)]
-    {
-        let mut sigterm =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("failed to install SIGTERM handler");
-        tokio::select! {
-            _ = ctrl_c => {
-                tracing::info!("received SIGINT, initiating graceful shutdown");
-            }
-            _ = sigterm.recv() => {
-                tracing::info!("received SIGTERM, initiating graceful shutdown");
-            }
-        }
-    }
-
-    #[cfg(not(unix))]
-    {
-        ctrl_c.await.ok();
-        tracing::info!("received SIGINT, initiating graceful shutdown");
     }
 }
 

@@ -1,0 +1,67 @@
+// Minimal kuksa.val.v2 proto for PublishValue and Subscribe RPCs.
+//
+// This is a subset of the kuksa-databroker 0.5.0 v2 API, containing
+// only the messages and RPCs needed for writing signal values and
+// subscribing to signal changes. The v2 API is used because the v1
+// Set RPC is non-functional in kuksa-databroker 0.5.0.
+// See docs/errata/04_kuksa_v2_api_migration.md for details.
+
+syntax = "proto3";
+package kuksa.val.v2;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/kuksa/val/v2;kuksa_val_v2";
+
+import "google/protobuf/timestamp.proto";
+
+// SignalID identifies a VSS signal by path or numeric id.
+message SignalID {
+    oneof signal {
+        int32  id   = 1;
+        string path = 2;
+    }
+}
+
+// Value represents a typed signal value.
+message Value {
+    oneof typed_value {
+        string string  = 11;
+        bool   bool    = 12;
+        sint32 int32   = 13;
+        sint64 int64   = 14;
+        uint32 uint32  = 15;
+        uint64 uint64  = 16;
+        float  float   = 17;
+        double double  = 18;
+    }
+}
+
+// Datapoint represents a timestamped value.
+message Datapoint {
+    google.protobuf.Timestamp timestamp = 1;
+    Value value = 2;
+}
+
+// PublishValueRequest sets a signal value.
+message PublishValueRequest {
+    SignalID  signal_id  = 1;
+    Datapoint data_point = 2;
+}
+
+// PublishValueResponse is empty on success.
+message PublishValueResponse {}
+
+// SubscribeRequest subscribes to signal changes by path.
+message SubscribeRequest {
+    repeated string signal_paths = 1;
+    uint32 buffer_size = 2;
+}
+
+// SubscribeResponse delivers signal updates as a map of path to datapoint.
+message SubscribeResponse {
+    map<string, Datapoint> entries = 1;
+}
+
+service VAL {
+    rpc PublishValue (PublishValueRequest) returns (PublishValueResponse);
+    rpc Subscribe    (SubscribeRequest)    returns (stream SubscribeResponse);
+}
