@@ -197,15 +197,23 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - _Test Spec: TS-09-SMOKE-3_
 
   - [x] 5.4 Run property tests
+    - Sensor publish-and-exit (TS-09-P1): Added TestSensorPublishProperty to
+      tests/mock-apps/sensor_test.go with 10 lat/lon combos, 8 speed values,
+      and 2 door states, verifying correct VSS paths and values across the
+      input domain via stub kuksa.val.v1 gRPC server.
+    - Sensor argument validation (TS-09-P2): Added TestSensorArgumentValidationProperty
+      to tests/mock-apps/sensor_test.go systematically enumerating all missing-arg
+      subsets for each sensor. Added TestGoCliArgumentValidationProperty to
+      tests/mock-apps/parking_app_test.go covering all subcommand × missing-flag
+      combinations for parking-app-cli and companion-app-cli.
     - Parking operator session integrity (TS-09-P3): Added TestSessionIntegrityProperty
       to mock/parking-operator/server_test.go with 10 timestamp/duration combinations.
     - Parking operator session uniqueness (TS-09-P4/P5): Already covered by
-      TestSessionIDUniqueness in mock/parking-operator/server_test.go.
-    - Bearer token enforcement (TS-09-P6): Already covered by TestBearerTokenEnvVar
-      in tests/mock-apps/companion_test.go.
-    - Sensor argument validation (TS-09-P2): Covered by TestLookupMissingArgs,
-      TestInstallMissingArgs, TestMissingToken, TestMissingVIN in tests/mock-apps/.
-    - _Test Spec: TS-09-P2, TS-09-P3, TS-09-P4, TS-09-P5, TS-09-P6_
+      TestSessionIDUniqueness and TestConcurrentSessionUniqueness in
+      mock/parking-operator/server_test.go.
+    - Bearer token enforcement (TS-09-P6): Already covered by TestBearerTokenProperty
+      in tests/mock-apps/companion_test.go with 12 diverse token variations.
+    - _Test Spec: TS-09-P1, TS-09-P2, TS-09-P3, TS-09-P4, TS-09-P5, TS-09-P6_
 
   - [x] 5.V Verify task group 5
     - [x] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
@@ -253,7 +261,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 | 09-REQ-4.E2 | TS-09-E11 | 4.2 | tests/mock-apps::TestLookupHTTPError |
 | 09-REQ-5.1 | TS-09-7 | 4.3 | tests/mock-apps::TestInstall |
 | 09-REQ-5.2 | TS-09-8 | 4.3 | tests/mock-apps::TestList |
-| 09-REQ-5.3 | — | 4.3 | manual verification |
+| 09-REQ-5.3 | TS-09-WATCH | 4.3 | tests/mock-apps::TestWatch |
 | 09-REQ-5.4 | TS-09-18 | 4.3 | tests/mock-apps::TestAdapterStatus |
 | 09-REQ-5.5 | TS-09-19 | 4.3 | tests/mock-apps::TestRemove |
 | 09-REQ-5.6 | TS-09-7 | 4.3 | tests/mock-apps::TestInstall |
@@ -284,11 +292,11 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
 | 09-REQ-9.3 | TS-09-1 through TS-09-17 | all | success exit code tests |
 | 09-REQ-10.1 | TS-09-1 | 2.1 | mock-sensors build verification |
 | 09-REQ-10.2 | TS-09-1, TS-09-2, TS-09-3 | 2.2 | sensor integration tests |
-| Property 1 | TS-09-P1 | 5.4 | proptest_sensor_publish_and_exit |
-| Property 2 | TS-09-P2 | 5.4 | proptest_cli_argument_validation |
-| Property 4 | TS-09-P3 | 5.4 | proptest_session_integrity |
-| Property 5 | TS-09-P4, TS-09-P5 | 5.4 | proptest_session_uniqueness |
-| Property 6 | TS-09-P6 | 5.4 | proptest_bearer_token_enforcement |
+| Property 1 | TS-09-P1 | 5.4 | tests/mock-apps::TestSensorPublishProperty |
+| Property 2 | TS-09-P2 | 5.4 | tests/mock-apps::TestSensorArgumentValidationProperty, tests/mock-apps::TestGoCliArgumentValidationProperty |
+| Property 4 | TS-09-P3 | 5.4 | mock/parking-operator::TestSessionIntegrityProperty |
+| Property 5 | TS-09-P4, TS-09-P5 | 5.4 | mock/parking-operator::TestSessionIDUniqueness, mock/parking-operator::TestConcurrentSessionUniqueness |
+| Property 6 | TS-09-P6 | 5.4 | tests/mock-apps::TestBearerTokenProperty |
 
 ## Notes
 

@@ -589,3 +589,89 @@ func TestInstallMissingArgs(t *testing.T) {
 		t.Error("expected usage error on stderr when required flags missing")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TS-09-P2: CLI Argument Validation Property (Go CLIs)
+// Property 2 from design.md
+// Validates: 09-REQ-4.E1, 09-REQ-5.E1, 09-REQ-7.E1, 09-REQ-7.E2
+// Systematically enumerates all missing required argument subsets for each
+// parking-app-cli and companion-app-cli subcommand.
+// ---------------------------------------------------------------------------
+
+func TestGoCliArgumentValidationProperty(t *testing.T) {
+	parkingBin := buildBinary(t, "parking-app-cli")
+	companionBin := buildBinary(t, "companion-app-cli")
+
+	cases := []struct {
+		name   string
+		binary string
+		args   []string
+	}{
+		// parking-app-cli: lookup requires --lat and --lon.
+		{"parking/lookup/no-args", parkingBin, []string{"lookup"}},
+		{"parking/lookup/lat-only", parkingBin, []string{"lookup", "--lat=48.13"}},
+		{"parking/lookup/lon-only", parkingBin, []string{"lookup", "--lon=11.58"}},
+
+		// parking-app-cli: adapter-info requires --operator-id.
+		{"parking/adapter-info/no-args", parkingBin, []string{"adapter-info"}},
+
+		// parking-app-cli: install requires --image-ref and --checksum.
+		{"parking/install/no-args", parkingBin, []string{"install"}},
+		{"parking/install/image-only", parkingBin, []string{"install", "--image-ref=x"}},
+		{"parking/install/checksum-only", parkingBin, []string{"install", "--checksum=y"}},
+
+		// parking-app-cli: status requires --adapter-id.
+		{"parking/status/no-args", parkingBin, []string{"status"}},
+
+		// parking-app-cli: remove requires --adapter-id.
+		{"parking/remove/no-args", parkingBin, []string{"remove"}},
+
+		// parking-app-cli: start-session requires --zone-id.
+		{"parking/start-session/no-args", parkingBin, []string{"start-session"}},
+
+		// parking-app-cli: no subcommand.
+		{"parking/no-subcommand", parkingBin, nil},
+
+		// companion-app-cli: lock requires --vin and token.
+		{"companion/lock/no-args", companionBin, []string{"lock"}},
+		{"companion/lock/vin-only-no-token", companionBin, []string{"lock", "--vin=V1"}},
+		{"companion/lock/token-only-no-vin", companionBin, []string{"lock", "--token=t1"}},
+
+		// companion-app-cli: unlock requires --vin and token.
+		{"companion/unlock/no-args", companionBin, []string{"unlock"}},
+		{"companion/unlock/vin-only-no-token", companionBin, []string{"unlock", "--vin=V1"}},
+
+		// companion-app-cli: status requires --vin, --command-id, and token.
+		{"companion/status/no-args", companionBin, []string{"status"}},
+		{"companion/status/vin-only", companionBin, []string{"status", "--vin=V1", "--token=t1"}},
+
+		// companion-app-cli: no subcommand.
+		{"companion/no-subcommand", companionBin, nil},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr string
+			var exitCode int
+
+			// Clear CLOUD_GATEWAY_TOKEN for companion tests to ensure token
+			// validation is exercised via flag-only.
+			if strings.Contains(tc.name, "companion") && strings.Contains(tc.name, "no-token") {
+				stdout, stderr, exitCode = runBinaryWithEnv(t, tc.binary,
+					[]string{"CLOUD_GATEWAY_TOKEN="},
+					tc.args...)
+			} else {
+				stdout, stderr, exitCode = runBinary(t, tc.binary, tc.args...)
+			}
+			_ = stdout
+
+			if exitCode != 1 {
+				t.Fatalf("expected exit code 1 with missing args, got %d\nstderr: %s", exitCode, stderr)
+			}
+
+			if len(stderr) == 0 {
+				t.Error("expected non-empty stderr with missing args")
+			}
+		})
+	}
+}

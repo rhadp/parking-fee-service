@@ -276,6 +276,230 @@ func TestSensorsUnreachableBroker(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// TS-09-P1: Sensor Publish-and-Exit Property
+// Property 1 from design.md
+// Validates: 09-REQ-1.1, 09-REQ-2.1, 09-REQ-3.1
+// For any valid sensor input, the tool publishes the correct VSS value and
+// exits 0. Tests diverse values across the input domain.
+// ---------------------------------------------------------------------------
+
+func TestSensorPublishProperty(t *testing.T) {
+	// TS-09-P1: Location sensor with diverse lat/lon values.
+	locationCases := []struct {
+		name string
+		lat  string
+		lon  string
+		latV float64
+		lonV float64
+	}{
+		{"origin", "0.0", "0.0", 0.0, 0.0},
+		{"munich", "48.1351", "11.5820", 48.1351, 11.5820},
+		{"south-pole", "-90.0", "0.0", -90.0, 0.0},
+		{"north-pole", "90.0", "180.0", 90.0, 180.0},
+		{"negative-lon", "51.5074", "-0.1278", 51.5074, -0.1278},
+		{"antimeridian", "0.0", "-180.0", 0.0, -180.0},
+		{"fractional", "33.8688", "151.2093", 33.8688, 151.2093},
+		{"near-zero", "0.0001", "-0.0001", 0.0001, -0.0001},
+		{"high-precision", "48.137154", "11.576124", 48.137154, 11.576124},
+		{"negative-both", "-33.8688", "-70.6693", -33.8688, -70.6693},
+	}
+
+	for _, tc := range locationCases {
+		t.Run("location/"+tc.name, func(t *testing.T) {
+			addr, stub := startStubVALServer(t)
+			binary := buildRustBinary(t, "location-sensor")
+
+			_, stderr, exitCode := runBinary(t, binary,
+				"--lat="+tc.lat, "--lon="+tc.lon,
+				"--broker-addr=http://"+addr,
+			)
+
+			if exitCode != 0 {
+				t.Fatalf("expected exit code 0, got %d\nstderr: %s", exitCode, stderr)
+			}
+
+			calls := stub.getCalls()
+			if len(calls) != 2 {
+				t.Fatalf("expected 2 Set calls, got %d", len(calls))
+			}
+
+			for _, c := range calls {
+				switch c.Path {
+				case "Vehicle.CurrentLocation.Latitude":
+					if v := c.Value.GetDoubleValue(); v != tc.latV {
+						t.Errorf("expected Latitude %f, got %f", tc.latV, v)
+					}
+				case "Vehicle.CurrentLocation.Longitude":
+					if v := c.Value.GetDoubleValue(); v != tc.lonV {
+						t.Errorf("expected Longitude %f, got %f", tc.lonV, v)
+					}
+				default:
+					t.Errorf("unexpected VSS path: %s", c.Path)
+				}
+			}
+		})
+	}
+
+	// TS-09-P1: Speed sensor with diverse speed values.
+	speedCases := []struct {
+		name  string
+		speed string
+		value float32
+	}{
+		{"zero", "0.0", 0.0},
+		{"walking", "5.0", 5.0},
+		{"city", "50.0", 50.0},
+		{"highway", "120.5", 120.5},
+		{"autobahn", "250.0", 250.0},
+		{"fractional", "33.33", 33.33},
+		{"small", "0.1", 0.1},
+		{"large", "999.9", 999.9},
+	}
+
+	for _, tc := range speedCases {
+		t.Run("speed/"+tc.name, func(t *testing.T) {
+			addr, stub := startStubVALServer(t)
+			binary := buildRustBinary(t, "speed-sensor")
+
+			_, stderr, exitCode := runBinary(t, binary,
+				"--speed="+tc.speed,
+				"--broker-addr=http://"+addr,
+			)
+
+			if exitCode != 0 {
+				t.Fatalf("expected exit code 0, got %d\nstderr: %s", exitCode, stderr)
+			}
+
+			calls := stub.getCalls()
+			if len(calls) != 1 {
+				t.Fatalf("expected 1 Set call, got %d", len(calls))
+			}
+
+			if calls[0].Path != "Vehicle.Speed" {
+				t.Errorf("expected path 'Vehicle.Speed', got '%s'", calls[0].Path)
+			}
+
+			gotVal := calls[0].Value.GetFloatValue()
+			// Float32 comparison with tolerance.
+			diff := gotVal - tc.value
+			if diff > 0.01 || diff < -0.01 {
+				t.Errorf("expected speed %f, got %f", tc.value, gotVal)
+			}
+		})
+	}
+
+	// TS-09-P1: Door sensor with both states.
+	doorCases := []struct {
+		name     string
+		flag     string
+		expected bool
+	}{
+		{"open", "--open", true},
+		{"closed", "--closed", false},
+	}
+
+	for _, tc := range doorCases {
+		t.Run("door/"+tc.name, func(t *testing.T) {
+			addr, stub := startStubVALServer(t)
+			binary := buildRustBinary(t, "door-sensor")
+
+			_, stderr, exitCode := runBinary(t, binary,
+				tc.flag,
+				"--broker-addr=http://"+addr,
+			)
+
+			if exitCode != 0 {
+				t.Fatalf("expected exit code 0, got %d\nstderr: %s", exitCode, stderr)
+			}
+
+			calls := stub.getCalls()
+			if len(calls) != 1 {
+				t.Fatalf("expected 1 Set call, got %d", len(calls))
+			}
+
+			if calls[0].Path != "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen" {
+				t.Errorf("expected path 'Vehicle.Cabin.Door.Row1.DriverSide.IsOpen', got '%s'", calls[0].Path)
+			}
+
+			if v := calls[0].Value.GetBoolValue(); v != tc.expected {
+				t.Errorf("expected IsOpen=%v, got %v", tc.expected, v)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TS-09-P2: CLI Argument Validation Property (sensors)
+// Property 2 from design.md
+// Validates: 09-REQ-1.E1, 09-REQ-2.E1, 09-REQ-3.E1
+// For any invocation with missing required arguments, exit code is 1 and
+// stderr is non-empty. Systematically enumerates all missing-arg subsets.
+// ---------------------------------------------------------------------------
+
+func TestSensorArgumentValidationProperty(t *testing.T) {
+	// location-sensor: requires both --lat and --lon.
+	// Test all subsets with at least one missing.
+	locationMissing := []struct {
+		name string
+		args []string
+	}{
+		{"no-args", nil},
+		{"lat-only", []string{"--lat=48.13"}},
+		{"lon-only", []string{"--lon=11.58"}},
+	}
+
+	for _, tc := range locationMissing {
+		t.Run("location/"+tc.name, func(t *testing.T) {
+			binary := buildRustBinary(t, "location-sensor")
+			_, stderr, exitCode := runBinary(t, binary, tc.args...)
+
+			if exitCode != 1 {
+				t.Fatalf("expected exit code 1 with missing args, got %d", exitCode)
+			}
+			if len(stderr) == 0 {
+				t.Error("expected non-empty stderr with missing args")
+			}
+		})
+	}
+
+	// speed-sensor: requires --speed.
+	t.Run("speed/no-args", func(t *testing.T) {
+		binary := buildRustBinary(t, "speed-sensor")
+		_, stderr, exitCode := runBinary(t, binary)
+
+		if exitCode != 1 {
+			t.Fatalf("expected exit code 1 with missing --speed, got %d", exitCode)
+		}
+		if len(stderr) == 0 {
+			t.Error("expected non-empty stderr with missing --speed")
+		}
+	})
+
+	// door-sensor: requires exactly one of --open or --closed.
+	doorMissing := []struct {
+		name string
+		args []string
+	}{
+		{"no-args", nil},
+		{"both-flags", []string{"--open", "--closed"}},
+	}
+
+	for _, tc := range doorMissing {
+		t.Run("door/"+tc.name, func(t *testing.T) {
+			binary := buildRustBinary(t, "door-sensor")
+			_, stderr, exitCode := runBinary(t, binary, tc.args...)
+
+			if exitCode != 1 {
+				t.Fatalf("expected exit code 1 with invalid args, got %d", exitCode)
+			}
+			if len(stderr) == 0 {
+				t.Error("expected non-empty stderr with invalid args")
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // TS-09-SMOKE-1: End-to-End Sensor to DATA_BROKER
 // Smoke test: all three sensors publish via stub server.
 // ---------------------------------------------------------------------------
