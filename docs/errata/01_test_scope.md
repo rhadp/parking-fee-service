@@ -50,16 +50,14 @@ Rust binary). Live gRPC tests skip when the container is not running.
 **Impact:** Regressions in tests/databroker and tests/locking-service are not
 caught by `make test`. They are covered when infrastructure is available.
 
-### 5. ~~Go backend modules scoped to root package~~ Partially resolved
+### 5. ~~Go backend modules scoped to root package~~ Resolved
 
 ~~`test-go` uses `go test .` (root package only) instead of `go test ./...` for
 `backend/parking-fee-service` and `backend/cloud-gateway`.~~
 `backend/parking-fee-service` now uses `go test ./...` after spec 05 task
-group 4 implementation. `backend/cloud-gateway` still uses `go test .` because
-spec 06 subpackage tests are not yet implemented.
-
-**Impact:** Regressions in backend/cloud-gateway subpackages are not caught by
-`make test`. They are covered when spec 06 is implemented.
+group 4 implementation. ~~`backend/cloud-gateway` still uses `go test .` because
+spec 06 subpackage tests are not yet implemented.~~ Now uses `go test ./...`
+after spec 06 task group 6 wiring verification.
 
 ### 6. Sensor binary skeleton behavior
 
@@ -159,4 +157,4 @@ be updated to:
 - ~~Include `mock/parking-operator` in `test-go` (after spec 09)~~ Done
 - ~~Include `tests/mock-apps` in `test-go` (after spec 09)~~ Done
 - ~~Use `go test ./...` for backend/parking-fee-service (after spec 05)~~ Done
-- Use `go test ./...` for backend/cloud-gateway (after spec 06)
+- ~~Use `go test ./...` for backend/cloud-gateway (after spec 06)~~ Done
