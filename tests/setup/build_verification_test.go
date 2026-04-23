@@ -339,10 +339,12 @@ func TestPropertyBuildCompleteness(t *testing.T) {
 // TS-01-13: Rust skeleton prints version and exits 0
 // Requirements: 01-REQ-4.1, 01-REQ-4.4
 //
-// Note: Only locking-service retains skeleton behavior (print version, exit 0).
+// locking-service retains skeleton behavior (print version, exit 0).
 // cloud-gateway-client (spec 04), update-service (spec 07), and
 // parking-operator-adaptor (spec 08) have been replaced by full implementations
-// that require runtime configuration and exit non-zero without it.
+// that require runtime configuration and exit non-zero without it. For those
+// binaries, we verify the component name appears in combined output (usage or
+// error messages) without asserting exit code 0.
 // See docs/errata/01_test_scope.md for details.
 func TestRustSkeletonBinaries(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
@@ -358,24 +360,41 @@ func TestRustSkeletonBinaries(t *testing.T) {
 		t.Fatalf("cargo build failed: %v\n%s", err, string(out))
 	}
 
-	// Binaries that still have skeleton behavior: print version and exit 0.
-	services := []struct {
+	// locking-service: still has skeleton behavior (print version, exit 0).
+	t.Run("locking-service", func(t *testing.T) {
+		binPath := filepath.Join(root, "rhivos", "target", "debug", "locking-service")
+		cmd := exec.Command(binPath)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("binary locking-service exited with error: %v", err)
+		}
+		if !strings.Contains(string(out), "locking-service") {
+			t.Errorf("expected stdout of locking-service to contain %q, got: %s", "locking-service", string(out))
+		}
+	})
+
+	// Remaining Rust service binaries: full implementations that may exit non-zero.
+	// Verify the component name appears in combined output (stdout + stderr).
+	fullImplBinaries := []struct {
 		name           string
 		expectInOutput string
 	}{
-		{"locking-service", "locking-service"},
+		{"cloud-gateway-client", "cloud-gateway-client"},
+		{"update-service", "update-service"},
+		{"parking-operator-adaptor", "parking-operator-adaptor"},
 	}
 
-	for _, b := range services {
+	for _, b := range fullImplBinaries {
 		t.Run(b.name, func(t *testing.T) {
 			binPath := filepath.Join(root, "rhivos", "target", "debug", b.name)
 			cmd := exec.Command(binPath)
-			out, err := cmd.Output()
-			if err != nil {
-				t.Fatalf("binary %s exited with error: %v", b.name, err)
-			}
-			if !strings.Contains(string(out), b.expectInOutput) {
-				t.Errorf("expected stdout of %s to contain %q, got: %s", b.name, b.expectInOutput, string(out))
+			out, _ := cmd.CombinedOutput()
+			outputStr := string(out)
+			// Accept either hyphenated or underscored form of the name
+			nameUnderscore := strings.ReplaceAll(b.expectInOutput, "-", "_")
+			if !strings.Contains(outputStr, b.expectInOutput) && !strings.Contains(outputStr, nameUnderscore) {
+				t.Errorf("expected combined output of %s to contain %q or %q, got: %s",
+					b.name, b.expectInOutput, nameUnderscore, outputStr)
 			}
 		})
 	}
@@ -436,6 +455,7 @@ func TestGoSkeletonBinaries(t *testing.T) {
 		expectInOutput string
 	}{
 		{"backend/parking-fee-service", "parking-fee-service"},
+		{"backend/cloud-gateway", "cloud-gateway"},
 		{"mock/parking-app-cli", "parking-app-cli"},
 		{"mock/companion-app-cli", "companion-app-cli"},
 		{"mock/parking-operator", "parking-operator"},
@@ -458,26 +478,40 @@ func TestGoSkeletonBinaries(t *testing.T) {
 // TS-01-P2: Skeleton determinism across invocations
 // Property 2: Skeleton binaries produce identical output across runs
 //
-// Note: Only locking-service retains strict skeleton behavior (exit 0).
-// Sensor binaries (spec 09) and other service binaries (specs 04, 07, 08)
-// are full implementations that exit non-zero without config/args.
-// For non-skeleton binaries, we verify determinism via CombinedOutput
-// without asserting exit code 0.
+// Covers all Rust binaries (7) and all Go modules (5).
+// locking-service retains strict skeleton behavior (exit 0).
+// Other binaries are full implementations that may exit non-zero and include
+// timestamps in log output. Output is normalized (timestamps stripped) before
+// comparison to verify structural determinism.
 func TestPropertySkeletonDeterminism(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
 		t.Skip("skipping: cargo not found on PATH")
 	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("skipping: go not found on PATH")
+	}
 
 	root := repoRoot(t)
 
-	// Build first
+	// Regex to normalize timestamps and ANSI escape codes for comparison.
+	// Matches ISO 8601 timestamps (e.g., 2026-04-23T14:41:54.998750Z).
+	timestampRe := regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[\.\d]*Z?`)
+	ansiRe := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+	normalize := func(s string) string {
+		s = ansiRe.ReplaceAllString(s, "")
+		s = timestampRe.ReplaceAllString(s, "<TIMESTAMP>")
+		return s
+	}
+
+	// Build Rust workspace first
 	cmd := exec.Command("cargo", "build", "--workspace")
 	cmd.Dir = filepath.Join(root, "rhivos")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("cargo build failed: %v\n%s", err, string(out))
 	}
 
-	// locking-service: still has skeleton behavior (exit 0, print version to stdout).
+	// locking-service: skeleton behavior (exit 0, print version to stdout).
 	t.Run("locking-service", func(t *testing.T) {
 		binPath := filepath.Join(root, "rhivos", "target", "debug", "locking-service")
 
@@ -496,22 +530,56 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 		}
 	})
 
-	// Sensor binaries (spec 09 implementation: exit non-zero without args, use CombinedOutput)
-	sensors := []string{
+	// Remaining Rust binaries (full implementations, may exit non-zero)
+	rustBinaries := []string{
+		"cloud-gateway-client",
+		"update-service",
+		"parking-operator-adaptor",
 		"location-sensor",
 		"speed-sensor",
 		"door-sensor",
 	}
 
-	for _, bin := range sensors {
+	for _, bin := range rustBinaries {
 		t.Run(bin, func(t *testing.T) {
 			binPath := filepath.Join(root, "rhivos", "target", "debug", bin)
 
 			out1, _ := exec.Command(binPath).CombinedOutput()
 			out2, _ := exec.Command(binPath).CombinedOutput()
 
-			if string(out1) != string(out2) {
-				t.Errorf("non-deterministic output for %s:\n  run1: %s\n  run2: %s", bin, string(out1), string(out2))
+			norm1 := normalize(string(out1))
+			norm2 := normalize(string(out2))
+
+			if norm1 != norm2 {
+				t.Errorf("non-deterministic output for %s:\n  run1: %s\n  run2: %s", bin, norm1, norm2)
+			}
+		})
+	}
+
+	// Go module binaries (full implementations, may exit non-zero)
+	goModules := []string{
+		"backend/parking-fee-service",
+		"backend/cloud-gateway",
+		"mock/parking-app-cli",
+		"mock/companion-app-cli",
+		"mock/parking-operator",
+	}
+
+	for _, mod := range goModules {
+		t.Run(mod, func(t *testing.T) {
+			cmd1 := exec.Command("go", "run", ".")
+			cmd1.Dir = filepath.Join(root, mod)
+			out1, _ := cmd1.CombinedOutput()
+
+			cmd2 := exec.Command("go", "run", ".")
+			cmd2.Dir = filepath.Join(root, mod)
+			out2, _ := cmd2.CombinedOutput()
+
+			norm1 := normalize(string(out1))
+			norm2 := normalize(string(out2))
+
+			if norm1 != norm2 {
+				t.Errorf("non-deterministic output for %s:\n  run1: %s\n  run2: %s", mod, norm1, norm2)
 			}
 		})
 	}
@@ -970,5 +1038,41 @@ func TestMakeProtoGeneratesGoCode(t *testing.T) {
 	buildCmd.Dir = genDir
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build on generated code failed: %v\n%s", err, string(out))
+	}
+}
+
+// TS-01-E10: Setup test skips on missing toolchain
+// Requirement: 01-REQ-9.E1
+// Verifies that setup tests skip gracefully (with a message naming the missing
+// tool) when a required toolchain is absent from PATH.
+func TestSetupTestSkipsOnMissingToolchain(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("skipping: go not found on PATH")
+	}
+
+	root := repoRoot(t)
+
+	// Run TestRustBuild with a PATH that excludes cargo.
+	// Construct a minimal PATH that has 'go' but not 'cargo'.
+	goPath, _ := exec.LookPath("go")
+	goDir := filepath.Dir(goPath)
+
+	// Use only /usr/bin, /bin, and the directory containing 'go'
+	restrictedPath := "/usr/bin:/bin:" + goDir
+
+	cmd := exec.Command("go", "test", "-v", "-run", "TestRustBuild", "-count=1", ".")
+	cmd.Dir = filepath.Join(root, "tests", "setup")
+	cmd.Env = []string{
+		"PATH=" + restrictedPath,
+		"HOME=" + os.Getenv("HOME"),
+		"GOPATH=" + os.Getenv("GOPATH"),
+		"GOMODCACHE=" + os.Getenv("GOMODCACHE"),
+		"GOCACHE=" + os.Getenv("GOCACHE"),
+	}
+	out, _ := cmd.CombinedOutput()
+	combined := strings.ToLower(string(out))
+
+	if !strings.Contains(combined, "skip") {
+		t.Errorf("expected TestRustBuild to skip when cargo is absent from PATH, got:\n%s", string(out))
 	}
 }

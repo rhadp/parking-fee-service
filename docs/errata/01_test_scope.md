@@ -134,16 +134,17 @@ or configuration.
 
 **Test impact:** `TestGoSkeletonBinaries` (TS-01-14) uses CombinedOutput and
 checks that the component name appears somewhere in the output (usage messages,
-log lines) without asserting exit code 0. `backend/cloud-gateway` is excluded
-because its error output does not mention the component name.
+log lines) without asserting exit code 0. All 5 Go modules are now included
+(including `backend/cloud-gateway`, which outputs "cloud-gateway" in its log
+messages).
 
 ### 10. Proto generated code module
 
 The `make proto` target generates Go code into `gen/` at the repository root.
 `gen/` is a standalone Go module (`github.com/rhadp/parking-fee-service/gen`)
-added to `go.work`. The generated code compiles and is importable by other
-modules via the Go workspace. The proto files themselves are not modified by
-code generation.
+added to `go.work`. The generated code is committed to git so that Go modules
+that import `gen/` packages can build from a clean checkout without requiring
+`protoc`. Regenerate with `make proto` after modifying `.proto` files.
 
 ## Resolution
 

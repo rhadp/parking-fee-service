@@ -18,8 +18,9 @@ Cargo.lock
 **/bin/
 **/*.test
 
-# Proto generated code
-gen/
+# Proto generated code is committed so Go modules that import gen/ packages
+# can build from a clean checkout without requiring protoc.
+# Regenerate with: make proto
 
 # Allow Rust source bin directories
 !**/src/bin/
