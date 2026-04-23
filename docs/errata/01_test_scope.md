@@ -9,19 +9,20 @@ The spec 01 `make test` and `make check` targets do not run the full
 ### 1. Rust crates excluded from test-rust
 
 `test-rust` uses `cargo test --workspace --exclude cloud-gateway-client
---exclude update-service --exclude parking-operator-adaptor` instead of
-`cargo test --workspace`.
+--exclude update-service` instead of `cargo test --workspace`.
 
 - **Crate exclusions** (`--exclude`): `cloud-gateway-client` (spec 04 TG1
   stubs) and `update-service` (spec 07 TG1 stubs) contain failing tests that
   require implementation from their respective specs. They are excluded entirely
   until those specs are implemented.
-  `locking-service` was previously excluded (spec 03 TG1 stubs) but is now
+  ~~`locking-service` was previously excluded (spec 03 TG1 stubs)~~ but is now
   included after spec 03 task group 3 implementation.
   ~~`parking-operator-adaptor` was previously excluded (spec 08 TG1 stubs)~~
   but is now included after spec 08 implementation.
   ~~`mock-sensors` integration tests were previously excluded via `--lib --bins`~~
   but are now included after spec 09 task group 5 implementation.
+  ~~`--lib --bins` flag was previously used to exclude integration test files~~
+  but has been removed since no crate has integration tests under `tests/`.
 
 **Impact:** Test regressions in cloud-gateway-client and update-service are not
 caught by `make test`. They are covered when specs 04 and 07 are implemented.

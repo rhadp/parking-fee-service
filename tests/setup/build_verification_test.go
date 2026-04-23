@@ -140,8 +140,7 @@ func TestProtoFilesValidate(t *testing.T) {
 // Requirement: 01-REQ-8.3
 // Note: Exclusions match the Makefile test-rust target. cloud-gateway-client
 // (spec 04 TG1 stubs) and update-service (spec 07 TG1 stubs) are excluded
-// until those specs are fully implemented. Uses --lib --bins to run unit tests
-// and binary tests only.
+// until those specs are fully implemented.
 // See docs/errata/01_test_scope.md for details.
 func TestRustTestsPass(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
@@ -151,8 +150,7 @@ func TestRustTestsPass(t *testing.T) {
 	root := repoRoot(t)
 	cmd := exec.Command("cargo", "test", "--workspace",
 		"--exclude", "cloud-gateway-client",
-		"--exclude", "update-service",
-		"--lib", "--bins")
+		"--exclude", "update-service")
 	cmd.Dir = filepath.Join(root, "rhivos")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
