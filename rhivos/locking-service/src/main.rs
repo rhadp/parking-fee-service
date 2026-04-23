@@ -70,6 +70,17 @@ async fn main() {
 
     tracing::info!("locking-service ready");
 
+    // Spawn a persistent signal-monitoring task so that signals delivered
+    // while a command is being processed are not lost. The watch channel
+    // retains the "shutdown requested" state, so the next select! iteration
+    // will see it even if the changed() future was cancelled mid-flight.
+    // (03-REQ-6.1, 03-REQ-6.E1)
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = shutdown_tx.send(true);
+    });
+
     let mut lock_state = false;
 
     // Command processing loop with graceful shutdown (03-REQ-1.3, 03-REQ-6.1).
@@ -90,9 +101,9 @@ async fn main() {
                 }
             }
             // Graceful shutdown on SIGTERM/SIGINT (03-REQ-6.1, 03-REQ-6.E1).
-            // tokio::select! waits for the current branch to complete before
-            // checking the shutdown signal, so any in-progress command finishes.
-            _ = shutdown_signal() => {
+            // The background task listens continuously, so signals are never
+            // missed — even those delivered while handle_command_payload() runs.
+            _ = shutdown_rx.changed() => {
                 tracing::info!("shutdown signal received, exiting");
                 break;
             }
