@@ -160,6 +160,10 @@ func TestRustTestsPass(t *testing.T) {
 
 // TS-01-29: go test passes for all Go modules
 // Requirement: 01-REQ-8.4
+// Test scope matches the Makefile test-go target:
+//   - Most modules use "go test ./..." to exercise subpackages.
+//   - backend/cloud-gateway uses "go test ." because subpackage tests from
+//     spec 06 are not yet fully implemented (see docs/errata/01_test_scope.md).
 func TestGoTestsPass(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("skipping: go not found on PATH")
@@ -167,23 +171,24 @@ func TestGoTestsPass(t *testing.T) {
 
 	root := repoRoot(t)
 
-	// Test root package of each module (avoids subpackage stubs from other specs).
-	// All five Go modules are included per 01-REQ-8.4.
-	modules := []string{
-		"backend/parking-fee-service",
-		"backend/cloud-gateway",
-		"mock/parking-app-cli",
-		"mock/companion-app-cli",
-		"mock/parking-operator",
+	modules := []struct {
+		path    string
+		testPkg string // "." or "./..."
+	}{
+		{"backend/parking-fee-service", "./..."},
+		{"backend/cloud-gateway", "."},
+		{"mock/parking-app-cli", "./..."},
+		{"mock/companion-app-cli", "./..."},
+		{"mock/parking-operator", "./..."},
 	}
 
 	for _, mod := range modules {
-		t.Run(mod, func(t *testing.T) {
-			cmd := exec.Command("go", "test", ".")
-			cmd.Dir = filepath.Join(root, mod)
+		t.Run(mod.path, func(t *testing.T) {
+			cmd := exec.Command("go", "test", mod.testPkg)
+			cmd.Dir = filepath.Join(root, mod.path)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				t.Fatalf("go test . in %s failed: %v\n%s", mod, err, string(out))
+				t.Fatalf("go test %s in %s failed: %v\n%s", mod.testPkg, mod.path, err, string(out))
 			}
 		})
 	}
