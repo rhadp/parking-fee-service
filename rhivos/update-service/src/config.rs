@@ -1,12 +1,35 @@
 use serde::Deserialize;
 
 /// Service configuration loaded from a JSON file.
+///
+/// Each field has a built-in default (per 07-REQ-7.2) so the config file
+/// may omit any subset of fields — missing ones are filled from defaults.
+///
+/// Note: `registry_url` and `container_storage_path` are specified by
+/// 07-REQ-7.2 but are not consumed by any current execution path. They
+/// exist for forward-compatibility; see `docs/errata/07_inert_config_fields.md`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
+    #[serde(default = "default_grpc_port")]
     pub grpc_port: u16,
+    #[serde(default)]
     pub registry_url: String,
+    #[serde(default = "default_inactivity_timeout_secs")]
     pub inactivity_timeout_secs: u64,
+    #[serde(default = "default_container_storage_path")]
     pub container_storage_path: String,
+}
+
+fn default_grpc_port() -> u16 {
+    50052
+}
+
+fn default_inactivity_timeout_secs() -> u64 {
+    86400
+}
+
+fn default_container_storage_path() -> String {
+    "/var/lib/containers/adapters/".to_string()
 }
 
 /// Errors that can occur when loading configuration.
@@ -88,6 +111,23 @@ mod tests {
         assert_eq!(cfg.grpc_port, 50052);
         assert_eq!(cfg.inactivity_timeout_secs, 86400);
         assert_eq!(cfg.container_storage_path, "/var/lib/containers/adapters/");
+    }
+
+    // Partial config: missing fields use defaults (REQ-7.2 per-field defaults)
+    #[test]
+    fn test_load_config_partial_fields() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("test_partial_config_07.json");
+        std::fs::write(&path, r#"{"grpc_port": 60000}"#).unwrap();
+
+        let cfg = load_config(path.to_str().unwrap()).unwrap();
+        assert_eq!(cfg.grpc_port, 60000);
+        // Missing fields should use defaults
+        assert_eq!(cfg.registry_url, "");
+        assert_eq!(cfg.inactivity_timeout_secs, 86400);
+        assert_eq!(cfg.container_storage_path, "/var/lib/containers/adapters/");
+
+        let _ = std::fs::remove_file(&path);
     }
 
     // TS-07-E14: Invalid JSON config returns error
