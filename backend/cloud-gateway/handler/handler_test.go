@@ -212,6 +212,17 @@ func TestContentTypeHeader(t *testing.T) {
 			path:   "/vehicles/VIN12345/commands/nonexistent",
 			auth:   "Bearer demo-token-001",
 		},
+		{
+			name:   "unauthorized_no_auth",
+			method: "POST",
+			path:   "/vehicles/VIN12345/commands",
+		},
+		{
+			name:   "forbidden_vin_mismatch",
+			method: "POST",
+			path:   "/vehicles/VIN99999/commands",
+			auth:   "Bearer demo-token-001",
+		},
 	}
 
 	for _, tc := range tests {
