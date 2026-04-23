@@ -111,6 +111,10 @@ func TestStartupLogging(t *testing.T) {
 	if !bytes.Contains([]byte(output), []byte("operators")) {
 		t.Errorf("startup logs do not contain 'operators'; got:\n%s", output)
 	}
+	// 05-REQ-6.1 requires logging the version at startup.
+	if !bytes.Contains([]byte(output), []byte("version")) {
+		t.Errorf("startup logs do not contain 'version'; got:\n%s", output)
+	}
 }
 
 // TS-05-16: On SIGTERM, the service gracefully shuts down and exits with code 0.

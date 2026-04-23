@@ -212,6 +212,40 @@ func TestContentTypeHeader(t *testing.T) {
 	}
 }
 
+// TestContentTypeHeaderOnErrors verifies Content-Type: application/json is set
+// on error responses (400, 404) as required by 05-REQ-5.1 ("ALL responses").
+func TestContentTypeHeaderOnErrors(t *testing.T) {
+	_, mux := testSetup()
+
+	cases := []struct {
+		name       string
+		url        string
+		wantStatus int
+	}{
+		{"missing params (400)", "/operators", http.StatusBadRequest},
+		{"invalid coordinates (400)", "/operators?lat=999&lon=999", http.StatusBadRequest},
+		{"non-numeric coords (400)", "/operators?lat=abc&lon=def", http.StatusBadRequest},
+		{"unknown operator (404)", "/operators/nonexistent/adapter", http.StatusNotFound},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tc.url, nil)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+
+			ct := rec.Header().Get("Content-Type")
+			if ct != "application/json" {
+				t.Errorf("Content-Type = %q, want 'application/json'", ct)
+			}
+		})
+	}
+}
+
 // TS-05-13: Operator lookup response includes correct fields and excludes adapter.
 func TestOperatorResponseFields(t *testing.T) {
 	_, mux := testSetup()
