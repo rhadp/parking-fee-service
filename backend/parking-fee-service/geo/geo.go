@@ -84,23 +84,39 @@ func DistanceToPolygonEdge(point model.Coordinate, polygon []model.Coordinate) f
 }
 
 // distanceToSegment computes the minimum distance from point P to the line
-// segment defined by endpoints A and B. It projects P onto the line AB using
-// a parametric approach in lat/lon space, clamps the parameter to [0, 1] to
-// stay on the segment, then computes the Haversine distance to the nearest
-// point on the segment.
+// segment defined by endpoints A and B. It projects P onto the line AB in a
+// locally-corrected coordinate space (longitude scaled by cos(lat) to account
+// for meridian convergence), clamps the parameter to [0, 1] to stay on the
+// segment, then computes the Haversine distance to the nearest point on the
+// segment.
+//
+// The cos(lat) scaling corrects for the fact that at higher latitudes, one
+// degree of longitude covers fewer meters than one degree of latitude. Without
+// this correction, the projection parameter t would be distorted for
+// non-axis-aligned edges, causing distance overestimation of up to ~33% at
+// Munich's latitude (~48°).
 func distanceToSegment(p, a, b model.Coordinate) float64 {
-	dx := b.Lon - a.Lon
-	dy := b.Lat - a.Lat
+	// Scale longitude by cos(midLat) to correct for latitude distortion.
+	midLat := degToRad((a.Lat + b.Lat) / 2.0)
+	cosLat := math.Cos(midLat)
+
+	// Segment direction in scaled coordinate space.
+	dxScaled := (b.Lon - a.Lon) * cosLat
+	dyScaled := b.Lat - a.Lat
 
 	// If the segment is a single point, return distance to that point.
-	lenSq := dx*dx + dy*dy
+	lenSq := dxScaled*dxScaled + dyScaled*dyScaled
 	if lenSq == 0 {
 		return HaversineDistance(p, a)
 	}
 
+	// Point-to-A vector in scaled coordinate space.
+	pxScaled := (p.Lon - a.Lon) * cosLat
+	pyScaled := p.Lat - a.Lat
+
 	// Compute the parametric position of the projection of P onto line AB.
-	// t = dot(P-A, B-A) / |B-A|^2
-	t := ((p.Lon-a.Lon)*dx + (p.Lat-a.Lat)*dy) / lenSq
+	// t = dot(P-A, B-A) / |B-A|^2, computed in the scaled space.
+	t := (pxScaled*dxScaled + pyScaled*dyScaled) / lenSq
 
 	// Clamp t to [0, 1] to stay within the segment.
 	if t < 0 {
@@ -109,10 +125,10 @@ func distanceToSegment(p, a, b model.Coordinate) float64 {
 		t = 1
 	}
 
-	// Compute the closest point on the segment.
+	// Compute the closest point on the segment in original (unscaled) coordinates.
 	closest := model.Coordinate{
-		Lat: a.Lat + t*dy,
-		Lon: a.Lon + t*dx,
+		Lat: a.Lat + t*(b.Lat-a.Lat),
+		Lon: a.Lon + t*(b.Lon-a.Lon),
 	}
 
 	return HaversineDistance(p, closest)

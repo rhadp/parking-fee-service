@@ -116,6 +116,48 @@ func TestPropertyPointInPolygon(t *testing.T) {
 	}
 }
 
+// TestProximityMatchingDiagonalEdge validates that DistanceToPolygonEdge and
+// FindMatchingZones produce correct results for diagonal (non-axis-aligned)
+// polygon edges, where naive lat/lon projection without cos(lat) scaling
+// would overestimate distance by up to ~33% at Munich's latitude.
+func TestProximityMatchingDiagonalEdge(t *testing.T) {
+	// A diamond-shaped polygon with only diagonal edges.
+	diamondPolygon := []model.Coordinate{
+		{Lat: 48.1400, Lon: 11.5600}, // top
+		{Lat: 48.1375, Lon: 11.5650}, // right
+		{Lat: 48.1350, Lon: 11.5600}, // bottom
+		{Lat: 48.1375, Lon: 11.5550}, // left
+	}
+	diamondZone := model.Zone{
+		ID:      "diamond",
+		Name:    "Diamond Zone",
+		Polygon: diamondPolygon,
+	}
+
+	// A point slightly outside the top-right diagonal edge, ~50m away.
+	// Without cos(lat) correction, this point's distance would be overestimated.
+	nearDiagonal := model.Coordinate{Lat: 48.1392, Lon: 11.5630}
+
+	dist := geo.DistanceToPolygonEdge(nearDiagonal, diamondPolygon)
+	// The point should be within ~100m of the edge.
+	if dist > 150 {
+		t.Errorf("DistanceToPolygonEdge for point near diagonal edge = %f meters, want < 150m", dist)
+	}
+
+	// With a 200m threshold, this point should match the zone.
+	result := geo.FindMatchingZones(nearDiagonal, []model.Zone{diamondZone}, 200.0)
+	found := false
+	for _, id := range result {
+		if id == "diamond" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("FindMatchingZones(near diagonal, zones, 200.0) did not include 'diamond'; dist=%f, got %v", dist, result)
+	}
+}
+
 // TS-05-P2: Property test for proximity matching.
 // Points generated just outside the polygon edge within threshold must match.
 func TestPropertyProximityMatching(t *testing.T) {
