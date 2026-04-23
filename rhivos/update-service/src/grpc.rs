@@ -230,14 +230,26 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
             .get_adapter(adapter_id)
             .ok_or_else(|| ServiceError::NotFound("adapter not found".to_string()))?;
 
-        // Stop if currently running (REQ-5.1).
+        // Stop if currently running (REQ-5.1, REQ-8.1).
         if entry.state == AdapterState::Running {
-            if let Err(e) = self.podman.stop(adapter_id).await {
-                let _ = self.state_manager.transition(
-                    adapter_id,
-                    AdapterState::Error,
-                    Some(e.message.clone()),
-                );
+            match self.podman.stop(adapter_id).await {
+                Ok(()) => {
+                    // Emit RUNNING→STOPPED event as required by REQ-8.1 ("every
+                    // state transition"). The container monitor guard will see the
+                    // adapter is no longer RUNNING and skip its own transition.
+                    let _ = self.state_manager.transition(
+                        adapter_id,
+                        AdapterState::Stopped,
+                        None,
+                    );
+                }
+                Err(e) => {
+                    let _ = self.state_manager.transition(
+                        adapter_id,
+                        AdapterState::Error,
+                        Some(e.message.clone()),
+                    );
+                }
             }
         }
 
@@ -403,7 +415,75 @@ impl proto::update_service_server::UpdateService for GrpcUpdateService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::adapter::AdapterState;
     use crate::podman::MockPodmanExecutor;
+    use crate::state::StateManager;
+
+    // -- REQ-8.1 / remove_adapter: emits RUNNING→STOPPED event on success ---
+    // Validates the major review finding: RemoveAdapter must emit a state
+    // event for the RUNNING→STOPPED transition when it stops a running adapter.
+
+    #[tokio::test]
+    async fn test_remove_running_adapter_emits_stopped_event() {
+        let mock = Arc::new(MockPodmanExecutor::new());
+        // Install pipeline: pull → inspect → run (adapter reaches RUNNING)
+        mock.set_pull_result(Ok(()));
+        mock.set_inspect_result(Ok("sha256:abc".to_string()));
+        mock.set_run_result(Ok(()));
+        // Removal pipeline: stop → rm → rmi all succeed
+        mock.set_stop_result(Ok(()));
+        mock.set_rm_result(Ok(()));
+        mock.set_rmi_result(Ok(()));
+
+        let (tx, _rx) = broadcast::channel(64);
+        let state_mgr = Arc::new(StateManager::new(tx.clone()));
+        let service = UpdateServiceImpl::new(state_mgr.clone(), mock, tx.clone());
+
+        // Install and wait for adapter to reach RUNNING.
+        service
+            .install_adapter("example.com/adapter:v1", "sha256:abc")
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert_eq!(
+            state_mgr.get_adapter("adapter-v1").unwrap().state,
+            AdapterState::Running,
+            "adapter should be RUNNING before removal"
+        );
+
+        // Subscribe to events AFTER install (no historical replay).
+        let mut rx = tx.subscribe();
+
+        // Remove the adapter.
+        service.remove_adapter("adapter-v1").await.unwrap();
+
+        // Collect events emitted during removal.
+        let mut events = Vec::new();
+        loop {
+            match tokio::time::timeout(
+                std::time::Duration::from_millis(100),
+                rx.recv(),
+            )
+            .await
+            {
+                Ok(Ok(event)) => events.push(event),
+                _ => break,
+            }
+        }
+
+        // REQ-8.1: a RUNNING→STOPPED event MUST be emitted.
+        let stopped_event = events.iter().find(|e| {
+            e.old_state == AdapterState::Running && e.new_state == AdapterState::Stopped
+        });
+        assert!(
+            stopped_event.is_some(),
+            "RemoveAdapter must emit RUNNING→STOPPED event per REQ-8.1, got: {:?}",
+            events
+                .iter()
+                .map(|e| (e.old_state, e.new_state))
+                .collect::<Vec<_>>()
+        );
+    }
 
     // -- TS-07-E11: Podman removal failure returns INTERNAL -----------------
 
