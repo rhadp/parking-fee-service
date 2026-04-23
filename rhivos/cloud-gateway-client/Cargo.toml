@@ -7,6 +7,7 @@ edition = "2021"
 async-nats = "0.38"
 futures = "0.3"
 prost = "0.13"
+prost-types = "0.13"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }

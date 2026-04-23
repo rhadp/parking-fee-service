@@ -2,8 +2,12 @@
 //!
 //! Manages the gRPC connection to Eclipse Kuksa Databroker. Provides
 //! methods to write command signals, subscribe to telemetry signals,
-//! and subscribe to command response signals. Encapsulates all `tonic`
-//! gRPC usage.
+//! and subscribe to command response signals.
+//!
+//! Uses the kuksa.val.v2 API for publishing values and subscribing to
+//! changes. The v1 Set RPC is non-functional in kuksa-databroker 0.5.0,
+//! so all writes use v2 PublishValue. See
+//! `docs/errata/04_kuksa_v2_api_migration.md` for details.
 
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
@@ -14,17 +18,22 @@ use crate::errors::BrokerError;
 use crate::models::SignalUpdate;
 
 /// Generated code from vendored kuksa.val.v1 proto files.
+/// Retained for type re-exports used by integration tests.
 pub mod kuksa {
     pub mod val {
         pub mod v1 {
             tonic::include_proto!("kuksa.val.v1");
         }
+        pub mod v2 {
+            tonic::include_proto!("kuksa.val.v2");
+        }
     }
 }
 
-use kuksa::val::v1::{
-    datapoint::Value, val_client::ValClient, DataEntry, Datapoint, EntryUpdate, Field, SetRequest,
-    SubscribeEntry, SubscribeRequest, View,
+use kuksa::val::v2::{
+    self,
+    val_client::ValClient as V2Client,
+    value::TypedValue,
 };
 
 /// VSS signal path for incoming lock/unlock commands.
@@ -43,13 +52,13 @@ const SIGNAL_PARKING: &str = "Vehicle.Parking.SessionActive";
 /// Channel buffer size for subscription streams.
 const CHANNEL_BUFFER: usize = 32;
 
-/// gRPC client for the kuksa.val.v1 DATA_BROKER.
+/// gRPC client for the kuksa DATA_BROKER.
 ///
-/// Wraps a tonic-generated `ValClient` and provides domain-specific
-/// methods for command writing, response subscription, and telemetry
-/// subscription.
+/// Uses the v2 API (`kuksa.val.v2.VAL`) for publishing values and
+/// subscribing to signal changes. The v1 API's `Set` RPC is
+/// non-functional in kuksa-databroker 0.5.0.
 pub struct BrokerClient {
-    client: ValClient<Channel>,
+    v2_client: V2Client<Channel>,
 }
 
 impl BrokerClient {
@@ -64,10 +73,10 @@ impl BrokerClient {
     /// cannot be established.
     pub async fn connect(config: &Config) -> Result<Self, BrokerError> {
         let addr = config.databroker_addr.clone();
-        match ValClient::connect(addr.clone()).await {
-            Ok(client) => {
+        match V2Client::connect(addr.clone()).await {
+            Ok(v2_client) => {
                 info!(addr = %addr, "Connected to DATA_BROKER");
-                Ok(BrokerClient { client })
+                Ok(BrokerClient { v2_client })
             }
             Err(e) => {
                 error!(addr = %addr, error = %e, "Failed to connect to DATA_BROKER");
@@ -82,27 +91,30 @@ impl BrokerClient {
     /// JSON from NATS without modification (Property 3: Command Passthrough
     /// Fidelity).
     ///
+    /// Uses the v2 PublishValue RPC because the v1 Set RPC is
+    /// non-functional in kuksa-databroker 0.5.0.
+    ///
     /// # Errors
     ///
-    /// Returns [`BrokerError::WriteFailed`] if the gRPC SetRequest fails.
+    /// Returns [`BrokerError::WriteFailed`] if the gRPC PublishValue fails.
     pub async fn write_command(&self, payload: &str) -> Result<(), BrokerError> {
-        let request = tonic::Request::new(SetRequest {
-            updates: vec![EntryUpdate {
-                entry: Some(DataEntry {
-                    path: SIGNAL_COMMAND.to_string(),
-                    value: Some(Datapoint {
-                        timestamp: 0,
-                        value: Some(Value::StringValue(payload.to_string())),
-                    }),
-                    actuator_target: None,
+        let request = tonic::Request::new(v2::PublishValueRequest {
+            signal_id: Some(v2::SignalId {
+                signal: Some(v2::signal_id::Signal::Path(
+                    SIGNAL_COMMAND.to_string(),
+                )),
+            }),
+            data_point: Some(v2::Datapoint {
+                timestamp: None,
+                value: Some(v2::Value {
+                    typed_value: Some(TypedValue::String(payload.to_string())),
                 }),
-                fields: vec![Field::Value as i32],
-            }],
+            }),
         });
 
-        self.client
+        self.v2_client
             .clone()
-            .set(request)
+            .publish_value(request)
             .await
             .map_err(|e| {
                 error!(
@@ -131,18 +143,15 @@ impl BrokerClient {
     pub async fn subscribe_responses(
         &self,
     ) -> Result<mpsc::Receiver<String>, BrokerError> {
-        let request = tonic::Request::new(SubscribeRequest {
-            entries: vec![SubscribeEntry {
-                path: SIGNAL_RESPONSE.to_string(),
-                view: View::CurrentValue as i32,
-                fields: vec![Field::Value as i32],
-            }],
+        let request = tonic::Request::new(v2::SubscribeRequest {
+            signal_paths: vec![SIGNAL_RESPONSE.to_string()],
+            buffer_size: 0,
         });
 
         let stream = self
-            .client
+            .v2_client
             .clone()
-            .subscribe(tonic::Request::new(request.into_inner()))
+            .subscribe(request)
             .await
             .map_err(|e| {
                 error!(
@@ -180,33 +189,18 @@ impl BrokerClient {
     pub async fn subscribe_telemetry(
         &self,
     ) -> Result<mpsc::Receiver<SignalUpdate>, BrokerError> {
-        let entries = vec![
-            SubscribeEntry {
-                path: SIGNAL_IS_LOCKED.to_string(),
-                view: View::CurrentValue as i32,
-                fields: vec![Field::Value as i32],
-            },
-            SubscribeEntry {
-                path: SIGNAL_LATITUDE.to_string(),
-                view: View::CurrentValue as i32,
-                fields: vec![Field::Value as i32],
-            },
-            SubscribeEntry {
-                path: SIGNAL_LONGITUDE.to_string(),
-                view: View::CurrentValue as i32,
-                fields: vec![Field::Value as i32],
-            },
-            SubscribeEntry {
-                path: SIGNAL_PARKING.to_string(),
-                view: View::CurrentValue as i32,
-                fields: vec![Field::Value as i32],
-            },
-        ];
-
-        let request = tonic::Request::new(SubscribeRequest { entries });
+        let request = tonic::Request::new(v2::SubscribeRequest {
+            signal_paths: vec![
+                SIGNAL_IS_LOCKED.to_string(),
+                SIGNAL_LATITUDE.to_string(),
+                SIGNAL_LONGITUDE.to_string(),
+                SIGNAL_PARKING.to_string(),
+            ],
+            buffer_size: 0,
+        });
 
         let stream = self
-            .client
+            .v2_client
             .clone()
             .subscribe(request)
             .await
@@ -235,28 +229,29 @@ impl BrokerClient {
     /// Validates that each value is valid JSON before forwarding (REQ-7.E1).
     /// Invalid JSON is logged at ERROR level and skipped.
     async fn response_stream_loop(
-        mut stream: tonic::Streaming<kuksa::val::v1::SubscribeResponse>,
+        mut stream: tonic::Streaming<v2::SubscribeResponse>,
         tx: mpsc::Sender<String>,
     ) {
         loop {
             match stream.message().await {
                 Ok(Some(response)) => {
-                    for update in response.updates {
-                        if let Some(dp) = update.value {
-                            if let Some(Value::StringValue(s)) = dp.value {
-                                // Validate JSON before relaying (REQ-7.E1)
-                                if serde_json::from_str::<serde_json::Value>(&s).is_err() {
-                                    error!(
-                                        signal = SIGNAL_RESPONSE,
-                                        value = %s,
-                                        "Response value from DATA_BROKER is not valid JSON, skipping"
-                                    );
-                                    continue;
-                                }
-                                if tx.send(s).await.is_err() {
-                                    info!("Response receiver dropped, stopping stream");
-                                    return;
-                                }
+                    if let Some(dp) = response.entries.get(SIGNAL_RESPONSE) {
+                        if let Some(v2::Value {
+                            typed_value: Some(TypedValue::String(s)),
+                        }) = &dp.value
+                        {
+                            // Validate JSON before relaying (REQ-7.E1)
+                            if serde_json::from_str::<serde_json::Value>(s).is_err() {
+                                error!(
+                                    signal = SIGNAL_RESPONSE,
+                                    value = %s,
+                                    "Response value from DATA_BROKER is not valid JSON, skipping"
+                                );
+                                continue;
+                            }
+                            if tx.send(s.clone()).await.is_err() {
+                                info!("Response receiver dropped, stopping stream");
+                                return;
                             }
                         }
                     }
@@ -283,62 +278,77 @@ impl BrokerClient {
     /// Process the telemetry subscription stream, converting DATA_BROKER
     /// signal updates to [`SignalUpdate`] values.
     async fn telemetry_stream_loop(
-        mut stream: tonic::Streaming<kuksa::val::v1::SubscribeResponse>,
+        mut stream: tonic::Streaming<v2::SubscribeResponse>,
         tx: mpsc::Sender<SignalUpdate>,
     ) {
         loop {
             match stream.message().await {
                 Ok(Some(response)) => {
-                    for update in response.updates {
-                        let path = update.path.as_str();
-                        if let Some(dp) = update.value {
-                            let signal_update = match path {
-                                SIGNAL_IS_LOCKED => {
-                                    if let Some(Value::BoolValue(v)) = dp.value {
-                                        Some(SignalUpdate::IsLocked(v))
-                                    } else {
-                                        None
-                                    }
-                                }
-                                SIGNAL_LATITUDE => {
-                                    if let Some(Value::DoubleValue(v)) = dp.value {
-                                        Some(SignalUpdate::Latitude(v))
-                                    } else if let Some(Value::FloatValue(v)) = dp.value {
-                                        Some(SignalUpdate::Latitude(v as f64))
-                                    } else {
-                                        None
-                                    }
-                                }
-                                SIGNAL_LONGITUDE => {
-                                    if let Some(Value::DoubleValue(v)) = dp.value {
-                                        Some(SignalUpdate::Longitude(v))
-                                    } else if let Some(Value::FloatValue(v)) = dp.value {
-                                        Some(SignalUpdate::Longitude(v as f64))
-                                    } else {
-                                        None
-                                    }
-                                }
-                                SIGNAL_PARKING => {
-                                    if let Some(Value::BoolValue(v)) = dp.value {
-                                        Some(SignalUpdate::ParkingActive(v))
-                                    } else {
-                                        None
-                                    }
-                                }
-                                _ => {
-                                    warn!(
-                                        signal = path,
-                                        "Unexpected signal path in telemetry stream"
-                                    );
+                    for (path, dp) in &response.entries {
+                        let signal_update = match path.as_str() {
+                            SIGNAL_IS_LOCKED => {
+                                if let Some(v2::Value {
+                                    typed_value: Some(TypedValue::Bool(v)),
+                                }) = &dp.value
+                                {
+                                    Some(SignalUpdate::IsLocked(*v))
+                                } else {
                                     None
                                 }
-                            };
-
-                            if let Some(su) = signal_update {
-                                if tx.send(su).await.is_err() {
-                                    info!("Telemetry receiver dropped, stopping stream");
-                                    return;
+                            }
+                            SIGNAL_LATITUDE => {
+                                if let Some(v2::Value {
+                                    typed_value: Some(TypedValue::Double(v)),
+                                }) = &dp.value
+                                {
+                                    Some(SignalUpdate::Latitude(*v))
+                                } else if let Some(v2::Value {
+                                    typed_value: Some(TypedValue::Float(v)),
+                                }) = &dp.value
+                                {
+                                    Some(SignalUpdate::Latitude(*v as f64))
+                                } else {
+                                    None
                                 }
+                            }
+                            SIGNAL_LONGITUDE => {
+                                if let Some(v2::Value {
+                                    typed_value: Some(TypedValue::Double(v)),
+                                }) = &dp.value
+                                {
+                                    Some(SignalUpdate::Longitude(*v))
+                                } else if let Some(v2::Value {
+                                    typed_value: Some(TypedValue::Float(v)),
+                                }) = &dp.value
+                                {
+                                    Some(SignalUpdate::Longitude(*v as f64))
+                                } else {
+                                    None
+                                }
+                            }
+                            SIGNAL_PARKING => {
+                                if let Some(v2::Value {
+                                    typed_value: Some(TypedValue::Bool(v)),
+                                }) = &dp.value
+                                {
+                                    Some(SignalUpdate::ParkingActive(*v))
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => {
+                                warn!(
+                                    signal = path.as_str(),
+                                    "Unexpected signal path in telemetry stream"
+                                );
+                                None
+                            }
+                        };
+
+                        if let Some(su) = signal_update {
+                            if tx.send(su).await.is_err() {
+                                info!("Telemetry receiver dropped, stopping stream");
+                                return;
                             }
                         }
                     }

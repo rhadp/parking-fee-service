@@ -27,9 +27,10 @@
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
-use cloud_gateway_client::broker_client::kuksa::val::v1::{
-    datapoint::Value, val_client::ValClient, DataEntry, Datapoint, EntryUpdate, Field, SetRequest,
-    SubscribeEntry, SubscribeRequest, SubscribeResponse, View,
+use cloud_gateway_client::broker_client::kuksa::val::v2::{
+    self,
+    val_client::ValClient as V2Client,
+    value::TypedValue,
 };
 use futures::StreamExt;
 use tokio::time::{sleep, timeout};
@@ -96,11 +97,11 @@ async fn connect_nats() -> async_nats::Client {
         .expect("failed to connect to NATS")
 }
 
-/// Connect to the DATA_BROKER gRPC service.
-async fn connect_broker() -> ValClient<Channel> {
-    ValClient::connect(BROKER_ADDR)
+/// Connect to the DATA_BROKER v2 gRPC service.
+async fn connect_broker_v2() -> V2Client<Channel> {
+    V2Client::connect(BROKER_ADDR)
         .await
-        .expect("failed to connect to DATA_BROKER")
+        .expect("failed to connect to DATA_BROKER v2")
 }
 
 /// Wait for the service to publish its registration message on NATS.
@@ -119,59 +120,52 @@ async fn wait_for_service_ready(nats: &async_nats::Client, vin: &str) {
         .expect("status subscription yielded None");
 }
 
-/// Set a string-type signal in DATA_BROKER via gRPC SetRequest.
-async fn set_signal_string(broker: &mut ValClient<Channel>, path: &str, value: &str) {
-    let request = tonic::Request::new(SetRequest {
-        updates: vec![EntryUpdate {
-            entry: Some(DataEntry {
-                path: path.to_string(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(Value::StringValue(value.to_string())),
-                }),
-                actuator_target: None,
+/// Set a string-type signal in DATA_BROKER via v2 PublishValue.
+async fn set_signal_string(broker: &mut V2Client<Channel>, path: &str, value: &str) {
+    let request = tonic::Request::new(v2::PublishValueRequest {
+        signal_id: Some(v2::SignalId {
+            signal: Some(v2::signal_id::Signal::Path(path.to_string())),
+        }),
+        data_point: Some(v2::Datapoint {
+            timestamp: None,
+            value: Some(v2::Value {
+                typed_value: Some(TypedValue::String(value.to_string())),
             }),
-            fields: vec![Field::Value as i32],
-        }],
+        }),
     });
     broker
-        .set(request)
+        .publish_value(request)
         .await
         .unwrap_or_else(|e| panic!("failed to set {path}: {e}"));
 }
 
-/// Set a boolean-type signal in DATA_BROKER via gRPC SetRequest.
-async fn set_signal_bool(broker: &mut ValClient<Channel>, path: &str, value: bool) {
-    let request = tonic::Request::new(SetRequest {
-        updates: vec![EntryUpdate {
-            entry: Some(DataEntry {
-                path: path.to_string(),
-                value: Some(Datapoint {
-                    timestamp: 0,
-                    value: Some(Value::BoolValue(value)),
-                }),
-                actuator_target: None,
+/// Set a boolean-type signal in DATA_BROKER via v2 PublishValue.
+async fn set_signal_bool(broker: &mut V2Client<Channel>, path: &str, value: bool) {
+    let request = tonic::Request::new(v2::PublishValueRequest {
+        signal_id: Some(v2::SignalId {
+            signal: Some(v2::signal_id::Signal::Path(path.to_string())),
+        }),
+        data_point: Some(v2::Datapoint {
+            timestamp: None,
+            value: Some(v2::Value {
+                typed_value: Some(TypedValue::Bool(value)),
             }),
-            fields: vec![Field::Value as i32],
-        }],
+        }),
     });
     broker
-        .set(request)
+        .publish_value(request)
         .await
         .unwrap_or_else(|e| panic!("failed to set {path}: {e}"));
 }
 
-/// Subscribe to a DATA_BROKER signal via gRPC Subscribe and return the stream.
+/// Subscribe to a DATA_BROKER signal via v2 Subscribe and return the stream.
 async fn subscribe_signal(
-    broker: &mut ValClient<Channel>,
+    broker: &mut V2Client<Channel>,
     path: &str,
-) -> tonic::Streaming<SubscribeResponse> {
-    let request = tonic::Request::new(SubscribeRequest {
-        entries: vec![SubscribeEntry {
-            path: path.to_string(),
-            view: View::CurrentValue as i32,
-            fields: vec![Field::Value as i32],
-        }],
+) -> tonic::Streaming<v2::SubscribeResponse> {
+    let request = tonic::Request::new(v2::SubscribeRequest {
+        signal_paths: vec![path.to_string()],
+        buffer_size: 0,
     });
     broker
         .subscribe(request)
@@ -199,7 +193,7 @@ async fn subscribe_signal(
 async fn test_e2e_command_flow() {
     let vin = "E2E-CMD-VIN";
     let nats = connect_nats().await;
-    let mut broker = connect_broker().await;
+    let mut broker = connect_broker_v2().await;
 
     // Subscribe to the command signal BEFORE starting the service so we
     // don't miss the write event.
@@ -211,6 +205,12 @@ async fn test_e2e_command_flow() {
 
     // Allow initial DATA_BROKER subscription snapshots to settle.
     sleep(Duration::from_millis(300)).await;
+
+    // Drain any initial snapshot messages from the subscription.
+    while timeout(Duration::from_millis(100), signal_stream.next())
+        .await
+        .is_ok()
+    {}
 
     // Publish a valid command to NATS with correct bearer token.
     let payload = r#"{"command_id":"cmd-1","action":"lock","doors":["driver"],"source":"companion_app","vin":"E2E-CMD-VIN","timestamp":1700000000}"#;
@@ -226,16 +226,16 @@ async fn test_e2e_command_flow() {
     nats.flush().await.expect("failed to flush NATS");
 
     // Wait for the exact payload to appear in DATA_BROKER within 2 seconds.
-    // We search through subscription updates for our specific payload to
-    // handle any leftover values from previous signal states.
+    // The v2 Subscribe response delivers entries as map<string, Datapoint>.
     let found = timeout(Duration::from_secs(2), async {
         while let Some(Ok(response)) = signal_stream.next().await {
-            for update in response.updates {
-                if let Some(dp) = update.value {
-                    if let Some(Value::StringValue(ref s)) = dp.value {
-                        if s == payload {
-                            return true;
-                        }
+            if let Some(dp) = response.entries.get(SIGNAL_COMMAND) {
+                if let Some(v2::Value {
+                    typed_value: Some(TypedValue::String(ref s)),
+                }) = dp.value
+                {
+                    if s == payload {
+                        return true;
                     }
                 }
             }
@@ -267,7 +267,7 @@ async fn test_e2e_command_flow() {
 async fn test_e2e_response_relay() {
     let vin = "E2E-RSP-VIN";
     let nats = connect_nats().await;
-    let mut broker = connect_broker().await;
+    let mut broker = connect_broker_v2().await;
 
     // Subscribe to command responses on NATS BEFORE starting the service.
     let mut response_sub = nats
@@ -282,7 +282,7 @@ async fn test_e2e_response_relay() {
     // Give the service time to set up its DATA_BROKER subscriptions.
     sleep(Duration::from_millis(500)).await;
 
-    // Write a response to DATA_BROKER.
+    // Write a response to DATA_BROKER via v2 PublishValue.
     let response_json =
         r#"{"command_id":"cmd-1","status":"success","timestamp":1700000001}"#;
     set_signal_string(&mut broker, SIGNAL_RESPONSE, response_json).await;
@@ -326,7 +326,7 @@ async fn test_e2e_response_relay() {
 async fn test_e2e_telemetry_signal_change() {
     let vin = "E2E-TEL-VIN";
     let nats = connect_nats().await;
-    let mut broker = connect_broker().await;
+    let mut broker = connect_broker_v2().await;
 
     // Subscribe to telemetry on NATS BEFORE starting the service.
     let mut telemetry_sub = nats
@@ -341,7 +341,7 @@ async fn test_e2e_telemetry_signal_change() {
     // Give the service time to set up its DATA_BROKER subscriptions.
     sleep(Duration::from_millis(500)).await;
 
-    // Set IsLocked to true in DATA_BROKER.
+    // Set IsLocked to true in DATA_BROKER via v2 PublishValue.
     set_signal_bool(&mut broker, SIGNAL_IS_LOCKED, true).await;
 
     // Wait for a telemetry message containing is_locked:true within 2 seconds.
@@ -440,7 +440,7 @@ async fn test_e2e_self_registration() {
 async fn test_e2e_command_rejected_invalid_token() {
     let vin = "E2E-REJ-VIN";
     let nats = connect_nats().await;
-    let mut broker = connect_broker().await;
+    let mut broker = connect_broker_v2().await;
 
     // Subscribe to command responses on NATS.
     let mut response_sub = nats
@@ -686,7 +686,7 @@ async fn test_nats_reconnection_backoff() {
     );
 
     // Verify exact attempt count: the implementation logs "NATS connection
-    // failed" once per attempt (4× "retrying" + 1× "all retries exhausted"),
+    // failed" once per attempt (4x "retrying" + 1x "all retries exhausted"),
     // so we expect exactly 5 occurrences. This confirms the retry count is
     // correct, not just the timing.
     let attempt_count = stderr.matches("NATS connection failed").count();
