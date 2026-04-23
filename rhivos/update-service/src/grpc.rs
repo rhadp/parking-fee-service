@@ -80,6 +80,10 @@ pub struct UpdateServiceImpl<P: PodmanExecutor> {
     pub(crate) state_manager: Arc<StateManager>,
     pub(crate) podman: Arc<P>,
     pub(crate) broadcaster: broadcast::Sender<AdapterStateEvent>,
+    /// Serializes the check-stop-create sequence across concurrent
+    /// `install_adapter` calls, ensuring Property 2 (at most one RUNNING
+    /// adapter at any time) holds even under concurrent load.
+    install_lock: tokio::sync::Mutex<()>,
 }
 
 impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
@@ -92,6 +96,7 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
             state_manager,
             podman,
             broadcaster,
+            install_lock: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -117,37 +122,18 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
         let adapter_id = crate::adapter::derive_adapter_id(image_ref);
         let job_id = uuid::Uuid::new_v4().to_string();
 
-        // Create adapter entry with initial UNKNOWN state.
-        let entry = AdapterEntry {
-            adapter_id: adapter_id.clone(),
-            image_ref: image_ref.to_string(),
-            checksum_sha256: checksum_sha256.to_string(),
-            state: AdapterState::Unknown,
-            job_id: job_id.clone(),
-            stopped_at: None,
-            error_message: None,
-        };
-        self.state_manager.create_adapter(entry);
+        // Serialize the single-adapter check → stop → create sequence so
+        // concurrent InstallAdapter calls cannot both pass the running-
+        // adapter check and both reach RUNNING state (Property 2).
+        {
+            let _guard = self.install_lock.lock().await;
 
-        // Transition to DOWNLOADING before returning.
-        let _ = self
-            .state_manager
-            .transition(&adapter_id, AdapterState::Downloading, None);
-
-        // Spawn async task for pull → verify → run pipeline.
-        let state_mgr = self.state_manager.clone();
-        let podman = self.podman.clone();
-        let image = image_ref.to_string();
-        let checksum = checksum_sha256.to_string();
-        let aid = adapter_id.clone();
-
-        tokio::spawn(async move {
             // Single-adapter constraint: stop any currently running adapter (REQ-2.1).
-            if let Some(running) = state_mgr.get_running_adapter() {
-                if running.adapter_id != aid {
-                    match podman.stop(&running.adapter_id).await {
+            if let Some(running) = self.state_manager.get_running_adapter() {
+                if running.adapter_id != adapter_id {
+                    match self.podman.stop(&running.adapter_id).await {
                         Ok(()) => {
-                            let _ = state_mgr.transition(
+                            let _ = self.state_manager.transition(
                                 &running.adapter_id,
                                 AdapterState::Stopped,
                                 None,
@@ -155,7 +141,7 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
                         }
                         Err(e) => {
                             // REQ-2.E1: stop failure → old adapter ERROR, proceed anyway.
-                            let _ = state_mgr.transition(
+                            let _ = self.state_manager.transition(
                                 &running.adapter_id,
                                 AdapterState::Error,
                                 Some(e.message.clone()),
@@ -165,6 +151,32 @@ impl<P: PodmanExecutor + 'static> UpdateServiceImpl<P> {
                 }
             }
 
+            // Create adapter entry with initial UNKNOWN state.
+            let entry = AdapterEntry {
+                adapter_id: adapter_id.clone(),
+                image_ref: image_ref.to_string(),
+                checksum_sha256: checksum_sha256.to_string(),
+                state: AdapterState::Unknown,
+                job_id: job_id.clone(),
+                stopped_at: None,
+                error_message: None,
+            };
+            self.state_manager.create_adapter(entry);
+
+            // Transition to DOWNLOADING before returning.
+            let _ = self
+                .state_manager
+                .transition(&adapter_id, AdapterState::Downloading, None);
+        } // install_lock released here
+
+        // Spawn async task for pull → verify → run pipeline.
+        let state_mgr = self.state_manager.clone();
+        let podman = self.podman.clone();
+        let image = image_ref.to_string();
+        let checksum = checksum_sha256.to_string();
+        let aid = adapter_id.clone();
+
+        tokio::spawn(async move {
             // Pull image (REQ-1.2).
             if let Err(e) = podman.pull(&image).await {
                 let _ =
@@ -522,5 +534,122 @@ mod tests {
         let adapter = state_mgr.get_adapter("adapter-v1");
         assert!(adapter.is_some());
         assert_eq!(adapter.unwrap().state, crate::adapter::AdapterState::Error);
+    }
+
+    // -- TS-07-E8 (service layer): GetAdapterStatus unknown ID returns NOT_FOUND
+    // Addresses major review finding: state-level test only checks None;
+    // this test verifies the ServiceError mapping including message text.
+
+    #[tokio::test]
+    async fn test_get_unknown_adapter_not_found() {
+        let mock = Arc::new(MockPodmanExecutor::new());
+        let (tx, _rx) = broadcast::channel(64);
+        let state_mgr = Arc::new(StateManager::new(tx.clone()));
+        let service = UpdateServiceImpl::new(state_mgr, mock, tx);
+
+        let result = service.get_adapter_status("nonexistent-adapter").await;
+        assert!(result.is_err(), "should return error for unknown adapter");
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, ServiceError::NotFound(_)),
+            "expected NotFound, got {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("adapter not found"),
+            "error message should contain 'adapter not found': {msg}"
+        );
+    }
+
+    // -- TS-07-E10 (service layer): RemoveAdapter unknown ID returns NOT_FOUND
+    // Addresses major review finding: state-level test only checks Err;
+    // this test verifies the ServiceError mapping including message text.
+
+    #[tokio::test]
+    async fn test_remove_unknown_adapter_not_found() {
+        let mock = Arc::new(MockPodmanExecutor::new());
+        let (tx, _rx) = broadcast::channel(64);
+        let state_mgr = Arc::new(StateManager::new(tx.clone()));
+        let service = UpdateServiceImpl::new(state_mgr, mock, tx);
+
+        let result = service.remove_adapter("nonexistent-adapter").await;
+        assert!(result.is_err(), "should return error for unknown adapter");
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, ServiceError::NotFound(_)),
+            "expected NotFound, got {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("adapter not found"),
+            "error message should contain 'adapter not found': {msg}"
+        );
+    }
+
+    // -- TS-07-12 (comprehensive): RemoveAdapter verifies all cleanup steps
+    // Addresses major review finding: no single test checks all four TS-07-12
+    // assertions (stop called, rm called, rmi called, adapter gone from state).
+
+    #[tokio::test]
+    async fn test_remove_adapter_full_cleanup() {
+        let mock = Arc::new(MockPodmanExecutor::new());
+        // Install: pull → inspect → run all succeed
+        mock.set_pull_result(Ok(()));
+        mock.set_inspect_result(Ok("sha256:abc".to_string()));
+        mock.set_run_result(Ok(()));
+        // Removal: stop → rm → rmi all succeed
+        mock.set_stop_result(Ok(()));
+        mock.set_rm_result(Ok(()));
+        mock.set_rmi_result(Ok(()));
+
+        let (tx, _rx) = broadcast::channel(64);
+        let state_mgr = Arc::new(StateManager::new(tx.clone()));
+        let service = UpdateServiceImpl::new(state_mgr.clone(), mock.clone(), tx);
+
+        let image_ref = "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0";
+        service
+            .install_adapter(image_ref, "sha256:abc")
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert_eq!(
+            state_mgr
+                .get_adapter("parkhaus-munich-v1.0.0")
+                .unwrap()
+                .state,
+            AdapterState::Running,
+        );
+
+        // Remove the adapter
+        service
+            .remove_adapter("parkhaus-munich-v1.0.0")
+            .await
+            .unwrap();
+
+        // TS-07-12 assertion 1: stop was called
+        assert!(
+            mock.stop_calls()
+                .contains(&"parkhaus-munich-v1.0.0".to_string()),
+            "podman stop should have been called for the adapter"
+        );
+
+        // TS-07-12 assertion 2: rm was called
+        assert!(
+            mock.rm_calls()
+                .contains(&"parkhaus-munich-v1.0.0".to_string()),
+            "podman rm should have been called for the adapter"
+        );
+
+        // TS-07-12 assertion 3: rmi was called
+        assert!(
+            mock.rmi_calls().contains(&image_ref.to_string()),
+            "podman rmi should have been called for the image"
+        );
+
+        // TS-07-12 assertion 4: adapter removed from state
+        assert!(
+            state_mgr.get_adapter("parkhaus-munich-v1.0.0").is_none(),
+            "adapter should be removed from state after RemoveAdapter"
+        );
     }
 }

@@ -162,10 +162,23 @@ mod tests {
         let entry = test_entry("parkhaus-munich-v1.0.0", "example.com/parkhaus-munich:v1.0.0");
         mgr.create_adapter(entry);
 
+        // Transition through states to reach RUNNING (per TS-07-11 precondition)
+        mgr.transition("parkhaus-munich-v1.0.0", AdapterState::Downloading, None)
+            .unwrap();
+        mgr.transition("parkhaus-munich-v1.0.0", AdapterState::Installing, None)
+            .unwrap();
+        mgr.transition("parkhaus-munich-v1.0.0", AdapterState::Running, None)
+            .unwrap();
+
         let adapter = mgr
             .get_adapter("parkhaus-munich-v1.0.0")
             .expect("adapter should exist");
         assert_eq!(adapter.adapter_id, "parkhaus-munich-v1.0.0");
+        assert_eq!(
+            adapter.state,
+            AdapterState::Running,
+            "TS-07-11: adapter state should be RUNNING"
+        );
     }
 
     // -- TS-07-E9: ListAdapters returns empty when none installed -----------
@@ -186,8 +199,24 @@ mod tests {
         let (tx, _rx) = broadcast::channel(16);
         let mgr = StateManager::new(tx);
 
+        // TS-07-10 precondition: two adapters, one RUNNING one STOPPED
         mgr.create_adapter(test_entry("adapter-a-v1", "example.com/adapter-a:v1"));
+        mgr.transition("adapter-a-v1", AdapterState::Downloading, None)
+            .unwrap();
+        mgr.transition("adapter-a-v1", AdapterState::Installing, None)
+            .unwrap();
+        mgr.transition("adapter-a-v1", AdapterState::Running, None)
+            .unwrap();
+        mgr.transition("adapter-a-v1", AdapterState::Stopped, None)
+            .unwrap();
+
         mgr.create_adapter(test_entry("adapter-b-v1", "example.com/adapter-b:v1"));
+        mgr.transition("adapter-b-v1", AdapterState::Downloading, None)
+            .unwrap();
+        mgr.transition("adapter-b-v1", AdapterState::Installing, None)
+            .unwrap();
+        mgr.transition("adapter-b-v1", AdapterState::Running, None)
+            .unwrap();
 
         let adapters = mgr.list_adapters();
         assert_eq!(adapters.len(), 2);
@@ -195,6 +224,12 @@ mod tests {
         let mut ids: Vec<_> = adapters.iter().map(|a| a.adapter_id.clone()).collect();
         ids.sort();
         assert_eq!(ids, vec!["adapter-a-v1", "adapter-b-v1"]);
+
+        // Assert states as required by TS-07-10
+        let a = adapters.iter().find(|a| a.adapter_id == "adapter-a-v1").unwrap();
+        let b = adapters.iter().find(|a| a.adapter_id == "adapter-b-v1").unwrap();
+        assert_eq!(a.state, AdapterState::Stopped, "adapter A should be STOPPED");
+        assert_eq!(b.state, AdapterState::Running, "adapter B should be RUNNING");
     }
 
     // -- TS-07-E8: GetAdapterStatus unknown ID returns error ----------------
