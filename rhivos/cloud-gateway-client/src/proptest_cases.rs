@@ -2,6 +2,7 @@
 //!
 //! These tests verify invariants across randomized inputs:
 //!
+//! - TS-04-P1: Command Authentication Integrity (Design Property 1)
 //! - TS-04-P2: Command Structural Validity
 //! - TS-04-P3: Command Passthrough Fidelity (unit-level validation;
 //!   end-to-end verified by TS-04-10 in tests/integration_tests.rs)
@@ -13,11 +14,83 @@
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use proptest::prelude::*;
 
-    use crate::command_validator::validate_command_payload;
+    use crate::command_validator::{validate_bearer_token, validate_command_payload};
+    use crate::errors::AuthError;
     use crate::models::SignalUpdate;
     use crate::telemetry::TelemetryState;
+
+    // TS-04-P1: Command Authentication Integrity (Design Property 1)
+    //
+    // For any NATS message received on `vehicles.{VIN}.commands`, the system
+    // writes to DATA_BROKER only if the message contains an `Authorization`
+    // header with value matching `Bearer <configured_token>`.
+    //
+    // This property test generates arbitrary header maps and token values
+    // and verifies the invariant: Ok iff "Authorization" header is present
+    // AND its value is exactly "Bearer <expected_token>".
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(200))]
+
+        #[test]
+        fn proptest_command_authentication_integrity(
+            expected_token in "[a-zA-Z0-9_-]{1,30}",
+            has_auth_header in any::<bool>(),
+            header_prefix in prop_oneof![
+                Just("Bearer ".to_string()),
+                Just("bearer ".to_string()),
+                Just("BEARER ".to_string()),
+                Just("NotBearer ".to_string()),
+                Just("Basic ".to_string()),
+                Just("".to_string()),
+                "[a-zA-Z ]{0,10}".prop_map(|s| s),
+            ],
+            supplied_token in "[a-zA-Z0-9_-]{1,30}",
+        ) {
+            let mut headers = HashMap::new();
+            if has_auth_header {
+                let header_value = format!("{}{}", header_prefix, supplied_token);
+                headers.insert("Authorization".to_string(), header_value);
+            }
+
+            let result = validate_bearer_token(&headers, &expected_token);
+
+            // The invariant: Ok if and only if the Authorization header
+            // is present, prefixed with "Bearer ", and the token matches.
+            let should_succeed =
+                has_auth_header && header_prefix == "Bearer " && supplied_token == expected_token;
+
+            if should_succeed {
+                prop_assert!(
+                    result.is_ok(),
+                    "expected Ok for matching Bearer token"
+                );
+            } else {
+                prop_assert!(
+                    result.is_err(),
+                    "expected Err for non-matching or absent token"
+                );
+                // Verify correct error variant
+                match result.unwrap_err() {
+                    AuthError::MissingHeader => {
+                        prop_assert!(
+                            !has_auth_header,
+                            "MissingHeader should only occur when header is absent"
+                        );
+                    }
+                    AuthError::InvalidToken => {
+                        prop_assert!(
+                            has_auth_header,
+                            "InvalidToken should only occur when header is present"
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     /// Generate arbitrary command input: a mix of random strings and
     /// structured JSON with variable field presence.
