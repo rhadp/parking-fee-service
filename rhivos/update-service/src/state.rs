@@ -127,6 +127,57 @@ impl StateManager {
             .collect()
     }
 
+    /// Atomically transition an adapter from `expected_state` to `new_state`.
+    ///
+    /// Returns `Ok(())` if the adapter exists and is currently in
+    /// `expected_state`. Returns `Err(InvalidTransition)` if the adapter
+    /// exists but is in a different state. Returns `Err(NotFound)` if the
+    /// adapter does not exist.
+    ///
+    /// This eliminates the TOCTOU race present in a separate
+    /// `get_adapter` + `transition` sequence, which is critical for the
+    /// container monitor: between the check and the transition, another
+    /// operation (e.g. `RemoveAdapter`) could change the state.
+    pub fn transition_from(
+        &self,
+        adapter_id: &str,
+        expected_state: AdapterState,
+        new_state: AdapterState,
+        error_msg: Option<String>,
+    ) -> Result<(), StateError> {
+        let mut adapters = self.adapters.lock().unwrap();
+        let entry = adapters.get_mut(adapter_id).ok_or(StateError::NotFound)?;
+
+        if entry.state != expected_state {
+            return Err(StateError::InvalidTransition);
+        }
+
+        let old_state = entry.state;
+        entry.state = new_state;
+
+        if let Some(msg) = error_msg {
+            entry.error_message = Some(msg);
+        }
+
+        if new_state == AdapterState::Stopped {
+            entry.stopped_at = Some(Instant::now());
+        }
+
+        let event = AdapterStateEvent {
+            adapter_id: adapter_id.to_string(),
+            old_state,
+            new_state,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        };
+
+        let _ = self.broadcaster.send(event);
+
+        Ok(())
+    }
+
     /// Access the broadcast sender (for subscribing).
     pub fn broadcaster(&self) -> &broadcast::Sender<AdapterStateEvent> {
         &self.broadcaster
@@ -419,6 +470,98 @@ mod tests {
             !events.is_empty(),
             "subscriber 2 should still receive events after subscriber 1 disconnects"
         );
+    }
+
+    // -- transition_from: atomic compare-and-swap for monitor race guard -----
+
+    #[test]
+    fn test_transition_from_succeeds_when_state_matches() {
+        let (tx, mut rx) = broadcast::channel(16);
+        let mgr = StateManager::new(tx);
+
+        mgr.create_adapter(test_entry("adapter-v1", "example.com/adapter:v1"));
+        mgr.transition("adapter-v1", AdapterState::Downloading, None)
+            .unwrap();
+        mgr.transition("adapter-v1", AdapterState::Installing, None)
+            .unwrap();
+        mgr.transition("adapter-v1", AdapterState::Running, None)
+            .unwrap();
+
+        // Drain prior events.
+        while rx.try_recv().is_ok() {}
+
+        // transition_from RUNNING -> STOPPED should succeed.
+        mgr.transition_from(
+            "adapter-v1",
+            AdapterState::Running,
+            AdapterState::Stopped,
+            None,
+        )
+        .unwrap();
+
+        let adapter = mgr.get_adapter("adapter-v1").unwrap();
+        assert_eq!(adapter.state, AdapterState::Stopped);
+
+        // An event should have been emitted.
+        let event = rx.try_recv().expect("event should be emitted");
+        assert_eq!(event.old_state, AdapterState::Running);
+        assert_eq!(event.new_state, AdapterState::Stopped);
+    }
+
+    #[test]
+    fn test_transition_from_fails_when_state_mismatch() {
+        let (tx, mut rx) = broadcast::channel(16);
+        let mgr = StateManager::new(tx);
+
+        mgr.create_adapter(test_entry("adapter-v1", "example.com/adapter:v1"));
+        mgr.transition("adapter-v1", AdapterState::Downloading, None)
+            .unwrap();
+        mgr.transition("adapter-v1", AdapterState::Installing, None)
+            .unwrap();
+        mgr.transition("adapter-v1", AdapterState::Running, None)
+            .unwrap();
+        // Now transition to STOPPED (simulating RemoveAdapter).
+        mgr.transition("adapter-v1", AdapterState::Stopped, None)
+            .unwrap();
+
+        // Drain prior events.
+        while rx.try_recv().is_ok() {}
+
+        // transition_from RUNNING -> ERROR should fail (adapter is STOPPED).
+        let result = mgr.transition_from(
+            "adapter-v1",
+            AdapterState::Running,
+            AdapterState::Error,
+            Some("exit code 1".to_string()),
+        );
+        assert!(
+            matches!(result, Err(StateError::InvalidTransition)),
+            "should return InvalidTransition when state does not match"
+        );
+
+        // Adapter should still be STOPPED (no change).
+        let adapter = mgr.get_adapter("adapter-v1").unwrap();
+        assert_eq!(adapter.state, AdapterState::Stopped);
+
+        // No event should have been emitted.
+        assert!(
+            rx.try_recv().is_err(),
+            "no event should be emitted for rejected transition"
+        );
+    }
+
+    #[test]
+    fn test_transition_from_fails_when_adapter_not_found() {
+        let (tx, _rx) = broadcast::channel(16);
+        let mgr = StateManager::new(tx);
+
+        let result = mgr.transition_from(
+            "nonexistent",
+            AdapterState::Running,
+            AdapterState::Stopped,
+            None,
+        );
+        assert!(matches!(result, Err(StateError::NotFound)));
     }
 
     // -- TS-07-P3: State transition validity property test -------------------
