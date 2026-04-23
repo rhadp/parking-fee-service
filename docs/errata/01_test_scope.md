@@ -64,21 +64,80 @@ spec 06 subpackage tests are not yet implemented.
 
 The mock-sensor binaries (`location-sensor`, `speed-sensor`, `door-sensor`)
 were implemented by spec 09 with full clap-based argument parsing. They require
-specific command-line arguments and exit non-zero without them. This deviates
-from 01-REQ-4.3 which states they SHALL print name/version and exit 0.
+specific command-line arguments (`--lat`, `--lon`, `--speed`, `--open`) and
+exit non-zero without them. This deviates from:
 
-The setup verification tests (TS-01-15) use `--help` to verify the binary name
-appears in output. The determinism test (TS-01-P2) uses `CombinedOutput` to
-compare across invocations.
+- **01-REQ-4.1**: "WHEN a Rust skeleton binary is executed, THEN it SHALL print
+  a version string to stdout and exit with code 0."
+- **01-REQ-4.3**: "Each mock-sensor binary SHALL print its name and version
+  when executed and exit with code 0."
+
+Spec 09 supersedes the skeleton behavior defined by spec 01 for these binaries.
+The original spec 01 requirements were written for skeletons that would be
+replaced by real implementations.
+
+**Test workarounds:**
+- `TestMockSensorBinaries` (TS-01-15) uses `--help` to verify the binary name
+  appears in output and ignores the exit code.
+- `TestPropertySkeletonDeterminism` (TS-01-P2) uses `CombinedOutput` for
+  sensor binaries to compare across invocations without asserting exit code 0.
 
 ### 7. cloud-gateway-client does not reject unknown flags
 
-`cloud-gateway-client` does not implement flag parsing in its skeleton and
-ignores unknown flags (exits 0). This deviates from 01-REQ-4.E1 which states
-skeletons SHALL reject unrecognized flags. The unknown-flag test (TS-01-E4)
-excludes `cloud-gateway-client`. Flag parsing is spec 04's scope.
+`cloud-gateway-client` was fully reimplemented by spec 04 as a production
+service that reads configuration from environment variables. It does not parse
+command-line flags at all. When invoked with an unknown flag:
 
-### 8. Proto generated code module
+- If required environment variables are **not set**, it exits 1 due to missing
+  config — not because the flag was rejected.
+- If required environment variables **are set**, it would start normally,
+  ignoring the unknown flag entirely (exits 0).
+
+This deviates from **01-REQ-4.E1** which states skeleton binaries SHALL print
+a usage message to stderr and exit with a non-zero code when invoked with an
+unrecognized flag. The `TestSkeletonUnknownFlagExitsNonZero` (TS-01-E4)
+excludes `cloud-gateway-client` because including it would produce a
+misleading pass (exit 1 due to missing config, not flag rejection).
+
+Adding flag rejection to `cloud-gateway-client` would require changes to
+spec 04's implementation and is outside spec 01's scope.
+
+### 8. Rust service binaries no longer have skeleton behavior
+
+`update-service` (spec 07) and `parking-operator-adaptor` (spec 08) have been
+replaced by full implementations that require runtime configuration and exit
+non-zero without it. This deviates from:
+
+- **01-REQ-4.1**: "WHEN a Rust skeleton binary is executed, THEN it SHALL print
+  a version string to stdout and exit with code 0."
+
+Only `locking-service` retains skeleton behavior (prints version and exits 0
+when invoked without a subcommand). `cloud-gateway-client` was already excluded
+(see section 7).
+
+**Test impact:** `TestRustSkeletonBinaries` (TS-01-13) and
+`TestPropertySkeletonDeterminism` (TS-01-P2) only test `locking-service` for
+strict skeleton behavior. Other Rust binaries are excluded.
+
+### 9. Go module binaries no longer have skeleton behavior
+
+All Go modules have been replaced by full implementations from later specs:
+- `backend/parking-fee-service` (spec 05): HTTP server, requires port binding
+- `backend/cloud-gateway` (spec 06): HTTP/NATS gateway, requires config file
+- `mock/parking-app-cli` (spec 09): CLI tool, requires subcommand
+- `mock/companion-app-cli` (spec 09): CLI tool, requires subcommand
+- `mock/parking-operator` (spec 09): gRPC server, requires subcommand
+
+None print a simple version string to stdout and exit 0 as specified by
+**01-REQ-4.2**. They all exit non-zero when invoked without proper arguments
+or configuration.
+
+**Test impact:** `TestGoSkeletonBinaries` (TS-01-14) uses CombinedOutput and
+checks that the component name appears somewhere in the output (usage messages,
+log lines) without asserting exit code 0. `backend/cloud-gateway` is excluded
+because its error output does not mention the component name.
+
+### 10. Proto generated code module
 
 The `make proto` target generates Go code into `gen/` at the repository root.
 `gen/` is a standalone Go module (`github.com/rhadp/parking-fee-service/gen`)

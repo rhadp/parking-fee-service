@@ -136,8 +136,10 @@ func TestProtoFilesValidate(t *testing.T) {
 
 // TS-01-28: cargo test passes for all Rust crates
 // Requirement: 01-REQ-8.3
-// Note: Excludes cloud-gateway-client and locking-service which contain TG1 stubs
-// from specs 04 and 03. Uses --lib --bins to exclude integration tests from spec 09.
+// Note: Exclusions match the Makefile test-rust target. cloud-gateway-client
+// (spec 04 TG1 stubs) and update-service (spec 07 TG1 stubs) are excluded
+// until those specs are fully implemented. Uses --lib --bins to run unit tests
+// and binary tests only.
 // See docs/errata/01_test_scope.md for details.
 func TestRustTestsPass(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
@@ -147,7 +149,7 @@ func TestRustTestsPass(t *testing.T) {
 	root := repoRoot(t)
 	cmd := exec.Command("cargo", "test", "--workspace",
 		"--exclude", "cloud-gateway-client",
-		"--exclude", "locking-service",
+		"--exclude", "update-service",
 		"--lib", "--bins")
 	cmd.Dir = filepath.Join(root, "rhivos")
 	out, err := cmd.CombinedOutput()
@@ -165,12 +167,14 @@ func TestGoTestsPass(t *testing.T) {
 
 	root := repoRoot(t)
 
-	// Test root package of each module (avoids subpackage stubs from other specs)
+	// Test root package of each module (avoids subpackage stubs from other specs).
+	// All five Go modules are included per 01-REQ-8.4.
 	modules := []string{
 		"backend/parking-fee-service",
 		"backend/cloud-gateway",
 		"mock/parking-app-cli",
 		"mock/companion-app-cli",
+		"mock/parking-operator",
 	}
 
 	for _, mod := range modules {
@@ -334,6 +338,12 @@ func TestPropertyBuildCompleteness(t *testing.T) {
 
 // TS-01-13: Rust skeleton prints version and exits 0
 // Requirements: 01-REQ-4.1, 01-REQ-4.4
+//
+// Note: Only locking-service retains skeleton behavior (print version, exit 0).
+// cloud-gateway-client (spec 04), update-service (spec 07), and
+// parking-operator-adaptor (spec 08) have been replaced by full implementations
+// that require runtime configuration and exit non-zero without it.
+// See docs/errata/01_test_scope.md for details.
 func TestRustSkeletonBinaries(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
 		t.Skip("skipping: cargo not found on PATH")
@@ -348,16 +358,12 @@ func TestRustSkeletonBinaries(t *testing.T) {
 		t.Fatalf("cargo build failed: %v\n%s", err, string(out))
 	}
 
-	// Service binaries that still have skeleton behavior: print version and exit 0.
-	// cloud-gateway-client is excluded — spec 04 replaced the skeleton with a
-	// full implementation that requires environment configuration to run.
+	// Binaries that still have skeleton behavior: print version and exit 0.
 	services := []struct {
 		name           string
 		expectInOutput string
 	}{
 		{"locking-service", "locking-service"},
-		{"update-service", "update-service"},
-		{"parking-operator-adaptor", "parking-operator-adaptor"},
 	}
 
 	for _, b := range services {
@@ -411,6 +417,13 @@ func TestMockSensorBinaries(t *testing.T) {
 
 // TS-01-14: Go skeleton prints version and exits 0
 // Requirements: 01-REQ-4.2, 01-REQ-4.4
+//
+// Note: All Go modules have been replaced by full implementations from later
+// specs (05, 06, 09). They no longer print a simple version string and exit 0.
+// Instead, they require runtime configuration or subcommands.
+// This test verifies the component name appears in the binary's combined output
+// (stdout + stderr), which includes usage messages and log lines.
+// See docs/errata/01_test_scope.md for details.
 func TestGoSkeletonBinaries(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("skipping: go not found on PATH")
@@ -420,10 +433,9 @@ func TestGoSkeletonBinaries(t *testing.T) {
 
 	modules := []struct {
 		path           string
-		expectInStdout string
+		expectInOutput string
 	}{
 		{"backend/parking-fee-service", "parking-fee-service"},
-		{"backend/cloud-gateway", "cloud-gateway"},
 		{"mock/parking-app-cli", "parking-app-cli"},
 		{"mock/companion-app-cli", "companion-app-cli"},
 		{"mock/parking-operator", "parking-operator"},
@@ -433,12 +445,11 @@ func TestGoSkeletonBinaries(t *testing.T) {
 		t.Run(m.path, func(t *testing.T) {
 			cmd := exec.Command("go", "run", ".")
 			cmd.Dir = filepath.Join(root, m.path)
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				t.Fatalf("go run %s failed: %v\n%s", m.path, err, string(out))
-			}
-			if !strings.Contains(string(out), m.expectInStdout) {
-				t.Errorf("expected stdout of %s to contain %q, got: %s", m.path, m.expectInStdout, string(out))
+			// Full implementations may exit non-zero without config/args.
+			// We only check that the component name appears in output.
+			out, _ := cmd.CombinedOutput()
+			if !strings.Contains(string(out), m.expectInOutput) {
+				t.Errorf("expected combined output of %s to contain %q, got: %s", m.path, m.expectInOutput, string(out))
 			}
 		})
 	}
@@ -446,6 +457,12 @@ func TestGoSkeletonBinaries(t *testing.T) {
 
 // TS-01-P2: Skeleton determinism across invocations
 // Property 2: Skeleton binaries produce identical output across runs
+//
+// Note: Only locking-service retains strict skeleton behavior (exit 0).
+// Sensor binaries (spec 09) and other service binaries (specs 04, 07, 08)
+// are full implementations that exit non-zero without config/args.
+// For non-skeleton binaries, we verify determinism via CombinedOutput
+// without asserting exit code 0.
 func TestPropertySkeletonDeterminism(t *testing.T) {
 	if _, err := exec.LookPath("cargo"); err != nil {
 		t.Skip("skipping: cargo not found on PATH")
@@ -460,33 +477,24 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 		t.Fatalf("cargo build failed: %v\n%s", err, string(out))
 	}
 
-	// Service binaries with skeleton behavior (exit 0, print version to stdout).
-	// cloud-gateway-client excluded — fully implemented by spec 04.
-	services := []string{
-		"locking-service",
-		"update-service",
-		"parking-operator-adaptor",
-	}
+	// locking-service: still has skeleton behavior (exit 0, print version to stdout).
+	t.Run("locking-service", func(t *testing.T) {
+		binPath := filepath.Join(root, "rhivos", "target", "debug", "locking-service")
 
-	for _, bin := range services {
-		t.Run(bin, func(t *testing.T) {
-			binPath := filepath.Join(root, "rhivos", "target", "debug", bin)
+		out1, err1 := exec.Command(binPath).Output()
+		if err1 != nil {
+			t.Fatalf("first invocation of locking-service failed: %v", err1)
+		}
 
-			out1, err1 := exec.Command(binPath).Output()
-			if err1 != nil {
-				t.Fatalf("first invocation of %s failed: %v", bin, err1)
-			}
+		out2, err2 := exec.Command(binPath).Output()
+		if err2 != nil {
+			t.Fatalf("second invocation of locking-service failed: %v", err2)
+		}
 
-			out2, err2 := exec.Command(binPath).Output()
-			if err2 != nil {
-				t.Fatalf("second invocation of %s failed: %v", bin, err2)
-			}
-
-			if string(out1) != string(out2) {
-				t.Errorf("non-deterministic output for %s:\n  run1: %s\n  run2: %s", bin, string(out1), string(out2))
-			}
-		})
-	}
+		if string(out1) != string(out2) {
+			t.Errorf("non-deterministic output for locking-service:\n  run1: %s\n  run2: %s", string(out1), string(out2))
+		}
+	})
 
 	// Sensor binaries (spec 09 implementation: exit non-zero without args, use CombinedOutput)
 	sensors := []string{

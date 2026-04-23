@@ -219,8 +219,13 @@ func runWatch() {
 	for {
 		event, err := stream.Recv()
 		if err != nil {
-			// Stream closed or context cancelled — normal exit.
-			break
+			// Context cancelled (SIGINT) or EOF — normal exit.
+			if err == io.EOF || ctx.Err() != nil {
+				break
+			}
+			// gRPC error — report and exit with failure.
+			fmt.Fprintf(os.Stderr, "error: gRPC stream failed: %v\n", err)
+			os.Exit(1)
 		}
 		printJSON(map[string]interface{}{
 			"adapter_id": event.GetAdapterId(),
