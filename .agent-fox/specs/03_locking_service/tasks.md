@@ -183,11 +183,19 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - `TestSmokeLockHappyPath` -- TS-03-SMOKE-1: end-to-end lock
     - `TestSmokeUnlockHappyPath` -- TS-03-SMOKE-2: end-to-end unlock
     - `TestSmokeLockRejectedMoving` -- TS-03-SMOKE-3: lock rejected when vehicle moving
+    - `TestSmokeInvalidCommandResponse` -- unsupported door, verify failure response
+    - `TestSmokeInvalidJsonDiscarded` -- invalid JSON discarded without response
     - _Test Spec: TS-03-SMOKE-1, TS-03-SMOKE-2, TS-03-SMOKE-3_
 
   - [x] 4.4 Write connection retry test
     - `TestConnectionRetryFailure` -- TS-03-E1: service exits non-zero when DATA_BROKER unreachable
     - _Test Spec: TS-03-E1_
+
+  - [x] 4.5 Write lifecycle and sequential processing tests
+    - `TestGracefulShutdown` -- 03-REQ-6.1: verify SIGTERM exits code 0
+    - `TestStartupLogging` -- 03-REQ-6.2: verify startup log contains version and DATABROKER_ADDR
+    - `TestSigtermDuringProcessing` -- 03-REQ-6.E1: verify command completes before shutdown
+    - `TestSequentialCommandProcessing` -- 03-REQ-1.3: verify commands processed in order
 
   - [x] 4.V Verify task group 4
     - [x] All integration tests pass: `cd tests/locking-service && go test -v ./...` (skip gracefully without infrastructure)
@@ -236,7 +244,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
 |-------------|-----------------|---------------------|------------------|
 | 03-REQ-1.1 | TS-03-1 | 3.1, 3.3 | tests/locking-service::TestCommandSubscription |
 | 03-REQ-1.2 | TS-03-1 | 3.3 | tests/locking-service::TestCommandSubscription |
-| 03-REQ-1.3 | TS-03-SMOKE-1, TS-03-SMOKE-2 | 3.3 | tests/locking-service::TestSmokeLockHappyPath |
+| 03-REQ-1.3 | TS-03-SMOKE-1, TS-03-SMOKE-2 | 3.3, 4.5 | tests/locking-service::TestSequentialCommandProcessing |
 | 03-REQ-1.E1 | TS-03-E1 | 3.1 | tests/locking-service::TestConnectionRetryFailure |
 | 03-REQ-1.E2 | TS-03-E2 | 3.1, 3.3 | (verified via log inspection in integration tests) |
 | 03-REQ-2.1 | TS-03-2, TS-03-5 | 2.2 | command::tests::test_parse_valid_command |
@@ -261,9 +269,9 @@ The ordering ensures tests are written first (TDD), then implementation makes th
 | 03-REQ-5.2 | TS-03-15 | 2.4 | response::tests::test_failure_response_format |
 | 03-REQ-5.3 | TS-03-14 | 2.4 | response::tests::test_success_response_format |
 | 03-REQ-5.E1 | TS-03-E10 | 3.2 | process::tests::test_response_publish_failure |
-| 03-REQ-6.1 | (integration test exit code) | 3.3 | tests/locking-service (process exit verification) |
-| 03-REQ-6.2 | TS-03-1 | 3.3 | tests/locking-service::TestCommandSubscription |
-| 03-REQ-6.E1 | (integration test graceful shutdown) | 3.3 | tests/locking-service (shutdown verification) |
+| 03-REQ-6.1 | (integration test exit code) | 3.3, 4.5 | tests/locking-service::TestGracefulShutdown |
+| 03-REQ-6.2 | TS-03-1 | 3.3, 4.5 | tests/locking-service::TestStartupLogging |
+| 03-REQ-6.E1 | (integration test graceful shutdown) | 3.3, 4.5 | tests/locking-service::TestSigtermDuringProcessing |
 | 03-REQ-7.1 | TS-03-3 | 2.1 | config::tests::test_databroker_addr_env |
 | 03-REQ-7.2 | TS-03-3 | 2.1 | config::tests::test_databroker_addr_default |
 | Property 1 | TS-03-P1 | 1.6 | proptest_cases::tests::proptest_command_validation_completeness |

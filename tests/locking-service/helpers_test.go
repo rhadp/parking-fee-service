@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -326,6 +327,76 @@ func waitForResponse(t *testing.T, client pb.VALClient, expectedCmdID string, ti
 	}
 	t.Fatalf("timed out waiting for response with command_id %q", expectedCmdID)
 	return nil
+}
+
+// startLockingServiceManual starts the locking-service binary and waits for
+// readiness. Unlike startLockingService, it does NOT register a cleanup handler.
+// The caller must manage the process lifecycle (kill/wait). Returns the command
+// and a function to retrieve captured log lines (from stderr).
+func startLockingServiceManual(t *testing.T, binary string, addr string) (*exec.Cmd, func() []string) {
+	t.Helper()
+
+	cmd := exec.Command(binary, "serve")
+	cmd.Env = append(os.Environ(), fmt.Sprintf("DATABROKER_ADDR=%s", addr))
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		t.Fatalf("failed to create stderr pipe: %v", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start locking-service: %v", err)
+	}
+
+	var mu sync.Mutex
+	var logLines []string
+	readyCh := make(chan struct{})
+
+	go func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		readyNotified := false
+		for scanner.Scan() {
+			line := scanner.Text()
+			mu.Lock()
+			logLines = append(logLines, line)
+			mu.Unlock()
+			if !readyNotified && strings.Contains(line, "locking-service ready") {
+				close(readyCh)
+				readyNotified = true
+			}
+		}
+	}()
+
+	select {
+	case <-readyCh:
+		// Service is ready.
+	case <-time.After(30 * time.Second):
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		t.Fatal("locking-service did not become ready within 30 seconds")
+	}
+
+	getLogs := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		result := make([]string, len(logLines))
+		copy(result, logLines)
+		return result
+	}
+
+	return cmd, getLogs
+}
+
+// makeInvalidDoorJSON creates a lock command JSON payload with an unsupported
+// door value.
+func makeInvalidDoorJSON(commandID string) string {
+	cmd := map[string]interface{}{
+		"command_id": commandID,
+		"action":     "lock",
+		"doors":      []string{"passenger"},
+	}
+	data, _ := json.Marshal(cmd)
+	return string(data)
 }
 
 // VSS signal path constants used across tests.
