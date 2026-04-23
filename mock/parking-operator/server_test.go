@@ -59,6 +59,10 @@ func TestStartSession(t *testing.T) {
 		t.Fatal("expected 'rate' object in response")
 	}
 
+	if rate["rate_type"] != "per_hour" {
+		t.Errorf("expected rate_type 'per_hour', got: %v", rate["rate_type"])
+	}
+
 	if rate["amount"] != 2.5 {
 		t.Errorf("expected rate amount 2.50, got: %v", rate["amount"])
 	}
@@ -167,6 +171,72 @@ func TestSessionStatus(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// TS-09-16 extension: Session status after stop
+// Requirement: 09-REQ-8.4 (GET /parking/status returns session state)
+// Verifies that after POST /parking/stop, the session status is "stopped"
+// and billing fields (duration_seconds, total_amount) are populated.
+// ---------------------------------------------------------------------------
+
+func TestSessionStatusAfterStop(t *testing.T) {
+	srv := NewServer()
+	handler := srv.Handler()
+
+	// Start a session.
+	startBody := `{"vehicle_id":"VIN001","zone_id":"zone-1","timestamp":1700000000}`
+	startReq := httptest.NewRequest("POST", "/parking/start", strings.NewReader(startBody))
+	startReq.Header.Set("Content-Type", "application/json")
+	startRec := httptest.NewRecorder()
+	handler.ServeHTTP(startRec, startReq)
+
+	if startRec.Code != http.StatusOK {
+		t.Fatalf("start: expected 200, got %d", startRec.Code)
+	}
+
+	var startResp map[string]interface{}
+	json.Unmarshal(startRec.Body.Bytes(), &startResp)
+	sessionID := startResp["session_id"].(string)
+
+	// Stop the session (1 hour later).
+	stopBody := fmt.Sprintf(`{"session_id":"%s","timestamp":1700003600}`, sessionID)
+	stopReq := httptest.NewRequest("POST", "/parking/stop", strings.NewReader(stopBody))
+	stopReq.Header.Set("Content-Type", "application/json")
+	stopRec := httptest.NewRecorder()
+	handler.ServeHTTP(stopRec, stopReq)
+
+	if stopRec.Code != http.StatusOK {
+		t.Fatalf("stop: expected 200, got %d", stopRec.Code)
+	}
+
+	// Query status after stop — should reflect "stopped" with billing fields.
+	statusReq := httptest.NewRequest("GET", "/parking/status/"+sessionID, nil)
+	statusRec := httptest.NewRecorder()
+	handler.ServeHTTP(statusRec, statusReq)
+
+	if statusRec.Code != http.StatusOK {
+		t.Fatalf("status: expected 200, got %d: %s", statusRec.Code, statusRec.Body.String())
+	}
+
+	var statusResp map[string]interface{}
+	json.Unmarshal(statusRec.Body.Bytes(), &statusResp)
+
+	if statusResp["session_id"] != sessionID {
+		t.Errorf("expected session_id '%s', got: %v", sessionID, statusResp["session_id"])
+	}
+
+	if statusResp["status"] != "stopped" {
+		t.Errorf("expected status 'stopped' after stop, got: %v", statusResp["status"])
+	}
+
+	if dur, ok := statusResp["duration_seconds"].(float64); !ok || int(dur) != 3600 {
+		t.Errorf("expected duration_seconds 3600, got: %v", statusResp["duration_seconds"])
+	}
+
+	if amt, ok := statusResp["total_amount"].(float64); !ok || amt != 2.50 {
+		t.Errorf("expected total_amount 2.50, got: %v", statusResp["total_amount"])
+	}
+}
+
+// ---------------------------------------------------------------------------
 // TS-09-E7: Parking Operator Stop Unknown Session
 // Requirement: 09-REQ-8.E1
 // ---------------------------------------------------------------------------
@@ -227,15 +297,31 @@ func TestMalformedRequest(t *testing.T) {
 	srv := NewServer()
 	handler := srv.Handler()
 
-	req := httptest.NewRequest("POST", "/parking/start", strings.NewReader("not valid json"))
-	req.Header.Set("Content-Type", "text/plain")
-	rec := httptest.NewRecorder()
+	// 09-REQ-8.E3: POST /parking/start with malformed body returns 400.
+	t.Run("start", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/parking/start", strings.NewReader("not valid json"))
+		req.Header.Set("Content-Type", "text/plain")
+		rec := httptest.NewRecorder()
 
-	handler.ServeHTTP(rec, req)
+		handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 for malformed request, got %d", rec.Code)
-	}
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("expected 400 for malformed /parking/start, got %d", rec.Code)
+		}
+	})
+
+	// 09-REQ-8.E3: POST /parking/stop with malformed body returns 400.
+	t.Run("stop", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/parking/stop", strings.NewReader("not valid json"))
+		req.Header.Set("Content-Type", "text/plain")
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("expected 400 for malformed /parking/stop, got %d", rec.Code)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
