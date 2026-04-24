@@ -11,9 +11,12 @@ parallel = 5
 ## Shell command to run after each coder session (default: "")
 quality_gate = "make check"
 ## Maximum USD spend per session, 0 = unlimited (default: 8.0)
-max_budget_usd = 8.0
+max_budget_usd = 15.0
 # fail fast ie. if >20% of tasks are blocked
 max_blocked_fraction = 0.2
+# there are long sessions
+session_timeout = 60
+sync_interval = 8
 
 [models]
 ## Model tier for coding tasks (default: "ADVANCED")
