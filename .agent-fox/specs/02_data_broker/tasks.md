@@ -61,35 +61,37 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd tests/databroker && go test -run TestCompile ./... 2>&1 || echo "Tests compile but fail as expected"
     ```
 
-- [ ] 2. Configure compose.yml for dual listeners
+- [x] 2. Configure compose.yml for dual listeners
   - Update the existing compose.yml (from spec 01) to configure the DATA_BROKER with pinned image version, dual listener args, port mapping, and volume mounts.
 
-  - [ ] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` in `deployments/compose.yml`
+  - [x] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` in `deployments/compose.yml`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
-    - Note: pinned to :6.0 per errata (02_data_broker_spec_contradictions.md) — :0.6.1 does not exist in registry
+    - Note: pinned to :0.6 per 02-REQ-1.1; container reports package version 0.6.1; see errata 02_databroker_cli_and_image.md §E02-1
 
-  - [ ] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
+  - [x] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-2.1, 02-REQ-3.1, 02-REQ-4.1_
     - Note: per errata, uses `--address 0.0.0.0 --port 55555` and `--unix-socket /tmp/kuksa-databroker.sock` (combined host:port and --uds-path are invalid for this binary)
 
-  - [ ] 2.3 Configure port mapping `55556:55555` for the databroker service
+  - [x] 2.3 Configure port mapping `55556:55555` for the databroker service
     - _Requirements: 02-REQ-2.2_
 
-  - [ ] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
+  - [x] 2.4 Add shared volume mount for UDS socket directory so co-located containers can access `/tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-3.2_
     - Bind mount /tmp/kuksa (host) to /tmp (container); socket accessible at /tmp/kuksa/kuksa-databroker.sock on host
 
-  - [ ] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
+  - [x] 2.5 Mount the VSS overlay file into the container and add the overlay flag to the command args
     - _Requirements: 02-REQ-6.4_
-    - Uses `--vss vss_release_4.0.json,/vss-overlay.json` to load both the standard VSS 4.0 tree and custom overlay; overlay file volume-mounted at /vss-overlay.json
-    - Note: kuksa-databroker 0.5.0 uses `--vss` flag (not `--metadata`); comma-separated list loads multiple files; when `--vss` is explicit, the default tree must be included
+    - Uses `--vss vss_release_5.1.json,/vss-overlay.json` to load both the bundled VSS 5.1 tree and custom overlay; overlay file volume-mounted at /vss-overlay.json
+    - Note: kuksa-databroker 0.6.1 uses `--vss` flag; comma-separated list loads multiple files; when `--vss` is explicit, the default tree must be included; bundled file is vss_release_5.1.json (not 4.0)
 
-  - [ ] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
+  - [x] 2.6 Verify the databroker runs in permissive mode (no auth flags in command args)
     - _Requirements: 02-REQ-7.1_
-    - Verified: no --token, --auth, --jwt, or --tls-server-cert flags in command
+    - Verified: no --token, --auth, --jwt, or --tls-server-cert flags in command; TestComposePermissiveMode PASS
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All TestCompose* static tests pass (`go test -run TestCompose ./...` in tests/databroker — 7/7 pass)
+  - [x] 2.V Verify task group 2
+    - [x] All TestCompose* static tests pass (`go test -run TestCompose ./...` in tests/databroker — 7/7 pass)
+    - [x] tests/databroker added to GO_TEST_MODULES_RECURSIVE in Makefile; `make test` passes with databroker tests included
+    - [x] Errata created: docs/errata/02_databroker_cli_and_image.md documenting version discrepancy, CLI flag differences, VSS file format
     ```
     cd deployments && podman compose up -d databroker && sleep 3 && podman compose logs databroker | grep -i "listening" && podman compose down
     ```
