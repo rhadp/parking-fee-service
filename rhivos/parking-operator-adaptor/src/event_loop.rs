@@ -1,6 +1,8 @@
-use crate::broker::DataBrokerClient;
+use crate::broker::{DataBrokerClient, SIGNAL_SESSION_ACTIVE};
 use crate::operator::ParkingOperator;
-use crate::session::Session;
+use crate::session::{Rate, Session, SessionState};
+
+use tokio::sync::oneshot;
 
 /// Error type for event processing operations.
 #[derive(Debug)]
@@ -37,6 +39,8 @@ pub struct StartSessionResult {
     pub rate_type: String,
     pub rate_amount: f64,
     pub rate_currency: String,
+    pub zone_id: String,
+    pub start_time: i64,
 }
 
 /// Result type for a successful stop session operation.
@@ -55,14 +59,62 @@ pub struct StopSessionResult {
 /// - Unlock (is_locked=false): stop the session if one is active.
 /// - Idempotent: lock while active or unlock while inactive is a no-op.
 pub async fn handle_lock_event<O: ParkingOperator, B: DataBrokerClient>(
-    _is_locked: bool,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    is_locked: bool,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
 ) {
-    todo!()
+    if is_locked {
+        // Lock event → start session if not active
+        if session.is_active() {
+            tracing::info!("lock event received but session already active, no-op");
+            return;
+        }
+        match operator.start_session(vehicle_id, zone_id).await {
+            Ok(resp) => {
+                let start_time = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+                session.start(
+                    resp.session_id,
+                    zone_id.to_string(),
+                    start_time,
+                    Rate {
+                        rate_type: resp.rate.rate_type,
+                        amount: resp.rate.amount,
+                        currency: resp.rate.currency,
+                    },
+                );
+                if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+                    tracing::error!(error = %e, "failed to publish SessionActive=true");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "failed to start session with operator");
+            }
+        }
+    } else {
+        // Unlock event → stop session if active
+        if !session.is_active() {
+            tracing::info!("unlock event received but no active session, no-op");
+            return;
+        }
+        let session_id = session.status().unwrap().session_id.clone();
+        match operator.stop_session(&session_id).await {
+            Ok(_resp) => {
+                session.stop();
+                if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+                    tracing::error!(error = %e, "failed to publish SessionActive=false");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "failed to stop session with operator");
+            }
+        }
+    }
 }
 
 /// Handle a manual StartSession request from gRPC.
@@ -70,13 +122,53 @@ pub async fn handle_lock_event<O: ParkingOperator, B: DataBrokerClient>(
 /// Returns `Err(EventError::AlreadyExists)` if a session is already active.
 /// On success, updates session state and publishes SessionActive=true.
 pub async fn handle_start_session<O: ParkingOperator, B: DataBrokerClient>(
-    _zone_id: &str,
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
+    zone_id: &str,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
 ) -> Result<StartSessionResult, EventError> {
-    todo!()
+    if session.is_active() {
+        let session_id = session.status().unwrap().session_id.clone();
+        return Err(EventError::AlreadyExists { session_id });
+    }
+
+    let resp = operator
+        .start_session(vehicle_id, zone_id)
+        .await
+        .map_err(|e| EventError::OperatorUnavailable(e.to_string()))?;
+
+    let start_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let result = StartSessionResult {
+        session_id: resp.session_id.clone(),
+        status: resp.status.clone(),
+        rate_type: resp.rate.rate_type.clone(),
+        rate_amount: resp.rate.amount,
+        rate_currency: resp.rate.currency.clone(),
+        zone_id: zone_id.to_string(),
+        start_time,
+    };
+
+    session.start(
+        resp.session_id,
+        zone_id.to_string(),
+        start_time,
+        Rate {
+            rate_type: resp.rate.rate_type,
+            amount: resp.rate.amount,
+            currency: resp.rate.currency,
+        },
+    );
+
+    if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+        tracing::error!(error = %e, "failed to publish SessionActive=true");
+    }
+
+    Ok(result)
 }
 
 /// Handle a manual StopSession request from gRPC.
@@ -84,11 +176,97 @@ pub async fn handle_start_session<O: ParkingOperator, B: DataBrokerClient>(
 /// Returns `Err(EventError::NoActiveSession)` if no session is active.
 /// On success, clears session state and publishes SessionActive=false.
 pub async fn handle_stop_session<O: ParkingOperator, B: DataBrokerClient>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
 ) -> Result<StopSessionResult, EventError> {
-    todo!()
+    if !session.is_active() {
+        return Err(EventError::NoActiveSession);
+    }
+
+    let session_id = session.status().unwrap().session_id.clone();
+
+    let resp = operator
+        .stop_session(&session_id)
+        .await
+        .map_err(|e| EventError::OperatorUnavailable(e.to_string()))?;
+
+    session.stop();
+
+    if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+        tracing::error!(error = %e, "failed to publish SessionActive=false");
+    }
+
+    Ok(StopSessionResult {
+        session_id: resp.session_id,
+        status: resp.status,
+        duration_seconds: resp.duration_seconds,
+        total_amount: resp.total_amount,
+        currency: resp.currency,
+    })
+}
+
+/// Internal event type for serialized processing.
+///
+/// Events from both the DATA_BROKER subscription and gRPC handlers are
+/// funneled into a single channel and processed sequentially, ensuring
+/// no concurrent session state mutations (08-REQ-9.1).
+pub enum SessionEvent {
+    /// Lock state changed (from DATA_BROKER subscription).
+    LockChanged(bool),
+    /// Manual StartSession request (from gRPC).
+    ManualStart {
+        zone_id: String,
+        reply: oneshot::Sender<Result<StartSessionResult, EventError>>,
+    },
+    /// Manual StopSession request (from gRPC).
+    ManualStop {
+        reply: oneshot::Sender<Result<StopSessionResult, EventError>>,
+    },
+    /// Query session status (from gRPC GetStatus).
+    QueryStatus {
+        reply: oneshot::Sender<Option<SessionState>>,
+    },
+    /// Query rate (from gRPC GetRate).
+    QueryRate {
+        reply: oneshot::Sender<Option<Rate>>,
+    },
+}
+
+/// Process a single session event.
+///
+/// Called from the main event processing loop for each incoming event,
+/// ensuring sequential processing (08-REQ-9.1).
+pub async fn process_event<O: ParkingOperator, B: DataBrokerClient>(
+    event: SessionEvent,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
+) {
+    match event {
+        SessionEvent::LockChanged(is_locked) => {
+            handle_lock_event(is_locked, session, operator, broker, vehicle_id, zone_id).await;
+        }
+        SessionEvent::ManualStart {
+            zone_id: z,
+            reply,
+        } => {
+            let result = handle_start_session(&z, session, operator, broker, vehicle_id).await;
+            let _ = reply.send(result);
+        }
+        SessionEvent::ManualStop { reply } => {
+            let result = handle_stop_session(session, operator, broker).await;
+            let _ = reply.send(result);
+        }
+        SessionEvent::QueryStatus { reply } => {
+            let _ = reply.send(session.status().cloned());
+        }
+        SessionEvent::QueryRate { reply } => {
+            let _ = reply.send(session.rate().cloned());
+        }
+    }
 }
 
 #[cfg(test)]

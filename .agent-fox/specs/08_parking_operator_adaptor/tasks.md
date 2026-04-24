@@ -127,15 +127,15 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [x] _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
 
-- [ ] 4. DATA_BROKER client, gRPC server, and event loop
-  - [ ] 4.1 Implement broker module
-    - Implement BrokerClient with tonic-generated kuksa.val.v1 client
-    - `connect(addr)`: establish gRPC channel with retry (1s, 2s, 4s, up to 5 attempts)
+- [x] 4. DATA_BROKER client, gRPC server, and event loop
+  - [x] 4.1 Implement broker module
+    - Implement BrokerClient with tonic-generated kuksa.val.v2 client (see errata 08_kuksa_v2_migration.md)
+    - `connect(addr)`: establish gRPC channel with retry (1s, 2s, 4s, 8s, up to 5 attempts)
     - `subscribe_bool(signal)`: create kuksa Subscribe stream for IsLocked
-    - `set_bool(signal, value)`: kuksa Set for Vehicle.Parking.SessionActive
+    - `set_bool(signal, value)`: kuksa PublishValue for Vehicle.Parking.SessionActive
     - _Requirements: 08-REQ-3.1, 08-REQ-3.2, 08-REQ-3.E3_
 
-  - [ ] 4.2 Implement gRPC server
+  - [x] 4.2 Implement gRPC server
     - Implement ParkingAdaptorService with tonic from parking_adaptor.proto
     - StartSession: validate no active session, delegate to operator, update session, publish signal
     - StopSession: validate active session, delegate to operator, clear session, publish signal
@@ -143,14 +143,14 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - GetRate: read session rate, return response
     - _Requirements: 08-REQ-1.1, 08-REQ-1.2, 08-REQ-1.3, 08-REQ-1.4, 08-REQ-1.5, 08-REQ-1.E1, 08-REQ-1.E2_
 
-  - [ ] 4.3 Implement event loop
+  - [x] 4.3 Implement event loop
     - Create SessionEvent enum for serialized processing
     - Use tokio::mpsc channel to receive events from both DATA_BROKER subscription and gRPC handlers
     - Process events sequentially: lock→start, unlock→stop, manual start/stop, queries
     - Handle idempotent cases (lock when active, unlock when inactive)
     - _Requirements: 08-REQ-3.3, 08-REQ-3.4, 08-REQ-3.E1, 08-REQ-3.E2, 08-REQ-5.1, 08-REQ-5.2, 08-REQ-5.3, 08-REQ-9.1, 08-REQ-9.2_
 
-  - [ ] 4.4 Implement main entry point
+  - [x] 4.4 Implement main entry point
     - Parse config, connect to DATA_BROKER with retry
     - Publish initial SessionActive=false
     - Subscribe to IsLocked signal
@@ -160,11 +160,11 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - Log startup info and ready message
     - _Requirements: 08-REQ-4.3, 08-REQ-8.1, 08-REQ-8.2, 08-REQ-8.3, 08-REQ-8.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Binary compiles: `cd rhivos && cargo build -p parking-operator-adaptor`
-    - [ ] All unit tests pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] Property tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- --include-ignored proptest`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+  - [x] 4.V Verify task group 4
+    - [x] Binary compiles: `cd rhivos && cargo build -p parking-operator-adaptor`
+    - [x] All unit tests pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] Property tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- --include-ignored proptest`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
 - [ ] 5. Integration test validation
   - [ ] 5.1 Create integration test module
