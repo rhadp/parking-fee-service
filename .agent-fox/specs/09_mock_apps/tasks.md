@@ -222,7 +222,7 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [x] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
           (sensor tests use stub v2 gRPC server; all tests pass)
 
-- [ ] 6. Checkpoint - All Tests Green
+- [x] 6. Checkpoint - All Tests Green
   - All unit, integration, property, and smoke tests pass
   - All six binaries build and run correctly
   - Ask the user if questions arise
