@@ -167,19 +167,19 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [x] All previously passing tests still pass: `make test` (cloud-gateway-client failures are pre-existing)
 
-- [ ] 4. Integration tests (live DATA_BROKER)
-  - [ ] 4.1 Create integration test module
+- [x] 4. Integration tests (live DATA_BROKER)
+  - [x] 4.1 Create integration test module
     - Create `tests/locking-service/` Go module with shared test helpers
     - Helpers: start/stop databroker (compose), start/stop locking-service binary, gRPC connect, signal set/get
     - Add `go.work` entry for `./tests/locking-service`
     - _Test Spec: TS-03-1, TS-03-13_
 
-  - [ ] 4.2 Write subscription and initial state tests
+  - [x] 4.2 Write subscription and initial state tests
     - `TestCommandSubscription` -- TS-03-1: verify service receives commands via subscription
     - `TestInitialState` -- TS-03-13: verify IsLocked = false after startup
     - _Test Spec: TS-03-1, TS-03-13_
 
-  - [ ] 4.3 Write integration smoke tests
+  - [x] 4.3 Write integration smoke tests
     - `TestSmokeLockHappyPath` -- TS-03-SMOKE-1: end-to-end lock
     - `TestSmokeUnlockHappyPath` -- TS-03-SMOKE-2: end-to-end unlock
     - `TestSmokeLockRejectedMoving` -- TS-03-SMOKE-3: lock rejected when vehicle moving
@@ -187,22 +187,22 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - `TestSmokeInvalidJsonDiscarded` -- invalid JSON discarded without response
     - _Test Spec: TS-03-SMOKE-1, TS-03-SMOKE-2, TS-03-SMOKE-3_
 
-  - [ ] 4.4 Write connection retry test
+  - [x] 4.4 Write connection retry test
     - `TestConnectionRetryFailure` -- TS-03-E1: service exits non-zero when DATA_BROKER unreachable
     - _Test Spec: TS-03-E1_
 
-  - [ ] 4.5 Write lifecycle and sequential processing tests
+  - [x] 4.5 Write lifecycle and sequential processing tests
     - `TestGracefulShutdown` -- 03-REQ-6.1: verify SIGTERM exits code 0
     - `TestStartupLogging` -- 03-REQ-6.2: verify startup log contains version and DATABROKER_ADDR
     - `TestSigtermDuringProcessing` -- 03-REQ-6.E1: verify command completes before shutdown
     - `TestSequentialCommandProcessing` -- 03-REQ-1.3: verify commands processed in order
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All integration tests pass: `cd tests/locking-service && go test -v ./...` (skip gracefully without infrastructure)
-    - [ ] All unit tests still pass: `cd rhivos/locking-service && cargo test`
-    - [ ] All property tests still pass: `cd rhivos/locking-service && cargo test -- --ignored`
+  - [x] 4.V Verify task group 4
+    - [x] All integration tests pass: `cd tests/locking-service && go test -v ./...` (skip gracefully without infrastructure)
+    - [x] All unit tests still pass: `cd rhivos/locking-service && cargo test`
+    - [x] All property tests still pass: `cd rhivos/locking-service && cargo test -- --ignored`
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
-    - [ ] All previously passing tests still pass: `make test`
+    - [x] All previously passing tests still pass: `make test`
 
 - [ ] 5. Wiring verification
   - [ ] 5.1 Verify all requirements traced to tests

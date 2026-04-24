@@ -8,6 +8,7 @@ use (
 	mock/parking-app-cli
 	mock/parking-operator
 	tests/databroker
+	tests/locking-service
 	tests/mock-apps
 	tests/setup
 )
