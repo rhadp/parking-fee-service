@@ -23,11 +23,11 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [ ] 3.1 Implement `validate_bearer_token()` in `src/command_validator.rs` _Requirements:_ [04-REQ-5.1], [04-REQ-5.2], [04-REQ-5.E1], [04-REQ-5.E2]
   - [ ] 3.2 Implement `validate_command_payload()` in `src/command_validator.rs` _Requirements:_ [04-REQ-6.1], [04-REQ-6.2], [04-REQ-6.3], [04-REQ-6.4], [04-REQ-6.E1], [04-REQ-6.E2], [04-REQ-6.E3]
   - [ ] 3.V Verify task group 3: unit tests for command validation (TS-04-3, TS-04-E2, TS-04-E3, TS-04-E4, TS-04-4, TS-04-5, TS-04-E5 through TS-04-E10, TS-04-6) pass
-- [ ] 4. Implement telemetry state
-  - [ ] 4.1 Implement `TelemetryState::new()` and `TelemetryState::update()` in `src/telemetry.rs` _Requirements:_ [04-REQ-8.1], [04-REQ-8.2], [04-REQ-8.3]
-  - [ ] 4.2 Verify unit tests for telemetry (TS-04-7, TS-04-8, TS-04-9) pass
-  - [ ] 4.3 Verify unit test for registration message (TS-04-P1) passes
-  - [ ] 4.V Verify task group 4
+- [x] 4. Implement telemetry state
+  - [x] 4.1 Implement `TelemetryState::new()` and `TelemetryState::update()` in `src/telemetry.rs` _Requirements:_ [04-REQ-8.1], [04-REQ-8.2], [04-REQ-8.3]
+  - [x] 4.2 Verify unit tests for telemetry (TS-04-7, TS-04-8, TS-04-9) pass
+  - [x] 4.3 Verify unit test for registration message (TS-04-P1) passes
+  - [x] 4.V Verify task group 4
 - [ ] 5. Implement NATS client
   - [ ] 5.1 Implement `NatsClient::connect()` with exponential backoff retry (1s, 2s, 4s, max 5 attempts) _Requirements:_ [04-REQ-2.1], [04-REQ-2.2], [04-REQ-2.E1]
   - [ ] 5.2 Implement `NatsClient::subscribe_commands()` for `vehicles.{VIN}.commands` _Requirements:_ [04-REQ-2.3]
