@@ -145,9 +145,8 @@ async fn test_install_reaches_running() {
     mock.set_pull_result(Ok(()));
     mock.set_inspect_result(Ok("sha256:abc123".to_string()));
     mock.set_run_result(Ok(()));
-    // wait returns immediately with 0 for container exit detection;
-    // we set it to never return by not setting it (default Ok(0) will cause
-    // STOPPED - but for this test we just check the intermediate state)
+    // No wait result set: mock.wait() blocks forever, so the container
+    // monitor does not fire and the adapter stays in RUNNING state.
     let (svc, state_mgr, _tx) = test_service(mock);
 
     let image_ref = "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0";
@@ -160,11 +159,10 @@ async fn test_install_reaches_running() {
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     let adapter = state_mgr.get_adapter("parkhaus-munich-v1.0.0").unwrap();
-    // The adapter should reach RUNNING (it may have already progressed
-    // to STOPPED if the container monitor fires quickly)
-    assert!(
-        adapter.state == AdapterState::Running || adapter.state == AdapterState::Stopped,
-        "adapter should be RUNNING or STOPPED, got {:?}",
+    assert_eq!(
+        adapter.state,
+        AdapterState::Running,
+        "adapter should be RUNNING, got {:?}",
         adapter.state
     );
 }

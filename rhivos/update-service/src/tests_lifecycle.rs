@@ -90,9 +90,10 @@ async fn test_single_adapter_stops_running() {
     );
 
     let adapter_b = state_mgr.get_adapter("adapter-b-v2").unwrap();
-    assert!(
-        adapter_b.state == AdapterState::Running || adapter_b.state == AdapterState::Stopped,
-        "adapter B should be RUNNING (or STOPPED if monitor fired), got {:?}",
+    assert_eq!(
+        adapter_b.state,
+        AdapterState::Running,
+        "adapter B should be RUNNING, got {:?}",
         adapter_b.state
     );
 }
@@ -134,14 +135,17 @@ async fn test_stop_failure_install_proceeds() {
     );
 
     let adapter_b = state_mgr.get_adapter("adapter-b-v2").unwrap();
-    assert!(
-        adapter_b.state == AdapterState::Running || adapter_b.state == AdapterState::Stopped,
-        "adapter B should still reach RUNNING, got {:?}",
+    assert_eq!(
+        adapter_b.state,
+        AdapterState::Running,
+        "adapter B should be RUNNING, got {:?}",
         adapter_b.state
     );
 }
 
 // TS-07-13: Offload timer triggers after inactivity timeout
+// Verifies: STOPPED→OFFLOADING transition, rm/rmi calls, state removal,
+// and event emission to subscribers (07-REQ-6.1 through 07-REQ-6.4).
 #[tokio::test]
 async fn test_offload_after_timeout() {
     let mock = Arc::new(MockPodmanExecutor::new());
@@ -149,9 +153,9 @@ async fn test_offload_after_timeout() {
     mock.set_rmi_result(Ok(()));
 
     let (tx, _rx) = broadcast::channel(64);
-    let state_mgr = Arc::new(StateManager::new(tx));
+    let state_mgr = Arc::new(StateManager::new(tx.clone()));
 
-    // Create an adapter in STOPPED state with a past stopped_at timestamp
+    // Create an adapter in STOPPED state
     let entry = crate::adapter::AdapterEntry {
         adapter_id: "adapter-v1".to_string(),
         image_ref: "example.com/adapter:v1".to_string(),
@@ -175,6 +179,9 @@ async fn test_offload_after_timeout() {
         .transition("adapter-v1", AdapterState::Stopped, None)
         .unwrap();
 
+    // Subscribe AFTER setup transitions so we only get offload events
+    let mut event_rx = tx.subscribe();
+
     // Run offload on the adapter
     offload_adapter(&state_mgr, mock.as_ref(), "adapter-v1", "example.com/adapter:v1").await;
 
@@ -190,6 +197,165 @@ async fn test_offload_after_timeout() {
     assert!(
         mock.rmi_calls().contains(&"example.com/adapter:v1".to_string()),
         "podman rmi should have been called"
+    );
+
+    // Verify STOPPED→OFFLOADING event was emitted (07-REQ-6.4)
+    let event = event_rx.try_recv().expect("should have received OFFLOADING event");
+    assert_eq!(event.adapter_id, "adapter-v1");
+    assert_eq!(event.old_state, AdapterState::Stopped);
+    assert_eq!(event.new_state, AdapterState::Offloading);
+    assert!(event.timestamp > 0);
+}
+
+// TS-07-13 (integration): The offload timer background loop detects
+// expired STOPPED adapters and offloads them automatically.
+#[tokio::test]
+async fn test_offload_timer_fires_for_expired_adapter() {
+    use std::time::{Duration, Instant};
+
+    let mock = Arc::new(MockPodmanExecutor::new());
+    mock.set_rm_result(Ok(()));
+    mock.set_rmi_result(Ok(()));
+
+    let (tx, _rx) = broadcast::channel(64);
+    let state_mgr = Arc::new(StateManager::new(tx.clone()));
+
+    // Create adapter and transition to STOPPED
+    let entry = crate::adapter::AdapterEntry {
+        adapter_id: "timer-test-v1".to_string(),
+        image_ref: "example.com/timer-test:v1".to_string(),
+        checksum_sha256: "sha256:test".to_string(),
+        state: AdapterState::Unknown,
+        job_id: "test-job".to_string(),
+        stopped_at: None,
+        error_message: None,
+    };
+    state_mgr.create_adapter(entry);
+    state_mgr
+        .transition("timer-test-v1", AdapterState::Downloading, None)
+        .unwrap();
+    state_mgr
+        .transition("timer-test-v1", AdapterState::Installing, None)
+        .unwrap();
+    state_mgr
+        .transition("timer-test-v1", AdapterState::Running, None)
+        .unwrap();
+    state_mgr
+        .transition("timer-test-v1", AdapterState::Stopped, None)
+        .unwrap();
+
+    // Backdate stopped_at so the adapter appears to have been stopped
+    // longer than the inactivity timeout
+    let inactivity_timeout = Duration::from_secs(2);
+    state_mgr.set_stopped_at(
+        "timer-test-v1",
+        Instant::now() - inactivity_timeout - Duration::from_secs(1),
+    );
+
+    // Subscribe for offload events
+    let mut event_rx = tx.subscribe();
+
+    // Start the offload timer with a short check interval
+    let podman: Arc<dyn crate::podman::PodmanExecutor> = mock.clone();
+    let timer_handle = tokio::spawn(crate::offload::run_offload_timer(
+        state_mgr.clone(),
+        podman,
+        inactivity_timeout,
+        Duration::from_millis(100),
+    ));
+
+    // Wait for the timer to fire
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Cancel the infinite timer loop
+    timer_handle.abort();
+
+    // Adapter should have been offloaded
+    assert!(
+        state_mgr.get_adapter("timer-test-v1").is_none(),
+        "adapter should be removed after offload timer fires"
+    );
+    assert!(
+        mock.rm_calls().contains(&"timer-test-v1".to_string()),
+        "podman rm should have been called by offload timer"
+    );
+    assert!(
+        mock.rmi_calls().contains(&"example.com/timer-test:v1".to_string()),
+        "podman rmi should have been called by offload timer"
+    );
+
+    // Verify STOPPED→OFFLOADING event was emitted
+    let event = event_rx.try_recv().expect("should have received OFFLOADING event");
+    assert_eq!(event.old_state, AdapterState::Stopped);
+    assert_eq!(event.new_state, AdapterState::Offloading);
+}
+
+// TS-07-13 (boundary): Adapter NOT yet past the inactivity timeout is
+// not offloaded by the timer.
+#[tokio::test]
+async fn test_offload_timer_does_not_fire_before_timeout() {
+    use std::time::Duration;
+
+    let mock = Arc::new(MockPodmanExecutor::new());
+    mock.set_rm_result(Ok(()));
+    mock.set_rmi_result(Ok(()));
+
+    let (tx, _rx) = broadcast::channel(64);
+    let state_mgr = Arc::new(StateManager::new(tx));
+
+    // Create adapter and transition to STOPPED (stopped_at = now)
+    let entry = crate::adapter::AdapterEntry {
+        adapter_id: "fresh-stop-v1".to_string(),
+        image_ref: "example.com/fresh-stop:v1".to_string(),
+        checksum_sha256: "sha256:test".to_string(),
+        state: AdapterState::Unknown,
+        job_id: "test-job".to_string(),
+        stopped_at: None,
+        error_message: None,
+    };
+    state_mgr.create_adapter(entry);
+    state_mgr
+        .transition("fresh-stop-v1", AdapterState::Downloading, None)
+        .unwrap();
+    state_mgr
+        .transition("fresh-stop-v1", AdapterState::Installing, None)
+        .unwrap();
+    state_mgr
+        .transition("fresh-stop-v1", AdapterState::Running, None)
+        .unwrap();
+    state_mgr
+        .transition("fresh-stop-v1", AdapterState::Stopped, None)
+        .unwrap();
+
+    // Start the offload timer with a long inactivity timeout
+    let inactivity_timeout = Duration::from_secs(3600); // 1 hour
+    let podman: Arc<dyn crate::podman::PodmanExecutor> = mock.clone();
+    let timer_handle = tokio::spawn(crate::offload::run_offload_timer(
+        state_mgr.clone(),
+        podman,
+        inactivity_timeout,
+        Duration::from_millis(100),
+    ));
+
+    // Let the timer run a few cycles
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    // Cancel the timer
+    timer_handle.abort();
+
+    // Adapter should still exist (not offloaded)
+    let adapter = state_mgr.get_adapter("fresh-stop-v1");
+    assert!(adapter.is_some(), "adapter should NOT be offloaded before timeout");
+    assert_eq!(
+        adapter.unwrap().state,
+        AdapterState::Stopped,
+        "adapter should still be STOPPED"
+    );
+
+    // No rm/rmi calls should have been made for this adapter
+    assert!(
+        !mock.rm_calls().contains(&"fresh-stop-v1".to_string()),
+        "podman rm should NOT have been called before timeout"
     );
 }
 

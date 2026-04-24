@@ -293,6 +293,8 @@ mod tests {
 
     // TS-07-P6: Offload Timing Correctness
     // Offloading does not occur before the inactivity timeout has elapsed.
+    // Verifies both the immediate-check (S=0) and the boundary condition
+    // (S = T - 1s) where T is the inactivity timeout.
     #[test]
     #[ignore]
     fn proptest_offload_timing_correctness() {
@@ -321,18 +323,49 @@ mod tests {
                 state_mgr.transition("offload-test", AdapterState::Running, None).unwrap();
                 state_mgr.transition("offload-test", AdapterState::Stopped, None).unwrap();
 
-                // Check before timeout: adapter should still be in STOPPED
                 let timeout = std::time::Duration::from_secs(timeout_secs);
+
+                // Check 1: immediately after stopping (S ≈ 0), no offload
                 let candidates = state_mgr.get_offload_candidates(timeout);
-                // Immediately after stopping, there should be no offload candidates
                 prop_assert!(
                     candidates.is_empty(),
                     "should have no offload candidates immediately after stopping"
                 );
 
-                // Adapter should still exist
+                // Check 2: boundary condition (S = T - 1s), still no offload.
+                // Backdate stopped_at to (T - 1s) ago, which is just
+                // before the timeout expires.
+                let just_before = std::time::Instant::now()
+                    - timeout
+                    + std::time::Duration::from_secs(1);
+                state_mgr.set_stopped_at("offload-test", just_before);
+                let candidates = state_mgr.get_offload_candidates(timeout);
+                prop_assert!(
+                    candidates.is_empty(),
+                    "should have no offload candidates 1s before timeout expires"
+                );
+
+                // Check 3: after timeout expires, adapter IS a candidate.
+                // Backdate stopped_at to (T + 1s) ago.
+                let well_past = std::time::Instant::now()
+                    - timeout
+                    - std::time::Duration::from_secs(1);
+                state_mgr.set_stopped_at("offload-test", well_past);
+                let candidates = state_mgr.get_offload_candidates(timeout);
+                prop_assert_eq!(
+                    candidates.len(),
+                    1,
+                    "should have 1 offload candidate after timeout"
+                );
+                prop_assert_eq!(
+                    &candidates[0].adapter_id,
+                    "offload-test",
+                    "offload candidate should be the correct adapter"
+                );
+
+                // Adapter should still exist in state
                 let adapter = state_mgr.get_adapter("offload-test");
-                prop_assert!(adapter.is_some(), "adapter should still exist");
+                prop_assert!(adapter.is_some(), "adapter should still exist (not removed yet)");
                 prop_assert_eq!(
                     adapter.unwrap().state,
                     AdapterState::Stopped,

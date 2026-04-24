@@ -155,15 +155,15 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
     - [x] _Test Spec: TS-07-1 through TS-07-5, TS-07-7 through TS-07-12, TS-07-E1 through TS-07-E11, TS-07-E15, TS-07-P2 through TS-07-P5_
 
-- [ ] 4. Background tasks: offload timer and container monitor
-  - [ ] 4.1 Implement offload timer
+- [x] 4. Background tasks: offload timer and container monitor
+  - [x] 4.1 Implement offload timer
     - Background tokio task that runs on a periodic interval (configurable, e.g., every 60s)
     - Checks `state_mgr.get_offload_candidates(inactivity_timeout)`
     - For each candidate: transition to OFFLOADING, call podman rm + rmi, remove from state
     - Handle cleanup failures (transition to ERROR)
     - _Requirements: 07-REQ-6.1, 07-REQ-6.2, 07-REQ-6.3, 07-REQ-6.4, 07-REQ-6.E1_
 
-  - [ ] 4.2 Implement container monitor
+  - [x] 4.2 Implement container monitor
     - After `podman run` succeeds, spawn a task that calls `podman wait adapter_id`
     - When wait completes: read exit code
     - Exit 0: transition to STOPPED, record `stopped_at` for offload timer
@@ -171,11 +171,11 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - Handle wait failures (transition to ERROR)
     - _Requirements: 07-REQ-9.1, 07-REQ-9.2, 07-REQ-9.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Offload and monitor tests pass: `cd rhivos && cargo test -p update-service -- offload monitor container_exit`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-13, TS-07-15, TS-07-16, TS-07-E12, TS-07-E16, TS-07-P6_
+  - [x] 4.V Verify task group 4
+    - [x] Offload and monitor tests pass: `cd rhivos && cargo test -p update-service -- offload monitor container_exit`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-13, TS-07-15, TS-07-16, TS-07-E12, TS-07-E16, TS-07-P6_
 
 - [ ] 5. gRPC service and main
   - [ ] 5.1 Implement gRPC service

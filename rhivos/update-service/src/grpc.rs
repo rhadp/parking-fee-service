@@ -7,6 +7,7 @@ use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status};
 
 use crate::adapter::{derive_adapter_id, AdapterEntry, AdapterState, AdapterStateEvent};
+use crate::monitor::monitor_container;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
@@ -84,12 +85,13 @@ impl UpdateServiceImpl {
         // Step 5: Transition to RUNNING
         if let Err(e) = state_mgr.transition(&adapter_id, AdapterState::Running, None) {
             tracing::error!("failed to transition to RUNNING: {e}");
+            return;
         }
 
-        // NOTE: Container monitor (podman wait) spawning is task group 4's
-        // responsibility. Not spawned here to avoid test interference where
-        // MockPodmanExecutor.wait() defaults to Ok(0) and would immediately
-        // transition adapters to STOPPED.
+        // Step 6: Spawn container monitor for exit detection.
+        // The monitor calls `podman wait` and transitions the adapter to
+        // STOPPED (exit code 0) or ERROR (non-zero / wait failure).
+        tokio::spawn(monitor_container(state_mgr, podman, adapter_id));
     }
 }
 

@@ -150,6 +150,15 @@ impl StateManager {
             .cloned()
     }
 
+    /// Sets the `stopped_at` timestamp for an adapter (test helper).
+    #[cfg(test)]
+    pub fn set_stopped_at(&self, adapter_id: &str, instant: Instant) {
+        let mut adapters = self.adapters.lock().unwrap();
+        if let Some(entry) = adapters.get_mut(adapter_id) {
+            entry.stopped_at = Some(instant);
+        }
+    }
+
     /// Returns adapters that have been STOPPED longer than `timeout`.
     pub fn get_offload_candidates(&self, timeout: Duration) -> Vec<AdapterEntry> {
         let adapters = self.adapters.lock().unwrap();

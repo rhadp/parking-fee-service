@@ -295,11 +295,17 @@ pub mod mock {
                 .lock()
                 .unwrap()
                 .push(adapter_id.to_string());
-            self.wait_result
-                .lock()
-                .unwrap()
-                .clone()
-                .unwrap_or(Ok(0))
+            let result = self.wait_result.lock().unwrap().clone();
+            match result {
+                Some(r) => r,
+                None => {
+                    // No result configured: block forever to simulate a
+                    // long-running container. This prevents the container
+                    // monitor from racing through install tests where the
+                    // adapter should remain in RUNNING state.
+                    std::future::pending().await
+                }
+            }
         }
     }
 }
