@@ -17,6 +17,7 @@ contain unimplemented test stubs from later specifications:
 |-------|--------|
 | `locking-service` | Spec 03 TG1 stubs: 25 failing tests with `todo!()` in command, config, process, response, and safety modules |
 | `cloud-gateway-client` | Spec 04 TG1 stubs: 13 failing tests with `todo!()` in command_validator module |
+| `update-service` | Spec 07 TG1 stubs: 34 failing tests with `todo!()` in adapter, config, state, grpc, monitor, and offload modules |
 
 ### Go exclusions (`GO_TEST_MODULES_ROOT` / `GO_TEST_MODULES_RECURSIVE` vs `GO_MODULES`)
 
@@ -42,6 +43,7 @@ complete:
 
 - Remove `--exclude locking-service` after spec 03 TG2+ completes
 - Remove `--exclude cloud-gateway-client` after spec 04 TG2+ completes
+- Remove `--exclude update-service` after spec 07 TG2+ completes
 - Move `backend/parking-fee-service` from `GO_TEST_MODULES_ROOT` to
   `GO_TEST_MODULES_RECURSIVE` after spec 05 TG2+ completes
 - Move `backend/cloud-gateway` from `GO_TEST_MODULES_ROOT` to

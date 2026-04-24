@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package update_service.v1;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/update";
+
+// AdapterState describes the lifecycle states of an adapter.
+enum AdapterState {
+  UNKNOWN = 0;
+  DOWNLOADING = 1;
+  INSTALLING = 2;
+  RUNNING = 3;
+  STOPPED = 4;
+  ERROR = 5;
+  OFFLOADING = 6;
+}
+
+// InstallAdapterRequest asks the UPDATE_SERVICE to install an adapter from
+// the given container image reference.
+message InstallAdapterRequest {
+  string image_ref = 1;
+  string checksum_sha256 = 2;
+}
+
+// InstallAdapterResponse acknowledges the install request and returns the
+// initial adapter state.
+message InstallAdapterResponse {
+  string job_id = 1;
+  string adapter_id = 2;
+  AdapterState state = 3;
+}
+
+// AdapterStateEvent is emitted when an adapter transitions between states.
+message AdapterStateEvent {
+  string adapter_id = 1;
+  AdapterState old_state = 2;
+  AdapterState new_state = 3;
+  int64 timestamp = 4;
+}
+
+// AdapterInfo describes the current state of an adapter.
+message AdapterInfo {
+  string adapter_id = 1;
+  string image_ref = 2;
+  AdapterState state = 3;
+}
+
+// ListAdaptersRequest requests a listing of all installed adapters.
+message ListAdaptersRequest {}
+
+// ListAdaptersResponse returns a list of installed adapters.
+message ListAdaptersResponse {
+  repeated AdapterInfo adapters = 1;
+}
+
+// RemoveAdapterRequest asks the UPDATE_SERVICE to remove an adapter.
+message RemoveAdapterRequest {
+  string adapter_id = 1;
+}
+
+// RemoveAdapterResponse acknowledges adapter removal.
+message RemoveAdapterResponse {
+  string adapter_id = 1;
+  AdapterState state = 2;
+}
+
+// GetAdapterStatusRequest queries the status of a specific adapter.
+message GetAdapterStatusRequest {
+  string adapter_id = 1;
+}
+
+// GetAdapterStatusResponse returns the status of a specific adapter.
+message GetAdapterStatusResponse {
+  AdapterInfo adapter = 1;
+}
+
+// WatchAdapterStatesRequest subscribes to adapter state change events.
+message WatchAdapterStatesRequest {
+  // Optional: filter events to a specific adapter. Empty means all adapters.
+  string adapter_id = 1;
+}
+
+// UpdateService manages the lifecycle of adapters on the RHIVOS platform.
+service UpdateService {
+  // InstallAdapter installs a new adapter from a container image.
+  rpc InstallAdapter(InstallAdapterRequest) returns (InstallAdapterResponse);
+
+  // WatchAdapterStates subscribes to adapter state change events.
+  rpc WatchAdapterStates(WatchAdapterStatesRequest) returns (stream AdapterStateEvent);
+
+  // ListAdapters lists all installed adapters.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+
+  // RemoveAdapter removes an installed adapter.
+  rpc RemoveAdapter(RemoveAdapterRequest) returns (RemoveAdapterResponse);
+
+  // GetAdapterStatus returns the current status of a specific adapter.
+  rpc GetAdapterStatus(GetAdapterStatusRequest) returns (GetAdapterStatusResponse);
+}
