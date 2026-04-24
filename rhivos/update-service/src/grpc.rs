@@ -238,7 +238,7 @@ impl proto::update_service_server::UpdateService for UpdateServiceImpl {
             .get_adapter(adapter_id)
             .ok_or_else(|| Status::not_found("adapter not found"))?;
 
-        // Stop if running
+        // Stop if running, emitting a RUNNING→STOPPED state event (07-REQ-3.3)
         if adapter.state == AdapterState::Running {
             if let Err(e) = self.podman.stop(adapter_id).await {
                 let _ = self.state_mgr.transition(
@@ -248,6 +248,9 @@ impl proto::update_service_server::UpdateService for UpdateServiceImpl {
                 );
                 return Err(Status::internal(format!("failed to stop adapter: {}", e.message)));
             }
+            let _ = self
+                .state_mgr
+                .transition(adapter_id, AdapterState::Stopped, None);
         }
 
         // Remove container

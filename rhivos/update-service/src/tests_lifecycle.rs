@@ -528,6 +528,275 @@ async fn test_podman_wait_failure_error() {
     );
 }
 
+// TS-07-E8 (gRPC level): GetAdapterStatus with unknown adapter_id returns NOT_FOUND.
+#[tokio::test]
+async fn test_get_unknown_adapter_grpc() {
+    let mock = Arc::new(MockPodmanExecutor::new());
+    let (svc, _state_mgr, _tx) = test_service(mock);
+
+    let request = tonic::Request::new(proto::GetAdapterStatusRequest {
+        adapter_id: "nonexistent-adapter".to_string(),
+    });
+
+    let result = svc.get_adapter_status(request).await;
+    assert!(result.is_err());
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), Code::NotFound);
+    assert!(
+        status.message().contains("adapter not found"),
+        "error message should contain 'adapter not found', got: {}",
+        status.message()
+    );
+}
+
+// TS-07-E10 (gRPC level): RemoveAdapter with unknown adapter_id returns NOT_FOUND.
+#[tokio::test]
+async fn test_remove_unknown_adapter_grpc() {
+    let mock = Arc::new(MockPodmanExecutor::new());
+    let (svc, _state_mgr, _tx) = test_service(mock);
+
+    let request = tonic::Request::new(proto::RemoveAdapterRequest {
+        adapter_id: "nonexistent-adapter".to_string(),
+    });
+
+    let result = svc.remove_adapter(request).await;
+    assert!(result.is_err());
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), Code::NotFound);
+    assert!(
+        status.message().contains("adapter not found"),
+        "error message should contain 'adapter not found', got: {}",
+        status.message()
+    );
+}
+
+// TS-07-12 (gRPC level): RemoveAdapter on a running adapter calls stop, rm, rmi
+// and removes the adapter from state.
+#[tokio::test]
+async fn test_remove_adapter_full_cleanup() {
+    let mock = Arc::new(MockPodmanExecutor::new());
+    mock.set_pull_result(Ok(()));
+    mock.set_inspect_result(Ok("sha256:abc".to_string()));
+    mock.set_run_result(Ok(()));
+    mock.set_stop_result(Ok(()));
+    mock.set_rm_result(Ok(()));
+    mock.set_rmi_result(Ok(()));
+
+    let (svc, state_mgr, _tx) = test_service(mock.clone());
+
+    let image_ref = "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0";
+    install_and_wait(&svc, image_ref, "sha256:abc").await;
+
+    let adapter_id = "parkhaus-munich-v1.0.0";
+    assert!(
+        state_mgr.get_adapter(adapter_id).is_some(),
+        "adapter should exist before removal"
+    );
+
+    let request = tonic::Request::new(proto::RemoveAdapterRequest {
+        adapter_id: adapter_id.to_string(),
+    });
+
+    let result = svc.remove_adapter(request).await;
+    assert!(result.is_ok(), "remove_adapter should succeed");
+
+    // Verify podman calls
+    assert!(
+        mock.stop_calls().contains(&adapter_id.to_string()),
+        "podman stop should have been called"
+    );
+    assert!(
+        mock.rm_calls().contains(&adapter_id.to_string()),
+        "podman rm should have been called"
+    );
+    assert!(
+        mock.rmi_calls().contains(&image_ref.to_string()),
+        "podman rmi should have been called"
+    );
+
+    // Adapter should be removed from state
+    assert!(
+        state_mgr.get_adapter(adapter_id).is_none(),
+        "adapter should be removed from state after RemoveAdapter"
+    );
+}
+
+// TS-07-8 (gRPC level): WatchAdapterStates streams events for state transitions.
+#[tokio::test]
+async fn test_watch_adapter_states_stream() {
+    use tokio_stream::StreamExt;
+
+    let mock = Arc::new(MockPodmanExecutor::new());
+    mock.set_pull_result(Ok(()));
+    mock.set_inspect_result(Ok("sha256:abc123".to_string()));
+    mock.set_run_result(Ok(()));
+    let (svc, _state_mgr, _tx) = test_service(mock);
+
+    // Subscribe before install
+    let watch_request = tonic::Request::new(proto::WatchAdapterStatesRequest {
+        adapter_id: String::new(),
+    });
+    let resp = svc.watch_adapter_states(watch_request).await.unwrap();
+    let mut stream = resp.into_inner();
+
+    // Install an adapter to trigger state transitions
+    let install_request = tonic::Request::new(proto::InstallAdapterRequest {
+        image_ref: "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0".to_string(),
+        checksum_sha256: "sha256:abc123".to_string(),
+    });
+    svc.install_adapter(install_request).await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    // Collect events from the stream (with timeout to avoid blocking)
+    let mut events = Vec::new();
+    loop {
+        match tokio::time::timeout(std::time::Duration::from_millis(200), stream.next()).await {
+            Ok(Some(Ok(event))) => events.push(event),
+            _ => break,
+        }
+    }
+
+    // Should have at least 3 events: UNKNOWN→DOWNLOADING, DOWNLOADING→INSTALLING, INSTALLING→RUNNING
+    assert!(
+        events.len() >= 3,
+        "expected at least 3 state events, got {}",
+        events.len()
+    );
+
+    // First event: UNKNOWN → DOWNLOADING
+    assert_eq!(events[0].adapter_id, "parkhaus-munich-v1.0.0");
+    assert_eq!(
+        events[0].old_state(),
+        proto::AdapterState::Unknown,
+        "first event old_state should be Unknown"
+    );
+    assert_eq!(
+        events[0].new_state(),
+        proto::AdapterState::Downloading,
+        "first event new_state should be Downloading"
+    );
+    assert!(events[0].timestamp > 0, "timestamp should be positive");
+
+    // Second event: DOWNLOADING → INSTALLING
+    assert_eq!(
+        events[1].old_state(),
+        proto::AdapterState::Downloading,
+        "second event old_state should be Downloading"
+    );
+    assert_eq!(
+        events[1].new_state(),
+        proto::AdapterState::Installing,
+        "second event new_state should be Installing"
+    );
+
+    // Third event: INSTALLING → RUNNING
+    assert_eq!(
+        events[2].old_state(),
+        proto::AdapterState::Installing,
+        "third event old_state should be Installing"
+    );
+    assert_eq!(
+        events[2].new_state(),
+        proto::AdapterState::Running,
+        "third event new_state should be Running"
+    );
+}
+
+// TS-07-10 (gRPC level): ListAdapters with one RUNNING and one STOPPED adapter.
+#[tokio::test]
+async fn test_list_adapters_with_states() {
+    let mock = Arc::new(MockPodmanExecutor::new());
+    mock.set_pull_result(Ok(()));
+    mock.set_inspect_result(Ok("sha256:aaa".to_string()));
+    mock.set_run_result(Ok(()));
+    mock.set_stop_result(Ok(()));
+    let (svc, state_mgr, _tx) = test_service(mock.clone());
+
+    // Install adapter A
+    install_and_wait(&svc, "example.com/adapter-a:v1", "sha256:aaa").await;
+    assert_eq!(
+        state_mgr.get_adapter("adapter-a-v1").unwrap().state,
+        AdapterState::Running,
+        "adapter A should be RUNNING"
+    );
+
+    // Install adapter B (stops A → A is STOPPED, B is RUNNING)
+    mock.set_inspect_result(Ok("sha256:bbb".to_string()));
+    install_and_wait(&svc, "example.com/adapter-b:v2", "sha256:bbb").await;
+
+    assert_eq!(
+        state_mgr.get_adapter("adapter-a-v1").unwrap().state,
+        AdapterState::Stopped,
+        "adapter A should be STOPPED after B is installed"
+    );
+    assert_eq!(
+        state_mgr.get_adapter("adapter-b-v2").unwrap().state,
+        AdapterState::Running,
+        "adapter B should be RUNNING"
+    );
+
+    // List adapters via gRPC
+    let request = tonic::Request::new(proto::ListAdaptersRequest {});
+    let resp = svc.list_adapters(request).await.unwrap();
+    let adapters = &resp.into_inner().adapters;
+    assert_eq!(adapters.len(), 2, "should have 2 adapters");
+
+    let mut ids: Vec<String> = adapters.iter().map(|a| a.adapter_id.clone()).collect();
+    ids.sort();
+    assert_eq!(ids, vec!["adapter-a-v1", "adapter-b-v2"]);
+
+    // Verify states in the response
+    let adapter_a = adapters
+        .iter()
+        .find(|a| a.adapter_id == "adapter-a-v1")
+        .unwrap();
+    assert_eq!(
+        adapter_a.state(),
+        proto::AdapterState::Stopped,
+        "adapter A should report STOPPED in ListAdapters"
+    );
+
+    let adapter_b = adapters
+        .iter()
+        .find(|a| a.adapter_id == "adapter-b-v2")
+        .unwrap();
+    assert_eq!(
+        adapter_b.state(),
+        proto::AdapterState::Running,
+        "adapter B should report RUNNING in ListAdapters"
+    );
+}
+
+// TS-07-11 (gRPC level): GetAdapterStatus returns the current state of a specific adapter.
+#[tokio::test]
+async fn test_get_adapter_status_grpc() {
+    let mock = Arc::new(MockPodmanExecutor::new());
+    mock.set_pull_result(Ok(()));
+    mock.set_inspect_result(Ok("sha256:abc123".to_string()));
+    mock.set_run_result(Ok(()));
+    let (svc, _state_mgr, _tx) = test_service(mock);
+
+    install_and_wait(
+        &svc,
+        "us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0",
+        "sha256:abc123",
+    )
+    .await;
+
+    let request = tonic::Request::new(proto::GetAdapterStatusRequest {
+        adapter_id: "parkhaus-munich-v1.0.0".to_string(),
+    });
+
+    let resp = svc.get_adapter_status(request).await.unwrap();
+    let adapter = resp.into_inner().adapter.unwrap();
+    assert_eq!(adapter.adapter_id, "parkhaus-munich-v1.0.0");
+    assert_eq!(
+        adapter.state(),
+        proto::AdapterState::Running,
+        "adapter should report RUNNING via GetAdapterStatus"
+    );
+}
+
 // TS-07-E11: Podman removal failure returns INTERNAL
 #[tokio::test]
 async fn test_removal_failure_internal() {
