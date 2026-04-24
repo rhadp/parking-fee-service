@@ -27,226 +27,226 @@ This task list implements the project setup specification through an incremental
 
 ## Tasks
 
-- [x] 1. Write failing spec tests
+- [ ] 1. Write failing spec tests
   _Write the setup verification tests based on test_spec.md. These tests will initially fail because the project structure does not yet exist._
 
-  - [x] 1.1 Create `tests/setup/` Go module with `go.mod`
+  - [ ] 1.1 Create `tests/setup/` Go module with `go.mod`
     _Test Spec: TS-01-6_
     _Requirements: 01-REQ-1.8, 01-REQ-9.1_
 
-  - [x] 1.2 Write directory structure tests: verify `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/` directories and their required subdirectories exist
+  - [ ] 1.2 Write directory structure tests: verify `rhivos/`, `backend/`, `android/`, `mobile/`, `mock/`, `proto/`, `deployments/` directories and their required subdirectories exist
     _Test Spec: TS-01-1, TS-01-2, TS-01-3, TS-01-4, TS-01-5_
     _Requirements: 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4, 01-REQ-1.5, 01-REQ-1.6, 01-REQ-1.7_
 
-  - [x] 1.3 Write Rust workspace validation tests: verify `Cargo.toml` workspace configuration, crate structure, and mock-sensors binary targets
+  - [ ] 1.3 Write Rust workspace validation tests: verify `Cargo.toml` workspace configuration, crate structure, and mock-sensors binary targets
     _Test Spec: TS-01-7, TS-01-8_
     _Requirements: 01-REQ-2.1, 01-REQ-2.2, 01-REQ-2.3_
 
-  - [x] 1.4 Write Go workspace validation tests: verify `go.work` references, `go.mod` files, and `main.go` presence
+  - [ ] 1.4 Write Go workspace validation tests: verify `go.work` references, `go.mod` files, and `main.go` presence
     _Test Spec: TS-01-10, TS-01-11_
     _Requirements: 01-REQ-3.1, 01-REQ-3.2, 01-REQ-3.3_
 
-  - [x] 1.5 Write Makefile target tests: verify all required Make targets exist
+  - [ ] 1.5 Write Makefile target tests: verify all required Make targets exist
     _Test Spec: TS-01-18_
     _Test Spec: TS-01-P4_
     _Requirements: 01-REQ-6.1_
 
-  - [x] 1.6 Write infrastructure config tests: verify `compose.yml`, NATS config, and VSS overlay file contents
+  - [ ] 1.6 Write infrastructure config tests: verify `compose.yml`, NATS config, and VSS overlay file contents
     _Test Spec: TS-01-23, TS-01-24, TS-01-25_
     _Test Spec: TS-01-P3_
     _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3_
 
-  - [x] 1.V Verify: run `go test -v ./...` in `tests/setup/` and confirm all tests fail (expected — structure does not exist yet)
+  - [ ] 1.V Verify: run `go test -v ./...` in `tests/setup/` and confirm all tests fail (expected — structure does not exist yet)
     _Verification step for Task Group 1_
 
-- [x] 2. Create monorepo directory structure
+- [ ] 2. Create monorepo directory structure
   _Create all directories, placeholder files, and workspace configurations._
 
-  - [x] 2.1 Create `rhivos/` Cargo workspace: root `Cargo.toml` with workspace members, each member with `Cargo.toml` and `src/main.rs`
+  - [ ] 2.1 Create `rhivos/` Cargo workspace: root `Cargo.toml` with workspace members, each member with `Cargo.toml` and `src/main.rs`
     _Test Spec: TS-01-1, TS-01-7_
     _Requirements: 01-REQ-1.1, 01-REQ-2.1, 01-REQ-2.2_
     _Note: Created locking-service, cloud-gateway-client, update-service, parking-operator-adaptor crates. Each has Cargo.toml, src/main.rs with version print + flag rejection, and it_compiles unit test. Updated workspace Cargo.toml to include all 5 members._
 
-  - [x] 2.2 Create `rhivos/mock-sensors/` with three binary targets (`location-sensor`, `speed-sensor`, `door-sensor`) sharing common crate structure
+  - [ ] 2.2 Create `rhivos/mock-sensors/` with three binary targets (`location-sensor`, `speed-sensor`, `door-sensor`) sharing common crate structure
     _Test Spec: TS-01-8_
     _Requirements: 01-REQ-2.3_
     _Note: Added src/main.rs and explicit [[bin]] entries for all 3 sensors plus default mock-sensors binary to satisfy TestMockSensorsBinaryTargets and TestCargoWorkspaceConfiguration._
 
-  - [x] 2.3 Create `backend/` Go modules: `parking-fee-service/` and `cloud-gateway/`, each with `go.mod`, `main.go`, and `main_test.go`
+  - [ ] 2.3 Create `backend/` Go modules: `parking-fee-service/` and `cloud-gateway/`, each with `go.mod`, `main.go`, and `main_test.go`
     _Test Spec: TS-01-2, TS-01-11, TS-01-27_
     _Requirements: 01-REQ-1.2, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-8.2_
     _Note: Created both modules with skeleton main.go printing component name + version, and TestCompiles placeholder test._
 
-  - [x] 2.4 Create `mock/` Go modules: `parking-app-cli/`, `companion-app-cli/`, `parking-operator/`, each with `go.mod`, `main.go`, and `main_test.go`
+  - [ ] 2.4 Create `mock/` Go modules: `parking-app-cli/`, `companion-app-cli/`, `parking-operator/`, each with `go.mod`, `main.go`, and `main_test.go`
     _Test Spec: TS-01-4, TS-01-11, TS-01-27_
     _Requirements: 01-REQ-1.5, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-8.2_
     _Note: Mock modules already existed with go.mod and main.go. Added main_test.go with TestCompiles to parking-app-cli and companion-app-cli. parking-operator already had server_test.go (spec 09)._
 
-  - [x] 2.5 Create `android/README.md` and `mobile/README.md` placeholder directories
+  - [ ] 2.5 Create `android/README.md` and `mobile/README.md` placeholder directories
     _Test Spec: TS-01-3_
     _Requirements: 01-REQ-1.3, 01-REQ-1.4_
     _Note: android/README.md mentions PARKING_APP, mobile/README.md mentions COMPANION_APP._
 
-  - [x] 2.6 Create `go.work` file referencing all Go modules
+  - [ ] 2.6 Create `go.work` file referencing all Go modules
     _Test Spec: TS-01-10_
     _Requirements: 01-REQ-3.1_
     _Note: Updated go.work to include backend/parking-fee-service and backend/cloud-gateway alongside existing mock and test modules._
 
-  - [x] 2.V Verify: run `go test -v ./...` in `tests/setup/` and confirm directory structure and workspace tests pass
+  - [ ] 2.V Verify: run `go test -v ./...` in `tests/setup/` and confirm directory structure and workspace tests pass
     _Verification step for Task Group 2_
     _Note: All 14 setup tests pass (all subtests). Also created deployments/ with compose.yml, nats/nats-server.conf, vss-overlay.json (infra tests TS-01-23, 24, 25 also pass). Updated Makefile: check=lint+test (not compile-only), test-rust uses --lib --bins (skips spec 09 integration tests), removed references to non-existent test directories. See docs/errata/01_test_scope.md._
 
-- [x] 3. Implement skeleton binaries and placeholder tests
+- [ ] 3. Implement skeleton binaries and placeholder tests
   _Add version printing, flag handling, and placeholder tests to all skeletons._
 
-  - [x] 3.1 Implement Rust skeleton `main.rs` for each crate: print `"{component-name} v0.1.0"` to stdout, exit 0; handle unknown flags with usage message to stderr, exit non-zero
+  - [ ] 3.1 Implement Rust skeleton `main.rs` for each crate: print `"{component-name} v0.1.0"` to stdout, exit 0; handle unknown flags with usage message to stderr, exit non-zero
     _Test Spec: TS-01-13, TS-01-15_
     _Requirements: 01-REQ-4.1, 01-REQ-4.3, 01-REQ-4.4, 01-REQ-4.E1_
     _Note: TG2 implemented 4 main crates. TG3 completed the 3 sensor binaries (location-sensor, speed-sensor, door-sensor) — each prints "{name} v0.1.0" and exits 0; rejects args starting with '-'. Also added it_compiles test to mock-sensors/src/main.rs._
 
-  - [x] 3.2 Add placeholder `#[test]` to each Rust crate (`it_compiles` test)
+  - [ ] 3.2 Add placeholder `#[test]` to each Rust crate (`it_compiles` test)
     _Test Spec: TS-01-26_
     _Requirements: 01-REQ-8.1_
     _Note: TG2 added it_compiles to 4 main crates. TG3 added it_compiles to mock-sensors lib.rs, mock-sensors/src/main.rs, and all 3 sensor binary sources (location-sensor.rs, speed-sensor.rs, door-sensor.rs). All 5 workspace crates now have at least one #[test]._
 
-  - [x] 3.3 Implement Go skeleton `main.go` for each module: print `"{component-name} v0.1.0"` to stdout, exit 0
+  - [ ] 3.3 Implement Go skeleton `main.go` for each module: print `"{component-name} v0.1.0"` to stdout, exit 0
     _Test Spec: TS-01-14_
     _Requirements: 01-REQ-4.2, 01-REQ-4.4_
     _Note: TG2 implemented backend modules. TG3 completed the 3 mock modules (parking-app-cli, companion-app-cli, parking-operator) — each now prints "{component-name} v0.1.0" to stdout and exits 0._
 
-  - [x] 3.4 Add placeholder test to each Go module (`TestMain` or `TestCompiles`)
+  - [ ] 3.4 Add placeholder test to each Go module (`TestMain` or `TestCompiles`)
     _Test Spec: TS-01-27_
     _Requirements: 01-REQ-8.2_
     _Note: TG2 added TestCompiles to backend/* and mock/parking-app-cli, mock/companion-app-cli. TG3 added main_test.go with TestCompiles to mock/parking-operator (server_test.go from spec 09 already existed but requires full server implementation). mock/parking-operator excluded from test-go until spec 09 implements the server (see docs/errata/01_test_scope.md)._
 
-  - [x] 3.V Verify: run `cargo test --workspace` in `rhivos/` and `go test ./...` from repo root; confirm all tests pass
+  - [ ] 3.V Verify: run `cargo test --workspace` in `rhivos/` and `go test ./...` from repo root; confirm all tests pass
     _Test Spec: TS-01-9, TS-01-12, TS-01-28, TS-01-29_
     _Verification step for Task Group 3_
     _Note: cargo test --workspace --lib --bins: 8 tests pass (it_compiles for all 5 crates + 3 sensor binaries). All Go modules in test-go pass. make check (lint + test) passes. Spec 09 integration tests (cli_tests.rs, server_test.go) excluded via --lib --bins and test-go scoping; documented in docs/errata/01_test_scope.md._
 
-- [x] 4. Create proto definitions
+- [ ] 4. Create proto definitions
   _Create shared .proto files with full message and service definitions._
 
-  - [x] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
+  - [ ] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
     _Note: Moved from flat proto/update_service.proto to proto/update/update_service.proto. Contains AdapterState enum, all 5 RPC methods with request/response messages, package update_service.v1._
 
-  - [x] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
+  - [ ] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
     _Note: Moved from flat proto/parking_adaptor.proto to proto/adapter/adapter_service.proto. Updated to match design spec: StartSessionRequest has vehicle_id+zone_id, StopSessionRequest has session_id, uses SessionStatus and ParkingRate message names, package parking_adaptor.v1._
 
-  - [x] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
+  - [ ] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
     _Note: New file. VehicleCommand with command_id/action/doors/source/vin/timestamp, CommandResponse with command_id/status/reason/timestamp, CloudGateway service with RelayCommand RPC, package gateway.v1._
 
-  - [x] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
+  - [ ] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
     _Note: New file. Datapoint with oneof value types, DataEntry, View/Field enums, Get/Set/Subscribe RPCs, VAL service, package kuksa.val.v1._
 
-  - [x] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
+  - [ ] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
     _Test Spec: TS-01-16, TS-01-17_
     _Requirements: 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
     _Note: All 4 proto files verified: syntax="proto3", package declaration, go_package option present._
 
-  - [x] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
+  - [ ] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
     _Test Spec: TS-01-17, TS-01-P5_
     _Verification step for Task Group 4_
     _Note: All 4 proto files parse without errors (protoc exit code 0). Each file has syntax="proto3", package declaration, and go_package option. make check passes. make test-setup passes (all 14 test groups)._
 
-- [x] 5. Create infrastructure configuration and Makefile
+- [ ] 5. Create infrastructure configuration and Makefile
   _Set up Podman Compose, NATS config, VSS overlay, and root Makefile._
 
-  - [x] 5.1 Create `deployments/compose.yml` with NATS (port 4222) and Kuksa Databroker (port 55556) service definitions
+  - [ ] 5.1 Create `deployments/compose.yml` with NATS (port 4222) and Kuksa Databroker (port 55556) service definitions
     _Test Spec: TS-01-23_
     _Requirements: 01-REQ-7.1_
     _Note: Already created in TG2. compose.yml defines nats (port 4222) and kuksa-databroker (port 55556:55555) services with restart policies and volume mounts._
 
-  - [x] 5.2 Create `deployments/nats/nats-server.conf` with default NATS configuration
+  - [ ] 5.2 Create `deployments/nats/nats-server.conf` with default NATS configuration
     _Test Spec: TS-01-24_
     _Requirements: 01-REQ-7.2_
     _Note: Already created in TG2. Configures port 4222, max_payload 1MB, logging settings._
 
-  - [x] 5.3 Create `deployments/vss-overlay.json` with custom VSS signal definitions
+  - [ ] 5.3 Create `deployments/vss-overlay.json` with custom VSS signal definitions
     _Test Spec: TS-01-25_
     _Requirements: 01-REQ-7.3_
     _Note: Already created in TG2. Uses nested tree JSON format (not flat dot-notation) as required by kuksa-databroker; signal full names embedded in descriptions to satisfy TS-01-25 string-contains check. Kuksa port mapped as 55556:55555 (host:container) per Skeptic finding._
 
-  - [x] 5.4 Create root `Makefile` with targets: `build`, `build-rust`, `build-go`, `test`, `test-rust`, `test-go`, `test-setup`, `clean`, `proto`, `infra-up`, `infra-down`, `check`
+  - [ ] 5.4 Create root `Makefile` with targets: `build`, `build-rust`, `build-go`, `test`, `test-rust`, `test-go`, `test-setup`, `clean`, `proto`, `infra-up`, `infra-down`, `check`
     _Test Spec: TS-01-18, TS-01-19, TS-01-20, TS-01-21, TS-01-22_
     _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.4, 01-REQ-6.5_
     _Note: Makefile created in TG2. Updated test-rust to exclude cloud-gateway-client (spec 04 TG1 stubs) and locking-service (spec 03 TG1 stubs). check target runs lint + test (actual test execution, not compile-only). See docs/errata/01_test_scope.md._
 
-  - [x] 5.V Verify: run `make build`, `make test`, `make check` and confirm all pass; verify Makefile targets exist per TS-01-18
+  - [ ] 5.V Verify: run `make build`, `make test`, `make check` and confirm all pass; verify Makefile targets exist per TS-01-18
     _Test Spec: TS-01-19, TS-01-20, TS-01-22_
     _Verification step for Task Group 5_
     _Note: make build (exit 0), make test (exit 0), make check (exit 0). test-rust excludes cloud-gateway-client and locking-service (TG1 stubs from specs 04 and 03). Pre-existing test scope deviations documented in docs/errata/01_test_scope.md._
 
-- [x] 6. Proto code generation and setup verification tests
+- [ ] 6. Proto code generation and setup verification tests
   _Configure proto codegen and finalize setup verification tests._
 
-  - [x] 6.1 Implement `make proto` target to generate Go code from proto definitions using protoc
+  - [ ] 6.1 Implement `make proto` target to generate Go code from proto definitions using protoc
     _Test Spec: TS-01-32_
     _Requirements: 01-REQ-10.1, 01-REQ-10.2, 01-REQ-10.3_
     _Note: Fixed proto target to use --go_opt=module and --go-grpc_opt=module for clean output. Created gen/ Go module with go.mod, added to go.work. Generated code compiles and is importable._
 
-  - [x] 6.2 Add protoc-not-installed error handling to `make proto`
+  - [ ] 6.2 Add protoc-not-installed error handling to `make proto`
     _Test Spec: TS-01-E11_
     _Requirements: 01-REQ-10.E1_
     _Note: Makefile checks `command -v protoc`, prints error, exits 1. Verified by TestMakeProtoFailsWhenProtocMissing._
 
-  - [x] 6.3 Write build-command-based setup verification tests in `tests/setup/`: TestRustBuild, TestGoBuild, TestProtoValidation
+  - [ ] 6.3 Write build-command-based setup verification tests in `tests/setup/`: TestRustBuild, TestGoBuild, TestProtoValidation
     _Test Spec: TS-01-30, TS-01-31_
     _Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.4_
     _Note: Created tests/setup/build_verification_test.go with 27 test functions covering TS-01-9 through TS-01-32, property tests (P1, P2, P5), edge cases (E1-E6, E9, E11), and smoke tests (SMOKE-1, SMOKE-3). All 39 setup tests pass._
 
-  - [x] 6.4 Add toolchain-skip logic to setup tests (skip when cargo/go/protoc not on PATH)
+  - [ ] 6.4 Add toolchain-skip logic to setup tests (skip when cargo/go/protoc not on PATH)
     _Test Spec: TS-01-E10_
     _Requirements: 01-REQ-9.E1_
     _Note: Every test that invokes cargo, go, protoc, or make calls exec.LookPath first and t.Skip if the tool is absent._
 
-  - [x] 6.5 Add `make test-setup` target to Makefile
+  - [ ] 6.5 Add `make test-setup` target to Makefile
     _Test Spec: TS-01-30_
     _Requirements: 01-REQ-9.3_
     _Note: Already implemented in TG5 (Makefile test-setup target runs `go test -v ./...` in tests/setup/). Verified: 39 tests PASS._
 
-  - [x] 6.V Verify: run `make proto`, `make test-setup`, and `make check`; confirm all pass
+  - [ ] 6.V Verify: run `make proto`, `make test-setup`, and `make check`; confirm all pass
     _Test Spec: TS-01-32, TS-01-30, TS-01-P1_
     _Verification step for Task Group 6_
     _Note: make proto: generates Go code to gen/ module. make test-setup: 39 tests PASS. make check: lint + test PASS. Also fixed test-go scoping (go test . for backend modules), make check now runs actual tests (not compile-only)._
 
-- [x] 7. Wiring verification
+- [ ] 7. Wiring verification
   _End-to-end verification that all components are correctly wired together._
 
-  - [x] 7.1 Run full build-test cycle: `make clean && make build && make test`
+  - [ ] 7.1 Run full build-test cycle: `make clean && make build && make test`
     _Test Spec: TS-01-SMOKE-1_
     _Requirements: 01-REQ-6.2, 01-REQ-6.3_
     _Note: make clean → make build (exit 0) → make test (exit 0). TestSmokeBuildTestCycle passes. Fixed locking-service config test race condition (parallel env var mutation) by combining two tests into one sequential test._
 
-  - [x] 7.2 Run proto generation and verify Go integration: `make proto && go build ./...`
+  - [ ] 7.2 Run proto generation and verify Go integration: `make proto && go build ./...`
     _Test Spec: TS-01-SMOKE-3_
     _Requirements: 01-REQ-10.1, 01-REQ-10.3_
     _Note: make proto generates Go code to gen/ module (exit 0). go build ./... in gen/ succeeds (exit 0). TestSmokeProtoGenerationAndBuild passes._
 
-  - [x] 7.3 Run all setup verification tests: `make test-setup`
+  - [ ] 7.3 Run all setup verification tests: `make test-setup`
     _Test Spec: TS-01-30, TS-01-31_
     _Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.3, 01-REQ-9.4_
     _Note: make test-setup → 39 tests PASS including TestRustBuild, TestGoBuild, TestProtoFilesValidate, all property tests, edge cases, and smoke tests._
 
-  - [x] 7.4 Run `make check` and confirm exit code 0
+  - [ ] 7.4 Run `make check` and confirm exit code 0
     _Test Spec: TS-01-22_
     _Requirements: 01-REQ-6.5_
     _Note: make check (lint + test) passes: cargo clippy, go vet, cargo test --workspace (29 pass, 6 ignored), go test for all modules. Fixed flaky locking-service config test race by merging parallel-unsafe env var tests._
 
-  - [x] 7.5 Verify all skeleton binaries produce version output (manual or scripted)
+  - [ ] 7.5 Verify all skeleton binaries produce version output (manual or scripted)
     _Test Spec: TS-01-13, TS-01-14, TS-01-15, TS-01-P2_
     _Requirements: 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.3_
     _Note: Fixed locking-service to print version to stdout (was only printing usage to stderr). All 4 Rust service binaries print "{name} v0.1.0" to stdout and exit 0. All 3 sensor binaries show name in --help output. All 5 Go binaries print "{name} v0.1.0" to stdout and exit 0. TestRustSkeletonBinaries, TestGoSkeletonBinaries, TestPropertySkeletonDeterminism all pass._
 
-  - [x] 7.V Verify: all preceding checks pass; `git status` shows a clean working tree on develop branch
+  - [ ] 7.V Verify: all preceding checks pass; `git status` shows a clean working tree on develop branch
     _Verification step for Task Group 7_
     _Note: make clean && make build && make test → exit 0. make test-setup → 39 PASS. make check → exit 0. All skeleton binaries produce version output. Two fixes applied: (1) locking-service prints version to stdout before usage, (2) locking-service config test race condition eliminated by merging parallel env var tests. See docs/errata/01_test_scope.md for known deviations._
 

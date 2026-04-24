@@ -269,7 +269,7 @@ expected gaps from work still in progress.
 
 ### Completion State Check
 
-1. For each spec, read `tasks.md` and count checked (`- [x]`) vs. unchecked
+1. For each spec, read `tasks.md` and count checked (`- [ ]`) vs. unchecked
    (`- [ ]`) items. Calculate the **completion percentage**.
 2. A spec is "in-progress" if it has any unchecked items in `tasks.md`.
 
@@ -564,7 +564,7 @@ documents consistently.
 | Test spec entry (edge case) | `TS-NN-EN` | `TS-05-E1` |
 | Test spec entry (smoke) | `TS-NN-SMOKE-N` | `TS-05-SMOKE-1` |
 | Checkbox unchecked | `- [ ]` | tasks.md |
-| Checkbox checked | `- [x]` | tasks.md |
+| Checkbox checked | `- [ ]` | tasks.md |
 | Checkbox in-progress | `- [-]` | tasks.md |
 
 ---

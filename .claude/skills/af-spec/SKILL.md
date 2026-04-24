@@ -830,7 +830,7 @@ Brief description of implementation approach and ordering rationale.
 |----------|------------------------|
 | `- [ ]`  | Not started (required) |
 | `- [ ]*` | Not started (optional) |
-| `- [x]`  | Completed              |
+| `- [ ]`  | Completed              |
 | `- [-]`  | In progress            |
 | `- [~]`  | Queued                 |
 
@@ -879,7 +879,7 @@ has a pre-written test contract, an implementation task, and an executable test.
 - Link every implementation subtask to the test spec entries it should make
   pass using `_Test Spec: TS-{NN}-{N}_` notation.
 - Focus on end-to-end testability as early as possible.
-- Use markdown checkboxes (`- [ ]` / `- [x]`) so progress can be tracked.
+- Use markdown checkboxes (`- [ ]` / `- [ ]`) so progress can be tracked.
 - Include a Notes section with testing strategy and constraints.
 - Size task groups for one coding session where practical.
 - Add explicit verification commands per task group (for example:
