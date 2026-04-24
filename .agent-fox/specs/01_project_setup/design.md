@@ -188,8 +188,8 @@ services:
     # Config: deployments/nats/nats-server.conf
 
   kuksa-databroker:
-    image: ghcr.io/eclipse-kuksa/kuksa-databroker:latest
-    ports: ["55556:55556"]
+    image: ghcr.io/eclipse-kuksa/kuksa-databroker:0.6
+    ports: ["55556:55555"]
     # VSS overlay: deployments/vss-overlay.json
 ```
 

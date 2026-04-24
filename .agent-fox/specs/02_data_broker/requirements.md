@@ -24,12 +24,12 @@ This specification defines the requirements for configuring Eclipse Kuksa Databr
 
 **Requirements:**
 
-- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1`.
+- [02-REQ-1.1] The compose.yml SHALL specify the Kuksa Databroker image as `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6`.
 - [02-REQ-1.2] WHEN a developer runs `podman compose up`, the DATA_BROKER container SHALL start using the pinned image version.
 
 **Acceptance Criteria:**
 
-1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` for the databroker service.
+1. The compose.yml SHALL contain an image reference of exactly `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6` for the databroker service.
 2. The running container SHALL report version 0.5.1 in its startup logs.
 
 **Edge Cases:**

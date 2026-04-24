@@ -66,7 +66,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
 
   - [x] 2.1 Pin the databroker image to `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.1` in `deployments/compose.yml`
     - _Requirements: 02-REQ-1.1, 02-REQ-1.2_
-    - Note: pinned to :0.5.0 per errata (02_data_broker_spec_contradictions.md) — :0.6.1 does not exist in registry
+    - Note: pinned to :6.0 per errata (02_data_broker_spec_contradictions.md) — :0.6.1 does not exist in registry
 
   - [x] 2.2 Add dual listener command args: `--address 0.0.0.0:55555 --uds-path /tmp/kuksa-databroker.sock`
     - _Requirements: 02-REQ-2.1, 02-REQ-3.1, 02-REQ-4.1_
@@ -196,7 +196,7 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
   - [x] 6.2 Verify compose.yml contains all required configuration: pinned image, dual listener args, port mapping, volume mounts, overlay flag, no auth flags
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1, 02-REQ-2.2, 02-REQ-3.1, 02-REQ-3.2, 02-REQ-4.1, 02-REQ-6.4, 02-REQ-7.1_
     - Verified by TestComposePinnedImage, TestComposeTCPPort, TestComposeTCPListener, TestComposeUDSSocket, TestComposeUDSVolume, TestComposeVSSOverlay, TestComposePermissiveMode (all PASS)
-    - compose.yml: image=ghcr.io/eclipse-kuksa/kuksa-databroker:0.5.0, ports=55556:55555, args=--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss vss_release_4.0.json,/vss-overlay.json, volume=/tmp/kuksa:/tmp, no auth flags
+    - compose.yml: image=ghcr.io/eclipse-kuksa/kuksa-databroker:6.0, ports=55556:55555, args=--address 0.0.0.0 --port 55555 --unix-socket /tmp/kuksa-databroker.sock --vss vss_release_4.0.json,/vss-overlay.json, volume=/tmp/kuksa:/tmp, no auth flags
 
   - [x] 6.V Verify task group 6
     - [x] Final wiring verification: `go test -v ./tests/databroker/...` → 11 PASS, 18 SKIP, 0 FAIL; `make check` → PASS (all quality gates green)
