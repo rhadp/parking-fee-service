@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/rhadp/parking-fee-service/gen/kuksa"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 // TestSubscriptionViaTCP verifies that a TCP subscriber receives
@@ -129,6 +132,56 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("cross-transport subscription update did not contain entry for %s", signalPath)
+	}
+}
+
+// TestPermissiveModeWithArbitraryToken verifies that the DATA_BROKER in
+// permissive mode accepts requests even when an invalid/arbitrary authorization
+// token is provided in the gRPC metadata.
+//
+// Test Spec: TS-02-E4
+// Requirements: 02-REQ-7.E1
+func TestPermissiveModeWithArbitraryToken(t *testing.T) {
+	skipIfTCPUnreachable(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
+	defer cancel()
+
+	conn, err := grpc.DialContext(ctx, tcpTarget,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		t.Fatalf("failed to dial TCP: %v", err)
+	}
+	defer conn.Close()
+
+	client := kuksa.NewVALClient(conn)
+
+	// Add an arbitrary/invalid authorization token to the context metadata.
+	md := metadata.Pairs("authorization", "Bearer invalid-token-12345")
+	authCtx := metadata.NewOutgoingContext(context.Background(), md)
+
+	rpcCtx, rpcCancel := context.WithTimeout(authCtx, rpcTimeout)
+	defer rpcCancel()
+
+	// Perform a Get request with the invalid token — it should succeed in
+	// permissive mode.
+	resp, err := client.Get(rpcCtx, &kuksa.GetRequest{
+		Entries: []*kuksa.EntryRequest{
+			{
+				Path:   "Vehicle.Speed",
+				View:   kuksa.View_VIEW_CURRENT_VALUE,
+				Fields: []kuksa.Field{kuksa.Field_FIELD_VALUE},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected permissive mode to accept request with invalid token, got error: %v", err)
+	}
+
+	if len(resp.Entries) == 0 {
+		t.Error("expected at least one entry in response")
 	}
 }
 

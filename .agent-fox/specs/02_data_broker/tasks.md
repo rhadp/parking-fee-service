@@ -127,42 +127,40 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd deployments && podman compose up -d databroker && sleep 3 && echo "Query custom signals via grpcurl or kuksa-client" && podman compose down
     ```
 
-- [ ] 4. Implement edge case tests
+- [x] 4. Implement edge case tests
   - Add edge case tests for error scenarios: non-existent signals, overlay errors, and permissive mode behavior.
 
-  - [ ] 4.1 Implement test for setting a non-existent signal (expect NOT_FOUND error)
+  - [x] 4.1 Implement test for setting a non-existent signal (expect NOT_FOUND error)
     - _Test Spec: TS-02-E1_
     - _Requirements: 02-REQ-8.E1_
     - `TestEdgeCaseNonExistentSignal` in tests/databroker/edge_test.go; sends gRPC Set for `Vehicle.NonExistent.Signal`, asserts NOT_FOUND or INVALID_ARGUMENT error code; skips when TCP unreachable
 
-  - [ ] 4.2 Implement test for overlay with syntax error (expect container failure)
+  - [x] 4.2 Implement test for overlay with syntax error (expect container failure)
     - _Test Spec: TS-02-E2_
     - _Requirements: 02-REQ-6.E1_
-    - `TestEdgeCaseOverlaySyntaxError` in tests/databroker/edge_test.go; writes invalid JSON to overlay, runs `podman compose up -d kuksa-databroker` with 20s timeout; when compose returns success, uses `assertContainerNotRunning` to positively verify container is not in "Up" state; cleanup restores overlay and calls `composeDown` with socket cleanup
+    - `TestEdgeCaseOverlaySyntaxError` in tests/databroker/edge_test.go; writes invalid JSON to overlay, runs `podman compose up -d kuksa-databroker` with 30s timeout; uses `assertContainerNotRunning` to positively verify container is not in "Up" state; cleanup restores overlay and calls `composeDown` with socket cleanup
 
-  - [ ] 4.3 Implement test for missing overlay file (expect container failure)
+  - [x] 4.3 Implement test for missing overlay file (expect container failure)
     - _Test Spec: TS-02-E3_
     - _Requirements: 02-REQ-6.E2_
-    - `TestEdgeCaseMissingOverlay` in tests/databroker/edge_test.go; renames overlay to .bak, runs `podman compose up -d kuksa-databroker` with 20s timeout; uses `assertContainerNotRunning` to positively verify container failed; cleanup calls `composeDown` with socket cleanup, removes any podman-created directory at overlay path, restores original file
+    - `TestEdgeCaseMissingOverlay` in tests/databroker/edge_test.go; renames overlay to .bak, runs `podman compose up -d kuksa-databroker` with 30s timeout; uses `assertContainerNotRunning` to positively verify container failed; cleanup calls `composeDown` with socket cleanup, removes any podman-created directory at overlay path, restores original file
 
-  - [ ] 4.4 Implement test for permissive mode with arbitrary token (expect success)
+  - [x] 4.4 Implement test for permissive mode with arbitrary token (expect success)
     - _Test Spec: TS-02-E4_
     - _Requirements: 02-REQ-7.E1_
     - `TestPermissiveModeWithArbitraryToken` in tests/databroker/pubsub_test.go; dials TCP with insecure credentials, adds `Authorization: Bearer invalid-token-12345` metadata, calls Get(Vehicle.Speed), asserts no error; skips when TCP unreachable
 
-  - [ ] 4.5 Implement pinned image version verification test
+  - [x] 4.5 Implement pinned image version verification test
     - _Test Spec: TS-02-3_
     - _Requirements: 02-REQ-1.1_
-    - Static: `TestComposePinnedImage` in tests/databroker/compose_test.go; verifies compose.yml references kuksa-databroker with a specific version (not :latest)
-    - Live: `TestImageVersion` in tests/databroker/edge_test.go; runs `podman ps --filter name=kuksa-databroker`, verifies image is not :latest and contains kuksa-databroker; skips when TCP unreachable
+    - Static: `TestComposePinnedImageVersion` in tests/databroker/edge_test.go; verifies compose.yml references `ghcr.io/eclipse-kuksa/kuksa-databroker:0.6` per 02-REQ-1.1
+    - Live: `TestImageVersion` in tests/databroker/edge_test.go; runs `podman ps`, verifies running image is not :latest and contains kuksa-databroker; skips when TCP unreachable
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All edge case tests compile and pass (SKIP when Podman/databroker unavailable; PASS for static checks and Podman-based tests)
-    - Result: 10 static/Podman tests PASS; TestEdgeCaseNonExistentSignal, TestImageVersion, TestPermissiveModeWithArbitraryToken SKIP (TCP unreachable); TestEdgeCaseOverlaySyntaxError, TestEdgeCaseMissingOverlay PASS (Podman available); 0 FAIL
+  - [x] 4.V Verify task group 4
+    - [x] All edge case tests compile and pass (SKIP when databroker unavailable; PASS for static checks and Podman-based tests)
+    - Result: 12 static/Podman tests PASS; TestEdgeCaseNonExistentSignal, TestImageVersion, TestPermissiveModeWithArbitraryToken SKIP (TCP unreachable); TestEdgeCaseOverlaySyntaxError, TestEdgeCaseMissingOverlay PASS (Podman available); 0 FAIL; make check PASS
     - Added `assertContainerNotRunning` helper to address critical review finding (assertion gap when compose up returns nil error but container failed)
     - Added `composeDown` helper with UDS socket cleanup to prevent stale sockets from causing subsequent test failures
-    - Fixed `TestSmokeHealthCheck` (TG5) to use VIEW_METADATA per TS-02-SMOKE-1 spec and tolerate v1/v2 API mismatch (see errata §6)
-    - Documented gRPC v1/v2 API version mismatch in errata (§6)
     ```
     cd tests/databroker && go test -run "TestEdgeCase|TestImageVersion" -v ./...
     ```
