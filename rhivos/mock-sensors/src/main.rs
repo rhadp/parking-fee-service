@@ -1,9 +1,12 @@
+use std::env;
+use std::process;
+
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if !args.is_empty() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
         eprintln!("Usage: mock-sensors");
-        eprintln!("  RHIVOS mock sensors skeleton");
-        std::process::exit(1);
+        eprintln!("Error: unrecognized arguments: {:?}", &args[1..]);
+        process::exit(1);
     }
     println!("mock-sensors v0.1.0");
 }
