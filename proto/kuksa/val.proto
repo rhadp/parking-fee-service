@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package kuksa.val.v1;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/kuksa";
+
+// Datapoint represents a single data value with metadata.
+message Datapoint {
+  int64 timestamp = 1;
+
+  oneof value {
+    string string_value = 11;
+    bool bool_value = 12;
+    int32 int32_value = 13;
+    int64 int64_value = 14;
+    uint32 uint32_value = 15;
+    uint64 uint64_value = 16;
+    float float_value = 17;
+    double double_value = 18;
+  }
+}
+
+// DataEntry describes a single node in the VSS tree.
+message DataEntry {
+  string path = 1;
+  Datapoint value = 2;
+  Datapoint actuator_target = 3;
+}
+
+// View selects which parts of a DataEntry are returned.
+enum View {
+  VIEW_UNSPECIFIED = 0;
+  VIEW_CURRENT_VALUE = 1;
+  VIEW_TARGET_VALUE = 2;
+  VIEW_ALL = 10;
+}
+
+// Field selects specific fields within a DataEntry.
+enum Field {
+  FIELD_UNSPECIFIED = 0;
+  FIELD_PATH = 1;
+  FIELD_VALUE = 2;
+  FIELD_ACTUATOR_TARGET = 3;
+}
+
+// EntryRequest specifies which entry and fields to retrieve.
+message EntryRequest {
+  string path = 1;
+  View view = 2;
+  repeated Field fields = 3;
+}
+
+// EntryUpdate carries a new value or target for a specific entry.
+message EntryUpdate {
+  DataEntry entry = 1;
+  repeated Field fields = 2;
+}
+
+// GetRequest asks the VAL service to retrieve one or more entries.
+message GetRequest {
+  repeated EntryRequest entries = 1;
+}
+
+// GetResponse returns the requested entries.
+message GetResponse {
+  repeated DataEntry entries = 1;
+}
+
+// SetRequest asks the VAL service to set one or more entries.
+message SetRequest {
+  repeated EntryUpdate updates = 1;
+}
+
+// SetResponse acknowledges the set operation.
+message SetResponse {}
+
+// SubscribeEntry specifies which entry and view to subscribe to.
+message SubscribeEntry {
+  string path = 1;
+  View view = 2;
+  repeated Field fields = 3;
+}
+
+// SubscribeRequest subscribes to changes on one or more entries.
+message SubscribeRequest {
+  repeated SubscribeEntry entries = 1;
+}
+
+// SubscribeResponse streams entry updates to the subscriber.
+message SubscribeResponse {
+  repeated EntryUpdate updates = 1;
+}
+
+// VAL is the Vehicle Abstraction Layer service providing access to
+// vehicle signals via the COVESA Vehicle Signal Specification (VSS).
+service VAL {
+  // Get retrieves the current and/or target value of one or more entries.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // Set updates the current and/or target value of one or more entries.
+  rpc Set(SetRequest) returns (SetResponse);
+
+  // Subscribe streams value changes for the requested entries.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}
