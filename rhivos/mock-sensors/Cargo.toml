@@ -20,6 +20,7 @@ name = "door-sensor"
 path = "src/bin/door-sensor.rs"
 
 [dependencies]
+clap = { version = "4", features = ["derive", "env"] }
 prost = "0.12"
 prost-types = "0.12"
 tokio = { version = "1", features = ["full"] }
