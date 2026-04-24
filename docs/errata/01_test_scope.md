@@ -26,7 +26,7 @@ contain unimplemented test stubs from later specifications:
 |--------|-------|--------|
 | `backend/parking-fee-service` | **Resolved** — now recursive (`go test ./...`) | Spec 05 fully implemented |
 | `backend/cloud-gateway` | Root only (`go test .`) | Spec 06 TG1 stubs: failing tests in auth, natsclient, and store subpackages |
-| `mock/parking-operator` | Excluded entirely | Spec 09 TG1 stubs: 9 failing tests in server and main packages |
+| `mock/parking-operator` | **Resolved** — now recursive (`go test ./...`) | Spec 09 fully implemented |
 | `tests/databroker` | **Resolved** — now recursive (`go test ./...`) | Spec 02 TG2: compose.yml configured with dual listeners; static tests pass; live gRPC tests skip when container not running |
 
 ## Rationale
@@ -51,7 +51,7 @@ complete:
   `GO_TEST_MODULES_RECURSIVE` after spec 05 TG2+ completes~~ **Done** (spec 05 TG5)
 - Move `backend/cloud-gateway` from `GO_TEST_MODULES_ROOT` to
   `GO_TEST_MODULES_RECURSIVE` after spec 06 TG2+ completes
-- Add `mock/parking-operator` to `GO_TEST_MODULES_RECURSIVE` after spec 09
-  TG2+ completes
+- ~~Add `mock/parking-operator` to `GO_TEST_MODULES_RECURSIVE` after spec 09
+  TG2+ completes~~ **Done** (spec 09 TG5)
 - ~~Add `tests/databroker` to `GO_TEST_MODULES_RECURSIVE` after spec 02
   TG2+ completes (compose.yml configured with dual listeners)~~ **Done** (spec 02 TG2)

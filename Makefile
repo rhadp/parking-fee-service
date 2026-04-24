@@ -18,6 +18,7 @@ GO_TEST_MODULES_RECURSIVE = \
 	backend/parking-fee-service \
 	mock/parking-app-cli \
 	mock/companion-app-cli \
+	mock/parking-operator \
 	tests/databroker
 
 # Rust crates excluded from test (contain unimplemented spec stubs).
@@ -45,6 +46,7 @@ lint:
 	done
 	cd tests/setup && go vet ./...
 	cd tests/databroker && go vet ./...
+	cd tests/mock-apps && go vet ./...
 
 # Run all tests
 test: test-rust test-go
@@ -61,6 +63,8 @@ test-go:
 		echo "Testing $$mod..."; \
 		cd $$mod && go test ./... && cd $(CURDIR) || exit 1; \
 	done
+	@echo "Testing tests/mock-apps (integration)..."
+	cd tests/mock-apps && go test ./...
 
 # Run setup verification tests
 test-setup:

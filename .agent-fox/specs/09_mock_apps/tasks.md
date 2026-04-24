@@ -178,25 +178,25 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [x] No linter warnings: `cd mock && go vet ./...`
     - [x] _Test Spec: TS-09-5, TS-09-6, TS-09-7, TS-09-8, TS-09-9, TS-09-10, TS-09-11, TS-09-12, TS-09-13, TS-09-18, TS-09-19, TS-09-E5, TS-09-E6, TS-09-E10, TS-09-E11_
 
-- [ ] 5. Wiring verification
-  - [ ] 5.1 Run mock sensor integration tests against DATA_BROKER
+- [x] 5. Wiring verification
+  - [x] 5.1 Run mock sensor integration tests against DATA_BROKER
     - Added TestLocationSensor, TestSpeedSensor, TestDoorSensorOpen, TestDoorSensorClosed
       to tests/mock-apps/sensor_test.go. Tests use a stub kuksa.val.v1 gRPC server
       (see docs/errata/09_mock_apps_sensor_proto_compat.md).
     - Also added TestSensorsUnreachableBroker and TestSensorSmoke.
     - _Test Spec: TS-09-1, TS-09-2, TS-09-3, TS-09-4, TS-09-SMOKE-1_
 
-  - [ ] 5.2 Run parking-operator smoke test
+  - [x] 5.2 Run parking-operator smoke test
     - Added TestParkingOperatorSmoke to tests/mock-apps/smoke_test.go:
       starts server binary, runs full start→stop lifecycle via HTTP, sends SIGTERM.
     - _Test Spec: TS-09-SMOKE-2_
 
-  - [ ] 5.3 Run companion-app-cli smoke test against CLOUD_GATEWAY
+  - [x] 5.3 Run companion-app-cli smoke test against CLOUD_GATEWAY
     - Added TestCompanionAppSmoke to tests/mock-apps/smoke_test.go:
       lock → get command_id → status sequence against a mock CLOUD_GATEWAY.
     - _Test Spec: TS-09-SMOKE-3_
 
-  - [ ] 5.4 Run property tests
+  - [x] 5.4 Run property tests
     - Sensor publish-and-exit (TS-09-P1): Added TestSensorPublishProperty to
       tests/mock-apps/sensor_test.go with 10 lat/lon combos, 8 speed values,
       and 2 door states, verifying correct VSS paths and values across the
@@ -215,12 +215,12 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
       in tests/mock-apps/companion_test.go with 12 diverse token variations.
     - _Test Spec: TS-09-P1, TS-09-P2, TS-09-P3, TS-09-P4, TS-09-P5, TS-09-P6_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
-          (sensor tests use stub v1 gRPC server; all tests pass)
+  - [x] 5.V Verify task group 5
+    - [x] All integration tests pass: `cd tests/mock-apps && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p mock-sensors && cd mock && go test -v ./...`
+    - [x] All existing tests still pass: `make test`
+    - [x] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
+          (sensor tests use stub v2 gRPC server; all tests pass)
 
 - [ ] 6. Checkpoint - All Tests Green
   - All unit, integration, property, and smoke tests pass
