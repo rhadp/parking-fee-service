@@ -26,7 +26,11 @@ use crate::errors::BrokerError;
 use crate::models::SignalUpdate;
 
 /// Generated kuksa.val.v2 gRPC types and client.
-mod kuksa {
+///
+/// Made public to allow integration tests to perform direct gRPC operations
+/// against DATA_BROKER (e.g., reading back written values, injecting test
+/// signals) without duplicating proto compilation.
+pub mod kuksa {
     pub mod val {
         pub mod v2 {
             tonic::include_proto!("kuksa.val.v2");
