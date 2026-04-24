@@ -1,12 +1,14 @@
 package setup_test
 
 import (
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // requireTool skips the test if the named tool is not on PATH.
@@ -283,6 +285,36 @@ func TestSkeletonExitsNonZeroOnUnknownFlag(t *testing.T) {
 			}
 			if stderr.Len() == 0 {
 				t.Errorf("%s should print usage info to stderr on --invalid-flag", bin)
+			}
+		})
+	}
+
+	// Test all Go skeleton binaries (Major finding: 01-REQ-4.E1 covers all
+	// binaries, not just Rust ones).
+	goModules := []struct {
+		modPath string
+		name    string
+	}{
+		{"backend/parking-fee-service", "parking-fee-service"},
+		{"backend/cloud-gateway", "cloud-gateway"},
+		{"mock/parking-app-cli", "parking-app-cli"},
+		{"mock/companion-app-cli", "companion-app-cli"},
+		{"mock/parking-operator", "parking-operator"},
+	}
+
+	requireTool(t, "go")
+	for _, mod := range goModules {
+		t.Run("go/"+mod.name, func(t *testing.T) {
+			cmd := exec.Command("go", "run", ".", "--invalid-flag")
+			cmd.Dir = filepath.Join(root, mod.modPath)
+			var stderr strings.Builder
+			cmd.Stderr = &stderr
+			err := cmd.Run()
+			if err == nil {
+				t.Errorf("%s should exit non-zero on --invalid-flag", mod.name)
+			}
+			if stderr.Len() == 0 {
+				t.Errorf("%s should print usage info to stderr on --invalid-flag", mod.name)
 			}
 		})
 	}
@@ -1028,6 +1060,244 @@ func TestSmokeProtoGenerationAndBuild(t *testing.T) {
 	buildCmd.Dir = filepath.Join(root, "gen")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build ./... in gen/ failed: %v\n%s", err, out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TS-01-E10: Setup test skips on missing toolchain
+// Requirement: 01-REQ-9.E1
+// ---------------------------------------------------------------------------
+
+func TestToolchainSkipGracefully(t *testing.T) {
+	requireTool(t, "go")
+	root := repoRoot(t)
+
+	// Guard against recursion.
+	if os.Getenv("SETUP_TEST_RECURSION_GUARD") != "" {
+		t.Skip("skipping to prevent recursive invocation")
+	}
+
+	// Run a single Rust-dependent test with cargo hidden from PATH.
+	// The test should skip, not fail.
+	cmd := exec.Command("go", "test", "-v", "-count=1",
+		"-run", "TestCargoBuildWorkspace",
+		"./...")
+	cmd.Dir = filepath.Join(root, "tests", "setup")
+	// Build a PATH that excludes cargo but keeps go and other essentials.
+	cmd.Env = append(os.Environ(),
+		"SETUP_TEST_RECURSION_GUARD=1",
+		"PATH=/usr/bin:/bin:/usr/local/bin",
+	)
+	out, err := cmd.CombinedOutput()
+	stdout := string(out)
+
+	// The test should either SKIP (when cargo is absent from the restricted
+	// PATH) or PASS (when cargo happens to live in /usr/bin or /usr/local/bin).
+	// It must NOT FAIL.
+	if err != nil && !strings.Contains(stdout, "SKIP") && !strings.Contains(stdout, "PASS") {
+		t.Errorf("setup tests should skip gracefully when cargo is not on PATH, got: %s", stdout)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TS-01-P4: Test isolation
+// Property: Property 4 (Test Isolation)
+// Tests pass without any infrastructure running.
+// ---------------------------------------------------------------------------
+
+func TestPropertyTestIsolation(t *testing.T) {
+	requireTool(t, "make")
+	requireTool(t, "cargo")
+	requireTool(t, "go")
+	root := repoRoot(t)
+
+	// Ensure no infrastructure is running (best-effort; if podman is not
+	// installed, infra-down will fail, which is fine — it means no infra).
+	downCmd := exec.Command("make", "infra-down")
+	downCmd.Dir = root
+	downCmd.CombinedOutput() // ignore errors
+
+	// Run make test — should pass without infrastructure.
+	testCmd := exec.Command("make", "test")
+	testCmd.Dir = root
+	out, err := testCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make test should pass without infrastructure: %v\n%s", err, out)
+	}
+}
+
+// requireInfra skips the test if the SETUP_TEST_INFRA environment variable is
+// not set. Infrastructure tests require a running Podman daemon and are not
+// part of the default test suite (see design doc: "Infrastructure tests
+// require Podman and are not part of the default make test target").
+func requireInfra(t *testing.T) {
+	t.Helper()
+	if os.Getenv("SETUP_TEST_INFRA") == "" {
+		t.Skip("skipping infrastructure test; set SETUP_TEST_INFRA=1 to enable")
+	}
+	requireTool(t, "podman-compose")
+}
+
+// infraCleanup ensures no infrastructure containers are running before a test.
+func infraCleanup(t *testing.T, root string) {
+	t.Helper()
+	cmd := exec.Command("make", "infra-down")
+	cmd.Dir = root
+	cmd.CombinedOutput() // best-effort
+}
+
+// ---------------------------------------------------------------------------
+// TS-01-E8: infra-down with no running containers
+// Requirement: 01-REQ-7.E2
+// ---------------------------------------------------------------------------
+
+func TestInfraDownNoContainers(t *testing.T) {
+	requireInfra(t)
+	root := repoRoot(t)
+
+	// First ensure no containers are running.
+	infraCleanup(t, root)
+
+	// Now run infra-down again — should succeed even with nothing running.
+	cmd := exec.Command("make", "infra-down")
+	cmd.Dir = root
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make infra-down should succeed when no containers are running: %v\n%s", err, out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TS-01-SMOKE-2: Infrastructure lifecycle
+// Requirement: 01-REQ-7.4, 01-REQ-7.5
+// ---------------------------------------------------------------------------
+
+func TestSmokeInfrastructureLifecycle(t *testing.T) {
+	requireInfra(t)
+	root := repoRoot(t)
+
+	// Ensure clean state before starting.
+	infraCleanup(t, root)
+	t.Cleanup(func() { infraCleanup(t, root) })
+
+	// Start infrastructure.
+	upCmd := exec.Command("make", "infra-up")
+	upCmd.Dir = root
+	out, err := upCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make infra-up failed: %v\n%s", err, out)
+	}
+
+	// Verify ports are reachable via TCP connect.
+	ports := []struct {
+		name string
+		port string
+	}{
+		{"NATS", "4222"},
+		{"Kuksa", "55556"},
+	}
+
+	for _, p := range ports {
+		t.Run(p.name+"/port-"+p.port, func(t *testing.T) {
+			conn, err := net.DialTimeout("tcp", "localhost:"+p.port, 5*time.Second)
+			if err != nil {
+				t.Errorf("port %s (%s) should be reachable after infra-up: %v", p.port, p.name, err)
+			} else {
+				conn.Close()
+			}
+		})
+	}
+
+	// Stop infrastructure.
+	downCmd := exec.Command("make", "infra-down")
+	downCmd.Dir = root
+	out, err = downCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make infra-down failed: %v\n%s", err, out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TS-01-P3: Infrastructure idempotency
+// Property: Property 3 (Infrastructure Idempotency)
+// ---------------------------------------------------------------------------
+
+func TestPropertyInfrastructureIdempotency(t *testing.T) {
+	requireInfra(t)
+	root := repoRoot(t)
+
+	// Ensure clean state before starting.
+	infraCleanup(t, root)
+	t.Cleanup(func() { infraCleanup(t, root) })
+
+	// Cycle 1: up then down.
+	upCmd1 := exec.Command("make", "infra-up")
+	upCmd1.Dir = root
+	if out, err := upCmd1.CombinedOutput(); err != nil {
+		t.Fatalf("first infra-up failed: %v\n%s", err, out)
+	}
+
+	downCmd1 := exec.Command("make", "infra-down")
+	downCmd1.Dir = root
+	if out, err := downCmd1.CombinedOutput(); err != nil {
+		t.Fatalf("first infra-down failed: %v\n%s", err, out)
+	}
+
+	// Cycle 2: up then down.
+	upCmd2 := exec.Command("make", "infra-up")
+	upCmd2.Dir = root
+	if out, err := upCmd2.CombinedOutput(); err != nil {
+		t.Fatalf("second infra-up failed: %v\n%s", err, out)
+	}
+
+	downCmd2 := exec.Command("make", "infra-down")
+	downCmd2.Dir = root
+	if out, err := downCmd2.CombinedOutput(); err != nil {
+		t.Fatalf("second infra-down failed: %v\n%s", err, out)
+	}
+
+	// Verify no infrastructure containers remain.
+	checkCmd := exec.Command("podman", "ps", "-q",
+		"--filter", "name=nats",
+		"--filter", "name=kuksa")
+	out, err := checkCmd.CombinedOutput()
+	if err != nil {
+		t.Logf("podman ps check returned error: %v", err)
+	}
+	if strings.TrimSpace(string(out)) != "" {
+		t.Errorf("no infrastructure containers should remain after infra-down; got: %s", out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TS-01-E7: Port conflict on infra-up
+// Requirement: 01-REQ-7.E1
+// ---------------------------------------------------------------------------
+
+func TestInfraUpPortConflict(t *testing.T) {
+	requireInfra(t)
+	root := repoRoot(t)
+
+	// Ensure clean state first.
+	infraCleanup(t, root)
+	t.Cleanup(func() { infraCleanup(t, root) })
+
+	// Bind port 4222 to block NATS from starting.
+	listener, err := net.Listen("tcp", ":4222")
+	if err != nil {
+		t.Skipf("could not bind port 4222 for test: %v", err)
+	}
+	defer listener.Close()
+
+	cmd := exec.Command("make", "infra-up")
+	cmd.Dir = root
+	out, runErr := cmd.CombinedOutput()
+
+	// Clean up partially-started containers.
+	infraCleanup(t, root)
+
+	if runErr == nil {
+		t.Errorf("make infra-up should fail when port 4222 is in use; output: %s", out)
 	}
 }
 
