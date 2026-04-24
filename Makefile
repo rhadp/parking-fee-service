@@ -11,11 +11,11 @@ GO_MODULES = \
 # Go modules safe to test at root package level only (subpackages may
 # contain unimplemented spec stubs). See docs/errata/01_test_scope.md.
 GO_TEST_MODULES_ROOT = \
-	backend/parking-fee-service \
 	backend/cloud-gateway
 
 # Go modules safe to test recursively (all packages).
 GO_TEST_MODULES_RECURSIVE = \
+	backend/parking-fee-service \
 	mock/parking-app-cli \
 	mock/companion-app-cli
 
