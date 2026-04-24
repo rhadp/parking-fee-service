@@ -18,11 +18,13 @@ contain unimplemented test stubs from later specifications:
 | `locking-service` | Spec 03 TG1 stubs: 25 failing tests with `todo!()` in command, config, process, response, and safety modules |
 | `cloud-gateway-client` | Spec 04 TG1 stubs: 13 failing tests with `todo!()` in command_validator module |
 
-### Go exclusions (`GO_TEST_MODULES` vs `GO_MODULES`)
+### Go exclusions (`GO_TEST_MODULES_ROOT` / `GO_TEST_MODULES_RECURSIVE` vs `GO_MODULES`)
 
-| Module | Reason |
-|--------|--------|
-| `mock/parking-operator` | Spec 09 TG1 stubs: 9 failing tests in server and main packages |
+| Module | Scope | Reason |
+|--------|-------|--------|
+| `backend/parking-fee-service` | Root only (`go test .`) | Spec 05 TG1 stubs: failing tests in config, geo, handler, and store subpackages |
+| `backend/cloud-gateway` | Root only (`go test .`) | Spec 06 TG1 stubs: failing tests in auth, natsclient, and store subpackages |
+| `mock/parking-operator` | Excluded entirely | Spec 09 TG1 stubs: 9 failing tests in server and main packages |
 
 ## Rationale
 
@@ -40,5 +42,9 @@ complete:
 
 - Remove `--exclude locking-service` after spec 03 TG2+ completes
 - Remove `--exclude cloud-gateway-client` after spec 04 TG2+ completes
-- Add `mock/parking-operator` to `GO_TEST_MODULES` after spec 09 TG2+
-  completes
+- Move `backend/parking-fee-service` from `GO_TEST_MODULES_ROOT` to
+  `GO_TEST_MODULES_RECURSIVE` after spec 05 TG2+ completes
+- Move `backend/cloud-gateway` from `GO_TEST_MODULES_ROOT` to
+  `GO_TEST_MODULES_RECURSIVE` after spec 06 TG2+ completes
+- Add `mock/parking-operator` to `GO_TEST_MODULES_RECURSIVE` after spec 09
+  TG2+ completes

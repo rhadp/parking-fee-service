@@ -8,11 +8,14 @@ GO_MODULES = \
 	mock/companion-app-cli \
 	mock/parking-operator
 
-# Go modules safe to test (excludes modules with unimplemented spec stubs).
-# See docs/errata/01_test_scope.md for details.
-GO_TEST_MODULES = \
+# Go modules safe to test at root package level only (subpackages may
+# contain unimplemented spec stubs). See docs/errata/01_test_scope.md.
+GO_TEST_MODULES_ROOT = \
 	backend/parking-fee-service \
-	backend/cloud-gateway \
+	backend/cloud-gateway
+
+# Go modules safe to test recursively (all packages).
+GO_TEST_MODULES_RECURSIVE = \
 	mock/parking-app-cli \
 	mock/companion-app-cli
 
@@ -48,7 +51,11 @@ test-rust:
 	cd rhivos && cargo test --workspace $(CARGO_TEST_EXCLUDE)
 
 test-go:
-	@for mod in $(GO_TEST_MODULES); do \
+	@for mod in $(GO_TEST_MODULES_ROOT); do \
+		echo "Testing $$mod (root)..."; \
+		cd $$mod && go test . && cd $(CURDIR) || exit 1; \
+	done
+	@for mod in $(GO_TEST_MODULES_RECURSIVE); do \
 		echo "Testing $$mod..."; \
 		cd $$mod && go test ./... && cd $(CURDIR) || exit 1; \
 	done
