@@ -55,13 +55,13 @@ This plan covers the implementation of the CLOUD_GATEWAY_CLIENT component, a Rus
   - [x] 8.4 Create integration test for self-registration _Test Spec:_ TS-04-13 _Requirements:_ [04-REQ-4.1], [04-REQ-4.2]
   - [x] 8.5 Create integration test for command rejection with invalid token _Test Spec:_ TS-04-14 _Requirements:_ [04-REQ-5.E2]
   - [x] 8.V Verify task group 8: all integration tests pass with `cargo test -p cloud-gateway-client -- --ignored`
-- [ ] 9. Wiring verification
-  - [ ] 9.1 Run smoke test: service starts with valid config _Test Spec:_ TS-04-SMOKE-1 _Requirements:_ [04-REQ-2.1], [04-REQ-3.1]
-  - [ ] 9.2 Run smoke test: service exits on missing VIN _Test Spec:_ TS-04-SMOKE-2 _Requirements:_ [04-REQ-1.E1]
-  - [ ] 9.3 Run smoke test: registration message published on startup _Test Spec:_ TS-04-SMOKE-3 _Requirements:_ [04-REQ-4.1]
-  - [ ] 9.4 Run NATS reconnection test _Test Spec:_ TS-04-15 _Requirements:_ [04-REQ-2.2], [04-REQ-2.E1]
-  - [ ] 9.5 Verify `cargo test -p cloud-gateway-client` passes all unit tests
-  - [ ] 9.V Verify task group 9: all integration and smoke tests pass with containers running
+- [x] 9. Wiring verification
+  - [x] 9.1 Run smoke test: service starts with valid config _Test Spec:_ TS-04-SMOKE-1 _Requirements:_ [04-REQ-2.1], [04-REQ-3.1]
+  - [x] 9.2 Run smoke test: service exits on missing VIN _Test Spec:_ TS-04-SMOKE-2 _Requirements:_ [04-REQ-1.E1]
+  - [x] 9.3 Run smoke test: registration message published on startup _Test Spec:_ TS-04-SMOKE-3 _Requirements:_ [04-REQ-4.1]
+  - [x] 9.4 Run NATS reconnection test _Test Spec:_ TS-04-15 _Requirements:_ [04-REQ-2.2], [04-REQ-2.E1]
+  - [x] 9.5 Verify `cargo test -p cloud-gateway-client` passes all unit tests
+  - [x] 9.V Verify task group 9: all integration and smoke tests pass with containers running
 
 ## Test Commands
 
