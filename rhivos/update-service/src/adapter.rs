@@ -43,8 +43,14 @@ pub struct AdapterStateEvent {
 /// - `us-docker.pkg.dev/sdv-demo/adapters/parkhaus-munich:v1.0.0` → `parkhaus-munich-v1.0.0`
 /// - `registry.example.com/my-adapter:latest` → `my-adapter-latest`
 /// - `simple-image:v2` → `simple-image-v2`
-pub fn derive_adapter_id(_image_ref: &str) -> String {
-    todo!("derive_adapter_id not yet implemented")
+pub fn derive_adapter_id(image_ref: &str) -> String {
+    // Extract the last path segment (everything after the final '/')
+    let segment = match image_ref.rsplit('/').next() {
+        Some(s) => s,
+        None => image_ref,
+    };
+    // Replace the colon separating name from tag with a hyphen
+    segment.replace(':', "-")
 }
 
 #[cfg(test)]
