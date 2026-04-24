@@ -61,9 +61,10 @@ func findRepoRoot(t *testing.T) string {
 	}
 }
 
-// skipIfTCPUnreachable skips the test if the DATA_BROKER TCP port is not
-// reachable. This allows integration tests to be skipped in environments
-// where the container is not running.
+// skipIfTCPUnreachable skips the test if the DATA_BROKER is not reachable.
+// It first checks raw TCP connectivity, then verifies that a real gRPC
+// service (not just a network proxy like gvproxy) is listening by
+// attempting a lightweight gRPC call.
 func skipIfTCPUnreachable(t *testing.T) {
 	t.Helper()
 	conn, err := net.DialTimeout("tcp", tcpTarget, 2*time.Second)
@@ -71,6 +72,33 @@ func skipIfTCPUnreachable(t *testing.T) {
 		t.Skipf("DATA_BROKER TCP port not reachable at %s: %v", tcpTarget, err)
 	}
 	conn.Close()
+
+	// Verify it's actually a DATA_BROKER by attempting a gRPC call.
+	// This catches cases where another process (e.g. Podman's gvproxy)
+	// is listening on the same port but is not a real DATA_BROKER.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	grpcConn, err := grpc.DialContext(ctx, tcpTarget,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		t.Skipf("DATA_BROKER gRPC connection failed at %s (port open but not a gRPC service): %v", tcpTarget, err)
+	}
+	client := kuksa.NewVALClient(grpcConn)
+	_, err = client.Get(ctx, &kuksa.GetRequest{
+		Entries: []*kuksa.EntryRequest{
+			{
+				Path:   "Vehicle.Speed",
+				View:   kuksa.View_VIEW_CURRENT_VALUE,
+				Fields: []kuksa.Field{kuksa.Field_FIELD_VALUE},
+			},
+		},
+	})
+	grpcConn.Close()
+	if err != nil {
+		t.Skipf("DATA_BROKER gRPC probe failed at %s (not a real DATA_BROKER): %v", tcpTarget, err)
+	}
 }
 
 // dialTCP creates a gRPC client connection to the DATA_BROKER via TCP.

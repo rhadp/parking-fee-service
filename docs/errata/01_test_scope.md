@@ -15,7 +15,7 @@ contain unimplemented test stubs from later specifications:
 
 | Crate | Reason |
 |-------|--------|
-| `locking-service` | Spec 03 TG1 stubs: 25 failing tests with `todo!()` in command, config, process, response, and safety modules |
+| ~~`locking-service`~~ | **Resolved** — spec 03 fully implemented (TG1–TG5) |
 | `cloud-gateway-client` | Spec 04 TG1 stubs: 13 failing tests with `todo!()` in command_validator module |
 | `update-service` | Spec 07 TG1 stubs: 34 failing tests with `todo!()` in adapter, config, state, grpc, monitor, and offload modules |
 | `parking-operator-adaptor` | Spec 08 TG1 stubs: 28 failing tests with `todo!()` in config, session, operator, event_loop, and proptest modules |
@@ -43,7 +43,7 @@ are still compiled and linted (they remain in the build and lint targets).
 Remove each exclusion when the corresponding spec's implementation is
 complete:
 
-- Remove `--exclude locking-service` after spec 03 TG2+ completes
+- ~~Remove `--exclude locking-service` after spec 03 TG2+ completes~~ **Done** (spec 03 TG5)
 - Remove `--exclude cloud-gateway-client` after spec 04 TG2+ completes
 - Remove `--exclude update-service` after spec 07 TG2+ completes
 - Remove `--exclude parking-operator-adaptor` after spec 08 TG2+ completes

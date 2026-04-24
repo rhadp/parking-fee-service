@@ -24,7 +24,7 @@ GO_TEST_MODULES_RECURSIVE = \
 
 # Rust crates excluded from test (contain unimplemented spec stubs).
 # See docs/errata/01_test_scope.md for details.
-CARGO_TEST_EXCLUDE = --exclude locking-service --exclude cloud-gateway-client --exclude update-service --exclude parking-operator-adaptor
+CARGO_TEST_EXCLUDE = --exclude cloud-gateway-client --exclude update-service --exclude parking-operator-adaptor
 
 # Build all components
 build: build-rust build-go
