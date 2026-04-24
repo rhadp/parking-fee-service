@@ -43,6 +43,7 @@ lint:
 		cd $$mod && go vet ./... && cd $(CURDIR) || exit 1; \
 	done
 	cd tests/setup && go vet ./...
+	cd tests/databroker && go vet ./...
 
 # Run all tests
 test: test-rust test-go
