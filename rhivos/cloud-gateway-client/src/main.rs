@@ -12,6 +12,7 @@ fn main() {
 mod tests {
     #[test]
     fn it_compiles() {
-        assert!(true);
+        // Skeleton test: verify the binary compiles.
+        let _ = 1 + 1;
     }
 }
