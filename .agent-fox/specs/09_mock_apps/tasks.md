@@ -112,33 +112,33 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
     - [x] _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
 
-- [ ] 3. Mock parking-operator server
-  - [ ] 3.1 Implement session store
+- [x] 3. Mock parking-operator server
+  - [x] 3.1 Implement session store
     - In-memory `map[string]*Session` with mutex
     - UUID generation for session_id
     - Start: store session with status "active", hardcoded rate {per_hour, 2.50, EUR}
     - Stop: calculate duration = stop_timestamp - start_timestamp, total_amount = 2.50 * (duration / 3600.0)
     - _Requirements: 09-REQ-8.5, 09-REQ-8.2, 09-REQ-8.3_
 
-  - [ ] 3.2 Implement HTTP handlers
+  - [x] 3.2 Implement HTTP handlers
     - `POST /parking/start` — parse JSON body, create session, return JSON
     - `POST /parking/stop` — parse JSON body, stop session, return JSON
     - `GET /parking/status/{session_id}` — lookup session, return JSON
     - Error responses: 404 for unknown sessions, 400 for malformed requests
     - _Requirements: 09-REQ-8.2, 09-REQ-8.3, 09-REQ-8.4, 09-REQ-8.E1, 09-REQ-8.E2, 09-REQ-8.E3_
 
-  - [ ] 3.3 Implement serve subcommand
+  - [x] 3.3 Implement serve subcommand
     - Parse `--port` flag with default 9090
     - Start HTTP server with graceful shutdown on SIGTERM/SIGINT
     - Log listening address to stderr
     - _Requirements: 09-REQ-8.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] parking-operator builds: `cd mock && go build ./parking-operator/...`
-    - [ ] Session management tests pass: `cd mock && go test -v ./parking-operator/...`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings: `cd mock && go vet ./...`
-    - [ ] _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-17, TS-09-E7, TS-09-E8, TS-09-E9_
+  - [x] 3.V Verify task group 3
+    - [x] parking-operator builds: `cd mock && go build ./parking-operator/...`
+    - [x] Session management tests pass: `cd mock && go test -v ./parking-operator/...`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings: `cd mock && go vet ./...`
+    - [x] _Test Spec: TS-09-14, TS-09-15, TS-09-16, TS-09-17, TS-09-E7, TS-09-E8, TS-09-E9_
 
 - [ ] 4. Go mock CLI apps (parking-app-cli, companion-app-cli)
   - [ ] 4.1 Implement companion-app-cli
