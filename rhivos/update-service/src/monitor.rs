@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::adapter::AdapterState;
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
@@ -10,9 +11,27 @@ use crate::state::StateManager;
 /// - Exit code non-zero → transition to ERROR
 /// - Wait failure → transition to ERROR
 pub async fn monitor_container(
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
-    _adapter_id: String,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
+    adapter_id: String,
 ) {
-    todo!("monitor_container not yet implemented")
+    match podman.wait(&adapter_id).await {
+        Ok(0) => {
+            let _ = state_mgr.transition(&adapter_id, AdapterState::Stopped, None);
+        }
+        Ok(code) => {
+            let _ = state_mgr.transition(
+                &adapter_id,
+                AdapterState::Error,
+                Some(format!("container exited with code {code}")),
+            );
+        }
+        Err(e) => {
+            let _ = state_mgr.transition(
+                &adapter_id,
+                AdapterState::Error,
+                Some(e.message),
+            );
+        }
+    }
 }

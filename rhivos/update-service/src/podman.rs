@@ -51,34 +51,79 @@ pub trait PodmanExecutor: Send + Sync {
 /// Real implementation using `tokio::process::Command` to shell out to podman.
 pub struct RealPodmanExecutor;
 
+impl RealPodmanExecutor {
+    /// Run a podman command and return its output.
+    async fn run_podman(&self, args: &[&str]) -> Result<std::process::Output, PodmanError> {
+        tokio::process::Command::new("podman")
+            .args(args)
+            .output()
+            .await
+            .map_err(|e| PodmanError::new(format!("failed to execute podman: {e}")))
+    }
+
+    /// Check the exit status of a podman command output.
+    fn check_status(output: &std::process::Output, operation: &str) -> Result<(), PodmanError> {
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(PodmanError::new(format!("{operation} failed: {stderr}")))
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl PodmanExecutor for RealPodmanExecutor {
-    async fn pull(&self, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("RealPodmanExecutor::pull not yet implemented")
+    async fn pull(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = self.run_podman(&["pull", image_ref]).await?;
+        Self::check_status(&output, "podman pull")
     }
 
-    async fn inspect_digest(&self, _image_ref: &str) -> Result<String, PodmanError> {
-        todo!("RealPodmanExecutor::inspect_digest not yet implemented")
+    async fn inspect_digest(&self, image_ref: &str) -> Result<String, PodmanError> {
+        let output = self
+            .run_podman(&["image", "inspect", "--format", "{{.Digest}}", image_ref])
+            .await?;
+        Self::check_status(&output, "podman image inspect")?;
+        let digest = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(digest)
     }
 
-    async fn run(&self, _adapter_id: &str, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("RealPodmanExecutor::run not yet implemented")
+    async fn run(&self, adapter_id: &str, image_ref: &str) -> Result<(), PodmanError> {
+        let output = self
+            .run_podman(&[
+                "run",
+                "-d",
+                "--name",
+                adapter_id,
+                "--network=host",
+                image_ref,
+            ])
+            .await?;
+        Self::check_status(&output, "podman run")
     }
 
-    async fn stop(&self, _adapter_id: &str) -> Result<(), PodmanError> {
-        todo!("RealPodmanExecutor::stop not yet implemented")
+    async fn stop(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = self.run_podman(&["stop", adapter_id]).await?;
+        Self::check_status(&output, "podman stop")
     }
 
-    async fn rm(&self, _adapter_id: &str) -> Result<(), PodmanError> {
-        todo!("RealPodmanExecutor::rm not yet implemented")
+    async fn rm(&self, adapter_id: &str) -> Result<(), PodmanError> {
+        let output = self.run_podman(&["rm", adapter_id]).await?;
+        Self::check_status(&output, "podman rm")
     }
 
-    async fn rmi(&self, _image_ref: &str) -> Result<(), PodmanError> {
-        todo!("RealPodmanExecutor::rmi not yet implemented")
+    async fn rmi(&self, image_ref: &str) -> Result<(), PodmanError> {
+        let output = self.run_podman(&["rmi", image_ref]).await?;
+        Self::check_status(&output, "podman rmi")
     }
 
-    async fn wait(&self, _adapter_id: &str) -> Result<i32, PodmanError> {
-        todo!("RealPodmanExecutor::wait not yet implemented")
+    async fn wait(&self, adapter_id: &str) -> Result<i32, PodmanError> {
+        let output = self.run_podman(&["wait", adapter_id]).await?;
+        Self::check_status(&output, "podman wait")?;
+        let code_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        code_str
+            .parse::<i32>()
+            .map_err(|e| PodmanError::new(format!("failed to parse exit code: {e}")))
     }
 }
 
