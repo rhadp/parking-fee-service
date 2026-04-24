@@ -51,7 +51,10 @@ func TestUDSConnectivity(t *testing.T) {
 }
 
 // TestStandardVSSSignalMetadata verifies that all 5 standard VSS v5.1
-// signals are present in the DATA_BROKER.
+// signals are present in the DATA_BROKER with correct types.
+//
+// Since the v1 gRPC API does not expose metadata types directly, type
+// correctness is validated via a set/get roundtrip with the expected type.
 //
 // Test Spec: TS-02-4
 // Requirements: 02-REQ-5.1, 02-REQ-5.2
@@ -72,12 +75,24 @@ func TestStandardVSSSignalMetadata(t *testing.T) {
 			if entry.Path != sig.Path {
 				t.Errorf("expected path %q, got %q", sig.Path, entry.Path)
 			}
+
+			// Validate data type via write-read roundtrip with expected type.
+			testVal := firstTestValue(sig.DataType)
+			setSignalByType(t, client, sig, testVal)
+			readback, err := getSignalValue(t, client, sig.Path)
+			if err != nil {
+				t.Fatalf("get after set failed for %s: %v", sig.Path, err)
+			}
+			assertDatapointValue(t, readback.Value, sig.DataType, testVal)
 		})
 	}
 }
 
 // TestCustomVSSSignalMetadata verifies that all 3 custom VSS signals from
 // the overlay are present in the DATA_BROKER with correct types.
+//
+// Since the v1 gRPC API does not expose metadata types directly, type
+// correctness is validated via a set/get roundtrip with the expected type.
 //
 // Test Spec: TS-02-5
 // Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4
@@ -98,6 +113,15 @@ func TestCustomVSSSignalMetadata(t *testing.T) {
 			if entry.Path != sig.Path {
 				t.Errorf("expected path %q, got %q", sig.Path, entry.Path)
 			}
+
+			// Validate data type via write-read roundtrip with expected type.
+			testVal := firstTestValue(sig.DataType)
+			setSignalByType(t, client, sig, testVal)
+			readback, err := getSignalValue(t, client, sig.Path)
+			if err != nil {
+				t.Fatalf("get after set failed for %s: %v", sig.Path, err)
+			}
+			assertDatapointValue(t, readback.Value, sig.DataType, testVal)
 		})
 	}
 }

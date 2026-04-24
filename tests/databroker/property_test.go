@@ -9,7 +9,11 @@ import (
 )
 
 // TestPropertySignalCompleteness verifies that all 8 expected VSS signals
-// (5 standard + 3 custom) are present and accessible in the DATA_BROKER.
+// (5 standard + 3 custom) are present and accessible in the DATA_BROKER,
+// and that each signal accepts values of the expected data type.
+//
+// Since the v1 gRPC API does not expose metadata types directly, type
+// correctness is validated via a set/get roundtrip with the expected type.
 //
 // Test Spec: TS-02-P1
 // Requirements: 02-REQ-5.1, 02-REQ-5.2, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3
@@ -32,6 +36,21 @@ func TestPropertySignalCompleteness(t *testing.T) {
 				t.Errorf("signal %s returned nil entry", sig.Path)
 				return
 			}
+
+			// Validate data type via write-read roundtrip.
+			testVal := firstTestValue(sig.DataType)
+			if testVal == nil {
+				t.Errorf("no test values defined for type %q", sig.DataType)
+				return
+			}
+			setSignalByType(t, client, sig, testVal)
+			readback, err := getSignalValue(t, client, sig.Path)
+			if err != nil {
+				t.Errorf("get after set failed for %s: %v", sig.Path, err)
+				return
+			}
+			assertDatapointValue(t, readback.Value, sig.DataType, testVal)
+
 			foundCount++
 		})
 	}

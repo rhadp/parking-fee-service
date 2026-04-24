@@ -333,6 +333,16 @@ func testValuesForType(dataType string) []interface{} {
 	}
 }
 
+// firstTestValue returns the first representative test value for the given
+// data type. Used to validate type correctness via set/get roundtrip.
+func firstTestValue(dataType string) interface{} {
+	vals := testValuesForType(dataType)
+	if len(vals) == 0 {
+		return nil
+	}
+	return vals[0]
+}
+
 // assertDatapointValue checks that a Datapoint contains the expected value.
 func assertDatapointValue(t *testing.T, dp *kuksa.Datapoint, dataType string, expected interface{}) {
 	t.Helper()
