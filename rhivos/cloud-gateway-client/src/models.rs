@@ -10,6 +10,16 @@ pub struct CommandPayload {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// Command response relayed from DATA_BROKER to NATS.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CommandResponse {
+    pub command_id: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    pub timestamp: u64,
+}
+
 /// Registration message published to NATS on startup.
 #[derive(Debug, Serialize)]
 pub struct RegistrationMessage {

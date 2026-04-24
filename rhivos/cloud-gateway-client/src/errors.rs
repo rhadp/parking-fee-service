@@ -24,3 +24,27 @@ pub enum ValidationError {
     /// The action field is present but is not "lock" or "unlock".
     InvalidAction(String),
 }
+
+/// Error returned by NATS client operations.
+#[derive(Debug)]
+pub enum NatsError {
+    /// The initial connection to the NATS server failed.
+    ConnectionFailed(String),
+    /// All retry attempts to connect to NATS have been exhausted.
+    RetriesExhausted,
+    /// A publish operation failed.
+    PublishFailed(String),
+    /// A subscribe operation failed.
+    SubscribeFailed(String),
+}
+
+/// Error returned by DATA_BROKER client operations.
+#[derive(Debug)]
+pub enum BrokerError {
+    /// The connection to DATA_BROKER could not be established.
+    ConnectionFailed(String),
+    /// A write (SetRequest) to DATA_BROKER failed.
+    WriteFailed(String),
+    /// A subscribe operation on DATA_BROKER failed.
+    SubscribeFailed(String),
+}
