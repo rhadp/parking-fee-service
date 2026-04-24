@@ -77,6 +77,19 @@ async fn main() {
         .parse()
         .expect("invalid listen address");
 
+    // Register signal handlers BEFORE logging ready so that signals received
+    // immediately after the ready message are handled gracefully (07-REQ-10.2).
+    #[cfg(unix)]
+    let mut sigterm = {
+        use tokio::signal::unix::{signal, SignalKind};
+        signal(SignalKind::terminate()).expect("failed to register SIGTERM handler")
+    };
+    #[cfg(unix)]
+    let mut sigint = {
+        use tokio::signal::unix::{signal, SignalKind};
+        signal(SignalKind::interrupt()).expect("failed to register SIGINT handler")
+    };
+
     tracing::info!(%addr, "UPDATE_SERVICE ready");
 
     // Set up graceful shutdown with 10-second drain timeout (07-REQ-10.2, 07-REQ-10.E1)
@@ -86,11 +99,6 @@ async fn main() {
         // Wait for SIGTERM or SIGINT
         #[cfg(unix)]
         {
-            use tokio::signal::unix::{signal, SignalKind};
-            let mut sigterm =
-                signal(SignalKind::terminate()).expect("failed to register SIGTERM handler");
-            let mut sigint =
-                signal(SignalKind::interrupt()).expect("failed to register SIGINT handler");
             tokio::select! {
                 _ = sigterm.recv() => {
                     tracing::info!("received SIGTERM, initiating graceful shutdown");
