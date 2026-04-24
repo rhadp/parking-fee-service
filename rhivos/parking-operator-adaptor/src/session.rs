@@ -37,17 +37,23 @@ impl Default for Session {
 impl Session {
     /// Create a new session manager with no active session.
     pub fn new() -> Self {
-        todo!()
+        Self { state: None }
     }
 
     /// Returns `true` if a parking session is currently active.
     pub fn is_active(&self) -> bool {
-        todo!()
+        self.state.as_ref().is_some_and(|s| s.active)
     }
 
     /// Start a new parking session, populating all fields.
-    pub fn start(&mut self, _session_id: String, _zone_id: String, _start_time: i64, _rate: Rate) {
-        todo!()
+    pub fn start(&mut self, session_id: String, zone_id: String, start_time: i64, rate: Rate) {
+        self.state = Some(SessionState {
+            session_id,
+            zone_id,
+            start_time,
+            rate,
+            active: true,
+        });
     }
 
     /// Stop the active parking session.
@@ -55,19 +61,21 @@ impl Session {
     /// Returns the session_id if a session was active, or `None` if no
     /// session was active.
     pub fn stop(&mut self) -> Option<String> {
-        todo!()
+        let session_id = self.state.as_ref().map(|s| s.session_id.clone());
+        self.state = None;
+        session_id
     }
 
     /// Returns a reference to the current session state, or `None` if no
     /// session is active.
     pub fn status(&self) -> Option<&SessionState> {
-        todo!()
+        self.state.as_ref().filter(|s| s.active)
     }
 
     /// Returns a reference to the rate from the active session, or `None`
     /// if no session is active.
     pub fn rate(&self) -> Option<&Rate> {
-        todo!()
+        self.state.as_ref().filter(|s| s.active).map(|s| &s.rate)
     }
 }
 
