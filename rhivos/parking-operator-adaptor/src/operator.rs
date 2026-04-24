@@ -89,38 +89,137 @@ pub trait ParkingOperator {
 ///
 /// Uses reqwest with retry logic (up to 3 retries, exponential backoff
 /// 1s, 2s, 4s) for transient failures and non-200 responses.
-#[allow(dead_code)]
 pub struct OperatorClient {
     client: reqwest::Client,
     base_url: String,
+    retry_delays: Vec<std::time::Duration>,
 }
+
+/// Production retry delays for exponential backoff: 1s, 2s, 4s.
+const DEFAULT_RETRY_DELAYS: [std::time::Duration; 3] = [
+    std::time::Duration::from_secs(1),
+    std::time::Duration::from_secs(2),
+    std::time::Duration::from_secs(4),
+];
 
 impl OperatorClient {
     /// Create a new operator client with the given base URL.
-    pub fn new(_base_url: &str) -> Self {
-        todo!()
+    ///
+    /// Uses the default retry delays (1s, 2s, 4s exponential backoff).
+    pub fn new(base_url: &str) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            retry_delays: DEFAULT_RETRY_DELAYS.to_vec(),
+        }
+    }
+
+    /// Create a new operator client with custom retry delays (for testing).
+    #[cfg(test)]
+    fn with_retry_delays(base_url: &str, retry_delays: Vec<std::time::Duration>) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            retry_delays,
+        }
+    }
+
+    /// Execute an HTTP POST with retry logic.
+    ///
+    /// Retries up to `self.retry_delays.len()` times with exponential backoff
+    /// on connection errors, timeouts, or non-200 HTTP status codes.
+    async fn post_with_retry<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> Result<T, OperatorError> {
+        let url = format!("{}{}", self.base_url, path);
+        let mut last_error: Option<OperatorError> = None;
+
+        // Initial attempt + up to N retries
+        for attempt in 0..=self.retry_delays.len() {
+            // Wait before retry (not before the first attempt)
+            if attempt > 0 {
+                tokio::time::sleep(self.retry_delays[attempt - 1]).await;
+            }
+
+            let result = self
+                .client
+                .post(&url)
+                .json(body)
+                .send()
+                .await;
+
+            match result {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        return response
+                            .json::<T>()
+                            .await
+                            .map_err(|e| OperatorError::Parse(e.to_string()));
+                    }
+                    // Non-200 status — treat as failure, retry
+                    last_error = Some(OperatorError::Http(format!(
+                        "non-200 status: {}",
+                        response.status()
+                    )));
+                }
+                Err(e) => {
+                    last_error = Some(OperatorError::Http(e.to_string()));
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| OperatorError::Http("unknown error".to_string())))
     }
 }
 
 impl ParkingOperator for OperatorClient {
     async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!()
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let request = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp,
+        };
+
+        self.post_with_retry("/parking/start", &request).await
     }
 
-    async fn stop_session(&self, _session_id: &str) -> Result<StopResponse, OperatorError> {
-        todo!()
+    async fn stop_session(&self, session_id: &str) -> Result<StopResponse, OperatorError> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let request = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp,
+        };
+
+        self.post_with_retry("/parking/stop", &request).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::matchers::{method, path};
+    use std::time::Duration;
+    use wiremock::matchers::{body_partial_json, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Zero-delay retries for fast unit tests (same retry count as production).
+    fn test_retry_delays() -> Vec<Duration> {
+        vec![Duration::ZERO; 3]
+    }
 
     // TS-08-8: Operator Start Session REST Call
     // Validates: [08-REQ-2.1]
@@ -141,6 +240,10 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/parking/start"))
+            .and(body_partial_json(serde_json::json!({
+                "vehicle_id": "DEMO-VIN-001",
+                "zone_id": "zone-a"
+            })))
             .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
             .expect(1)
             .mount(&mock_server)
@@ -177,6 +280,9 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/parking/stop"))
+            .and(body_partial_json(serde_json::json!({
+                "session_id": "sess-1"
+            })))
             .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
             .expect(1)
             .mount(&mock_server)
@@ -243,10 +349,11 @@ mod tests {
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(500))
             .up_to_n_times(2)
+            .expect(2)
             .mount(&mock_server)
             .await;
 
-        // Third request returns 200
+        // Subsequent requests return 200
         let response_body = serde_json::json!({
             "session_id": "s1",
             "status": "active",
@@ -259,16 +366,18 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
+            .expect(1)
             .mount(&mock_server)
             .await;
 
-        // WHEN start_session is called
-        let client = OperatorClient::new(&mock_server.uri());
+        // WHEN start_session is called (with zero-delay retries for fast test)
+        let client = OperatorClient::with_retry_delays(&mock_server.uri(), test_retry_delays());
         let resp = client.start_session("VIN", "zone").await;
 
-        // THEN the call succeeds after retries
+        // THEN the call succeeds after retries (3 total requests: 2 failures + 1 success)
         assert!(resp.is_ok());
         assert_eq!(resp.unwrap().session_id, "s1");
+        // Expect counts are verified by wiremock on drop (2 failures + 1 success = 3 total)
     }
 
     // TS-08-E4: Operator REST All Retries Exhausted
@@ -278,18 +387,21 @@ mod tests {
         // GIVEN a mock HTTP server that always fails
         let mock_server = MockServer::start().await;
 
+        // 4 total attempts expected: 1 initial + 3 retries
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(500))
+            .expect(4)
             .mount(&mock_server)
             .await;
 
-        // WHEN start_session is called
-        let client = OperatorClient::new(&mock_server.uri());
+        // WHEN start_session is called (with zero-delay retries for fast test)
+        let client = OperatorClient::with_retry_delays(&mock_server.uri(), test_retry_delays());
         let resp = client.start_session("VIN", "zone").await;
 
         // THEN error is returned after all retries
         assert!(resp.is_err());
+        // Expect count (4) verified by wiremock on drop
     }
 
     // TS-08-E5: Operator Non-200 Status Triggers Retry
@@ -303,6 +415,7 @@ mod tests {
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(500))
             .up_to_n_times(2)
+            .expect(2)
             .mount(&mock_server)
             .await;
 
@@ -318,14 +431,16 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/parking/start"))
             .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
+            .expect(1)
             .mount(&mock_server)
             .await;
 
-        // WHEN start_session is called
-        let client = OperatorClient::new(&mock_server.uri());
+        // WHEN start_session is called (with zero-delay retries for fast test)
+        let client = OperatorClient::with_retry_delays(&mock_server.uri(), test_retry_delays());
         let resp = client.start_session("VIN", "zone").await;
 
-        // THEN the call succeeds after retries
+        // THEN the call succeeds after retries (3 total requests)
         assert!(resp.is_ok());
+        // Expect counts verified by wiremock on drop (2 + 1 = 3)
     }
 }
