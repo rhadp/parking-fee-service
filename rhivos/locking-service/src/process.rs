@@ -1,12 +1,75 @@
-use crate::broker::BrokerClient;
-use crate::command::LockCommand;
+use crate::broker::{BrokerClient, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
+use crate::command::{Action, LockCommand};
+use crate::response::{failure_response, success_response};
+use crate::safety::{check_safety, SafetyResult};
 
+/// Process a validated lock/unlock command.
+///
+/// Dispatches to lock or unlock handling, publishes the response to
+/// DATA_BROKER via `SIGNAL_RESPONSE`, and returns the response JSON string.
+/// If the response publish fails, the error is logged and processing continues
+/// (03-REQ-5.E1).
 pub async fn process_command<B: BrokerClient>(
-    _broker: &B,
-    _cmd: &LockCommand,
-    _lock_state: &mut bool,
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
 ) -> String {
-    todo!("process_command not yet implemented")
+    let response = match cmd.action {
+        Action::Lock => process_lock(broker, cmd, lock_state).await,
+        Action::Unlock => process_unlock(broker, cmd, lock_state).await,
+    };
+
+    // Publish response to DATA_BROKER; log and continue on failure (03-REQ-5.E1)
+    if let Err(e) = broker.set_string(SIGNAL_RESPONSE, &response).await {
+        eprintln!("failed to publish response for command {}: {e}", cmd.command_id);
+    }
+
+    response
+}
+
+/// Process a lock command: check safety constraints, then update state if safe.
+async fn process_lock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Check safety constraints (03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3)
+    match check_safety(broker).await {
+        SafetyResult::Safe => {}
+        SafetyResult::VehicleMoving => {
+            return failure_response(&cmd.command_id, "vehicle_moving");
+        }
+        SafetyResult::DoorOpen => {
+            return failure_response(&cmd.command_id, "door_open");
+        }
+    }
+
+    // Idempotent: skip state write if already locked (03-REQ-4.E1)
+    if !*lock_state {
+        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, true).await {
+            eprintln!("failed to set lock state: {e}");
+        }
+        *lock_state = true;
+    }
+
+    success_response(&cmd.command_id)
+}
+
+/// Process an unlock command: update state without safety checks (03-REQ-3.4).
+async fn process_unlock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Idempotent: skip state write if already unlocked (03-REQ-4.E2)
+    if *lock_state {
+        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, false).await {
+            eprintln!("failed to set lock state: {e}");
+        }
+        *lock_state = false;
+    }
+
+    success_response(&cmd.command_id)
 }
 
 #[cfg(test)]

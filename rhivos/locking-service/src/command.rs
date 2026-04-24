@@ -12,8 +12,14 @@ pub struct LockCommand {
     pub command_id: String,
     pub action: Action,
     pub doors: Vec<String>,
+    /// Optional metadata (03-REQ-2.4): deserialized but not used in processing.
+    #[allow(dead_code)]
     pub source: Option<String>,
+    /// Optional metadata (03-REQ-2.4): deserialized but not used in processing.
+    #[allow(dead_code)]
     pub vin: Option<String>,
+    /// Optional metadata (03-REQ-2.4): deserialized but not used in processing.
+    #[allow(dead_code)]
     pub timestamp: Option<i64>,
 }
 
@@ -30,6 +36,16 @@ impl CommandError {
             CommandError::InvalidJson(_) => "invalid_json",
             CommandError::InvalidCommand(_) => "invalid_command",
             CommandError::UnsupportedDoor(_) => "unsupported_door",
+        }
+    }
+}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommandError::InvalidJson(msg) => write!(f, "invalid JSON: {msg}"),
+            CommandError::InvalidCommand(msg) => write!(f, "invalid command: {msg}"),
+            CommandError::UnsupportedDoor(msg) => write!(f, "unsupported door: {msg}"),
         }
     }
 }
