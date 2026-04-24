@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
 func main() {
+	fmt.Println("parking-operator v0.1.0")
 	if err := run(os.Args[1:]); err != nil {
 		os.Exit(1)
 	}
