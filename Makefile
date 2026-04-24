@@ -20,7 +20,8 @@ GO_TEST_MODULES_RECURSIVE = \
 	mock/companion-app-cli \
 	mock/parking-operator \
 	tests/databroker \
-	tests/locking-service
+	tests/locking-service \
+	tests/parking-operator-adaptor
 
 # Rust crates excluded from test (contain unimplemented spec stubs).
 # See docs/errata/01_test_scope.md for details.
@@ -49,6 +50,7 @@ lint:
 	cd tests/databroker && go vet ./...
 	cd tests/locking-service && go vet ./...
 	cd tests/mock-apps && go vet ./...
+	cd tests/parking-operator-adaptor && go vet ./...
 
 # Run all tests
 test: test-rust test-go
