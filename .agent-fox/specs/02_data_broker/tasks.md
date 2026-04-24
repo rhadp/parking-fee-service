@@ -165,24 +165,24 @@ This implementation plan covers the configuration and validation of Eclipse Kuks
     cd tests/databroker && go test -run "TestEdgeCase|TestImageVersion" -v ./...
     ```
 
-- [ ] 5. Implement smoke tests
+- [x] 5. Implement smoke tests
   - Add smoke tests for CI/CD quick verification.
 
-  - [ ] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
+  - [x] 5.1 Implement smoke test: databroker health check (start container, verify TCP connection within 10s)
     - _Test Spec: TS-02-SMOKE-1_
     - _Requirements: 02-REQ-1.1, 02-REQ-2.1_
     - `TestSmokeHealthCheck` in tests/databroker/smoke_test.go; uses `ensureDatabrokerRunning` helper to start container if not running, verifies gRPC metadata query returns populated entries for Vehicle.Speed, tears down via t.Cleanup
     - Fixed: compose.yml was using invalid `--metadata` flag; changed to `--vss vss_release_4.0.json,/vss-overlay.json` per kuksa-databroker 0.5.0 CLI (see errata §4)
     - Fixed: strengthened assertions to verify response content (non-empty entries) instead of only checking transport connectivity
 
-  - [ ] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
+  - [x] 5.2 Implement smoke test: full signal inventory check (verify all 8 signals present)
     - _Test Spec: TS-02-SMOKE-2_
     - _Requirements: 02-REQ-5.1, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3_
     - `TestSmokeFullSignalInventory` in tests/databroker/smoke_test.go; uses `ensureDatabrokerRunning` to bootstrap container if needed, queries metadata for all 8 signals, reports missing signals with foundCount assertion
     - Fixed: now uses `ensureDatabrokerRunning` instead of `skipIfTCPUnreachable` so the test can actually run and verify signals (previously always SKIP)
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All smoke tests compile and PASS with live container; skip gracefully when Podman unavailable
+  - [x] 5.V Verify task group 5
+    - [x] All smoke tests compile and PASS with live container; skip gracefully when Podman unavailable
     - Result: TestSmokeHealthCheck PASS (started container, verified gRPC metadata with populated entries); TestSmokeFullSignalInventory PASS (all 8/8 signals found — 5 standard + 3 custom); 0 FAIL; make check EXIT_CODE: 0
     ```
     cd tests/databroker && go test -run "TestSmoke" -v ./...
