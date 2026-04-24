@@ -27,8 +27,8 @@ The ordering ensures tests are written first (TDD), then implementation makes th
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test helper module
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test helper module
     - Create `rhivos/locking-service/src/testing.rs` with `MockBrokerClient` implementing `BrokerClient` trait
     - MockBrokerClient must support configurable return values for `get_float` (speed), `get_bool` (door open, is locked)
     - MockBrokerClient must record `set_bool` and `set_string` calls for assertion
@@ -36,7 +36,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - Register as `#[cfg(test)] pub mod testing` in `src/main.rs`
     - _Test Spec: TS-03-7 through TS-03-12, TS-03-E6 through TS-03-E10_
 
-  - [ ] 1.2 Write command parsing and validation tests
+  - [x] 1.2 Write command parsing and validation tests
     - Create unit tests in `rhivos/locking-service/src/command.rs` `#[cfg(test)]` module
     - `test_parse_valid_command` -- TS-03-2: deserialise full lock command JSON
     - `test_parse_valid_unlock_command` -- TS-03-2: deserialise unlock command
@@ -46,14 +46,14 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - `test_validate_unsupported_door` -- TS-03-6: non-"driver" door rejected
     - _Test Spec: TS-03-2, TS-03-4, TS-03-5, TS-03-6_
 
-  - [ ] 1.3 Write edge case tests for command parsing
+  - [x] 1.3 Write edge case tests for command parsing
     - Add tests in `rhivos/locking-service/src/command.rs` `#[cfg(test)]` module
     - `test_parse_invalid_json` -- TS-03-E3: invalid JSON returns InvalidJson error
     - `test_parse_missing_field` -- TS-03-E4: missing action field rejected
     - `test_validate_non_driver_door` -- TS-03-E5: "rear_left" door rejected
     - _Test Spec: TS-03-E3, TS-03-E4, TS-03-E5_
 
-  - [ ] 1.4 Write safety constraint tests
+  - [x] 1.4 Write safety constraint tests
     - Create unit tests in `rhivos/locking-service/src/safety.rs` `#[cfg(test)]` module
     - `test_lock_rejected_vehicle_moving` -- TS-03-7: speed >= 1.0 returns VehicleMoving
     - `test_lock_rejected_door_open` -- TS-03-8: door ajar returns DoorOpen
@@ -62,7 +62,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - `test_door_unset_treated_closed` -- TS-03-E7: None door treated as false
     - _Test Spec: TS-03-7, TS-03-8, TS-03-9, TS-03-E6, TS-03-E7_
 
-  - [ ] 1.5 Write process and response tests
+  - [x] 1.5 Write process and response tests
     - Create unit tests in `rhivos/locking-service/src/process.rs` `#[cfg(test)]` module
     - `test_lock_sets_state_true` -- TS-03-11: lock sets IsLocked = true
     - `test_unlock_sets_state_false` -- TS-03-12: unlock sets IsLocked = false
@@ -76,7 +76,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - `test_response_timestamp` -- TS-03-16: timestamp between before/after
     - _Test Spec: TS-03-10, TS-03-11, TS-03-12, TS-03-14, TS-03-15, TS-03-16, TS-03-E8, TS-03-E9, TS-03-E10_
 
-  - [ ] 1.6 Write property tests and config tests
+  - [x] 1.6 Write property tests and config tests
     - Create `rhivos/locking-service/src/proptest_cases.rs` with proptest tests (all `#[ignore]`)
     - `proptest_command_validation_completeness` -- TS-03-P1
     - `proptest_safety_gate_lock` -- TS-03-P2
@@ -90,10 +90,10 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - Register as `#[cfg(test)] pub mod proptest_cases` in `src/main.rs`
     - _Test Spec: TS-03-3, TS-03-P1 through TS-03-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos/locking-service && cargo test --no-run`
-    - [ ] Unit tests FAIL (modules not yet implemented): `cd rhivos/locking-service && cargo test 2>&1 | grep -c FAILED`
-    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos/locking-service && cargo test --no-run`
+    - [x] Unit tests FAIL (modules not yet implemented): `cd rhivos/locking-service && cargo test 2>&1 | grep -c FAILED`
+    - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
 
 - [ ] 2. Implement core modules (command, safety, response, config)
   - [ ] 2.1 Implement config module
@@ -126,7 +126,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
   - [ ] 2.V Verify task group 2
     - [ ] Command, safety, response, and config unit tests pass: `cd rhivos/locking-service && cargo test`
     - [ ] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
-    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+    - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] Requirements 03-REQ-2.*, 03-REQ-3.*, 03-REQ-5.*, 03-REQ-7.* acceptance criteria met
 
 - [ ] 3. Implement broker client, process module, and main
@@ -164,7 +164,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [ ] All unit tests pass: `cd rhivos/locking-service && cargo test`
     - [ ] All property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
     - [ ] Binary builds and shows usage: `cd rhivos/locking-service && cargo build && ./target/debug/locking-service`
-    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+    - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] All previously passing tests still pass: `make test`
 
 - [ ] 4. Integration tests (live DATA_BROKER)
@@ -201,7 +201,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [ ] All integration tests pass: `cd tests/locking-service && go test -v ./...` (skip gracefully without infrastructure)
     - [ ] All unit tests still pass: `cd rhivos/locking-service && cargo test`
     - [ ] All property tests still pass: `cd rhivos/locking-service && cargo test -- --ignored`
-    - [ ] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
+    - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [ ] All previously passing tests still pass: `make test`
 
 - [ ] 5. Wiring verification
