@@ -219,6 +219,29 @@ func TestPropertySubscriptionDelivery(t *testing.T) {
 			if !found {
 				t.Errorf("subscription update did not contain entry for %s", tc.sig.Path)
 			}
+
+			// Exactly-once delivery check: verify no additional unexpected
+			// messages arrive after the expected update (TS-02-P4).
+			extraCtx, extraCancel := context.WithTimeout(context.Background(), 1*time.Second)
+			defer extraCancel()
+			done := make(chan struct{})
+			var extraErr error
+			go func() {
+				defer close(done)
+				_, extraErr = stream.Recv()
+			}()
+			select {
+			case <-done:
+				// If Recv returned due to context cancellation or deadline
+				// that's expected. If it returned a real update, that's a
+				// duplicate delivery.
+				if extraErr == nil {
+					t.Errorf("received unexpected extra subscription update for %s; expected exactly-once delivery", tc.sig.Path)
+				}
+			case <-extraCtx.Done():
+				// Timeout — no extra message received. This is the expected
+				// outcome confirming exactly-once delivery.
+			}
 		})
 	}
 }
