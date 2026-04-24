@@ -1,3 +1,15 @@
+pub mod broker;
+pub mod config;
+pub mod event_loop;
+pub mod operator;
+pub mod session;
+
+#[cfg(test)]
+pub mod testing;
+
+#[cfg(test)]
+mod proptest_cases;
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if !args.is_empty() {
@@ -12,6 +24,8 @@ fn main() {
 mod tests {
     #[test]
     fn it_compiles() {
-        assert!(true);
+        // Verify the binary crate compiles successfully.
+        let version = env!("CARGO_PKG_VERSION");
+        assert!(!version.is_empty());
     }
 }
