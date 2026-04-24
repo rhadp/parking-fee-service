@@ -117,8 +117,8 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
     - [ ] _Test Spec: TS-06-3, TS-06-5, TS-06-P2, TS-06-P3, TS-06-P5_
 
-- [ ] 4. NATS client and HTTP handlers
-  - [ ] 4.1 Implement natsclient package
+- [x] 4. NATS client and HTTP handlers
+  - [x] 4.1 Implement natsclient package
     - `Connect(url string, maxRetries int) (*NATSClient, error)`: connect with exponential backoff (1s, 2s, 4s), up to maxRetries attempts
     - `PublishCommand(vin string, cmd Command, token string) error`: publish to `vehicles.{vin}.commands` with `Authorization` header
     - `SubscribeResponses(store *Store) error`: subscribe to `vehicles.*.command_responses`, parse JSON, store via `store.StoreResponse`
@@ -126,7 +126,7 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - `Drain() error`: drain NATS connection for graceful shutdown
     - _Requirements: 06-REQ-1.2, 06-REQ-5.1, 06-REQ-5.2, 06-REQ-5.3, 06-REQ-5.E1, 06-REQ-5.E2_
 
-  - [ ] 4.2 Implement handler package
+  - [x] 4.2 Implement handler package
     - `NewSubmitCommandHandler(nc *NATSClient, store *Store, timeout time.Duration) http.HandlerFunc`:
       - Parse JSON body into Command
       - Validate required fields (command_id, type, doors) -- 400 if missing
@@ -145,12 +145,12 @@ Ordering: tests first, then data types, then pure-function modules (config, auth
     - Set `Content-Type: application/json` on all responses
     - _Requirements: 06-REQ-1.1, 06-REQ-1.E1, 06-REQ-1.E2, 06-REQ-2.1, 06-REQ-2.E1, 06-REQ-4.1, 06-REQ-7.1, 06-REQ-7.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Handler tests pass: `cd backend && go test -v ./cloud-gateway/handler/...`
-    - [ ] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
-    - [ ] All existing tests still pass: `cd backend && go test -v ./...`
-    - [ ] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
-    - [ ] _Test Spec: TS-06-1, TS-06-4, TS-06-10, TS-06-13, TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E9_
+  - [x] 4.V Verify task group 4
+    - [x] Handler tests pass: `cd backend && go test -v ./cloud-gateway/handler/...`
+    - [x] All spec tests pass: `cd backend && go test -v ./cloud-gateway/...`
+    - [x] All existing tests still pass: `cd backend && go test -v ./...`
+    - [x] No linter warnings: `cd backend && go vet ./cloud-gateway/...`
+    - [x] _Test Spec: TS-06-1, TS-06-4, TS-06-10, TS-06-13, TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E9_
 
 - [ ] 5. Main wiring and lifecycle
   - [ ] 5.1 Implement main package
