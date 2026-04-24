@@ -1,4 +1,4 @@
-use crate::broker::BrokerClient;
+use crate::broker::{BrokerClient, SIGNAL_IS_OPEN, SIGNAL_SPEED};
 
 #[derive(Debug, PartialEq)]
 pub enum SafetyResult {
@@ -7,8 +7,40 @@ pub enum SafetyResult {
     DoorOpen,
 }
 
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("check_safety not yet implemented")
+/// Check safety constraints for a lock command.
+///
+/// Reads `Vehicle.Speed` and `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` from
+/// the broker. Speed is checked first (priority rule per design Property 2).
+///
+/// - Speed >= 1.0 km/h → `VehicleMoving`
+/// - Door open (true) → `DoorOpen`
+/// - Otherwise → `Safe`
+///
+/// Missing signals default to safe values: speed = 0.0, door = closed.
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    // Read speed, defaulting to 0.0 if signal is unset or read fails
+    let speed = broker
+        .get_float(SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    // Read door-open state, defaulting to false (closed) if unset or read fails
+    let door_open = broker
+        .get_bool(SIGNAL_IS_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]

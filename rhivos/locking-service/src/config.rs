@@ -1,5 +1,7 @@
+/// Returns the DATA_BROKER gRPC address from the `DATABROKER_ADDR` environment
+/// variable, falling back to `http://localhost:55556` if not set.
 pub fn get_databroker_addr() -> String {
-    todo!("get_databroker_addr not yet implemented")
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| "http://localhost:55556".to_string())
 }
 
 #[cfg(test)]

@@ -95,13 +95,13 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [x] Unit tests FAIL (modules not yet implemented): `cd rhivos/locking-service && cargo test 2>&1 | grep -c FAILED`
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
 
-- [ ] 2. Implement core modules (command, safety, response, config)
-  - [ ] 2.1 Implement config module
+- [x] 2. Implement core modules (command, safety, response, config)
+  - [x] 2.1 Implement config module
     - Create `rhivos/locking-service/src/config.rs` with `get_databroker_addr()` function
     - Default: `http://localhost:55556`, override via `DATABROKER_ADDR` env var
     - _Requirements: 03-REQ-7.1, 03-REQ-7.2_
 
-  - [ ] 2.2 Implement command module
+  - [x] 2.2 Implement command module
     - Create `rhivos/locking-service/src/command.rs` with `LockCommand` struct, `Action` enum, `CommandError` enum
     - Implement `parse_command(json: &str) -> Result<LockCommand, CommandError>`
     - Implement `validate_command(cmd: &LockCommand) -> Result<(), CommandError>`
@@ -109,25 +109,25 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - Validate command_id non-empty and doors contain only "driver"
     - _Requirements: 03-REQ-2.1, 03-REQ-2.2, 03-REQ-2.3, 03-REQ-2.4, 03-REQ-2.E1, 03-REQ-2.E2, 03-REQ-2.E3_
 
-  - [ ] 2.3 Implement safety module
+  - [x] 2.3 Implement safety module
     - Create `rhivos/locking-service/src/safety.rs` with `SafetyResult` enum and `check_safety` function
     - Read Vehicle.Speed: if >= 1.0 return VehicleMoving; if None treat as 0.0
     - Read Vehicle.Cabin.Door.Row1.DriverSide.IsOpen: if true return DoorOpen; if None treat as false
     - Otherwise return Safe
     - _Requirements: 03-REQ-3.1, 03-REQ-3.2, 03-REQ-3.3, 03-REQ-3.E1, 03-REQ-3.E2_
 
-  - [ ] 2.4 Implement response module
+  - [x] 2.4 Implement response module
     - Create `rhivos/locking-service/src/response.rs` with `CommandResponse` struct
     - Implement `success_response(command_id: &str) -> String`
     - Implement `failure_response(command_id: &str, reason: &str) -> String`
     - Success omits reason field via `#[serde(skip_serializing_if = "Option::is_none")]`
     - _Requirements: 03-REQ-5.1, 03-REQ-5.2, 03-REQ-5.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Command, safety, response, and config unit tests pass: `cd rhivos/locking-service && cargo test`
-    - [ ] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
+  - [x] 2.V Verify task group 2
+    - [x] Command, safety, response, and config unit tests pass: `cd rhivos/locking-service && cargo test`
+    - [x] Property tests pass: `cd rhivos/locking-service && cargo test -- --ignored`
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
-    - [ ] Requirements 03-REQ-2.*, 03-REQ-3.*, 03-REQ-5.*, 03-REQ-7.* acceptance criteria met
+    - [x] Requirements 03-REQ-2.*, 03-REQ-3.*, 03-REQ-5.*, 03-REQ-7.* acceptance criteria met
 
 - [ ] 3. Implement broker client, process module, and main
   - [ ] 3.1 Implement broker module

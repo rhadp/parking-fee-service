@@ -34,12 +34,46 @@ impl CommandError {
     }
 }
 
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!("parse_command not yet implemented")
+/// Deserialise a JSON string into a `LockCommand`.
+///
+/// Returns `InvalidJson` for syntactically invalid JSON, and `InvalidCommand`
+/// for valid JSON that is missing required fields or has incorrect types.
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    serde_json::from_str::<LockCommand>(json).map_err(|e| {
+        // serde_json classifies syntax errors (unexpected token, EOF, etc.)
+        // differently from data/type errors (missing field, wrong type).
+        if e.classify() == serde_json::error::Category::Syntax {
+            CommandError::InvalidJson(e.to_string())
+        } else {
+            CommandError::InvalidCommand(e.to_string())
+        }
+    })
 }
 
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!("validate_command not yet implemented")
+/// Validate a parsed `LockCommand` for business rules:
+/// - `command_id` must be non-empty
+/// - `doors` must contain only `"driver"`
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id must not be empty".to_string(),
+        ));
+    }
+    if cmd.doors.iter().any(|d| d != "driver") {
+        return Err(CommandError::UnsupportedDoor(format!(
+            "unsupported door(s): {:?}",
+            cmd.doors
+                .iter()
+                .filter(|d| d.as_str() != "driver")
+                .collect::<Vec<_>>()
+        )));
+    }
+    if !cmd.doors.contains(&"driver".to_string()) {
+        return Err(CommandError::InvalidCommand(
+            "doors must contain \"driver\"".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

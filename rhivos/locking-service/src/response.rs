@@ -9,12 +9,40 @@ pub struct CommandResponse {
     pub timestamp: i64,
 }
 
-pub fn success_response(_command_id: &str) -> String {
-    todo!("success_response not yet implemented")
+/// Build a success response JSON string for a command.
+///
+/// The returned JSON contains `command_id`, `status` ("success"), and
+/// `timestamp` (current Unix time in seconds). No `reason` field is included.
+pub fn success_response(command_id: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp: now_unix_secs(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse serialization should not fail")
 }
 
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("failure_response not yet implemented")
+/// Build a failure response JSON string for a command.
+///
+/// The returned JSON contains `command_id`, `status` ("failed"), `reason`,
+/// and `timestamp` (current Unix time in seconds).
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let resp = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp: now_unix_secs(),
+    };
+    serde_json::to_string(&resp).expect("CommandResponse serialization should not fail")
+}
+
+/// Current time as Unix timestamp in seconds.
+fn now_unix_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before Unix epoch")
+        .as_secs() as i64
 }
 
 #[cfg(test)]
