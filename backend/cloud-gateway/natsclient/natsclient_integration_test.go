@@ -58,6 +58,13 @@ func TestPropertyNATSHeaderPropagation(t *testing.T) {
 			}
 			defer sub.Unsubscribe()
 
+			// Flush to ensure subscription is registered on the server
+			// before publishing, avoiding a race where the message arrives
+			// before the subscription is active.
+			if err := rawNC.Flush(); err != nil {
+				t.Fatalf("failed to flush raw NATS client: %v", err)
+			}
+
 			cmd := model.Command{
 				CommandID: fmt.Sprintf("prop-cmd-%d", i),
 				Type:      "lock",
