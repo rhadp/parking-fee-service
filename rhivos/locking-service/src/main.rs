@@ -1,3 +1,15 @@
+pub mod broker;
+pub mod command;
+pub mod config;
+pub mod process;
+pub mod response;
+pub mod safety;
+
+#[cfg(test)]
+pub mod proptest_cases;
+#[cfg(test)]
+pub mod testing;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 {
@@ -12,6 +24,6 @@ fn main() {
 mod tests {
     #[test]
     fn it_compiles() {
-        assert!(true);
+        // Placeholder test: verifies the crate compiles.
     }
 }
