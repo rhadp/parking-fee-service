@@ -14,7 +14,7 @@ max_retries = 3
 
 [models]
 ## Model tier for coding tasks (default: "ADVANCED")
-coding = "STANDARD"
+coding = "ADVANCED"
 
 [platform]
 ## Platform type (none or github) (default: "none")
