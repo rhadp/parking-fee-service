@@ -56,3 +56,41 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+// assertPathNotExists fails the test if the given path exists.
+func assertPathNotExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err == nil {
+		t.Errorf("expected path to not exist: %s", path)
+	}
+}
+
+// readFileContent reads a file and returns its content as a string.
+// Fails the test if the file cannot be read.
+func readFileContent(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read file %s: %v", path, err)
+	}
+	return string(data)
+}
+
+// findProtoFiles finds all .proto files recursively under the given directory.
+func findProtoFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	var files []string
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && filepath.Ext(path) == ".proto" {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to walk directory %s: %v", dir, err)
+	}
+	return files
+}
