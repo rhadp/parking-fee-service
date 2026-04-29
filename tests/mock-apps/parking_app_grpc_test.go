@@ -279,6 +279,13 @@ func TestStopSessionWithMockGRPC(t *testing.T) {
 	if !strings.Contains(stdout, "s1") {
 		t.Errorf("expected 's1' (session_id) in stdout, got: %s", stdout)
 	}
+
+	// TS-09-10 explicitly requires ASSERT "stopped" IN proc.stdout.
+	// The parking-app-cli implementation must format Active=false as "stopped"
+	// when printing the StopSession response.
+	if !strings.Contains(stdout, "stopped") {
+		t.Errorf("expected 'stopped' in stdout (TS-09-10), got: %s", stdout)
+	}
 }
 
 // ---------------------------------------------------------------------------

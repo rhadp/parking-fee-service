@@ -304,11 +304,10 @@ func TestSensorSmoke(t *testing.T) {
 		t.Fatalf("expected 4 published values in smoke test, got %d", len(published))
 	}
 
-	// Verify paths
-	paths := make([]string, len(published))
-	for i, p := range published {
-		paths[i] = p.Path
-	}
+	// Verify paths and values per TS-09-SMOKE-1 pseudocode:
+	// ASSERT databroker.get("Vehicle.CurrentLocation.Latitude") == 48.13
+	// ASSERT databroker.get("Vehicle.Speed") == 0.0
+	// ASSERT databroker.get("Vehicle.Cabin.Door.Row1.DriverSide.IsOpen") == false
 	expectedPaths := []string{
 		"Vehicle.CurrentLocation.Latitude",
 		"Vehicle.CurrentLocation.Longitude",
@@ -316,9 +315,23 @@ func TestSensorSmoke(t *testing.T) {
 		"Vehicle.Cabin.Door.Row1.DriverSide.IsOpen",
 	}
 	for i, expected := range expectedPaths {
-		if paths[i] != expected {
-			t.Errorf("published[%d].Path = %q, want %q", i, paths[i], expected)
+		if published[i].Path != expected {
+			t.Errorf("published[%d].Path = %q, want %q", i, published[i].Path, expected)
 		}
+	}
+
+	// Verify actual published values match the inputs.
+	if v := published[0].Value.GetDouble(); v != 48.13 {
+		t.Errorf("Latitude: expected 48.13, got %v", v)
+	}
+	if v := published[1].Value.GetDouble(); v != 11.58 {
+		t.Errorf("Longitude: expected 11.58, got %v", v)
+	}
+	if v := published[2].Value.GetFloat(); v != 0.0 {
+		t.Errorf("Speed: expected 0.0, got %v", v)
+	}
+	if v := published[3].Value.GetBool(); v != false {
+		t.Errorf("IsOpen: expected false, got %v", v)
 	}
 }
 
@@ -370,8 +383,16 @@ func TestSensorPublishProperty(t *testing.T) {
 			if published[0].Path != "Vehicle.CurrentLocation.Latitude" {
 				t.Errorf("lat=%g: wrong path %q", ll[0], published[0].Path)
 			}
+			// TS-09-P1: verify the actual published latitude value matches input.
+			if v := published[0].Value.GetDouble(); v != ll[0] {
+				t.Errorf("lat=%g: expected Latitude=%g, got %v", ll[0], ll[0], v)
+			}
 			if published[1].Path != "Vehicle.CurrentLocation.Longitude" {
 				t.Errorf("lon=%g: wrong path %q", ll[1], published[1].Path)
+			}
+			// TS-09-P1: verify the actual published longitude value matches input.
+			if v := published[1].Value.GetDouble(); v != ll[1] {
+				t.Errorf("lon=%g: expected Longitude=%g, got %v", ll[1], ll[1], v)
 			}
 		}
 	})
@@ -401,6 +422,10 @@ func TestSensorPublishProperty(t *testing.T) {
 			}
 			if published[0].Path != "Vehicle.Speed" {
 				t.Errorf("speed=%g: wrong path %q", spd, published[0].Path)
+			}
+			// TS-09-P1: verify the actual published speed value matches input.
+			if v := published[0].Value.GetFloat(); v != spd {
+				t.Errorf("speed=%g: expected Speed=%g, got %v", spd, spd, v)
 			}
 		}
 	})
