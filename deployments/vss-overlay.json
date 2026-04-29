@@ -1,0 +1,41 @@
+{
+  "Vehicle": {
+    "type": "branch",
+    "description": "Vehicle root",
+    "children": {
+      "Parking": {
+        "type": "branch",
+        "description": "Parking-related signals (Vehicle.Parking.SessionActive)",
+        "children": {
+          "SessionActive": {
+            "type": "sensor",
+            "datatype": "boolean",
+            "description": "Adapter-managed parking session state (Vehicle.Parking.SessionActive)"
+          }
+        }
+      },
+      "Command": {
+        "type": "branch",
+        "description": "Command signals",
+        "children": {
+          "Door": {
+            "type": "branch",
+            "description": "Door command signals (Vehicle.Command.Door.Lock and Vehicle.Command.Door.Response)",
+            "children": {
+              "Lock": {
+                "type": "actuator",
+                "datatype": "string",
+                "description": "Lock/unlock command request JSON payload (Vehicle.Command.Door.Lock)"
+              },
+              "Response": {
+                "type": "sensor",
+                "datatype": "string",
+                "description": "Command execution result JSON payload (Vehicle.Command.Door.Response)"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
