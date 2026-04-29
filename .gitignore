@@ -57,3 +57,4 @@ logs/
 !.agent-fox/profiles/
 !.agent-fox/profiles/*
 .claude/worktrees/
+!.agent-fox/steering.md
