@@ -174,12 +174,25 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 					cmd1 := exec.Command(binPath)
 					out1, err1 := cmd1.CombinedOutput()
 
+					// The binary must run successfully and produce non-empty output
+					// containing a version string. Without this check, missing or
+					// broken binaries that both fail with identical empty output
+					// would vacuously satisfy the equality assertion.
+					if err1 != nil {
+						t.Errorf("%s first invocation failed: %v", bin, err1)
+						return
+					}
+					if len(strings.TrimSpace(string(out1))) == 0 {
+						t.Errorf("%s produced empty output on first invocation", bin)
+						return
+					}
+
 					// Second invocation
 					cmd2 := exec.Command(binPath)
 					out2, err2 := cmd2.CombinedOutput()
 
-					if (err1 == nil) != (err2 == nil) {
-						t.Errorf("%s exit status differs between invocations", bin)
+					if err2 != nil {
+						t.Errorf("%s second invocation failed: %v", bin, err2)
 						return
 					}
 					if string(out1) != string(out2) {
@@ -209,12 +222,24 @@ func TestPropertySkeletonDeterminism(t *testing.T) {
 				cmd1.Dir = dir
 				out1, err1 := cmd1.CombinedOutput()
 
+				// The binary must run successfully and produce non-empty output.
+				// Without this check, binaries that both fail identically would
+				// vacuously satisfy the equality assertion.
+				if err1 != nil {
+					t.Errorf("%s first invocation failed: %v\noutput: %s", name, err1, string(out1))
+					return
+				}
+				if len(strings.TrimSpace(string(out1))) == 0 {
+					t.Errorf("%s produced empty output on first invocation", name)
+					return
+				}
+
 				cmd2 := exec.Command("go", "run", ".")
 				cmd2.Dir = dir
 				out2, err2 := cmd2.CombinedOutput()
 
-				if (err1 == nil) != (err2 == nil) {
-					t.Errorf("%s exit status differs between invocations", name)
+				if err2 != nil {
+					t.Errorf("%s second invocation failed: %v", name, err2)
 					return
 				}
 				if string(out1) != string(out2) {

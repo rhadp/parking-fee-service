@@ -294,7 +294,17 @@ func TestInfraUpPortConflict(t *testing.T) {
 		t.Error("expected make infra-up to fail with port conflict, but it succeeded")
 		return
 	}
-	_ = output // port conflict error reported by podman
+	// Verify the error is actually about a port conflict, not some other failure
+	// (e.g., missing Makefile target). The error output from podman/compose should
+	// mention the port or address binding issue.
+	combined := strings.ToLower(string(output))
+	portRelated := strings.Contains(combined, "port") ||
+		strings.Contains(combined, "bind") ||
+		strings.Contains(combined, "address already in use") ||
+		strings.Contains(combined, "4222")
+	if !portRelated {
+		t.Errorf("make infra-up failed but not due to port conflict; output:\n%s", string(output))
+	}
 }
 
 // TS-01-E9: Test runner reports syntax errors
@@ -345,9 +355,11 @@ func TestToolchainSkipGracefully(t *testing.T) {
 		t.Skip("go not found on PATH; skipping")
 	}
 
-	// Run setup tests with a restricted PATH that excludes cargo
-	// This should cause Rust-related tests to skip rather than fail
-	cmd := exec.Command("go", "test", "-v", "-run", "TestCargoBuildWorkspace", "./...")
+	// Run setup tests with a restricted PATH that excludes cargo.
+	// This should cause Rust-related tests to skip rather than fail.
+	// We run the test in the tests/setup directory with GOWORK=off to
+	// avoid workspace errors that would mask the actual skip behavior.
+	cmd := exec.Command("go", "test", "-v", "-run", "TestCargoBuildWorkspace", ".")
 	cmd.Dir = filepath.Join(root, "tests", "setup")
 
 	// Build a PATH that includes go but excludes cargo
@@ -358,23 +370,38 @@ func TestToolchainSkipGracefully(t *testing.T) {
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, "PATH=") {
 			newEnv = append(newEnv, "PATH="+goBinDir+":/usr/bin:/bin")
+		} else if strings.HasPrefix(env, "GOWORK=") {
+			// skip existing GOWORK — we set it below
+			continue
 		} else {
 			newEnv = append(newEnv, env)
 		}
 	}
+	// Disable Go workspace so the test can run in isolation
+	newEnv = append(newEnv, "GOWORK=off")
 	cmd.Env = newEnv
 
-	output, _ := cmd.CombinedOutput()
+	output, err := cmd.CombinedOutput()
 	out := string(output)
 
-	// The test should skip (not fail) when cargo is not available
+	// The test should skip (not fail) when cargo is not available.
+	// Look for skip indicators in the output.
 	if strings.Contains(out, "SKIP") || strings.Contains(out, "skip") {
-		// Good — tests skip gracefully
+		// Good — tests skip gracefully when the toolchain is missing
 		return
 	}
-	// If cargo is genuinely not on the restricted PATH and the test still
-	// passed (not skipped), that's also acceptable — it may mean the test
-	// found cargo via another mechanism.
+
+	// If the test command itself failed (exit non-zero) without producing
+	// a skip message, that means it failed rather than skipping — which
+	// violates the requirement.
+	if err != nil {
+		t.Errorf("expected test to SKIP when cargo is absent, but it failed instead.\noutput:\n%s", out)
+		return
+	}
+
+	// If the test passed (exit 0) without skipping, cargo may have been
+	// found via another mechanism (e.g., rustup shim in /usr/bin). That
+	// is acceptable — the important thing is it did not fail.
 }
 
 // TS-01-E11: make proto fails when protoc missing
