@@ -3,6 +3,8 @@ package setup_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -62,11 +64,22 @@ func TestMockSensorsBinaryTargets(t *testing.T) {
 		"door-sensor",
 	}
 
+	// Parse [[bin]] sections: split on "[[bin]]" and verify each expected
+	// binary name appears as a name = "..." value within a [[bin]] block.
+	binSections := strings.Split(content, "[[bin]]")
+	// First element is content before the first [[bin]], skip it.
+	if len(binSections) <= 1 {
+		t.Fatalf("mock-sensors Cargo.toml contains no [[bin]] sections")
+	}
+	actualBinSections := binSections[1:] // sections after each [[bin]] header
+
 	for _, bin := range binaries {
 		t.Run(bin, func(t *testing.T) {
-			// Check that the binary name appears in a [[bin]] section
-			if !strings.Contains(content, bin) {
-				t.Errorf("mock-sensors Cargo.toml does not declare binary target %q", bin)
+			// Look for name = "bin-name" within a [[bin]] section
+			namePattern := `name\s*=\s*"` + regexp.QuoteMeta(bin) + `"`
+			re := regexp.MustCompile(namePattern)
+			if !slices.ContainsFunc(actualBinSections, re.MatchString) {
+				t.Errorf("mock-sensors Cargo.toml does not declare [[bin]] target with name = %q", bin)
 			}
 		})
 	}
