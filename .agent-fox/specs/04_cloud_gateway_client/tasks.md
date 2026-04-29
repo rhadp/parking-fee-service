@@ -29,41 +29,41 @@ by integration tests and final wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit tests for `config` module
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit tests for `config` module
     - Create `tests/test_config.rs` (or inline module) with tests for env var parsing and defaults
     - _Test Spec: TS-04-1, TS-04-2, TS-04-E1_
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.E1_
 
-  - [ ] 1.2 Create unit tests for `command_validator` bearer token validation
+  - [x] 1.2 Create unit tests for `command_validator` bearer token validation
     - Tests for valid token, missing header, wrong token, malformed header
     - _Test Spec: TS-04-3, TS-04-E2, TS-04-E3, TS-04-E4_
     - _Requirements: 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.E1, 04-REQ-5.E2_
 
-  - [ ] 1.3 Create unit tests for `command_validator` payload validation
+  - [x] 1.3 Create unit tests for `command_validator` payload validation
     - Tests for valid lock/unlock, invalid JSON, missing fields, invalid action, door passthrough
     - _Test Spec: TS-04-4, TS-04-5, TS-04-6, TS-04-E5, TS-04-E6, TS-04-E7, TS-04-E8, TS-04-E9, TS-04-E10_
     - _Requirements: 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.4, 04-REQ-6.E1, 04-REQ-6.E2, 04-REQ-6.E3_
 
-  - [ ] 1.4 Create unit tests for `telemetry` state aggregation
+  - [x] 1.4 Create unit tests for `telemetry` state aggregation
     - Tests for first update, field omission, all-fields inclusion
     - _Test Spec: TS-04-7, TS-04-8, TS-04-9_
     - _Requirements: 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3_
 
-  - [ ] 1.5 Create unit test for registration message format and edge cases
+  - [x] 1.5 Create unit test for registration message format and edge cases
     - Test serialization format, NATS retry exhaustion, DATA_BROKER failure, invalid response JSON
     - _Test Spec: TS-04-10, TS-04-E11, TS-04-E12, TS-04-E13_
     - _Requirements: 04-REQ-4.1, 04-REQ-2.E1, 04-REQ-3.E1, 04-REQ-7.E1_
 
-  - [ ] 1.6 Create property tests
+  - [x] 1.6 Create property tests
     - Property tests for authentication integrity, command validity, passthrough fidelity, response relay, telemetry completeness, startup determinism
     - _Test Spec: TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5, TS-04-P6_
     - _Requirements: 04-REQ-5.1, 04-REQ-6.1, 04-REQ-6.3, 04-REQ-7.1, 04-REQ-8.1, 04-REQ-9.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
 
 - [ ] 2. Implement config and data models
   - [ ] 2.1 Implement `Config` struct and `Config::from_env()` in `src/config.rs`

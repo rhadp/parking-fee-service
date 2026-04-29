@@ -12,6 +12,6 @@ fn main() {
 mod tests {
     #[test]
     fn it_compiles() {
-        assert!(true);
+        // Placeholder: verifies the binary crate compiles.
     }
 }
