@@ -874,6 +874,71 @@ resp = grpc_client.get_status()
 ASSERT resp.active == false
 ```
 
+### TS-08-E13: SIGTERM During In-Flight REST Call
+
+**Requirement:** 08-REQ-8.E1
+**Type:** integration
+**Description:** Verify the service waits for in-flight REST call to complete before exiting on SIGTERM.
+
+**Preconditions:**
+- Service running.
+- Mock PARKING_OPERATOR configured with delayed response.
+
+**Input:**
+- Trigger session start (REST call in-flight with 2s delay).
+- Send SIGTERM during the REST call.
+
+**Expected:**
+- Service waits for REST call to complete (or timeout).
+- Service exits with code 0 after REST call completes.
+
+**Assertion pseudocode:**
+```
+mock_operator.configure_delay(start_endpoint, 2000ms)
+trigger_start_session_async()
+wait(500ms)  // ensure REST call is in-flight
+send_signal(proc, SIGTERM)
+exit_code = wait_for_exit(proc, timeout=5s)
+ASSERT exit_code == 0
+ASSERT mock_operator.start_call_completed == true
+```
+
+### TS-08-E14: Concurrent Lock Event and Manual StopSession
+
+**Requirement:** 08-REQ-9.E1
+**Type:** unit
+**Description:** Verify lock event and manual StopSession are processed sequentially.
+
+**Preconditions:**
+- Active session.
+
+**Input:**
+- Concurrent: lock event (IsLocked=true) + manual StopSession gRPC call.
+
+**Expected:**
+- Both operations processed sequentially in arrival order.
+- Final state depends on which operation processed last.
+- No race conditions or state corruption.
+
+**Assertion pseudocode:**
+```
+session.start("sess-1", "zone-a", now(), rate)
+
+// Simulate concurrent arrivals
+lock_event = create_lock_event(is_locked=true)
+stop_call = create_grpc_stop_call()
+
+// Submit both concurrently
+results = process_concurrently([lock_event, stop_call])
+
+// Verify sequential processing (no parallel mutations)
+ASSERT results.all_completed_without_error()
+// State should be consistent (either active or inactive, not corrupted)
+ASSERT session.is_active() == true OR session.is_active() == false
+// Verify no operator was called with invalid state
+ASSERT mock_operator.call_log_is_valid()
+```
+
 ## Property Test Cases
 
 ### TS-08-P1: Session State Consistency
@@ -1189,10 +1254,10 @@ ASSERT grpc_client.get_status().active == false
 | 08-REQ-8.1 | TS-08-20 | integration |
 | 08-REQ-8.2 | TS-08-20 | integration |
 | 08-REQ-8.3 | TS-08-21 | integration |
-| 08-REQ-8.E1 | TS-08-21 | integration |
+| 08-REQ-8.E1 | TS-08-E13 | integration |
 | 08-REQ-9.1 | TS-08-P6 | property |
 | 08-REQ-9.2 | TS-08-P6 | property |
-| 08-REQ-9.E1 | TS-08-P6 | property |
+| 08-REQ-9.E1 | TS-08-E14 | unit |
 | Property 1 | TS-08-P1 | property |
 | Property 2 | TS-08-P2 | property |
 | Property 3 | TS-08-P3 | property |

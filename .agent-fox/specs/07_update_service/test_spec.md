@@ -889,6 +889,34 @@ adapter = state_mgr.get_adapter(adapter_id)
 ASSERT adapter.state == Error
 ```
 
+### TS-07-E17: Shutdown Force-Terminates After Timeout
+
+**Requirement:** 07-REQ-10.E1
+**Type:** integration
+**Description:** If in-flight RPCs do not complete within 10 seconds of receiving a shutdown signal, the service force-terminates and exits with code 0.
+
+**Preconditions:**
+- Service is running with a long-running RPC in flight.
+
+**Input:**
+- Send SIGTERM while an RPC is blocked for >10 seconds.
+
+**Expected:**
+- Service exits with code 0 after 10 seconds.
+
+**Assertion pseudocode:**
+```
+proc = startService()
+startLongRunningRPC()  // blocks for 15+ seconds
+proc.Signal(SIGTERM)
+start_time = now()
+exitCode = proc.Wait()
+elapsed = now() - start_time
+ASSERT exitCode == 0
+ASSERT elapsed >= 10s
+ASSERT elapsed < 12s  // force-terminated, not waiting full 15s
+```
+
 ## Property Test Cases
 
 ### TS-07-P1: Adapter ID Determinism
@@ -1102,7 +1130,7 @@ FOR ANY timeout_secs IN 2..5:
 | 07-REQ-9.E1 | TS-07-E16 | unit |
 | 07-REQ-10.1 | TS-07-17 | integration |
 | 07-REQ-10.2 | TS-07-18 | integration |
-| 07-REQ-10.E1 | TS-07-18 | integration |
+| 07-REQ-10.E1 | TS-07-E17 | integration |
 | Property 1 | TS-07-P1 | property |
 | Property 2 | TS-07-P2 | property |
 | Property 3 | TS-07-P3 | property |

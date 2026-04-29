@@ -761,6 +761,74 @@ ASSERT proc.exit_code == 1
 ASSERT "500" IN proc.stderr
 ```
 
+### TS-09-E13: Parking App CLI Missing Required Flags
+
+**Requirement:** 09-REQ-4.E1
+**Type:** unit
+**Description:** parking-app-cli exits 1 when required flags are missing for lookup or adapter-info subcommands.
+
+**Preconditions:**
+- None.
+
+**Input:**
+- `parking-app-cli lookup --lat=48.13` (missing --lon)
+
+**Expected:**
+- Exit code 1. Stderr contains usage error.
+
+**Assertion pseudocode:**
+```
+proc = exec("parking-app-cli", "lookup", "--lat=48.13")
+ASSERT proc.exit_code == 1
+ASSERT proc.stderr.len() > 0
+```
+
+### TS-09-E14: Parking App CLI Lifecycle Missing Flags
+
+**Requirement:** 09-REQ-5.E1
+**Type:** unit
+**Description:** parking-app-cli exits 1 when required flags are missing for lifecycle subcommands.
+
+**Preconditions:**
+- None.
+
+**Input:**
+- `parking-app-cli install --image-ref=registry/adapter:v1` (missing --checksum)
+
+**Expected:**
+- Exit code 1. Stderr contains usage error.
+
+**Assertion pseudocode:**
+```
+proc = exec("parking-app-cli", "install", "--image-ref=registry/adapter:v1")
+ASSERT proc.exit_code == 1
+ASSERT proc.stderr.len() > 0
+```
+
+### TS-09-E15: Companion App CLI CLOUD_GATEWAY Non-2xx
+
+**Requirement:** 09-REQ-7.E3
+**Type:** unit
+**Description:** companion-app-cli exits 1 when CLOUD_GATEWAY returns a non-2xx response.
+
+**Preconditions:**
+- Mock HTTP server returning 500.
+
+**Input:**
+- `companion-app-cli lock --vin=VIN001 --token=test-token`
+
+**Expected:**
+- Exit code 1. Stderr contains HTTP status and body.
+
+**Assertion pseudocode:**
+```
+mock_cg = startMockHTTPServer(status=500, body="internal error")
+proc = exec("companion-app-cli", "lock", "--vin=VIN001", "--token=test-token",
+            "--gateway-addr=" + mock_cg.addr)
+ASSERT proc.exit_code == 1
+ASSERT "500" IN proc.stderr
+```
+
 ## Property Test Cases
 
 ### TS-09-P1: Sensor Publish-and-Exit
@@ -966,7 +1034,7 @@ ASSERT proc_status.exit_code == 0
 | 09-REQ-4.1 | TS-09-5 | integration |
 | 09-REQ-4.2 | TS-09-6 | integration |
 | 09-REQ-4.3 | TS-09-5 | integration |
-| 09-REQ-4.E1 | TS-09-E1 | unit |
+| 09-REQ-4.E1 | TS-09-E13 | unit |
 | 09-REQ-4.E2 | TS-09-E11 | unit |
 | 09-REQ-5.1 | TS-09-7 | integration |
 | 09-REQ-5.2 | TS-09-8 | integration |
@@ -974,7 +1042,7 @@ ASSERT proc_status.exit_code == 0
 | 09-REQ-5.4 | TS-09-18 | integration |
 | 09-REQ-5.5 | TS-09-19 | integration |
 | 09-REQ-5.6 | TS-09-7 | integration |
-| 09-REQ-5.E1 | TS-09-E10 | unit |
+| 09-REQ-5.E1 | TS-09-E14 | unit |
 | 09-REQ-5.E2 | TS-09-E10 | unit |
 | 09-REQ-6.1 | TS-09-9 | integration |
 | 09-REQ-6.2 | TS-09-10 | integration |
@@ -987,7 +1055,7 @@ ASSERT proc_status.exit_code == 0
 | 09-REQ-7.5 | TS-09-11 | integration |
 | 09-REQ-7.E1 | TS-09-E6 | unit |
 | 09-REQ-7.E2 | TS-09-E5 | unit |
-| 09-REQ-7.E3 | TS-09-E11 | unit |
+| 09-REQ-7.E3 | TS-09-E15 | unit |
 | 09-REQ-8.1 | TS-09-17 | integration |
 | 09-REQ-8.2 | TS-09-14 | unit |
 | 09-REQ-8.3 | TS-09-15 | unit |

@@ -615,6 +615,56 @@ response2 = process_command(&mock, unlock_cmd, &mut lock_state).await
 ASSERT parse_json(response2)["status"] == "success"
 ```
 
+### TS-03-E11: Empty Command ID
+
+**Requirement:** 03-REQ-2.E3
+**Type:** unit
+**Description:** Verify that an empty command_id field is rejected with reason "invalid_command".
+
+**Preconditions:**
+- None.
+
+**Input:**
+- JSON: `{"command_id":"","action":"lock","doors":["driver"]}`
+
+**Expected:**
+- Validation fails with reason "invalid_command".
+
+**Assertion pseudocode:**
+```
+cmd = parse_command(json).unwrap()
+result = validate_command(cmd)
+ASSERT result.is_err()
+ASSERT result.unwrap_err().reason() == "invalid_command"
+```
+
+### TS-03-E12: SIGTERM During Command Processing
+
+**Requirement:** 03-REQ-6.E1
+**Type:** integration
+**Description:** Verify that SIGTERM received during command processing allows the current command to complete before exiting.
+
+**Preconditions:**
+- DATA_BROKER and LOCKING_SERVICE running.
+
+**Input:**
+- Start processing a lock command (inject delay if needed for test timing).
+- Send SIGTERM to the LOCKING_SERVICE process.
+
+**Expected:**
+- Response for the in-flight command is published to Vehicle.Command.Door.Response.
+- Service exits with code 0.
+
+**Assertion pseudocode:**
+```
+start_locking_service()
+grpc_set("Vehicle.Command.Door.Lock", lock_json)
+send_signal(locking_service_pid, SIGTERM)
+response = grpc_get("Vehicle.Command.Door.Response", timeout=5s)
+ASSERT response != nil
+ASSERT exit_code == 0
+```
+
 ## Property Test Cases
 
 ### TS-03-P1: Command Validation Completeness
@@ -839,7 +889,7 @@ ASSERT grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked").value == false
 | 03-REQ-2.4 | TS-03-2 | unit |
 | 03-REQ-2.E1 | TS-03-E3 | unit |
 | 03-REQ-2.E2 | TS-03-E4 | unit |
-| 03-REQ-2.E3 | TS-03-4 | unit |
+| 03-REQ-2.E3 | TS-03-E11 | unit |
 | 03-REQ-3.1 | TS-03-7 | unit |
 | 03-REQ-3.2 | TS-03-8 | unit |
 | 03-REQ-3.3 | TS-03-9 | unit |
@@ -857,7 +907,7 @@ ASSERT grpc_get("Vehicle.Cabin.Door.Row1.DriverSide.IsLocked").value == false
 | 03-REQ-5.E1 | TS-03-E10 | unit |
 | 03-REQ-6.1 | (verified via integration test process exit code) | integration |
 | 03-REQ-6.2 | TS-03-1 (startup log) | integration |
-| 03-REQ-6.E1 | (verified via graceful shutdown in integration tests) | integration |
+| 03-REQ-6.E1 | TS-03-E12 | integration |
 | 03-REQ-7.1 | TS-03-3 | unit |
 | 03-REQ-7.2 | TS-03-3 | unit |
 | Property 1 | TS-03-P1 | property |

@@ -360,6 +360,143 @@ This test specification defines the integration, property, edge case, and smoke 
   assert resp.status == OK
   ```
 
+### TS-02-E5: Image not available fallback
+
+- **Requirement:** 02-REQ-1.E1
+- **Type:** Edge case
+- **Description:** Verify that podman compose fails with a clear error when the pinned image is not available.
+- **Preconditions:** Pinned image not in local cache and not available in remote registry.
+- **Input:** `podman compose up databroker` with unavailable image.
+- **Expected:** Command fails with image-pull error; no fallback to another version.
+- **Assertion pseudocode:**
+  ```
+  podman_remove_image("kuksa-databroker:0.6")
+  exit_code = podman_compose_up("databroker")
+  assert exit_code != 0
+  logs = podman_logs_stderr()
+  assert "image" in logs.lower() or "pull" in logs.lower()
+  ```
+
+### TS-02-E6: Port conflict
+
+- **Requirement:** 02-REQ-2.E1
+- **Type:** Edge case
+- **Description:** Verify that podman compose fails when host port 55556 is already in use.
+- **Preconditions:** Another process is listening on port 55556.
+- **Input:** `podman compose up databroker` with port already bound.
+- **Expected:** Command fails with port-conflict error.
+- **Assertion pseudocode:**
+  ```
+  start_dummy_listener(55556)
+  exit_code = podman_compose_up("databroker")
+  assert exit_code != 0
+  logs = podman_logs_stderr()
+  assert "port" in logs.lower() or "bind" in logs.lower()
+  stop_dummy_listener()
+  ```
+
+### TS-02-E7: UDS socket creation on first run
+
+- **Requirement:** 02-REQ-3.E1
+- **Type:** Edge case
+- **Description:** Verify that the DATA_BROKER creates the UDS socket file automatically on first run.
+- **Preconditions:** UDS socket file does not exist; first startup.
+- **Input:** Start DATA_BROKER with no pre-existing socket file.
+- **Expected:** DATA_BROKER starts successfully; socket file is created automatically.
+- **Assertion pseudocode:**
+  ```
+  ensure_uds_socket_absent("/tmp/kuksa-databroker.sock")
+  podman_compose_up("databroker")
+  assert file_exists("/tmp/kuksa-databroker.sock")
+  conn = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  assert conn.status == OK
+  ```
+
+### TS-02-E8: Stale UDS socket replacement
+
+- **Requirement:** 02-REQ-3.E2
+- **Type:** Edge case
+- **Description:** Verify that the DATA_BROKER replaces a stale UDS socket file from a previous run.
+- **Preconditions:** Stale socket file exists from a previous run.
+- **Input:** Start DATA_BROKER with pre-existing stale socket.
+- **Expected:** DATA_BROKER replaces the socket and accepts new connections.
+- **Assertion pseudocode:**
+  ```
+  create_stale_socket("/tmp/kuksa-databroker.sock")
+  podman_compose_up("databroker")
+  conn = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  assert conn.status == OK
+  ```
+
+### TS-02-E9: One listener fails to bind
+
+- **Requirement:** 02-REQ-4.E1
+- **Type:** Edge case
+- **Description:** Verify that the DATA_BROKER exits with error if one listener fails to bind.
+- **Preconditions:** One of the listener endpoints is unavailable (e.g., port conflict).
+- **Input:** Start DATA_BROKER with port 55555 already bound inside container namespace.
+- **Expected:** DATA_BROKER logs the binding error and exits with non-zero status.
+- **Assertion pseudocode:**
+  ```
+  block_container_port(55555)
+  exit_code = podman_compose_up("databroker")
+  assert exit_code != 0
+  logs = podman_logs("databroker")
+  assert "error" in logs.lower() or "bind" in logs.lower()
+  unblock_container_port(55555)
+  ```
+
+### TS-02-E10: Missing standard signal
+
+- **Requirement:** 02-REQ-5.E1
+- **Type:** Edge case
+- **Description:** Verify that integration tests fail and report missing standard signals.
+- **Preconditions:** Standard VSS signal missing from Kuksa built-in tree.
+- **Input:** Query metadata for a standard signal that is absent.
+- **Expected:** Test fails and reports the missing signal by name.
+- **Assertion pseudocode:**
+  ```
+  resp = conn.GetMetadata("Vehicle.Speed")
+  if resp.status == NOT_FOUND:
+    test_fail_with_message("Missing standard signal: Vehicle.Speed")
+  ```
+
+### TS-02-E11: UDS socket disconnection
+
+- **Requirement:** 02-REQ-9.E1
+- **Type:** Edge case
+- **Description:** Verify that a client receives UNAVAILABLE error when UDS socket is disconnected mid-operation.
+- **Preconditions:** UDS connection established and active.
+- **Input:** Kill the DATA_BROKER container during an active UDS operation.
+- **Expected:** Client receives gRPC UNAVAILABLE error.
+- **Assertion pseudocode:**
+  ```
+  uds = grpc.Dial("unix:///tmp/kuksa-databroker.sock")
+  podman_kill("databroker")
+  resp = uds.Get("Vehicle.Speed")
+  assert resp.status == UNAVAILABLE
+  ```
+
+### TS-02-E12: Subscriber reconnect
+
+- **Requirement:** 02-REQ-10.E1
+- **Type:** Edge case
+- **Description:** Verify that a subscriber can reconnect and receive subsequent updates after disconnect.
+- **Preconditions:** DATA_BROKER running; subscriber disconnects and reconnects.
+- **Input:** Subscribe, disconnect, reconnect, subscribe again, then set signal.
+- **Expected:** Re-subscribed client receives the current value and subsequent updates.
+- **Assertion pseudocode:**
+  ```
+  conn1 = grpc.Dial("localhost:55556")
+  stream1 = conn1.Subscribe("Vehicle.Parking.SessionActive")
+  conn1.Close()
+  conn2 = grpc.Dial("localhost:55556")
+  stream2 = conn2.Subscribe("Vehicle.Parking.SessionActive")
+  conn2.Set("Vehicle.Parking.SessionActive", true)
+  update = stream2.Recv(timeout=5s)
+  assert update.value == true
+  ```
+
 ## Integration Smoke Tests
 
 ### TS-02-SMOKE-1: Databroker health check
@@ -410,19 +547,19 @@ This test specification defines the integration, property, edge case, and smoke 
 |------------|-----------------|----------------|-----------------|-------------|
 | 02-REQ-1.1 | TS-02-3 | | | TS-02-SMOKE-1 |
 | 02-REQ-1.2 | TS-02-3 | | | TS-02-SMOKE-1 |
-| 02-REQ-1.E1 | | | | |
+| 02-REQ-1.E1 | | | TS-02-E5 | |
 | 02-REQ-2.1 | TS-02-1 | | | TS-02-SMOKE-1 |
 | 02-REQ-2.2 | TS-02-1 | | | TS-02-SMOKE-1 |
-| 02-REQ-2.E1 | | | | |
+| 02-REQ-2.E1 | | | TS-02-E6 | |
 | 02-REQ-3.1 | TS-02-2 | | | |
 | 02-REQ-3.2 | TS-02-2 | | | |
-| 02-REQ-3.E1 | | | | |
-| 02-REQ-3.E2 | | | | |
+| 02-REQ-3.E1 | | | TS-02-E7 | |
+| 02-REQ-3.E2 | | | TS-02-E8 | |
 | 02-REQ-4.1 | TS-02-8, TS-02-9, TS-02-11 | TS-02-P3 | | |
-| 02-REQ-4.E1 | | | | |
+| 02-REQ-4.E1 | | | TS-02-E9 | |
 | 02-REQ-5.1 | TS-02-4 | TS-02-P1 | | TS-02-SMOKE-2 |
 | 02-REQ-5.2 | TS-02-4 | TS-02-P1 | | TS-02-SMOKE-2 |
-| 02-REQ-5.E1 | | | | |
+| 02-REQ-5.E1 | | | TS-02-E10 | |
 | 02-REQ-6.1 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
 | 02-REQ-6.2 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
 | 02-REQ-6.3 | TS-02-5 | TS-02-P1 | | TS-02-SMOKE-2 |
@@ -436,6 +573,6 @@ This test specification defines the integration, property, edge case, and smoke 
 | 02-REQ-8.E1 | | | TS-02-E1 | |
 | 02-REQ-9.1 | TS-02-7 | TS-02-P2, TS-02-P3 | | |
 | 02-REQ-9.2 | TS-02-8, TS-02-9 | TS-02-P3 | | |
-| 02-REQ-9.E1 | | | | |
+| 02-REQ-9.E1 | | | TS-02-E11 | |
 | 02-REQ-10.1 | TS-02-10, TS-02-11 | TS-02-P4 | | |
-| 02-REQ-10.E1 | | | | |
+| 02-REQ-10.E1 | | | TS-02-E12 | |

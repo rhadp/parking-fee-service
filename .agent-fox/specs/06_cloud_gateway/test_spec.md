@@ -643,6 +643,49 @@ ASSERT resp2.StatusCode == 403
 ASSERT json.Decode(resp2.Body).error != ""
 ```
 
+### TS-06-E10: NATS Runtime Reconnection
+
+**Requirement:** 06-REQ-5.E2
+**Type:** integration
+**Description:** When the NATS connection is lost at runtime, the nats.go client automatically reconnects.
+
+**Preconditions:**
+- Service is running and connected to NATS.
+- NATS server can be stopped and restarted during the test.
+
+**Input:**
+- Establish connection and verify commands flow.
+- Stop NATS server.
+- Restart NATS server.
+- Submit a command.
+
+**Expected:**
+- After NATS server restarts, the client automatically reconnects.
+- Commands submitted after reconnection succeed (HTTP 202).
+
+**Assertion pseudocode:**
+```
+// Verify initial connection
+resp1 = httptest.POST("/vehicles/VIN12345/commands",
+    header("Authorization", "Bearer demo-token-001"),
+    body({"command_id":"reconnect-001","type":"lock","doors":["driver"]}))
+ASSERT resp1.StatusCode == 202
+
+// Stop NATS server
+nats_server.Stop()
+time.Sleep(1 * time.Second)
+
+// Restart NATS server
+nats_server.Start()
+time.Sleep(2 * time.Second)  // allow reconnection
+
+// Verify commands work after reconnection
+resp2 = httptest.POST("/vehicles/VIN12345/commands",
+    header("Authorization", "Bearer demo-token-001"),
+    body({"command_id":"reconnect-002","type":"unlock","doors":["driver"]}))
+ASSERT resp2.StatusCode == 202
+```
+
 ## Property Test Cases
 
 ### TS-06-P1: Token-VIN Isolation
@@ -878,7 +921,7 @@ ASSERT result.status == "timeout"
 | 06-REQ-5.2 | TS-06-6 | integration |
 | 06-REQ-5.3 | TS-06-7 | integration |
 | 06-REQ-5.E1 | TS-06-E6 | unit |
-| 06-REQ-5.E2 | — (nats.go built-in) | — |
+| 06-REQ-5.E2 | TS-06-E10 | integration |
 | 06-REQ-6.1 | TS-06-11 | unit |
 | 06-REQ-6.2 | TS-06-11, TS-06-12 | unit |
 | 06-REQ-6.3 | TS-06-3 | unit |
