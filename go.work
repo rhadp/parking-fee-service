@@ -1,0 +1,9 @@
+go 1.24.0
+
+use (
+	gen
+	mock/companion-app-cli
+	mock/parking-app-cli
+	mock/parking-operator
+	tests/mock-apps
+)
