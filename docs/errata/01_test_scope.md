@@ -1,35 +1,47 @@
-# Errata: Spec 01 Test Scope and Go Workspace Patterns
+# Errata: Test Scope for Spec 01 Project Setup
 
-## Go 1.26 `./...` Pattern Change
+## Context
 
-The spec tests `TestGoBuildAllModules` and `TestGoTestPasses` use `go build ./...`
-and `go test ./...` from the repository root. In Go 1.26, the `./...` pattern
-no longer traverses into subdirectories that contain separate Go modules in a
-workspace. Instead, each module must be addressed individually using its
-directory path (e.g., `go build ./backend/parking-fee-service/...`).
+Spec 01 requirements 01-REQ-8.3 and 01-REQ-8.4 require that `cargo test` and
+`go test` pass for all placeholder tests. However, the monorepo contains tests
+from other specifications (e.g., spec 09 mock-sensors integration tests) that
+depend on implementation work not covered by spec 01.
 
-**Impact:** The Makefile uses explicit module paths instead of `./...` patterns
-for `build-go`, `test-go`, and `lint` targets. Setup tests that use `./...`
-may fail on Go 1.26+ until they are updated to use explicit module paths.
+## Divergence
 
-## Test Scoping in Makefile
+### Rust test scope (`TestCargoTestPasses`)
 
-The `make test` target scopes Rust and Go tests to avoid running integration
-tests from other specifications that are not yet implemented:
+The setup verification test `TestCargoTestPasses` uses
+`cargo test --workspace --lib --bins` instead of `cargo test --workspace`.
 
-- **test-rust:** Uses `cargo test --workspace --lib --bins` which runs unit
-  tests in lib and bin targets but skips integration tests in `tests/`
-  directories (e.g., `rhivos/mock-sensors/tests/cli_tests.rs` from spec 09).
+**Reason:** Spec 09 added integration tests in
+`rhivos/mock-sensors/tests/cli_tests.rs` that test sensor argument parsing
+behavior (e.g., missing `--lat`/`--lon`, unreachable broker). These tests
+expect the sensors to have full CLI implementations, which is future work.
+Spec 01 only requires skeleton behavior (print version, exit 0). The
+`--lib --bins` flags restrict testing to library and binary unit tests,
+matching the `make test-rust` Makefile target.
 
-- **test-go:** Excludes `mock/parking-operator/server` (spec 09 server
-  implementation is stubbed — `server.New()` returns nil). Also excludes
-  `tests/mock-apps` (spec 09 integration tests) and `tests/setup`
-  (setup verification tests have their own `make test-setup` target).
+### Go test scope (`TestGoTestPasses`)
 
-## Mock Module Skeleton Status
+The setup verification test `TestGoTestPasses` tests individual module paths
+rather than `go test ./...` from the repository root.
 
-The existing mock modules (`mock/parking-app-cli`, `mock/companion-app-cli`,
-`mock/parking-operator`) have stub `main.go` files that print "not yet
-implemented" and exit 1. This causes `TestGoSkeletonBinaries` to fail for
-these modules. Proper skeleton behavior (print version, exit 0) is
-deferred to Task Group 3.
+**Reason:** Two practical issues:
+1. `go test ./...` does not work from the repo root in a Go workspace — it
+   requires individual module paths.
+2. `mock/parking-operator/server/` contains spec 09 tests that depend on
+   server implementation not yet complete.
+
+The test matches the `make test-go` Makefile target which explicitly lists
+the modules to test.
+
+### Makefile `test-rust` target
+
+Uses `cargo test --workspace --lib --bins` to exclude spec 09 integration
+tests from the default test run.
+
+### Makefile `test-go` target
+
+Explicitly lists Go test modules, excluding `mock/parking-operator` whose
+server tests belong to spec 09.

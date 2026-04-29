@@ -1,4 +1,3 @@
-// Stub: parking-app-cli binary will be implemented in task group 4.
 package main
 
 import (
@@ -7,6 +6,10 @@ import (
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "parking-app-cli not yet implemented")
-	os.Exit(1)
+	if len(os.Args) > 1 {
+		fmt.Fprintf(os.Stderr, "Error: unknown argument '%s'\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Usage: %s\n", os.Args[0])
+		os.Exit(1)
+	}
+	fmt.Println("parking-app-cli v0.1.0")
 }

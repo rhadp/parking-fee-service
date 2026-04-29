@@ -1,5 +1,9 @@
-// Stub: speed-sensor binary will be implemented in task group 2.
 fn main() {
-    eprintln!("speed-sensor not yet implemented");
-    std::process::exit(1);
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        eprintln!("Usage: {}", args[0]);
+        eprintln!("Error: unknown argument '{}'", args[1]);
+        std::process::exit(1);
+    }
+    println!("speed-sensor v0.1.0");
 }

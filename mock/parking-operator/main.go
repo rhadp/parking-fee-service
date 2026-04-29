@@ -1,4 +1,3 @@
-// Stub: parking-operator binary will be implemented in task group 3.
 package main
 
 import (
@@ -7,6 +6,10 @@ import (
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "parking-operator not yet implemented")
-	os.Exit(1)
+	if len(os.Args) > 1 {
+		fmt.Fprintf(os.Stderr, "Error: unknown argument '%s'\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Usage: %s\n", os.Args[0])
+		os.Exit(1)
+	}
+	fmt.Println("parking-operator v0.1.0")
 }

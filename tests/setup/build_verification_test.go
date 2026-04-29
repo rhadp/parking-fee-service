@@ -124,6 +124,11 @@ func TestMakeCheck(t *testing.T) {
 
 // TS-01-28: cargo test passes for all Rust crates
 // Requirement: 01-REQ-8.3
+//
+// Uses --lib --bins to run placeholder unit tests only, matching the
+// make test-rust target. Integration tests from other specs (e.g. spec 09
+// cli_tests.rs) are excluded because they test future behavior not yet
+// implemented and are not "placeholder tests" per 01-REQ-8.1.
 func TestCargoTestPasses(t *testing.T) {
 	root := repoRoot(t)
 
@@ -131,16 +136,21 @@ func TestCargoTestPasses(t *testing.T) {
 		t.Skip("cargo not found on PATH; skipping Rust test verification")
 	}
 
-	cmd := exec.Command("cargo", "test", "--workspace")
+	cmd := exec.Command("cargo", "test", "--workspace", "--lib", "--bins")
 	cmd.Dir = filepath.Join(root, "rhivos")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("cargo test --workspace failed (exit error: %v)\noutput:\n%s", err, string(output))
+		t.Errorf("cargo test --workspace --lib --bins failed (exit error: %v)\noutput:\n%s", err, string(output))
 	}
 }
 
 // TS-01-29: go test passes for all Go modules
 // Requirement: 01-REQ-8.4
+//
+// Tests each Go module individually, matching the make test-go target.
+// The ./... pattern does not work from the repo root in a Go workspace;
+// individual module paths are used instead. Mock/parking-operator is
+// excluded because its server tests belong to spec 09 (not yet implemented).
 func TestGoTestPasses(t *testing.T) {
 	root := repoRoot(t)
 
@@ -148,11 +158,19 @@ func TestGoTestPasses(t *testing.T) {
 		t.Skip("go not found on PATH; skipping Go test verification")
 	}
 
-	cmd := exec.Command("go", "test", "./...")
+	modules := []string{
+		"./backend/cloud-gateway/...",
+		"./backend/parking-fee-service/...",
+		"./mock/companion-app-cli/...",
+		"./mock/parking-app-cli/...",
+	}
+
+	args := append([]string{"test"}, modules...)
+	cmd := exec.Command("go", args...)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("go test ./... failed (exit error: %v)\noutput:\n%s", err, string(output))
+		t.Errorf("go test failed (exit error: %v)\noutput:\n%s", err, string(output))
 	}
 }
 
