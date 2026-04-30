@@ -11,6 +11,7 @@ quality_gate = "make check"
 max_budget_usd = 10.0
 session_timeout = 45
 max_retries = 3
+sync_interval = 10
 
 [models]
 ## Model tier for coding tasks (default: "ADVANCED")

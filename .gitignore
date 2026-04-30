@@ -13,6 +13,7 @@ prompts.md
 **/*.rs.bk
 Cargo.lock
 **/proptest-regressions/
+*.proptest-regressions
 
 # Go build artifacts
 **/bin/
