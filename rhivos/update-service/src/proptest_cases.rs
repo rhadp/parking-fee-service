@@ -45,6 +45,31 @@ proptest! {
         prop_assert!(!id1.is_empty(), "adapter ID must not be empty");
     }
 
+    // TS-07-P1 (uniqueness): Adapter ID Uniqueness
+    // Property 1 from design.md — Validates 07-REQ-1.6
+    // Different last-segment:tag combinations SHALL produce different IDs.
+    #[test]
+    #[ignore]
+    fn proptest_adapter_id_uniqueness(
+        name1 in "[a-z][a-z0-9-]{0,15}",
+        tag1 in "[a-z0-9][a-z0-9.-]{0,10}",
+        name2 in "[a-z][a-z0-9-]{0,15}",
+        tag2 in "[a-z0-9][a-z0-9.-]{0,10}",
+    ) {
+        let seg1 = format!("{name1}:{tag1}");
+        let seg2 = format!("{name2}:{tag2}");
+        prop_assume!(seg1 != seg2, "skip when last segments are identical");
+        let ref1 = format!("registry.example.com/{name1}:{tag1}");
+        let ref2 = format!("registry.example.com/{name2}:{tag2}");
+        let id1 = derive_adapter_id(&ref1);
+        let id2 = derive_adapter_id(&ref2);
+        let msg = format!(
+            "different name:tag should produce different IDs: {} vs {}",
+            seg1, seg2
+        );
+        prop_assert_ne!(id1, id2, "{}", msg);
+    }
+
     // TS-07-P2: Single Adapter Invariant
     // Property 2 from design.md — Validates 07-REQ-2.1, 07-REQ-2.2
     // At most one adapter is in RUNNING state at any time.

@@ -43,6 +43,14 @@ pub mod testing {
     ///
     /// Uses `Mutex` for interior mutability so it is `Send + Sync` and
     /// compatible with multi-threaded tokio tests.
+    ///
+    /// **wait() behaviour:** By default, `wait()` blocks indefinitely
+    /// (never returns) so that the container monitor does not interfere
+    /// with install-flow assertions. Call `set_wait_immediate(true)` to
+    /// make `wait()` return its configured result without blocking —
+    /// use this in tests that directly exercise `monitor_container`.
+    /// Call `complete_wait()` to release a single blocked `wait()` call
+    /// when you want to test the monitor transition after install.
     pub struct MockPodmanExecutor {
         pull_result: Mutex<Option<Result<(), PodmanError>>>,
         inspect_result: Mutex<Option<Result<String, PodmanError>>>,
@@ -60,6 +68,11 @@ pub mod testing {
         wait_calls: Mutex<Vec<String>>,
         // Per-adapter stop results for multi-adapter tests.
         stop_results_by_id: Mutex<std::collections::HashMap<String, Result<(), PodmanError>>>,
+        /// When true, wait() returns immediately with configured result.
+        /// When false (default), wait() blocks until complete_wait() is called.
+        wait_immediate: Mutex<bool>,
+        /// Notify used to release blocked wait() calls.
+        wait_notify: tokio::sync::Notify,
     }
 
     impl MockPodmanExecutor {
@@ -80,6 +93,8 @@ pub mod testing {
                 rmi_calls: Mutex::new(Vec::new()),
                 wait_calls: Mutex::new(Vec::new()),
                 stop_results_by_id: Mutex::new(std::collections::HashMap::new()),
+                wait_immediate: Mutex::new(false),
+                wait_notify: tokio::sync::Notify::new(),
             }
         }
 
@@ -109,6 +124,19 @@ pub mod testing {
 
         pub fn set_wait_result(&self, result: Result<i32, PodmanError>) {
             *self.wait_result.lock().unwrap() = Some(result);
+        }
+
+        /// Configure wait() to return immediately without blocking.
+        /// Use this in tests that directly exercise monitor_container.
+        pub fn set_wait_immediate(&self, immediate: bool) {
+            *self.wait_immediate.lock().unwrap() = immediate;
+        }
+
+        /// Release all currently blocked wait() calls so they return
+        /// their configured result. Use this to simulate container exit
+        /// after the install flow has settled.
+        pub fn complete_wait(&self) {
+            self.wait_notify.notify_waiters();
         }
 
         pub fn set_stop_result_for(&self, adapter_id: &str, result: Result<(), PodmanError>) {
@@ -238,6 +266,12 @@ pub mod testing {
                 .lock()
                 .unwrap()
                 .push(adapter_id.to_string());
+            // Block until the test signals completion, unless immediate
+            // mode is enabled (used by direct monitor_container tests).
+            let immediate = *self.wait_immediate.lock().unwrap();
+            if !immediate {
+                self.wait_notify.notified().await;
+            }
             self.wait_result
                 .lock()
                 .unwrap()

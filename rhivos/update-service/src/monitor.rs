@@ -48,6 +48,8 @@ mod tests {
         let state_mgr = Arc::new(StateManager::new(tx));
         let mock_podman = Arc::new(MockPodmanExecutor::new());
         mock_podman.set_wait_result(Ok(1)); // non-zero exit
+        // Direct monitor tests need wait to return immediately.
+        mock_podman.set_wait_immediate(true);
 
         setup_running_adapter("exit-err-v1", &state_mgr);
 
@@ -72,6 +74,8 @@ mod tests {
         let state_mgr = Arc::new(StateManager::new(tx));
         let mock_podman = Arc::new(MockPodmanExecutor::new());
         mock_podman.set_wait_result(Ok(0)); // clean exit
+        // Direct monitor tests need wait to return immediately.
+        mock_podman.set_wait_immediate(true);
 
         setup_running_adapter("exit-ok-v1", &state_mgr);
 
@@ -96,6 +100,8 @@ mod tests {
         let state_mgr = Arc::new(StateManager::new(tx));
         let mock_podman = Arc::new(MockPodmanExecutor::new());
         mock_podman.set_wait_result(Err(crate::podman::PodmanError::new("connection lost")));
+        // Direct monitor tests need wait to return immediately.
+        mock_podman.set_wait_immediate(true);
 
         setup_running_adapter("wait-fail-v1", &state_mgr);
 

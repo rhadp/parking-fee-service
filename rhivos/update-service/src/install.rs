@@ -33,6 +33,36 @@ impl std::fmt::Display for InstallError {
 
 impl std::error::Error for InstallError {}
 
+/// Error returned from remove_adapter.
+#[derive(Debug)]
+pub enum RemoveError {
+    /// The adapter was not found in state.
+    NotFound(String),
+    /// A podman operation failed during removal.
+    PodmanFailed(String),
+}
+
+impl std::fmt::Display for RemoveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RemoveError::NotFound(msg) => write!(f, "not found: {msg}"),
+            RemoveError::PodmanFailed(msg) => write!(f, "podman failed: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for RemoveError {}
+
+/// Removes an adapter: stops container (if running), removes container
+/// and image, and removes from in-memory state.
+pub async fn remove_adapter(
+    _adapter_id: &str,
+    _state_mgr: Arc<StateManager>,
+    _podman: Arc<dyn PodmanExecutor>,
+) -> Result<(), RemoveError> {
+    todo!("remove_adapter not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,12 +172,9 @@ mod tests {
         mock_podman.set_pull_result(Ok(()));
         mock_podman.set_inspect_result(Ok(CHECKSUM.to_string()));
         mock_podman.set_run_result(Ok(()));
-        // Wait returns immediately so monitor runs, but default is Ok(0).
-        // For this test we want to assert RUNNING before container exits.
-        // We'll set wait to not resolve quickly — use an error so monitor
-        // doesn't change state during the assertion window.
-        // Actually, the simplest: the mock wait blocks by default.
-        // The test just needs to check state after install settles.
+        // Mock wait() blocks by default (never returns), so the container
+        // monitor will not transition the adapter out of RUNNING during
+        // the assertion window.
 
         install_adapter(IMAGE_REF, CHECKSUM, state_mgr.clone(), mock_podman.clone())
             .await
@@ -368,32 +395,85 @@ mod tests {
         assert_eq!(adapter_b.state, AdapterState::Running);
     }
 
-    // TS-07-E11: Podman Removal Failure Returns INTERNAL
-    // Requirement: 07-REQ-5.E2
-    // This tests at the install/state layer — the gRPC mapping to INTERNAL
-    // is verified in the gRPC service tests (task group 5).
+    // TS-07-12: RemoveAdapter Cleans Up Container and Image
+    // Requirements: 07-REQ-5.1, 07-REQ-5.2
+    // Full-stack removal test that verifies podman operations AND state
+    // removal. The state.rs test_remove_adapter covers only the state layer.
     #[tokio::test]
-    async fn test_removal_failure_internal() {
+    async fn test_remove_adapter_full() {
         let (state_mgr, mock_podman) = setup();
-        mock_podman.set_rm_result(Err(crate::podman::PodmanError::new("container in use")));
+        mock_podman.set_stop_result(Ok(()));
+        mock_podman.set_rm_result(Ok(()));
+        mock_podman.set_rmi_result(Ok(()));
 
-        // Manually create a STOPPED adapter to test removal logic.
+        // Create a RUNNING adapter to test removal.
         let entry = crate::adapter::AdapterEntry {
-            adapter_id: "rm-fail-v1".to_string(),
-            image_ref: "example.com/rm-fail:v1".to_string(),
-            checksum_sha256: "sha256:test".to_string(),
-            state: AdapterState::Stopped,
+            adapter_id: ADAPTER_ID.to_string(),
+            image_ref: IMAGE_REF.to_string(),
+            checksum_sha256: CHECKSUM.to_string(),
+            state: AdapterState::Running,
             job_id: "job-1".to_string(),
             stopped_at: None,
             error_message: None,
         };
         state_mgr.create_adapter(entry);
 
-        // Attempt podman rm — it fails.
-        let rm_result = mock_podman.rm("rm-fail-v1").await;
-        assert!(rm_result.is_err());
-        // The gRPC layer would transition to ERROR and return INTERNAL.
-        // Here we just verify the mock records the call.
-        assert!(mock_podman.rm_calls().contains(&"rm-fail-v1".to_string()));
+        remove_adapter(ADAPTER_ID, state_mgr.clone(), mock_podman.clone())
+            .await
+            .expect("remove should succeed");
+
+        // Podman should have been called: stop, rm, rmi.
+        assert!(
+            mock_podman.stop_calls().contains(&ADAPTER_ID.to_string()),
+            "podman stop should have been called"
+        );
+        assert!(
+            mock_podman.rm_calls().contains(&ADAPTER_ID.to_string()),
+            "podman rm should have been called"
+        );
+        assert!(
+            mock_podman.rmi_calls().contains(&IMAGE_REF.to_string()),
+            "podman rmi should have been called"
+        );
+        // Adapter should be removed from state.
+        assert!(
+            state_mgr.get_adapter(ADAPTER_ID).is_none(),
+            "adapter should be removed from state"
+        );
+    }
+
+    // TS-07-E11: Podman Removal Failure Returns INTERNAL
+    // Requirement: 07-REQ-5.E2
+    // Exercises the remove_adapter orchestration function — the gRPC
+    // mapping to INTERNAL status is verified in gRPC service tests
+    // (task group 5).
+    #[tokio::test]
+    async fn test_removal_failure_internal() {
+        let (state_mgr, mock_podman) = setup();
+        mock_podman.set_stop_result(Ok(()));
+        mock_podman.set_rm_result(Err(crate::podman::PodmanError::new("container in use")));
+
+        // Create a RUNNING adapter to test removal failure.
+        let entry = crate::adapter::AdapterEntry {
+            adapter_id: "rm-fail-v1".to_string(),
+            image_ref: "example.com/rm-fail:v1".to_string(),
+            checksum_sha256: "sha256:test".to_string(),
+            state: AdapterState::Running,
+            job_id: "job-1".to_string(),
+            stopped_at: None,
+            error_message: None,
+        };
+        state_mgr.create_adapter(entry);
+
+        // Remove should fail because podman rm returns an error.
+        let result =
+            remove_adapter("rm-fail-v1", state_mgr.clone(), mock_podman.clone()).await;
+        assert!(result.is_err(), "remove should fail when podman rm fails");
+
+        // Adapter should be in ERROR state (not removed from state).
+        let adapter = state_mgr
+            .get_adapter("rm-fail-v1")
+            .expect("adapter should still exist");
+        assert_eq!(adapter.state, AdapterState::Error);
     }
 }
