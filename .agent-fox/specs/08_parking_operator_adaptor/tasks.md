@@ -193,9 +193,9 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [x] All requirements 08-REQ-1 through 08-REQ-9 acceptance criteria met
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return vec![]`, `return None`,
@@ -205,25 +205,26 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All `TS-08-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-08-SMOKE-1, TS-08-SMOKE-2, TS-08-SMOKE-3_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return vec![]`, `return None`
       on non-Optional returns, empty method bodies, `// TODO`,
       `// stub`, `unimplemented!()`, `todo!()`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - No stubs found — all source files are clean
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - For each execution path whose entry point is owned by another spec
       (e.g., parking-app-cli calling StartSession/StopSession RPCs, or
       DATA_BROKER publishing IsLocked events that trigger this service's
@@ -231,14 +232,16 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
       called from production code -- not just from tests
     - If the upstream caller does not exist, either implement it within this
       spec or file an issue and remove the path from design.md
+    - Verified: parking-app-cli (mock/parking-app-cli/main.go) calls StartSession/StopSession RPCs
+    - Verified: locking-service (rhivos/locking-service/src/process.rs) publishes IsLocked events
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor && cd tests/parking-operator-adaptor && go test -v ./...`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor && cd tests/parking-operator-adaptor && go test -v ./...`
 
 ### Checkbox States
 
