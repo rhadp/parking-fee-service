@@ -204,9 +204,9 @@ The ordering ensures tests are written first (TDD), then implementation makes th
     - [x] No linter warnings: `cd rhivos/locking-service && cargo clippy -- -D warnings`
     - [x] All previously passing tests still pass: `make test`
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return vec![]`, `return None`,
@@ -216,17 +216,17 @@ The ordering ensures tests are written first (TDD), then implementation makes th
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-03-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-03-SMOKE-1, TS-03-SMOKE-2, TS-03-SMOKE-3_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return vec![]`, `return None`
       on non-Optional returns, empty method bodies, `// TODO`,
       `// stub`, `unimplemented!()`, `todo!()`
@@ -234,7 +234,7 @@ The ordering ensures tests are written first (TDD), then implementation makes th
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - For each execution path whose entry point is owned by another spec
       (e.g., CLOUD_GATEWAY_CLIENT writing Vehicle.Command.Door.Lock which
       triggers this service's subscription), grep the codebase to confirm the
@@ -243,12 +243,12 @@ The ordering ensures tests are written first (TDD), then implementation makes th
       spec or file an issue and remove the path from design.md
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `make test`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `make test`
 
 ### Checkbox States
 
