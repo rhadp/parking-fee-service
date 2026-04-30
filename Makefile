@@ -8,11 +8,10 @@ GO_BUILD_MODULES = \
 	./mock/parking-app-cli/... \
 	./mock/parking-operator/...
 
-# Go modules to test (excludes modules with failing stub tests from
-# other specs: backend/parking-fee-service
-# (spec 05 tests in root package require full service implementation))
+# Go modules to test
 GO_TEST_MODULES = \
-	./backend/cloud-gateway/... \
+	./backend/cloud-gateway \
+	./backend/parking-fee-service/... \
 	./mock/companion-app-cli/... \
 	./mock/parking-app-cli/... \
 	./mock/parking-operator/... \
