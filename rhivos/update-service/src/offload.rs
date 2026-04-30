@@ -7,22 +7,63 @@ use crate::state::StateManager;
 /// Runs one offload check cycle: finds STOPPED adapters past the timeout
 /// and offloads them (rm container + rmi image, then remove from state).
 pub async fn run_offload_cycle(
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
-    _inactivity_timeout: Duration,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
+    inactivity_timeout: Duration,
 ) {
-    todo!("run_offload_cycle not yet implemented")
+    let candidates = state_mgr.get_offload_candidates(inactivity_timeout);
+    for adapter in candidates {
+        // Transition to OFFLOADING.
+        let _ = state_mgr.transition(
+            &adapter.adapter_id,
+            crate::adapter::AdapterState::Offloading,
+            None,
+        );
+
+        // Remove the container.
+        if let Err(e) = podman.rm(&adapter.adapter_id).await {
+            let _ = state_mgr.transition(
+                &adapter.adapter_id,
+                crate::adapter::AdapterState::Error,
+                Some(e.message),
+            );
+            continue;
+        }
+
+        // Remove the image.
+        if let Err(e) = podman.rmi(&adapter.image_ref).await {
+            let _ = state_mgr.transition(
+                &adapter.adapter_id,
+                crate::adapter::AdapterState::Error,
+                Some(e.message),
+            );
+            continue;
+        }
+
+        // Remove from in-memory state entirely.
+        let _ = state_mgr.remove_adapter(&adapter.adapter_id);
+    }
 }
 
 /// Spawns the background offload timer that periodically checks for
 /// STOPPED adapters past the inactivity timeout.
 pub fn spawn_offload_timer(
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
-    _inactivity_timeout: Duration,
-    _check_interval: Duration,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
+    inactivity_timeout: Duration,
+    check_interval: Duration,
 ) -> tokio::task::JoinHandle<()> {
-    todo!("spawn_offload_timer not yet implemented")
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(check_interval).await;
+            run_offload_cycle(
+                state_mgr.clone(),
+                podman.clone(),
+                inactivity_timeout,
+            )
+            .await;
+        }
+    })
 }
 
 #[cfg(test)]

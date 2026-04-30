@@ -113,7 +113,12 @@ pub async fn install_adapter(
         // Transition to RUNNING.
         let _ = sm.transition(&aid, AdapterState::Running, None);
 
-        // Container monitor will be spawned here in task group 4.
+        // Spawn the container monitor to detect container exit.
+        tokio::spawn(crate::monitor::monitor_container(
+            aid,
+            sm,
+            pm,
+        ));
     });
 
     Ok((job_id, adapter_id, AdapterState::Downloading))

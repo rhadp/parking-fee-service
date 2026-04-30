@@ -10,11 +10,36 @@ use crate::state::StateManager;
 /// - Exit code non-zero → ERROR
 /// - Wait failure → ERROR
 pub async fn monitor_container(
-    _adapter_id: String,
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
+    adapter_id: String,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
 ) {
-    todo!("monitor_container not yet implemented")
+    match podman.wait(&adapter_id).await {
+        Ok(0) => {
+            // Clean exit: transition to STOPPED.
+            let _ = state_mgr.transition(
+                &adapter_id,
+                crate::adapter::AdapterState::Stopped,
+                None,
+            );
+        }
+        Ok(code) => {
+            // Non-zero exit: transition to ERROR.
+            let _ = state_mgr.transition(
+                &adapter_id,
+                crate::adapter::AdapterState::Error,
+                Some(format!("container exited with code {code}")),
+            );
+        }
+        Err(e) => {
+            // Wait failure: transition to ERROR.
+            let _ = state_mgr.transition(
+                &adapter_id,
+                crate::adapter::AdapterState::Error,
+                Some(e.message),
+            );
+        }
+    }
 }
 
 #[cfg(test)]
