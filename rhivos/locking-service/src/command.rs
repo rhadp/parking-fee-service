@@ -58,16 +58,32 @@ impl std::error::Error for CommandError {}
 ///
 /// Returns `InvalidJson` if the string is not valid JSON.
 /// Returns `InvalidCommand` if required fields are missing or have wrong types.
-pub fn parse_command(_json: &str) -> Result<LockCommand, CommandError> {
-    todo!("parse_command not yet implemented")
+pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
+    serde_json::from_str(json).map_err(|e| {
+        if e.is_syntax() || e.is_eof() {
+            CommandError::InvalidJson(e.to_string())
+        } else {
+            CommandError::InvalidCommand(e.to_string())
+        }
+    })
 }
 
 /// Validate a parsed `LockCommand`.
 ///
 /// Returns `InvalidCommand` if `command_id` is empty.
 /// Returns `UnsupportedDoor` if `doors` contains any value other than "driver".
-pub fn validate_command(_cmd: &LockCommand) -> Result<(), CommandError> {
-    todo!("validate_command not yet implemented")
+pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
+    if cmd.command_id.is_empty() {
+        return Err(CommandError::InvalidCommand(
+            "command_id is empty".to_string(),
+        ));
+    }
+    for door in &cmd.doors {
+        if door != "driver" {
+            return Err(CommandError::UnsupportedDoor(door.clone()));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

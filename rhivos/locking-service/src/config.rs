@@ -6,11 +6,8 @@ const DEFAULT_DATABROKER_ADDR: &str = "http://localhost:55556";
 /// Reads from `DATABROKER_ADDR` environment variable. Falls back to
 /// `http://localhost:55556` if not set.
 pub fn get_databroker_addr() -> String {
-    todo!("get_databroker_addr not yet implemented")
+    std::env::var("DATABROKER_ADDR").unwrap_or_else(|_| DEFAULT_DATABROKER_ADDR.to_string())
 }
-
-// Suppress unused constant warning until implementation.
-const _: &str = DEFAULT_DATABROKER_ADDR;
 
 #[cfg(test)]
 mod tests {

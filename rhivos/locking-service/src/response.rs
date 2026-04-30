@@ -14,16 +14,34 @@ pub struct CommandResponse {
 ///
 /// The response contains command_id, status "success", and a Unix timestamp.
 /// No reason field is included.
-pub fn success_response(_command_id: &str) -> String {
-    todo!("success_response not yet implemented")
+pub fn success_response(command_id: &str) -> String {
+    let response = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "success".to_string(),
+        reason: None,
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64,
+    };
+    serde_json::to_string(&response).unwrap()
 }
 
 /// Build a failure response JSON string.
 ///
 /// The response contains command_id, status "failed", the given reason, and
 /// a Unix timestamp.
-pub fn failure_response(_command_id: &str, _reason: &str) -> String {
-    todo!("failure_response not yet implemented")
+pub fn failure_response(command_id: &str, reason: &str) -> String {
+    let response = CommandResponse {
+        command_id: command_id.to_string(),
+        status: "failed".to_string(),
+        reason: Some(reason.to_string()),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64,
+    };
+    serde_json::to_string(&response).unwrap()
 }
 
 #[cfg(test)]

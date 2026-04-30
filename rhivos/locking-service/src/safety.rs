@@ -20,8 +20,28 @@ pub enum SafetyResult {
 ///
 /// Unset speed is treated as 0.0 (safe). Unset door state is treated as
 /// closed (safe).
-pub async fn check_safety<B: BrokerClient>(_broker: &B) -> SafetyResult {
-    todo!("check_safety not yet implemented")
+pub async fn check_safety<B: BrokerClient>(broker: &B) -> SafetyResult {
+    let speed = broker
+        .get_float(crate::broker::SIGNAL_SPEED)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0.0);
+
+    if speed >= 1.0 {
+        return SafetyResult::VehicleMoving;
+    }
+
+    let door_open = broker
+        .get_bool(crate::broker::SIGNAL_DOOR_OPEN)
+        .await
+        .unwrap_or(None)
+        .unwrap_or(false);
+
+    if door_open {
+        return SafetyResult::DoorOpen;
+    }
+
+    SafetyResult::Safe
 }
 
 #[cfg(test)]
