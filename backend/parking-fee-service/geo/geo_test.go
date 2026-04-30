@@ -1,7 +1,6 @@
 package geo
 
 import (
-	"math"
 	"math/rand"
 	"testing"
 
@@ -215,19 +214,4 @@ func TestPropertyProximityMatching(t *testing.T) {
 			}
 		})
 	}
-}
-
-// haversineDist is an independent reference implementation for test verification.
-// It uses the standard Haversine formula to compute distance in meters.
-func haversineDist(a, b model.Coordinate) float64 {
-	const earthRadius = 6371000.0 // meters
-	lat1 := a.Lat * math.Pi / 180
-	lat2 := b.Lat * math.Pi / 180
-	dLat := (b.Lat - a.Lat) * math.Pi / 180
-	dLon := (b.Lon - a.Lon) * math.Pi / 180
-
-	h := math.Sin(dLat/2)*math.Sin(dLat/2) +
-		math.Cos(lat1)*math.Cos(lat2)*math.Sin(dLon/2)*math.Sin(dLon/2)
-	c := 2 * math.Atan2(math.Sqrt(h), math.Sqrt(1-h))
-	return earthRadius * c
 }

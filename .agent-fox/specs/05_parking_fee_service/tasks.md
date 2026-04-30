@@ -174,9 +174,9 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
     - [x] No linter warnings: `cd backend && go vet ./parking-fee-service/...`
     - [x] _Test Spec: TS-05-1, TS-05-5, TS-05-6, TS-05-7, TS-05-8, TS-05-12, TS-05-13, TS-05-14, TS-05-15, TS-05-16, TS-05-E1, TS-05-E2, TS-05-E3, TS-05-E4, TS-05-P4_
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return nil`, `// TODO`,
@@ -185,39 +185,45 @@ Ordering: tests first, then data types, then pure-function modules (geo, config,
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-05-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-05-SMOKE-1, TS-05-SMOKE-2, TS-05-SMOKE-3_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return nil` on non-error
       returns, empty function bodies, `// TODO`, `// stub`,
       `panic("not implemented")`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - `store.GetZone` / `store.GetOperator` `return nil, false`: justified — these are not-found error paths returning nil pointer + false bool
+    - `config.LoadConfig` `return nil, err`: justified — error propagation for invalid JSON
+    - `TestCompiles` empty body: justified — compilation verification placeholder from task group 1
+    - `store.GetZone` unused in production: justified — exported public API per design spec Module Interfaces, available for future callers
+    - Removed dead `haversineDist` reference implementation from geo_test.go (unused test helper)
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - For each execution path whose entry point is owned by another spec
       (e.g., parking-app-cli calling GET /operators from this service), grep
       the codebase to confirm the entry point is actually called from
       production code -- not just from tests
     - If the upstream caller does not exist, either implement it within this
       spec or file an issue and remove the path from design.md
+    - Verified: `mock/parking-app-cli/main.go` calls `GET /operators?lat=&lon=` (runLookup) and `GET /operators/{id}/adapter` (runAdapterInfo) from production code
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `cd backend && go test -v ./parking-fee-service/...`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `cd backend && go test -v ./parking-fee-service/...`
 
 ### Checkbox States
 
