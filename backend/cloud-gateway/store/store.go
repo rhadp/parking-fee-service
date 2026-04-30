@@ -26,18 +26,43 @@ func NewStore() *Store {
 
 // StoreResponse saves a command response and cancels any pending timeout timer.
 func (s *Store) StoreResponse(resp model.CommandResponse) {
-	// TODO: implement
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.responses[resp.CommandID] = resp
+	if timer, ok := s.timers[resp.CommandID]; ok {
+		timer.Stop()
+		delete(s.timers, resp.CommandID)
+	}
 }
 
 // GetResponse retrieves a command response by command ID.
 // Returns the response and true if found, or nil and false otherwise.
 func (s *Store) GetResponse(commandID string) (*model.CommandResponse, bool) {
-	// TODO: implement
-	return nil, false
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	resp, ok := s.responses[commandID]
+	if !ok {
+		return nil, false
+	}
+	return &resp, true
 }
 
 // StartTimeout starts a timer that stores a timeout response after the
 // given duration if no real response has been received.
 func (s *Store) StartTimeout(commandID string, duration time.Duration) {
-	// TODO: implement
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	timer := time.AfterFunc(duration, func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		// Only store timeout if no real response has arrived
+		if _, ok := s.responses[commandID]; !ok {
+			s.responses[commandID] = model.CommandResponse{
+				CommandID: commandID,
+				Status:    "timeout",
+			}
+		}
+		delete(s.timers, commandID)
+	})
+	s.timers[commandID] = timer
 }
