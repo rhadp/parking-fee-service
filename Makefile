@@ -12,7 +12,7 @@ GO_BUILD_MODULES = \
 # other specs: backend/parking-fee-service
 # (spec 05 tests in root package require full service implementation))
 GO_TEST_MODULES = \
-	./backend/cloud-gateway \
+	./backend/cloud-gateway/... \
 	./mock/companion-app-cli/... \
 	./mock/parking-app-cli/... \
 	./mock/parking-operator/... \
