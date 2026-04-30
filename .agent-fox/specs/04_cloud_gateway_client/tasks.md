@@ -86,23 +86,23 @@ by integration tests and final wiring verification.
     - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
     - [x] Requirements 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.E1 acceptance criteria met
 
-- [ ] 3. Implement command validation
-  - [ ] 3.1 Implement `validate_bearer_token()` in `src/command_validator.rs`
+- [x] 3. Implement command validation
+  - [x] 3.1 Implement `validate_bearer_token()` in `src/command_validator.rs`
     - Extract Authorization header, verify `Bearer <token>` format, compare against configured token
     - Return `AuthError::MissingHeader` or `AuthError::InvalidToken` on failure
     - _Requirements: 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.E1, 04-REQ-5.E2_
 
-  - [ ] 3.2 Implement `validate_command_payload()` in `src/command_validator.rs`
+  - [x] 3.2 Implement `validate_command_payload()` in `src/command_validator.rs`
     - Parse JSON, validate required fields (command_id, action, doors)
     - Reject empty command_id, invalid action values
     - Do NOT validate door values
     - _Requirements: 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.3, 04-REQ-6.4, 04-REQ-6.E1, 04-REQ-6.E2, 04-REQ-6.E3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- test_command_validator`
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] Requirements 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.E1, 04-REQ-5.E2, 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.E1, 04-REQ-6.E2, 04-REQ-6.E3 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- test_command_validator`
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] Requirements 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.E1, 04-REQ-5.E2, 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.E1, 04-REQ-6.E2, 04-REQ-6.E3 acceptance criteria met
 
 - [x] 4. Implement telemetry state
   - [x] 4.1 Implement `TelemetryState::new()` and `TelemetryState::update()` in `src/telemetry.rs`
@@ -147,7 +147,7 @@ by integration tests and final wiring verification.
     - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
     - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
 
-- [ ] 6. Checkpoint - Pure Logic Complete
+- [x] 6. Checkpoint - Pure Logic Complete
   - Ensure all unit tests and property tests pass.
   - Verify config, command validation, and telemetry modules are complete.
   - All pure-logic components (no I/O) are fully tested.
