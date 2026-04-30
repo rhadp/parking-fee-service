@@ -220,9 +220,9 @@ by integration tests and final wiring verification.
     - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
     - [x] Requirements 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.E1, 04-REQ-4.1, 04-REQ-5.2, 04-REQ-5.E2, 04-REQ-6.3, 04-REQ-7.1, 04-REQ-7.2, 04-REQ-8.1, 04-REQ-8.2 acceptance criteria met
 
-- [ ] 9. Wiring verification
+- [x] 9. Wiring verification
 
-  - [ ] 9.1 Trace every execution path from design.md end-to-end
+  - [x] 9.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -231,25 +231,28 @@ by integration tests and final wiring verification.
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 9.2 Verify return values propagate correctly
+  - [x] 9.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 9.3 Run the integration smoke tests
+  - [x] 9.3 Run the integration smoke tests
     - All `TS-04-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-04-SMOKE-1, TS-04-SMOKE-2, TS-04-SMOKE-3, TS-04-SMOKE-4_
 
-  - [ ] 9.4 Stub / dead-code audit
+  - [x] 9.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return vec![]`, `return None`
       on non-Optional returns, empty method bodies, `// TODO`,
       `// stub`, `unimplemented!()`, `todo!()`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - **Result:** Only `return None` found in `telemetry.rs:57` which is intentional
+      (returns None when TelemetryState detects a duplicate value — `Option<String>` return type).
+      No `todo!()`, `unimplemented!()`, `// TODO`, `// stub`, or empty method bodies found.
 
-  - [ ] 9.5 Cross-spec entry point verification
+  - [x] 9.5 Cross-spec entry point verification
     - For each execution path whose entry point is owned by another spec
       (e.g., CLOUD_GATEWAY calling into this service via NATS), grep the
       codebase to confirm the entry point is actually called from production
@@ -257,13 +260,29 @@ by integration tests and final wiring verification.
     - If the upstream caller does not exist, either implement it within this
       spec or file an issue and remove the path from design.md
     - _Requirements: all_
+    - **Result:** All cross-spec entry points verified:
+      - CLOUD_GATEWAY (spec 06) calls `NATSClient.PublishCommand()` which publishes
+        to `vehicles.{VIN}.commands` — consumed by this service's NATS subscription
+      - CLOUD_GATEWAY subscribes to `vehicles.*.command_responses` and
+        `vehicles.*.telemetry` — published by this service
+      - LOCKING_SERVICE (spec 03) writes to `Vehicle.Command.Door.Response` via
+        `set_string(SIGNAL_RESPONSE, ...)` — consumed by this service's
+        `subscribe_responses()` subscription
+      - LOCKING_SERVICE subscribes to `Vehicle.Command.Door.Lock` via
+        `broker.subscribe(SIGNAL_COMMAND)` — written by this service's `write_command()`
+      - Mock sensors (spec 09) publish `Vehicle.CurrentLocation.Latitude/Longitude` —
+        consumed by this service's `subscribe_telemetry()`
+      - Parking operator adaptor (spec 08) writes `Vehicle.Parking.SessionActive` —
+        consumed by this service's `subscribe_telemetry()`
+      - CLOUD_GATEWAY does NOT subscribe to `vehicles.*.status` (registration subject) —
+        this is by design (fire-and-forget per 04-REQ-4.2)
 
-  - [ ] 9.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client -- --include-ignored`
+  - [x] 9.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client -- --include-ignored`
 
 ## Traceability
 

@@ -10,7 +10,10 @@ use cloud_gateway_client::telemetry::TelemetryState;
 #[tokio::main]
 async fn main() -> ExitCode {
     // 04-REQ-10.1: Initialize tracing subscriber for structured logging.
-    tracing_subscriber::fmt::init();
+    // Write to stderr (the conventional destination for log output).
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
 
     // 04-REQ-9.1: Startup sequence step 1 — read and validate env vars.
     let config = match Config::from_env() {

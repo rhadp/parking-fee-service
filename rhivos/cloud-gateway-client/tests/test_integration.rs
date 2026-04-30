@@ -21,6 +21,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use futures::StreamExt;
+use serial_test::serial;
 use tokio::time::timeout;
 
 /// Default NATS URL for integration tests.
@@ -198,6 +199,7 @@ async fn write_databroker_signal(
 /// to `vehicles.{VIN}.status` on NATS containing the VIN and "online" status.
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn test_self_registration_on_startup() {
     let vin = "INTEG-REG-VIN";
     let nats = connect_nats().await;
@@ -244,6 +246,7 @@ async fn test_self_registration_on_startup() {
 /// to `Vehicle.Command.Door.Lock` in DATA_BROKER.
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn test_e2e_command_flow() {
     let vin = "INTEG-CMD-VIN";
     let nats = connect_nats().await;
@@ -291,6 +294,7 @@ async fn test_e2e_command_flow() {
 /// on NATS.
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn test_e2e_response_relay() {
     use cloud_gateway_client::broker_client::kuksa::val::v2;
 
@@ -350,25 +354,49 @@ async fn test_e2e_response_relay() {
 /// on NATS containing the VIN and `is_locked: true`.
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn test_e2e_telemetry_on_signal_change() {
     use cloud_gateway_client::broker_client::kuksa::val::v2;
 
     let vin = "INTEG-TEL-VIN";
     let nats = connect_nats().await;
 
-    let mut child = start_service(vin, NATS_URL, DATABROKER_ADDR).await;
-
-    // Wait for the service to start and subscribe to telemetry signals.
-    tokio::time::sleep(Duration::from_secs(3)).await;
-
+    // Subscribe to telemetry BEFORE starting the service so we catch
+    // any early telemetry published when the service picks up existing
+    // DATA_BROKER state on startup (avoids race with stale signal values
+    // from other tests).
     let telemetry_subject = format!("vehicles.{vin}.telemetry");
     let mut sub = nats
         .subscribe(telemetry_subject)
         .await
         .expect("Failed to subscribe to telemetry");
 
-    // Update the IsLocked signal in DATA_BROKER.
+    let mut child = start_service(vin, NATS_URL, DATABROKER_ADDR).await;
+
+    // Wait for the service to start and subscribe to telemetry signals.
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // Toggle the value to guarantee a state change even if the signal
+    // was already set from a previous test run. Write false first, then
+    // drain all queued telemetry messages, then write true.
     let mut broker = connect_databroker().await;
+    write_databroker_signal(
+        &mut broker,
+        cloud_gateway_client::broker_client::SIGNAL_IS_LOCKED,
+        v2::value::TypedValue::Bool(false),
+    )
+    .await;
+
+    // Drain ALL queued telemetry messages (from startup state + the false write).
+    loop {
+        match timeout(Duration::from_secs(2), sub.next()).await {
+            Ok(Some(_)) => continue, // keep draining
+            _ => break,              // no more messages
+        }
+    }
+
+    // Now write true — this is guaranteed to be a state change since
+    // we just wrote false and drained all queued messages.
     write_databroker_signal(
         &mut broker,
         cloud_gateway_client::broker_client::SIGNAL_IS_LOCKED,
@@ -409,6 +437,7 @@ async fn test_e2e_telemetry_on_signal_change() {
 /// `Vehicle.Command.Door.Lock` in DATA_BROKER is NOT updated.
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn test_command_rejected_with_invalid_token() {
     let vin = "INTEG-REJ-VIN";
     let nats = connect_nats().await;
@@ -418,13 +447,7 @@ async fn test_command_rejected_with_invalid_token() {
     // Wait for the service to start.
     tokio::time::sleep(Duration::from_secs(3)).await;
 
-    // Read the current value of the command signal (may be empty/None).
     let mut broker = connect_databroker().await;
-    let before = read_databroker_signal(
-        &mut broker,
-        cloud_gateway_client::broker_client::SIGNAL_COMMAND,
-    )
-    .await;
 
     // Also subscribe to command_responses to verify nothing is published.
     let response_subject = format!("vehicles.{vin}.command_responses");
@@ -433,11 +456,13 @@ async fn test_command_rejected_with_invalid_token() {
         .await
         .expect("Failed to subscribe to command_responses");
 
-    // Publish a command with a wrong token.
-    let payload = r#"{"command_id":"cmd-2","action":"lock","doors":["driver"]}"#;
+    // Use a unique command_id so we can verify it was NOT written,
+    // regardless of what other concurrent tests may have written to
+    // the global Vehicle.Command.Door.Lock signal.
+    let payload = r#"{"command_id":"rejected-cmd-invalid-token","action":"lock","doors":["driver"]}"#;
     publish_command(&nats, vin, payload, "wrong-token").await;
 
-    // Wait a bit and check that nothing changed.
+    // Wait a bit and check that the rejected command was NOT written.
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     let after = read_databroker_signal(
@@ -446,9 +471,13 @@ async fn test_command_rejected_with_invalid_token() {
     )
     .await;
 
-    assert_eq!(
-        before, after,
-        "DATA_BROKER command signal should not be updated for invalid token"
+    // The rejected payload must NOT appear in DATA_BROKER.
+    // (The signal may contain a value from another test — that's fine;
+    //  we only need to verify *this* rejected command was not written.)
+    assert_ne!(
+        after.as_deref(),
+        Some(payload),
+        "Rejected command should not be written to DATA_BROKER"
     );
 
     // Verify no response was published.
@@ -475,6 +504,7 @@ async fn test_command_rejected_with_invalid_token() {
 /// with code 1 after retrying with exponential backoff.
 #[tokio::test]
 #[ignore]
+#[serial]
 async fn test_nats_reconnection_backoff_and_exit() {
     let vin = "INTEG-RETRY-VIN";
 
