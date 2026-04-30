@@ -137,11 +137,12 @@ func TestSmokeProtoGenerationAndBuild(t *testing.T) {
 		t.Fatalf("make proto failed: %v\noutput:\n%s", err, string(protoOutput))
 	}
 
-	// Verify generated code compiles
-	buildCmd := exec.Command("go", "build", "./...")
+	// Verify generated code compiles (use gen/... explicitly since
+	// go build ./... does not work from the workspace root with go.work)
+	buildCmd := exec.Command("go", "build", "./gen/...")
 	buildCmd.Dir = root
 	buildOutput, err := buildCmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("go build ./... failed after make proto: %v\noutput:\n%s", err, string(buildOutput))
+		t.Errorf("go build ./gen/... failed after make proto: %v\noutput:\n%s", err, string(buildOutput))
 	}
 }

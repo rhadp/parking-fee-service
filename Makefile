@@ -62,6 +62,7 @@ proto:
 		-I proto \
 		proto/update/update_service.proto \
 		proto/adapter/adapter_service.proto \
+		proto/gateway/gateway.proto \
 		proto/kuksa/val.proto
 
 # Start local infrastructure (NATS + Kuksa Databroker)

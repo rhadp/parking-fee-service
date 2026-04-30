@@ -124,38 +124,38 @@ This task list implements the project setup specification through an incremental
     _Verification step for Task Group 3_
     _Note: cargo test --workspace --lib --bins: 5 unit tests pass. All Go modules pass. make check (lint + test) passes. TestCargoTestPasses and TestGoTestPasses updated to match make test scoping (excludes spec 09 integration tests). All setup skeleton tests pass: TestRustSkeletonBinaries, TestGoSkeletonBinaries, TestMockSensorBinaries, TestSkeletonExitsNonZeroOnUnknownFlag (12 binaries), TestPropertySkeletonDeterminism (12 binaries)._
 
-- [ ] 4. Create proto definitions
+- [x] 4. Create proto definitions
   _Create shared .proto files with full message and service definitions._
 
-  - [ ] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
+  - [x] 4.1 Create `proto/update/update_service.proto` with UPDATE_SERVICE messages and RPC definitions (InstallAdapter, WatchAdapterStates, ListAdapters, RemoveAdapter, GetAdapterStatus)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
-    _Note: Moved from flat proto/update_service.proto to proto/update/update_service.proto. Contains AdapterState enum, all 5 RPC methods with request/response messages, package update_service.v1._
+    _Note: Already existed from TG2. Contains AdapterState enum, all 5 RPC methods with request/response messages, package update_service.v1. Verified by TestProtoFilesValidProto3 and TestProtocParsesAllProtoFiles._
 
-  - [ ] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
+  - [x] 4.2 Create `proto/adapter/adapter_service.proto` with PARKING_OPERATOR_ADAPTOR messages and RPC definitions (StartSession, StopSession, GetStatus, GetRate)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
-    _Note: Moved from flat proto/parking_adaptor.proto to proto/adapter/adapter_service.proto. Updated to match design spec: StartSessionRequest has vehicle_id+zone_id, StopSessionRequest has session_id, uses SessionStatus and ParkingRate message names, package parking_adaptor.v1._
+    _Note: Already existed from TG2. StartSessionRequest has vehicle_id+zone_id, StopSessionRequest has session_id, SessionStatus and ParkingRate messages, package parking_adaptor.v1. Verified by TestProtoFilesValidProto3._
 
-  - [ ] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
+  - [x] 4.3 Create `proto/gateway/gateway.proto` with CLOUD_GATEWAY relay types (VehicleCommand, CommandResponse)
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
-    _Note: New file. VehicleCommand with command_id/action/doors/source/vin/timestamp, CommandResponse with command_id/status/reason/timestamp, CloudGateway service with RelayCommand RPC, package gateway.v1._
+    _Note: Created new file. VehicleCommand with command_id/action/doors/source/vin/timestamp, CommandResponse with command_id/status/reason/timestamp, CloudGateway service with RelayCommand RPC, package gateway.v1. Added to Makefile proto target. Generated Go code in gen/gateway/. Verified by TestProtoFilesValidProto3 and TestPropertyProtoConsistency._
 
-  - [ ] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
+  - [x] 4.4 Create `proto/kuksa/val.proto` with Kuksa Databroker value types
     _Test Spec: TS-01-16_
     _Requirements: 01-REQ-5.1_
-    _Note: New file. Datapoint with oneof value types, DataEntry, View/Field enums, Get/Set/Subscribe RPCs, VAL service, package kuksa.val.v1._
+    _Note: Already existed from TG2. Datapoint with Value oneof, SignalID, Metadata, VAL service with Get/Publish/Subscribe/ListMetadata RPCs, package kuksa.val.v2. Verified by TestProtoFilesValidProto3._
 
-  - [ ] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
+  - [x] 4.5 Ensure all proto files use `syntax = "proto3"`, have `package` declaration and `go_package` option
     _Test Spec: TS-01-16, TS-01-17_
     _Requirements: 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
-    _Note: All 4 proto files verified: syntax="proto3", package declaration, go_package option present._
+    _Note: All 4 proto files verified: syntax="proto3", package declaration, go_package option present. Verified by TestProtoFilesValidProto3, TestProtocParsesAllProtoFiles, and TestPropertyProtoConsistency._
 
-  - [ ] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
+  - [x] 4.V Verify: run `protoc` on all proto files and confirm they parse without errors; run setup tests for proto validation
     _Test Spec: TS-01-17, TS-01-P5_
     _Verification step for Task Group 4_
-    _Note: All 4 proto files parse without errors (protoc exit code 0). Each file has syntax="proto3", package declaration, and go_package option. make check passes. make test-setup passes (all 14 test groups)._
+    _Note: All 4 proto files parse individually and simultaneously (protoc exit code 0). make check passes. make test-setup passes (all tests PASS). Also fixed pre-existing bugs: TestGoBuildAllModules uses explicit module paths (go build ./... broken with go.work), TestSetupTestsRunnable/VerboseOutput avoid infinite recursion, TestMakeProtoGeneratesGoCode/TestSmokeProtoGenerationAndBuild use ./gen/... pattern._
 
 - [ ] 5. Create infrastructure configuration and Makefile
   _Set up Podman Compose, NATS config, VSS overlay, and root Makefile._

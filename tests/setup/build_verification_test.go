@@ -1,6 +1,7 @@
 package setup_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,10 @@ func TestCargoBuildWorkspace(t *testing.T) {
 
 // TS-01-12: Go build succeeds for all modules
 // Requirement: 01-REQ-3.4
+//
+// With a Go workspace (go.work), the ./... pattern does not work from
+// the workspace root because the root itself is not a Go module.
+// Each module must be referenced individually.
 func TestGoBuildAllModules(t *testing.T) {
 	root := repoRoot(t)
 
@@ -33,11 +38,20 @@ func TestGoBuildAllModules(t *testing.T) {
 		t.Skip("go not found on PATH; skipping Go build test")
 	}
 
-	cmd := exec.Command("go", "build", "./...")
+	modules := []string{
+		"./backend/cloud-gateway/...",
+		"./backend/parking-fee-service/...",
+		"./mock/companion-app-cli/...",
+		"./mock/parking-app-cli/...",
+		"./mock/parking-operator/...",
+	}
+
+	args := append([]string{"build"}, modules...)
+	cmd := exec.Command("go", args...)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("go build ./... failed (exit error: %v)\noutput:\n%s", err, string(output))
+		t.Errorf("go build failed (exit error: %v)\noutput:\n%s", err, string(output))
 	}
 }
 
@@ -176,37 +190,74 @@ func TestGoTestPasses(t *testing.T) {
 
 // TS-01-30: Setup verification tests exist and are runnable
 // Requirements: 01-REQ-9.1, 01-REQ-9.2, 01-REQ-9.3
+//
+// Verifies the test-setup infrastructure: (1) the Makefile target exists,
+// (2) the tests/setup module compiles, and (3) a representative subset of
+// non-destructive tests passes when invoked as a subprocess. Running the
+// full suite via `make test-setup` is avoided because it would re-invoke
+// this very test, creating infinite recursion and resource conflicts
+// (shared build directories, file locks).
 func TestSetupTestsRunnable(t *testing.T) {
 	root := repoRoot(t)
 
 	if _, err := exec.LookPath("make"); err != nil {
 		t.Skip("make not found on PATH; skipping")
 	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not found on PATH; skipping")
+	}
 
-	cmd := exec.Command("make", "test-setup")
-	cmd.Dir = root
+	// Verify the Makefile has a test-setup target
+	makefile := readFileContent(t, filepath.Join(root, "Makefile"))
+	if !strings.Contains(makefile, "test-setup:") {
+		t.Error("Makefile does not contain a test-setup target")
+	}
+
+	// Verify the tests/setup module compiles and non-destructive tests pass
+	// by running only structural validation tests (no file injection, no
+	// cargo build, no make build/test/clean invocations). Patterns are
+	// chosen to match directory/config structure tests and avoid any test
+	// that builds code or modifies source files.
+	cmd := exec.Command("go", "test", "-v",
+		"-run", "TestRhivosDirectory|TestBackendDirectory|TestPlaceholderDirectories|TestMockDirectory|TestProtoAndDeploy|TestGoWorkspaceReferences|TestCargoWorkspaceConfiguration|TestMockSensorsBinaryTargets|TestGoModuleFiles|TestMakefileTargets|TestProtoFilesValid|TestProtocParsesAll|TestSetupDirectory|TestComposeDefines|TestNATSConfig|TestVSSOverlay|TestRustCratesHavePlaceholder|TestGoModulesHavePlaceholder",
+		"./...")
+	cmd.Dir = filepath.Join(root, "tests", "setup")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("make test-setup failed (exit error: %v)\noutput:\n%s", err, string(output))
+		t.Errorf("setup tests failed (exit error: %v)\noutput:\n%s", err, string(output))
 	}
 
 	// Verify PASS appears in output
 	if !strings.Contains(string(output), "PASS") {
-		t.Errorf("make test-setup output does not contain PASS:\n%s", string(output))
+		t.Errorf("setup tests output does not contain PASS:\n%s", string(output))
 	}
 }
 
 // TS-01-31: Setup tests report clear pass/fail
 // Requirement: 01-REQ-9.4
+//
+// Runs a subset of setup tests in verbose mode to verify named pass/fail
+// output. Excludes self-referential tests (TestSetupTestsRunnable and
+// TestSetupTestsVerboseOutput) to prevent infinite recursion.
 func TestSetupTestsVerboseOutput(t *testing.T) {
+	if os.Getenv("SETUP_TEST_NO_RECURSE") == "1" {
+		t.Skip("skipping to avoid recursive invocation")
+	}
+
 	root := repoRoot(t)
 
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go not found on PATH; skipping")
 	}
 
-	cmd := exec.Command("go", "test", "-v", "./...")
+	// Run only non-recursive tests to avoid infinite recursion.
+	// The pattern matches structural and build tests but excludes
+	// TestSetupTestsRunnable and TestSetupTestsVerboseOutput.
+	cmd := exec.Command("go", "test", "-v",
+		"-run", "TestRhivos|TestBackend|TestGoWorkspace|TestCargo|TestProto|TestMakefile",
+		"./...")
 	cmd.Dir = filepath.Join(root, "tests", "setup")
+	cmd.Env = append(os.Environ(), "SETUP_TEST_NO_RECURSE=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Logf("go test -v output:\n%s", string(output))
@@ -253,11 +304,12 @@ func TestMakeProtoGeneratesGoCode(t *testing.T) {
 		t.Fatalf("make proto failed (exit error: %v)\noutput:\n%s", err, string(protoOutput))
 	}
 
-	// Verify generated Go code compiles
-	buildCmd := exec.Command("go", "build", "./...")
+	// Verify generated Go code compiles (use gen/... explicitly since
+	// go build ./... does not work from the workspace root with go.work)
+	buildCmd := exec.Command("go", "build", "./gen/...")
 	buildCmd.Dir = root
 	buildOutput, err := buildCmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("go build ./... failed after make proto (exit error: %v)\noutput:\n%s", err, string(buildOutput))
+		t.Errorf("go build ./gen/... failed after make proto (exit error: %v)\noutput:\n%s", err, string(buildOutput))
 	}
 }
