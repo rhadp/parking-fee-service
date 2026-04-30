@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package parking_adaptor.v1;
+
+option go_package = "github.com/rhadp/parking-fee-service/gen/adapter";
+
+// StartSessionRequest initiates a parking session for a vehicle in a zone.
+message StartSessionRequest {
+  string vehicle_id = 1;
+  string zone_id = 2;
+}
+
+// StartSessionResponse returns the created session information.
+message StartSessionResponse {
+  SessionStatus session = 1;
+}
+
+// StopSessionRequest ends an active parking session.
+message StopSessionRequest {
+  string session_id = 1;
+}
+
+// StopSessionResponse returns the final session status after stopping.
+message StopSessionResponse {
+  SessionStatus session = 1;
+}
+
+// GetStatusRequest queries the status of a parking session.
+message GetStatusRequest {
+  string session_id = 1;
+}
+
+// GetStatusResponse returns the current status of a parking session.
+message GetStatusResponse {
+  SessionStatus session = 1;
+}
+
+// GetRateRequest queries the parking rate for an operator.
+message GetRateRequest {
+  string operator_id = 1;
+}
+
+// GetRateResponse returns the parking rate.
+message GetRateResponse {
+  ParkingRate rate = 1;
+}
+
+// SessionStatus describes the state of a parking session.
+message SessionStatus {
+  string session_id = 1;
+  bool active = 2;
+  int64 start_time = 3;
+  string zone_id = 4;
+}
+
+// ParkingRate describes the pricing for a parking operator.
+message ParkingRate {
+  string operator_id = 1;
+  string rate_type = 2;  // "per_hour" or "flat_fee"
+  double amount = 3;
+  string currency = 4;
+}
+
+// ParkingOperatorAdaptorService provides parking session management on
+// the vehicle side, interfacing with the parking operator backend.
+service ParkingOperatorAdaptorService {
+  // StartSession begins a new parking session.
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+
+  // StopSession ends an active parking session.
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+
+  // GetStatus returns the current status of a parking session.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+
+  // GetRate returns the parking rate for an operator.
+  rpc GetRate(GetRateRequest) returns (GetRateResponse);
+}

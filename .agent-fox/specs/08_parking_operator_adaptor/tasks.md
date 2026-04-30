@@ -24,15 +24,15 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add dependencies to parking-operator-adaptor Cargo.toml
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add dependencies to parking-operator-adaptor Cargo.toml
     - Add: serde, serde_json, tokio, tonic, prost, tracing, tracing-subscriber, reqwest, proptest (dev), wiremock (dev)
     - Vendor kuksa.val.v1 proto definitions into `rhivos/parking-operator-adaptor/proto/`
     - Vendor parking_adaptor.proto (from spec 01 group 6) into `rhivos/parking-operator-adaptor/proto/`
     - Add tonic-build to build.rs for proto code generation
     - _Test Spec: TS-08-1 through TS-08-22_
 
-  - [ ] 1.2 Write config and session state unit tests
+  - [x] 1.2 Write config and session state unit tests
     - Create `rhivos/parking-operator-adaptor/src/config.rs` with test module
     - `test_config_defaults` — TS-08-18
     - `test_config_custom_values` — TS-08-19
@@ -45,7 +45,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_get_rate_inactive` — TS-08-7
     - _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
 
-  - [ ] 1.3 Write operator REST client unit tests
+  - [x] 1.3 Write operator REST client unit tests
     - Create `rhivos/parking-operator-adaptor/src/operator.rs` with test module
     - `test_start_session_request` — TS-08-8
     - `test_stop_session_request` — TS-08-9
@@ -55,7 +55,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_retry_on_non_200` — TS-08-E5
     - _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
 
-  - [ ] 1.4 Write event processing and gRPC handler tests
+  - [x] 1.4 Write event processing and gRPC handler tests
     - Create `rhivos/parking-operator-adaptor/src/event_loop.rs` with test module
     - `test_lock_event_starts_session` — TS-08-11
     - `test_unlock_event_stops_session` — TS-08-12
@@ -65,7 +65,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_manual_stop_override` — TS-08-17
     - _Test Spec: TS-08-2, TS-08-3, TS-08-11, TS-08-12, TS-08-13, TS-08-14, TS-08-16, TS-08-17_
 
-  - [ ] 1.5 Write edge case and override tests
+  - [x] 1.5 Write edge case and override tests
     - `test_start_session_already_active` — TS-08-E1
     - `test_stop_session_no_active` — TS-08-E2
     - `test_lock_event_noop_when_active` — TS-08-E6
@@ -74,7 +74,7 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `test_override_resumes_autonomous` — TS-08-E11
     - _Test Spec: TS-08-E1, TS-08-E2, TS-08-E6, TS-08-E7, TS-08-E9, TS-08-E11_
 
-  - [ ] 1.6 Write property tests
+  - [x] 1.6 Write property tests
     - `proptest_session_state_consistency` — TS-08-P1
     - `proptest_idempotent_lock_events` — TS-08-P2
     - `proptest_override_non_persistence` — TS-08-P3
@@ -83,10 +83,10 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `proptest_sequential_event_processing` — TS-08-P6
     - _Test Spec: TS-08-P1 through TS-08-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All test files compile: `cd rhivos && cargo test -p parking-operator-adaptor --no-run`
-    - [ ] All unit tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+  - [x] 1.V Verify task group 1
+    - [x] All test files compile: `cd rhivos && cargo test -p parking-operator-adaptor --no-run`
+    - [x] All unit tests FAIL (red): `cd rhivos && cargo test -p parking-operator-adaptor 2>&1 | grep FAILED`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
 - [ ] 2. Config and session state modules
   - [ ] 2.1 Implement config module
