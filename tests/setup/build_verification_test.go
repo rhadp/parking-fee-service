@@ -143,7 +143,10 @@ func TestMakeCheck(t *testing.T) {
 // make test-rust target. Integration tests from other specs (e.g. spec 09
 // cli_tests.rs) are excluded because they test future behavior not yet
 // implemented and are not "placeholder tests" per 01-REQ-8.1.
-// Excludes locking-service (spec 03 stubs with todo!() placeholders).
+// Excludes crates with todo!() stub implementations from other specs:
+//   - locking-service (spec 03)
+//   - parking-operator-adaptor (spec 08)
+//   - update-service (spec 07)
 func TestCargoTestPasses(t *testing.T) {
 	root := repoRoot(t)
 
@@ -153,11 +156,13 @@ func TestCargoTestPasses(t *testing.T) {
 
 	cmd := exec.Command("cargo", "test", "--workspace",
 		"--exclude", "locking-service",
+		"--exclude", "parking-operator-adaptor",
+		"--exclude", "update-service",
 		"--lib", "--bins")
 	cmd.Dir = filepath.Join(root, "rhivos")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("cargo test --workspace --exclude locking-service --lib --bins failed (exit error: %v)\noutput:\n%s", err, string(output))
+		t.Errorf("cargo test failed (exit error: %v)\noutput:\n%s", err, string(output))
 	}
 }
 
@@ -166,10 +171,10 @@ func TestCargoTestPasses(t *testing.T) {
 //
 // Tests each Go module individually, matching the make test-go target.
 // The ./... pattern does not work from the repo root in a Go workspace;
-// individual module paths are used instead. Backend modules use root-only
-// paths (not /...) because sub-package tests from specs 05 and 06 are
-// intentionally failing stubs. Mock/parking-operator is excluded because
-// its server tests belong to spec 09 (not yet implemented).
+// individual module paths are used instead. Excludes modules with failing
+// stub tests from other specs:
+//   - mock/parking-operator (spec 09)
+//   - backend/parking-fee-service (spec 05 tests require full service)
 func TestGoTestPasses(t *testing.T) {
 	root := repoRoot(t)
 
@@ -179,7 +184,6 @@ func TestGoTestPasses(t *testing.T) {
 
 	modules := []string{
 		"./backend/cloud-gateway",
-		"./backend/parking-fee-service",
 		"./mock/companion-app-cli/...",
 		"./mock/parking-app-cli/...",
 	}

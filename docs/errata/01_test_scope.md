@@ -38,19 +38,31 @@ the modules to test.
 
 ### Makefile `test-rust` target
 
-Uses `cargo test --workspace --exclude locking-service --lib --bins` to
-exclude spec 09 integration tests and spec 03 locking-service stub tests
-from the default test run. The locking-service crate contains `todo!()`
-placeholder implementations from spec 03 task group 1 that intentionally
-panic; these are excluded until the implementation is complete.
+Uses `cargo test --workspace --exclude locking-service --exclude parking-operator-adaptor --exclude update-service --lib --bins`
+to exclude spec 09 integration tests and crates with `todo!()` stub
+implementations from the default test run. The excluded crates are:
+
+- `locking-service` — spec 03 stubs
+- `parking-operator-adaptor` — spec 08 stubs
+- `update-service` — spec 07 stubs
+
+These crates contain `todo!()` placeholder implementations that
+intentionally panic; they are excluded until their respective
+implementations are complete.
 
 ### Makefile `test-go` target
 
-Explicitly lists Go test modules, excluding `mock/parking-operator` whose
-server tests belong to spec 09. Backend modules (`backend/cloud-gateway` and
-`backend/parking-fee-service`) use root-only paths (without `/...`) because
-sub-package tests from specs 05 and 06 are intentionally failing stubs
-awaiting implementation.
+Explicitly lists Go test modules, excluding modules with failing stub
+tests from other specs:
+
+- `mock/parking-operator` — spec 09 server tests
+- `backend/parking-fee-service` — spec 05 root-package tests require
+  full HTTP service implementation (TestStartupLogging,
+  TestGracefulShutdown, TestSmokeEndToEnd, etc.)
+
+`backend/cloud-gateway` uses a root-only path (without `/...`) because
+sub-package tests from spec 06 are intentionally failing stubs awaiting
+implementation.
 
 ### Infrastructure tests gated by `SETUP_TEST_INFRA=1`
 

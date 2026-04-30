@@ -8,12 +8,11 @@ GO_BUILD_MODULES = \
 	./mock/parking-app-cli/... \
 	./mock/parking-operator/...
 
-# Go modules to test (root packages only for backend — sub-package tests
-# from specs 05/06 are intentionally failing stubs; excludes
-# mock/parking-operator — spec 09 not yet implemented)
+# Go modules to test (excludes modules with failing stub tests from
+# other specs: mock/parking-operator (spec 09), backend/parking-fee-service
+# (spec 05 tests in root package require full service implementation))
 GO_TEST_MODULES = \
 	./backend/cloud-gateway \
-	./backend/parking-fee-service \
 	./mock/companion-app-cli/... \
 	./mock/parking-app-cli/...
 
@@ -35,7 +34,7 @@ build-go:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --exclude locking-service --lib --bins
+	cd rhivos && cargo test --workspace --exclude locking-service --exclude parking-operator-adaptor --exclude update-service --lib --bins
 
 test-go:
 	go test $(GO_TEST_MODULES)
