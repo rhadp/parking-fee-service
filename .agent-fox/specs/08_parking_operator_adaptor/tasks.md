@@ -107,25 +107,25 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
     - [x] _Test Spec: TS-08-1, TS-08-4, TS-08-5, TS-08-6, TS-08-7, TS-08-18, TS-08-19, TS-08-22, TS-08-E10_
 
-- [ ] 3. Operator REST client
-  - [ ] 3.1 Implement operator module
+- [x] 3. Operator REST client
+  - [x] 3.1 Implement operator module
     - Define `OperatorClient` with reqwest::Client and base_url
     - Implement `start_session(vehicle_id, zone_id)`: POST /parking/start with JSON body
     - Implement `stop_session(session_id)`: POST /parking/stop with JSON body
     - Parse responses into StartResponse / StopResponse structs
     - _Requirements: 08-REQ-2.1, 08-REQ-2.2, 08-REQ-2.3, 08-REQ-2.4_
 
-  - [ ] 3.2 Implement retry logic
+  - [x] 3.2 Implement retry logic
     - Wrap REST calls with retry: max 3 retries, exponential backoff 1s, 2s, 4s
     - Retry on connection error, timeout, or non-200 status
     - Return OperatorError after all retries exhausted
     - _Requirements: 08-REQ-2.E1, 08-REQ-2.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Operator tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- operator`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
+  - [x] 3.V Verify task group 3
+    - [x] Operator tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- operator`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] _Test Spec: TS-08-8, TS-08-9, TS-08-10, TS-08-E3, TS-08-E4, TS-08-E5_
 
 - [ ] 4. DATA_BROKER client, gRPC server, and event loop
   - [ ] 4.1 Implement broker module

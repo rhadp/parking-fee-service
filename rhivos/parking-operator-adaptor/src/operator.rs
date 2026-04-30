@@ -1,4 +1,15 @@
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// Maximum number of retries after the initial attempt.
+const MAX_RETRIES: usize = 3;
+
+/// Retry delays in milliseconds for exponential backoff.
+/// In test builds, use small values to keep tests fast.
+#[cfg(test)]
+const RETRY_DELAYS_MS: [u64; MAX_RETRIES] = [10, 20, 40];
+#[cfg(not(test))]
+const RETRY_DELAYS_MS: [u64; MAX_RETRIES] = [1000, 2000, 4000];
 
 /// Operator REST start request body.
 #[derive(Debug, Serialize)]
@@ -62,11 +73,18 @@ impl std::fmt::Display for OperatorError {
 
 impl std::error::Error for OperatorError {}
 
+/// Returns the current Unix timestamp in seconds.
+fn unix_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock before UNIX epoch")
+        .as_secs() as i64
+}
+
 /// REST client for the PARKING_OPERATOR backend.
 ///
 /// Sends start/stop requests and implements retry logic with
 /// exponential backoff (1s, 2s, 4s) on failure.
-#[allow(dead_code)]
 pub struct OperatorClient {
     client: reqwest::Client,
     base_url: String,
@@ -88,10 +106,16 @@ impl OperatorClient {
     /// failure or non-200 status.
     pub async fn start_session(
         &self,
-        _vehicle_id: &str,
-        _zone_id: &str,
+        vehicle_id: &str,
+        zone_id: &str,
     ) -> Result<StartResponse, OperatorError> {
-        todo!("OperatorClient::start_session not yet implemented")
+        let url = format!("{}/parking/start", self.base_url);
+        let body = StartRequest {
+            vehicle_id: vehicle_id.to_string(),
+            zone_id: zone_id.to_string(),
+            timestamp: unix_timestamp(),
+        };
+        self.post_with_retry(&url, &body).await
     }
 
     /// Stop a parking session with the operator.
@@ -101,9 +125,66 @@ impl OperatorClient {
     /// failure or non-200 status.
     pub async fn stop_session(
         &self,
-        _session_id: &str,
+        session_id: &str,
     ) -> Result<StopResponse, OperatorError> {
-        todo!("OperatorClient::stop_session not yet implemented")
+        let url = format!("{}/parking/stop", self.base_url);
+        let body = StopRequest {
+            session_id: session_id.to_string(),
+            timestamp: unix_timestamp(),
+        };
+        self.post_with_retry(&url, &body).await
+    }
+
+    /// Send a POST request with JSON body and retry on failure.
+    ///
+    /// Retries up to `MAX_RETRIES` times with exponential backoff
+    /// (`RETRY_DELAYS_MS`) on connection errors or non-success HTTP
+    /// status codes. Parse errors on a successful response are returned
+    /// immediately without retrying.
+    async fn post_with_retry<Req, Resp>(
+        &self,
+        url: &str,
+        body: &Req,
+    ) -> Result<Resp, OperatorError>
+    where
+        Req: Serialize,
+        Resp: for<'de> Deserialize<'de>,
+    {
+        let mut last_error = String::new();
+
+        for attempt in 0..=MAX_RETRIES {
+            if attempt > 0 {
+                let delay = Duration::from_millis(RETRY_DELAYS_MS[attempt - 1]);
+                tracing::warn!(
+                    attempt = attempt + 1,
+                    max_attempts = MAX_RETRIES + 1,
+                    error = %last_error,
+                    "retrying operator request after failure"
+                );
+                tokio::time::sleep(delay).await;
+            }
+
+            match self.client.post(url).json(body).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        return response
+                            .json::<Resp>()
+                            .await
+                            .map_err(|e| OperatorError::ParseError(e.to_string()));
+                    }
+                    last_error = format!("HTTP {}", response.status());
+                }
+                Err(e) => {
+                    last_error = e.to_string();
+                }
+            }
+        }
+
+        tracing::error!(
+            error = %last_error,
+            "operator request failed after all retries"
+        );
+        Err(OperatorError::RequestFailed(last_error))
     }
 }
 
