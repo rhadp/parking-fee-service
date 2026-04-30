@@ -9,7 +9,8 @@ import (
 )
 
 // TestPropertySignalCompleteness verifies that all 8 expected signals (5 standard
-// + 3 custom) are present in the DATA_BROKER metadata with correct data types.
+// + 3 custom) are present in the DATA_BROKER metadata with correct data types,
+// and that each signal accepts a type-correct value via set/get roundtrip.
 // Test Spec: TS-02-P1
 // Requirement: 02-REQ-5.1, 02-REQ-5.2, 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3
 func TestPropertySignalCompleteness(t *testing.T) {
@@ -28,6 +29,15 @@ func TestPropertySignalCompleteness(t *testing.T) {
 				t.Errorf("signal %s: expected type %v, got %v",
 					sig.Path, sig.DataType, md[0].DataType)
 			}
+
+			// Validate data type via set/get roundtrip.
+			testVal := testValueForType(sig.DataType)
+			if testVal != nil {
+				publishValue(t, client, sig.Path, testVal)
+				dp := getValueOrFail(t, client, sig.Path)
+				assertValueMatchesType(t, sig.Path, sig.DataType, dp)
+			}
+
 			foundCount++
 		})
 	}

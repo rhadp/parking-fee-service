@@ -67,7 +67,8 @@ func TestUDSConnectivity(t *testing.T) {
 // --- Standard VSS signal metadata tests ---
 
 // TestStandardVSSSignalMetadata verifies that all 5 standard VSS v5.1 signals
-// are present in the DATA_BROKER metadata with correct data types.
+// are present in the DATA_BROKER metadata with correct data types, and that
+// each signal accepts a value of its declared type via set/get roundtrip.
 // Test Spec: TS-02-4
 // Requirement: 02-REQ-5.1, 02-REQ-5.2
 func TestStandardVSSSignalMetadata(t *testing.T) {
@@ -84,6 +85,14 @@ func TestStandardVSSSignalMetadata(t *testing.T) {
 				t.Errorf("signal %s: expected data type %v, got %v",
 					sig.Path, sig.DataType, md[0].DataType)
 			}
+
+			// Validate data type via set/get roundtrip.
+			testVal := testValueForType(sig.DataType)
+			if testVal != nil {
+				publishValue(t, client, sig.Path, testVal)
+				dp := getValueOrFail(t, client, sig.Path)
+				assertValueMatchesType(t, sig.Path, sig.DataType, dp)
+			}
 		})
 	}
 }
@@ -91,7 +100,8 @@ func TestStandardVSSSignalMetadata(t *testing.T) {
 // --- Custom VSS signal metadata tests ---
 
 // TestCustomVSSSignalMetadata verifies that all 3 custom VSS signals from the
-// overlay are present in the DATA_BROKER metadata with correct data types.
+// overlay are present in the DATA_BROKER metadata with correct data types, and
+// that each signal accepts a value of its declared type via set/get roundtrip.
 // Test Spec: TS-02-5
 // Requirement: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4
 func TestCustomVSSSignalMetadata(t *testing.T) {
@@ -107,6 +117,14 @@ func TestCustomVSSSignalMetadata(t *testing.T) {
 			if md[0].DataType != sig.DataType {
 				t.Errorf("signal %s: expected data type %v, got %v",
 					sig.Path, sig.DataType, md[0].DataType)
+			}
+
+			// Validate data type via set/get roundtrip.
+			testVal := testValueForType(sig.DataType)
+			if testVal != nil {
+				publishValue(t, client, sig.Path, testVal)
+				dp := getValueOrFail(t, client, sig.Path)
+				assertValueMatchesType(t, sig.Path, sig.DataType, dp)
 			}
 		})
 	}

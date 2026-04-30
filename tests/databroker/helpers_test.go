@@ -175,6 +175,61 @@ func stringValue(v string) *kuksa.Value {
 	return &kuksa.Value{TypedValue: &kuksa.Value_String_{String_: v}}
 }
 
+// testValueForType returns a representative test value for a given VSS data type.
+// Used by metadata tests to validate type correctness via set/get roundtrip.
+func testValueForType(dt kuksa.DataType) *kuksa.Value {
+	switch dt {
+	case kuksa.DataType_DATA_TYPE_BOOLEAN:
+		return boolValue(true)
+	case kuksa.DataType_DATA_TYPE_FLOAT:
+		return floatValue(42.0)
+	case kuksa.DataType_DATA_TYPE_DOUBLE:
+		return doubleValue(48.1351)
+	case kuksa.DataType_DATA_TYPE_STRING:
+		return stringValue("test-value")
+	default:
+		return nil
+	}
+}
+
+// assertValueMatchesType verifies that a retrieved datapoint holds a value of
+// the expected VSS data type. This is a type-level check (the value has the
+// correct oneof variant), not a value-equality check.
+func assertValueMatchesType(t *testing.T, path string, dt kuksa.DataType, dp *kuksa.Datapoint) {
+	t.Helper()
+	if dp == nil || dp.GetValue() == nil {
+		t.Errorf("signal %s: datapoint value is nil after set/get roundtrip", path)
+		return
+	}
+	val := dp.GetValue()
+	switch dt {
+	case kuksa.DataType_DATA_TYPE_BOOLEAN:
+		if val.GetTypedValue() == nil {
+			t.Errorf("signal %s: expected bool value, got nil typed value", path)
+		} else if _, ok := val.GetTypedValue().(*kuksa.Value_Bool); !ok {
+			t.Errorf("signal %s: expected bool typed value, got %T", path, val.GetTypedValue())
+		}
+	case kuksa.DataType_DATA_TYPE_FLOAT:
+		if val.GetTypedValue() == nil {
+			t.Errorf("signal %s: expected float value, got nil typed value", path)
+		} else if _, ok := val.GetTypedValue().(*kuksa.Value_Float); !ok {
+			t.Errorf("signal %s: expected float typed value, got %T", path, val.GetTypedValue())
+		}
+	case kuksa.DataType_DATA_TYPE_DOUBLE:
+		if val.GetTypedValue() == nil {
+			t.Errorf("signal %s: expected double value, got nil typed value", path)
+		} else if _, ok := val.GetTypedValue().(*kuksa.Value_Double); !ok {
+			t.Errorf("signal %s: expected double typed value, got %T", path, val.GetTypedValue())
+		}
+	case kuksa.DataType_DATA_TYPE_STRING:
+		if val.GetTypedValue() == nil {
+			t.Errorf("signal %s: expected string value, got nil typed value", path)
+		} else if _, ok := val.GetTypedValue().(*kuksa.Value_String_); !ok {
+			t.Errorf("signal %s: expected string typed value, got %T", path, val.GetTypedValue())
+		}
+	}
+}
+
 // drainStream reads and discards one initial notification from a subscription
 // stream using a goroutine so the caller is not blocked. If no notification
 // arrives within timeout the call returns gracefully. Any leaked goroutine is
