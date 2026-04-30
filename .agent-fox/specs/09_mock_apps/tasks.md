@@ -222,9 +222,9 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [x] All requirements 09-REQ-1 through 09-REQ-10 acceptance criteria met
           (sensor tests use stub v2 gRPC server; all tests pass)
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (Rust: `return vec![]`,
@@ -232,27 +232,66 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
       `panic("not implemented")`) that was never replaced
     - Every path must be live in production code -- errata or deferrals do not
       satisfy this check
+    - Traced all 6 execution path families from design.md:
+      (1) Mock sensor fire-and-forget: clap parse → resolve broker addr →
+          tonic connect → kuksa.val.v2 PublishValue RPC → exit 0/1. All three
+          sensor binaries (location-sensor, speed-sensor, door-sensor) follow
+          this path via shared `publish_datapoint` helper in lib.rs.
+      (2) parking-app-cli REST: resolve flags → HTTP GET to PARKING_FEE_SERVICE
+          (/operators, /operators/{id}/adapter) → print response / exit 1.
+      (3) parking-app-cli gRPC (UPDATE_SERVICE): resolve flags → tonic connect →
+          InstallAdapter/ListAdapters/WatchAdapterStates/GetAdapterStatus/
+          RemoveAdapter RPC → print response / exit 1. Watch streams events
+          until EOF/SIGINT.
+      (4) parking-app-cli gRPC (PARKING_OPERATOR_ADAPTOR): resolve flags →
+          tonic connect → StartSession/StopSession RPC → print response / exit 1.
+      (5) companion-app-cli: resolve flags → HTTP POST/GET to CLOUD_GATEWAY
+          with Bearer token → print response / exit 1.
+      (6) parking-operator serve: parse --port → server.New() → http.Server →
+          handle POST /parking/start (UUID, store session), POST /parking/stop
+          (lookup, calc duration/amount), GET /parking/status/{id} (lookup) →
+          graceful shutdown on SIGTERM/SIGINT.
+      No stubs found in any chain.
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
+    - Verified: publish_datapoint() Result checked via if-let-Err; server.New()
+      Handler used in http.Server; connectUpdateService/connectAdaptorService
+      return (client, conn) both used; resolveFlag/resolvePort returns used;
+      all gRPC RPC responses checked for error then printed; HTTP responses
+      have StatusCode checked and Body read. Only json.Encoder.Encode() error
+      is unchecked in writeJSON — standard Go pattern for HTTP handlers where
+      the response is already in flight.
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All `TS-09-SMOKE-*` tests pass using real components (no stub bypass)
+    - TestSensorSmoke (TS-09-SMOKE-1): PASS — all 3 sensors publish 4 values
+      to stub kuksa.val.v2 server, paths and values verified.
+    - TestParkingOperatorSmoke (TS-09-SMOKE-2): PASS — start→stop lifecycle
+      via real binary subprocess + HTTP, duration_seconds=3600, SIGTERM exit 0.
+    - TestCompanionAppSmoke (TS-09-SMOKE-3): PASS — lock→status sequence
+      via real binary subprocess against mock CLOUD_GATEWAY.
+    - TestGracefulShutdown (TS-09-17): PASS — SIGTERM exit 0.
     - _Test Spec: TS-09-SMOKE-1, TS-09-SMOKE-2, TS-09-SMOKE-3_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: Rust: `return vec![]`,
       `todo!()`, `unimplemented!()`, empty method bodies; Go: `return nil`
       on non-error returns, `// TODO`, `// stub`, `panic("not implemented")`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - Results: zero hits for all patterns in production code.
+    - Intentional stubs: `TestCompiles` placeholder tests in
+      mock/{parking-operator,parking-app-cli,companion-app-cli}/main_test.go
+      confirm module compilation; actual tests live in tests/mock-apps/.
+      `let _ = DatapointValue::*` in lib.rs test verifies enum construction.
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - For each execution path whose entry point is owned by another spec
       (e.g., mock sensors publishing to DATA_BROKER from spec 02,
       parking-app-cli calling PARKING_FEE_SERVICE/UPDATE_SERVICE/
@@ -261,14 +300,23 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
       production code -- not just from tests
     - If the upstream caller does not exist, either implement it within this
       spec or file an issue and remove the path from design.md
+    - Verified: All six mock tools are standalone CLI binaries — they ARE the
+      production entry points (main() functions). Cross-spec relationships:
+      (a) parking-operator's REST API (/parking/start, /parking/stop) is called
+          by rhivos/parking-operator-adaptor/src/operator.rs (spec 08).
+      (b) Mock sensors call DATA_BROKER (spec 02) via kuksa.val.v2 PublishValue.
+      (c) parking-app-cli calls PARKING_FEE_SERVICE (spec 05), UPDATE_SERVICE
+          (spec 07), and PARKING_OPERATOR_ADAPTOR (spec 08).
+      (d) companion-app-cli calls CLOUD_GATEWAY (spec 06).
+      All downstream services exist and are implemented by their respective specs.
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `make test`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `make test`
 
 ### Checkbox States
 
