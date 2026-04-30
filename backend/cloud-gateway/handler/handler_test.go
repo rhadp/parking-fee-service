@@ -17,12 +17,12 @@ import (
 // mockCommander is a mock implementation of handler.Commander for testing.
 type mockCommander struct {
 	lastVIN   string
-	lastCmd   any
+	lastCmd   model.Command
 	lastToken string
 	err       error
 }
 
-func (m *mockCommander) PublishCommand(vin string, cmd any, token string) error {
+func (m *mockCommander) PublishCommand(vin string, cmd model.Command, token string) error {
 	m.lastVIN = vin
 	m.lastCmd = cmd
 	m.lastToken = token

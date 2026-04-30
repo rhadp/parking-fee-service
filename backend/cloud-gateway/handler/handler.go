@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/model"
 	"github.com/rhadp/parking-fee-service/backend/cloud-gateway/store"
 )
 
 // Commander is an interface for publishing commands to NATS.
 // This allows handler tests to use a mock instead of a real NATS connection.
 type Commander interface {
-	PublishCommand(vin string, cmd any, token string) error
+	PublishCommand(vin string, cmd model.Command, token string) error
 }
 
 // NewSubmitCommandHandler returns an HTTP handler for POST /vehicles/{vin}/commands.
