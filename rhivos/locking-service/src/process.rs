@@ -1,5 +1,7 @@
-use crate::broker::BrokerClient;
-use crate::command::LockCommand;
+use crate::broker::{BrokerClient, SIGNAL_IS_LOCKED, SIGNAL_RESPONSE};
+use crate::command::{Action, LockCommand};
+use crate::response::{failure_response, success_response};
+use crate::safety::{check_safety, SafetyResult};
 
 /// Process a validated lock/unlock command.
 ///
@@ -10,11 +12,96 @@ use crate::command::LockCommand;
 ///
 /// Returns the response JSON string.
 pub async fn process_command<B: BrokerClient>(
-    _broker: &B,
-    _cmd: &LockCommand,
-    _lock_state: &mut bool,
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
 ) -> String {
-    todo!("process_command not yet implemented")
+    let response = match cmd.action {
+        Action::Lock => process_lock(broker, cmd, lock_state).await,
+        Action::Unlock => process_unlock(broker, cmd, lock_state).await,
+    };
+
+    // Publish response; log and continue on failure (03-REQ-5.E1).
+    if let Err(e) = broker.set_string(SIGNAL_RESPONSE, &response).await {
+        tracing::error!(
+            command_id = %cmd.command_id,
+            "failed to publish response: {e}"
+        );
+    }
+
+    response
+}
+
+/// Process a lock command with safety validation.
+async fn process_lock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Check safety constraints (03-REQ-3.1, 03-REQ-3.2).
+    let safety = check_safety(broker).await;
+    match safety {
+        SafetyResult::VehicleMoving => {
+            tracing::warn!(
+                command_id = %cmd.command_id,
+                "lock rejected: vehicle moving"
+            );
+            return failure_response(&cmd.command_id, "vehicle_moving");
+        }
+        SafetyResult::DoorOpen => {
+            tracing::warn!(
+                command_id = %cmd.command_id,
+                "lock rejected: door open"
+            );
+            return failure_response(&cmd.command_id, "door_open");
+        }
+        SafetyResult::Safe => {}
+    }
+
+    // Idempotent: skip set_bool if already locked (03-REQ-4.E1).
+    if !*lock_state {
+        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, true).await {
+            tracing::error!(
+                command_id = %cmd.command_id,
+                "failed to set lock state: {e}"
+            );
+        }
+        *lock_state = true;
+        tracing::info!(command_id = %cmd.command_id, "door locked");
+    } else {
+        tracing::info!(
+            command_id = %cmd.command_id,
+            "door already locked (idempotent)"
+        );
+    }
+
+    success_response(&cmd.command_id)
+}
+
+/// Process an unlock command (no safety check - 03-REQ-3.4).
+async fn process_unlock<B: BrokerClient>(
+    broker: &B,
+    cmd: &LockCommand,
+    lock_state: &mut bool,
+) -> String {
+    // Idempotent: skip set_bool if already unlocked (03-REQ-4.E2).
+    if *lock_state {
+        if let Err(e) = broker.set_bool(SIGNAL_IS_LOCKED, false).await {
+            tracing::error!(
+                command_id = %cmd.command_id,
+                "failed to set lock state: {e}"
+            );
+        }
+        *lock_state = false;
+        tracing::info!(command_id = %cmd.command_id, "door unlocked");
+    } else {
+        tracing::info!(
+            command_id = %cmd.command_id,
+            "door already unlocked (idempotent)"
+        );
+    }
+
+    success_response(&cmd.command_id)
 }
 
 #[cfg(test)]
