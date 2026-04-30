@@ -1,5 +1,9 @@
 use crate::operator::{OperatorError, StartResponse, StopResponse};
-use crate::session::Session;
+use crate::session::{Rate, Session, SessionState};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Signal path for the IsLocked flag in DATA_BROKER.
+pub const SIGNAL_IS_LOCKED: &str = "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked";
 
 /// Signal path for the SessionActive flag in DATA_BROKER.
 pub const SIGNAL_SESSION_ACTIVE: &str = "Vehicle.Parking.SessionActive";
@@ -33,6 +37,14 @@ pub trait BrokerOps {
     ) -> Result<(), String>;
 }
 
+/// Returns the current Unix timestamp in seconds.
+fn unix_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
 /// Process a lock state change event.
 ///
 /// When `is_locked` is `true` and no session is active, starts a new
@@ -43,14 +55,59 @@ pub trait BrokerOps {
 /// to DATA_BROKER. Publish failures are logged but do not affect
 /// session state.
 pub async fn process_lock_event<O: OperatorOps, B: BrokerOps>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
-    _zone_id: &str,
-    _is_locked: bool,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
+    is_locked: bool,
 ) {
-    todo!("process_lock_event not yet implemented")
+    if is_locked {
+        // Lock event → start session
+        if session.is_active() {
+            tracing::info!("lock event received but session already active, no-op");
+            return;
+        }
+        match operator.start_session(vehicle_id, zone_id).await {
+            Ok(resp) => {
+                let start_time = unix_timestamp();
+                session.start(
+                    resp.session_id,
+                    zone_id.to_string(),
+                    start_time,
+                    Rate {
+                        rate_type: resp.rate.rate_type,
+                        amount: resp.rate.amount,
+                        currency: resp.rate.currency,
+                    },
+                );
+                if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+                    tracing::error!(error = %e, "failed to publish SessionActive=true");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "failed to start session with operator");
+            }
+        }
+    } else {
+        // Unlock event → stop session
+        if !session.is_active() {
+            tracing::info!("unlock event received but no active session, no-op");
+            return;
+        }
+        let session_id = session.status().unwrap().session_id.clone();
+        match operator.stop_session(&session_id).await {
+            Ok(_resp) => {
+                session.stop();
+                if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+                    tracing::error!(error = %e, "failed to publish SessionActive=false");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "failed to stop session with operator");
+            }
+        }
+    }
 }
 
 /// Process a manual StartSession request.
@@ -59,13 +116,36 @@ pub async fn process_lock_event<O: OperatorOps, B: BrokerOps>(
 /// session is already active (`ALREADY_EXISTS`). Otherwise starts
 /// a session and publishes `SessionActive=true`.
 pub async fn process_manual_start<O: OperatorOps, B: BrokerOps>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
-    _vehicle_id: &str,
-    _zone_id: &str,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
 ) -> Result<StartResponse, ManualError> {
-    todo!("process_manual_start not yet implemented")
+    if session.is_active() {
+        let id = session.status().unwrap().session_id.clone();
+        return Err(ManualError::AlreadyExists(id));
+    }
+    match operator.start_session(vehicle_id, zone_id).await {
+        Ok(resp) => {
+            let start_time = unix_timestamp();
+            session.start(
+                resp.session_id.clone(),
+                zone_id.to_string(),
+                start_time,
+                Rate {
+                    rate_type: resp.rate.rate_type.clone(),
+                    amount: resp.rate.amount,
+                    currency: resp.rate.currency.clone(),
+                },
+            );
+            if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, true).await {
+                tracing::error!(error = %e, "failed to publish SessionActive=true");
+            }
+            Ok(resp)
+        }
+        Err(e) => Err(ManualError::OperatorUnavailable(e.to_string())),
+    }
 }
 
 /// Process a manual StopSession request.
@@ -73,11 +153,24 @@ pub async fn process_manual_start<O: OperatorOps, B: BrokerOps>(
 /// Returns `Err` with `FAILED_PRECONDITION` if no session is active.
 /// Otherwise stops the session and publishes `SessionActive=false`.
 pub async fn process_manual_stop<O: OperatorOps, B: BrokerOps>(
-    _session: &mut Session,
-    _operator: &O,
-    _broker: &B,
+    session: &mut Session,
+    operator: &O,
+    broker: &B,
 ) -> Result<StopResponse, ManualError> {
-    todo!("process_manual_stop not yet implemented")
+    if !session.is_active() {
+        return Err(ManualError::FailedPrecondition);
+    }
+    let session_id = session.status().unwrap().session_id.clone();
+    match operator.stop_session(&session_id).await {
+        Ok(resp) => {
+            session.stop();
+            if let Err(e) = broker.set_bool(SIGNAL_SESSION_ACTIVE, false).await {
+                tracing::error!(error = %e, "failed to publish SessionActive=false");
+            }
+            Ok(resp)
+        }
+        Err(e) => Err(ManualError::OperatorUnavailable(e.to_string())),
+    }
 }
 
 /// Error type for manual gRPC session commands.
@@ -91,10 +184,77 @@ pub enum ManualError {
     OperatorUnavailable(String),
 }
 
-// Suppress unused import warning until implementation.
-const _: () = {
-    fn _use_session(_s: &Session) {}
-};
+/// Internal event type for serialized processing.
+///
+/// All lock/unlock events and gRPC commands are funneled through this
+/// enum into a single `mpsc` channel, ensuring sequential processing
+/// and preventing race conditions on session state.
+pub enum SessionEvent {
+    /// Lock state changed (from DATA_BROKER subscription).
+    LockChanged(bool),
+    /// Manual StartSession from gRPC.
+    ManualStart {
+        zone_id: String,
+        reply: tokio::sync::oneshot::Sender<Result<StartResponse, ManualError>>,
+    },
+    /// Manual StopSession from gRPC.
+    ManualStop {
+        reply: tokio::sync::oneshot::Sender<Result<StopResponse, ManualError>>,
+    },
+    /// Query session status from gRPC GetStatus.
+    QueryStatus {
+        reply: tokio::sync::oneshot::Sender<Option<SessionState>>,
+    },
+    /// Query session rate from gRPC GetRate.
+    QueryRate {
+        reply: tokio::sync::oneshot::Sender<Option<Rate>>,
+    },
+}
+
+/// Run the event processing loop.
+///
+/// Receives events from the gRPC server and DATA_BROKER subscription
+/// through the `mpsc` channel. Processes them sequentially to ensure
+/// no race conditions on session state. Exits when all senders are
+/// dropped (channel closed).
+pub async fn run_event_loop<O: OperatorOps, B: BrokerOps>(
+    mut rx: tokio::sync::mpsc::Receiver<SessionEvent>,
+    operator: &O,
+    broker: &B,
+    vehicle_id: &str,
+    zone_id: &str,
+) {
+    let mut session = Session::new();
+
+    while let Some(event) = rx.recv().await {
+        match event {
+            SessionEvent::LockChanged(is_locked) => {
+                process_lock_event(
+                    &mut session, operator, broker, vehicle_id, zone_id, is_locked,
+                )
+                .await;
+            }
+            SessionEvent::ManualStart {
+                zone_id: z,
+                reply,
+            } => {
+                let result =
+                    process_manual_start(&mut session, operator, broker, vehicle_id, &z).await;
+                let _ = reply.send(result);
+            }
+            SessionEvent::ManualStop { reply } => {
+                let result = process_manual_stop(&mut session, operator, broker).await;
+                let _ = reply.send(result);
+            }
+            SessionEvent::QueryStatus { reply } => {
+                let _ = reply.send(session.status().cloned());
+            }
+            SessionEvent::QueryRate { reply } => {
+                let _ = reply.send(session.rate().cloned());
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

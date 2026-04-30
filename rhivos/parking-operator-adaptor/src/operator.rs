@@ -1,3 +1,4 @@
+use crate::event_loop::OperatorOps;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -185,6 +186,25 @@ impl OperatorClient {
             "operator request failed after all retries"
         );
         Err(OperatorError::RequestFailed(last_error))
+    }
+}
+
+impl OperatorOps for OperatorClient {
+    async fn start_session(
+        &self,
+        vehicle_id: &str,
+        zone_id: &str,
+    ) -> Result<StartResponse, OperatorError> {
+        // Delegates to the inherent method.
+        Self::start_session(self, vehicle_id, zone_id).await
+    }
+
+    async fn stop_session(
+        &self,
+        session_id: &str,
+    ) -> Result<StopResponse, OperatorError> {
+        // Delegates to the inherent method.
+        Self::stop_session(self, session_id).await
     }
 }
 

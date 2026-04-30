@@ -23,7 +23,6 @@ pub struct SessionState {
 ///
 /// Wraps an `Option<SessionState>` and provides start/stop/query
 /// operations for the active parking session.
-#[allow(dead_code)]
 pub struct Session {
     state: Option<SessionState>,
 }

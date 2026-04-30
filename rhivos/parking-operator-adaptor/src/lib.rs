@@ -1,5 +1,7 @@
+pub mod broker;
 pub mod config;
 pub mod event_loop;
+pub mod grpc_server;
 pub mod operator;
 pub mod session;
 
