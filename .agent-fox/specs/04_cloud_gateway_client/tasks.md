@@ -65,26 +65,26 @@ by integration tests and final wiring verification.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
 
-- [ ] 2. Implement config and data models
-  - [ ] 2.1 Implement `Config` struct and `Config::from_env()` in `src/config.rs`
+- [x] 2. Implement config and data models
+  - [x] 2.1 Implement `Config` struct and `Config::from_env()` in `src/config.rs`
     - Read VIN (required), NATS_URL, DATABROKER_ADDR, BEARER_TOKEN from env
     - Apply defaults for optional vars
     - Exit with code 1 and descriptive error if VIN is missing
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.E1_
 
-  - [ ] 2.2 Implement data model structs in `src/models.rs`
+  - [x] 2.2 Implement data model structs in `src/models.rs`
     - `CommandPayload`, `CommandResponse`, `TelemetryMessage`, `RegistrationMessage`, `SignalUpdate`
     - Derive appropriate serde traits, use `skip_serializing_if` for optional telemetry fields
     - _Requirements: 04-REQ-6.1, 04-REQ-8.2, 04-REQ-4.1_
 
-  - [ ] 2.3 Implement error types in `src/errors.rs`
+  - [x] 2.3 Implement error types in `src/errors.rs`
     - `ConfigError`, `AuthError`, `ValidationError`, `NatsError`, `BrokerError`
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- test_config`
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] Requirements 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.E1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- test_config`
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] Requirements 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4, 04-REQ-1.E1 acceptance criteria met
 
 - [ ] 3. Implement command validation
   - [ ] 3.1 Implement `validate_bearer_token()` in `src/command_validator.rs`
