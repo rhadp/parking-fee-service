@@ -183,42 +183,42 @@ by integration tests and final wiring verification.
     - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
     - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
 
-- [ ] 8. Write and run integration tests
-  - [ ] 8.1 Create integration test for end-to-end command flow
+- [x] 8. Write and run integration tests
+  - [x] 8.1 Create integration test for end-to-end command flow
     - Publish authenticated command on NATS, verify it appears in DATA_BROKER
     - _Test Spec: TS-04-11_
     - _Requirements: 04-REQ-2.3, 04-REQ-5.2, 04-REQ-6.3_
 
-  - [ ] 8.2 Create integration test for end-to-end response relay
+  - [x] 8.2 Create integration test for end-to-end response relay
     - Write response to DATA_BROKER, verify it appears on NATS
     - _Test Spec: TS-04-12_
     - _Requirements: 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 8.3 Create integration test for end-to-end telemetry
+  - [x] 8.3 Create integration test for end-to-end telemetry
     - Update signal in DATA_BROKER, verify telemetry JSON on NATS
     - _Test Spec: TS-04-13_
     - _Requirements: 04-REQ-8.1, 04-REQ-8.2_
 
-  - [ ] 8.4 Create integration test for self-registration
+  - [x] 8.4 Create integration test for self-registration
     - Start service, verify registration message on NATS
     - _Test Spec: TS-04-14_
     - _Requirements: 04-REQ-4.1, 04-REQ-4.2_
 
-  - [ ] 8.5 Create integration test for command rejection with invalid token
+  - [x] 8.5 Create integration test for command rejection with invalid token
     - Publish command with wrong token, verify no DATA_BROKER write
     - _Test Spec: TS-04-15_
     - _Requirements: 04-REQ-5.E2_
 
-  - [ ] 8.6 Create integration test for NATS reconnection
+  - [x] 8.6 Create integration test for NATS reconnection
     - Start with NATS down, verify retry backoff and exit on exhaustion
     - _Test Spec: TS-04-16_
     - _Requirements: 04-REQ-2.2, 04-REQ-2.E1_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- --ignored`
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client -- --include-ignored`
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] Requirements 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.E1, 04-REQ-4.1, 04-REQ-5.2, 04-REQ-5.E2, 04-REQ-6.3, 04-REQ-7.1, 04-REQ-7.2, 04-REQ-8.1, 04-REQ-8.2 acceptance criteria met
+  - [x] 8.V Verify task group 8
+    - [x] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- --ignored`
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client -- --include-ignored`
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] Requirements 04-REQ-2.2, 04-REQ-2.3, 04-REQ-2.E1, 04-REQ-4.1, 04-REQ-5.2, 04-REQ-5.E2, 04-REQ-6.3, 04-REQ-7.1, 04-REQ-7.2, 04-REQ-8.1, 04-REQ-8.2 acceptance criteria met
 
 - [ ] 9. Wiring verification
 

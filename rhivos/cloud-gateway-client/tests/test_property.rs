@@ -135,15 +135,113 @@ proptest! {
 
 /// Property test for command passthrough fidelity.
 ///
-/// NOTE: This is an integration-level property test that requires
-/// NATS and DATA_BROKER infrastructure. Deferred to task group 8.
-#[test]
+/// For any valid command payload, verify that the bytes written to
+/// `Vehicle.Command.Door.Lock` in DATA_BROKER are identical to the
+/// original NATS message payload.
+///
+/// Requires running NATS and DATA_BROKER containers.
+#[tokio::test]
 #[ignore]
-fn prop_command_passthrough_fidelity() {
-    // For any valid command payload, verify that the bytes written to
-    // Vehicle.Command.Door.Lock in DATA_BROKER are identical to the
-    // original NATS message payload.
-    todo!("Integration property test: requires NATS and DATA_BROKER")
+async fn prop_command_passthrough_fidelity() {
+    use cloud_gateway_client::broker_client::kuksa::val::v2;
+    use std::time::Duration;
+
+    let vin = "PROP-PASS-VIN";
+
+    // Build and start the service.
+    let build_output = tokio::process::Command::new("cargo")
+        .args(["build", "-p", "cloud-gateway-client"])
+        .output()
+        .await
+        .expect("Failed to run cargo build");
+    assert!(build_output.status.success(), "cargo build failed");
+
+    let metadata_output = tokio::process::Command::new("cargo")
+        .args(["metadata", "--format-version=1", "--no-deps"])
+        .output()
+        .await
+        .expect("Failed to run cargo metadata");
+    let meta: serde_json::Value =
+        serde_json::from_slice(&metadata_output.stdout).expect("Invalid cargo metadata JSON");
+    let target_dir = meta["target_directory"]
+        .as_str()
+        .expect("Missing target_directory");
+    let binary = format!("{target_dir}/debug/cloud-gateway-client");
+
+    let mut child = tokio::process::Command::new(&binary)
+        .env("VIN", vin)
+        .env("NATS_URL", "nats://localhost:4222")
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .env("BEARER_TOKEN", "demo-token")
+        .env("RUST_LOG", "cloud_gateway_client=debug")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|e| panic!("Failed to start service: {e}"));
+
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    let nats = async_nats::connect("nats://localhost:4222")
+        .await
+        .expect("Failed to connect to NATS");
+
+    // Test several payloads with varying extra fields to verify passthrough.
+    let payloads = vec![
+        r#"{"command_id":"pass-1","action":"lock","doors":["driver"]}"#,
+        r#"{"command_id":"pass-2","action":"unlock","doors":["driver","passenger"],"extra_field":"preserved"}"#,
+        r#"{"command_id":"pass-3","action":"lock","doors":[],"source":"app","vin":"X","timestamp":42}"#,
+    ];
+
+    let mut broker =
+        v2::val_client::ValClient::connect("http://localhost:55556".to_string())
+            .await
+            .expect("Failed to connect to DATA_BROKER");
+
+    for payload in &payloads {
+        let subject = format!("vehicles.{vin}.commands");
+        let mut headers = async_nats::HeaderMap::new();
+        headers.insert("Authorization", "Bearer demo-token");
+
+        nats.publish_with_headers(subject, headers, payload.to_string().into())
+            .await
+            .expect("Failed to publish command");
+        nats.flush().await.expect("Failed to flush");
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let request = v2::GetValueRequest {
+            signal_id: Some(v2::SignalId {
+                signal: Some(v2::signal_id::Signal::Path(
+                    "Vehicle.Command.Door.Lock".to_string(),
+                )),
+            }),
+        };
+
+        let response = broker
+            .get_value(request)
+            .await
+            .expect("Failed to read from DATA_BROKER");
+
+        let value = response
+            .into_inner()
+            .data_point
+            .and_then(|dp| dp.value)
+            .and_then(|v| {
+                if let Some(v2::value::TypedValue::String(s)) = v.typed_value {
+                    Some(s)
+                } else {
+                    None
+                }
+            });
+
+        assert_eq!(
+            value.as_deref(),
+            Some(*payload),
+            "DATA_BROKER value should be identical to original payload"
+        );
+    }
+
+    child.kill().await.ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -157,15 +255,111 @@ fn prop_command_passthrough_fidelity() {
 
 /// Property test for response relay fidelity.
 ///
-/// NOTE: This is an integration-level property test that requires
-/// NATS and DATA_BROKER infrastructure. Deferred to task group 8.
-#[test]
+/// For any valid JSON string written to `Vehicle.Command.Door.Response`,
+/// verify the NATS message on `vehicles.{VIN}.command_responses` contains
+/// the identical bytes.
+///
+/// Requires running NATS and DATA_BROKER containers.
+#[tokio::test]
 #[ignore]
-fn prop_response_relay_fidelity() {
-    // For any JSON string written to Vehicle.Command.Door.Response,
-    // verify the NATS message on vehicles.{VIN}.command_responses
-    // contains the identical bytes.
-    todo!("Integration property test: requires NATS and DATA_BROKER")
+async fn prop_response_relay_fidelity() {
+    use cloud_gateway_client::broker_client::kuksa::val::v2;
+    use futures::StreamExt;
+    use std::time::Duration;
+    use tokio::time::timeout;
+
+    let vin = "PROP-RELAY-VIN";
+
+    // Build and start the service.
+    let build_output = tokio::process::Command::new("cargo")
+        .args(["build", "-p", "cloud-gateway-client"])
+        .output()
+        .await
+        .expect("Failed to run cargo build");
+    assert!(build_output.status.success(), "cargo build failed");
+
+    let metadata_output = tokio::process::Command::new("cargo")
+        .args(["metadata", "--format-version=1", "--no-deps"])
+        .output()
+        .await
+        .expect("Failed to run cargo metadata");
+    let meta: serde_json::Value =
+        serde_json::from_slice(&metadata_output.stdout).expect("Invalid cargo metadata JSON");
+    let target_dir = meta["target_directory"]
+        .as_str()
+        .expect("Missing target_directory");
+    let binary = format!("{target_dir}/debug/cloud-gateway-client");
+
+    let mut child = tokio::process::Command::new(&binary)
+        .env("VIN", vin)
+        .env("NATS_URL", "nats://localhost:4222")
+        .env("DATABROKER_ADDR", "http://localhost:55556")
+        .env("BEARER_TOKEN", "demo-token")
+        .env("RUST_LOG", "cloud_gateway_client=debug")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|e| panic!("Failed to start service: {e}"));
+
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    let nats = async_nats::connect("nats://localhost:4222")
+        .await
+        .expect("Failed to connect to NATS");
+
+    let response_subject = format!("vehicles.{vin}.command_responses");
+    let mut sub = nats
+        .subscribe(response_subject)
+        .await
+        .expect("Failed to subscribe to command_responses");
+
+    let mut broker =
+        v2::val_client::ValClient::connect("http://localhost:55556".to_string())
+            .await
+            .expect("Failed to connect to DATA_BROKER");
+
+    // Test several response payloads to verify verbatim relay.
+    let responses = vec![
+        r#"{"command_id":"rsp-1","status":"success","timestamp":1700000001}"#,
+        r#"{"command_id":"rsp-2","status":"failed","reason":"door_jammed","timestamp":1700000002}"#,
+        r#"{"command_id":"rsp-3","status":"success","timestamp":1700000003,"extra":"field"}"#,
+    ];
+
+    for response_json in &responses {
+        let request = v2::PublishValueRequest {
+            signal_id: Some(v2::SignalId {
+                signal: Some(v2::signal_id::Signal::Path(
+                    "Vehicle.Command.Door.Response".to_string(),
+                )),
+            }),
+            data_point: Some(v2::Datapoint {
+                timestamp: None,
+                value: Some(v2::Value {
+                    typed_value: Some(v2::value::TypedValue::String(
+                        response_json.to_string(),
+                    )),
+                }),
+            }),
+        };
+
+        broker
+            .publish_value(request)
+            .await
+            .expect("Failed to write response to DATA_BROKER");
+
+        let msg = timeout(Duration::from_secs(5), sub.next())
+            .await
+            .expect("Timed out waiting for relayed response")
+            .expect("Subscription ended without receiving a response");
+
+        let received = std::str::from_utf8(&msg.payload).expect("Response not valid UTF-8");
+        assert_eq!(
+            received, *response_json,
+            "Response should be relayed verbatim"
+        );
+    }
+
+    child.kill().await.ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -262,15 +456,119 @@ proptest! {
 
 /// Property test for startup determinism.
 ///
-/// NOTE: This is an integration-level property test that requires
-/// injecting failures at each startup step. Deferred to task group 8.
-#[test]
+/// For each failure step in [config, nats_connect, broker_connect], verify:
+/// 1. Steps before the failure step complete
+/// 2. The service exits with a non-zero code
+/// 3. Steps after the failure step do not execute
+///
+/// Requires running NATS and DATA_BROKER containers (for the broker_connect
+/// failure case, NATS must succeed first).
+#[tokio::test]
 #[ignore]
-fn prop_startup_determinism() {
-    // For any failure step in [config, nats_connect, broker_connect,
-    // registration, processing], verify:
-    // 1. Steps before the failure step all completed
-    // 2. Steps after the failure step none executed
-    // 3. Service exits with non-zero code
-    todo!("Integration property test: requires failure injection")
+async fn prop_startup_determinism() {
+    // Build the service binary.
+    let build_output = tokio::process::Command::new("cargo")
+        .args(["build", "-p", "cloud-gateway-client"])
+        .output()
+        .await
+        .expect("Failed to run cargo build");
+    assert!(build_output.status.success(), "cargo build failed");
+
+    let metadata_output = tokio::process::Command::new("cargo")
+        .args(["metadata", "--format-version=1", "--no-deps"])
+        .output()
+        .await
+        .expect("Failed to run cargo metadata");
+    let meta: serde_json::Value =
+        serde_json::from_slice(&metadata_output.stdout).expect("Invalid cargo metadata JSON");
+    let target_dir = meta["target_directory"]
+        .as_str()
+        .expect("Missing target_directory");
+    let binary = format!("{target_dir}/debug/cloud-gateway-client");
+
+    // --- Case 1: Config failure (VIN missing) ---
+    // Steps: config fails -> no NATS connect, no broker connect, no registration.
+    {
+        let output = tokio::process::Command::new(&binary)
+            .env_remove("VIN")
+            .env("NATS_URL", "nats://localhost:4222")
+            .env("DATABROKER_ADDR", "http://localhost:55556")
+            .env("RUST_LOG", "cloud_gateway_client=debug")
+            .output()
+            .await
+            .expect("Failed to start service");
+
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "Config failure should exit with code 1"
+        );
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Should NOT see "Connected to NATS" (step 2 did not run).
+        assert!(
+            !stderr.contains("Connected to NATS"),
+            "NATS connection should not be attempted after config failure"
+        );
+    }
+
+    // --- Case 2: NATS failure (unreachable URL) ---
+    // Steps: config succeeds, NATS connect fails -> no broker connect, no registration.
+    {
+        let output = tokio::process::Command::new(&binary)
+            .env("VIN", "STARTUP-DET-VIN")
+            .env("NATS_URL", "nats://127.0.0.1:19999")
+            .env("DATABROKER_ADDR", "http://localhost:55556")
+            .env("RUST_LOG", "cloud_gateway_client=debug")
+            .output()
+            .await
+            .expect("Failed to start service");
+
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "NATS failure should exit with code 1"
+        );
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("Configuration loaded") || stderr.contains("NATS connection failed"),
+            "Config step should complete before NATS failure"
+        );
+        // Should NOT see "Connected to DATA_BROKER" (step 3 did not run).
+        assert!(
+            !stderr.contains("Connected to DATA_BROKER"),
+            "DATA_BROKER connection should not be attempted after NATS failure"
+        );
+    }
+
+    // --- Case 3: DATA_BROKER failure (unreachable address, NATS running) ---
+    // Steps: config succeeds, NATS succeeds, broker connect fails -> no registration.
+    {
+        let output = tokio::process::Command::new(&binary)
+            .env("VIN", "STARTUP-DET-VIN2")
+            .env("NATS_URL", "nats://localhost:4222")
+            .env("DATABROKER_ADDR", "http://127.0.0.1:19998")
+            .env("RUST_LOG", "cloud_gateway_client=debug")
+            .output()
+            .await
+            .expect("Failed to start service");
+
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "DATA_BROKER failure should exit with code 1"
+        );
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("Connected to NATS"),
+            "NATS should connect before DATA_BROKER failure"
+        );
+        // Should NOT see "Self-registration published" (step 4 did not run).
+        assert!(
+            !stderr.contains("Self-registration published"),
+            "Registration should not happen after DATA_BROKER failure"
+        );
+    }
 }
