@@ -121,31 +121,31 @@ by integration tests and final wiring verification.
     - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
     - [x] Requirements 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-4.1 acceptance criteria met
 
-- [ ] 5. Implement NATS client
-  - [ ] 5.1 Implement `NatsClient::connect()` with exponential backoff retry
+- [x] 5. Implement NATS client
+  - [x] 5.1 Implement `NatsClient::connect()` with exponential backoff retry
     - Retry delays: 1s, 2s, 4s, max 5 attempts
     - Return `NatsError::RetriesExhausted` on failure
     - _Requirements: 04-REQ-2.1, 04-REQ-2.2, 04-REQ-2.E1_
 
-  - [ ] 5.2 Implement `NatsClient::subscribe_commands()` for `vehicles.{VIN}.commands`
+  - [x] 5.2 Implement `NatsClient::subscribe_commands()` for `vehicles.{VIN}.commands`
     - _Requirements: 04-REQ-2.3_
 
-  - [ ] 5.3 Implement `NatsClient::publish_registration()`, `publish_response()`, `publish_telemetry()`
+  - [x] 5.3 Implement `NatsClient::publish_registration()`, `publish_response()`, `publish_telemetry()`
     - Registration publishes to `vehicles.{VIN}.status`
     - Responses publish to `vehicles.{VIN}.command_responses`
     - Telemetry publishes to `vehicles.{VIN}.telemetry`
     - _Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-7.1, 04-REQ-8.1_
 
-  - [ ] 5.4 Add `tracing` instrumentation to all NATS operations
+  - [x] 5.4 Add `tracing` instrumentation to all NATS operations
     - INFO: connection, subscribe, publish success
     - WARN: authentication/validation failures
     - ERROR: connection failures, publish failures
     - _Requirements: 04-REQ-10.1, 04-REQ-10.2, 04-REQ-10.3, 04-REQ-10.4_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] `cargo build -p cloud-gateway-client` compiles without errors
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+  - [x] 5.V Verify task group 5
+    - [x] `cargo build -p cloud-gateway-client` compiles without errors
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
 
 - [ ] 6. Checkpoint - Pure Logic Complete
   - Ensure all unit tests and property tests pass.
