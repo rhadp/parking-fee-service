@@ -73,44 +73,44 @@ Ordering: tests first, then Rust sensors (simplest, no dependencies on other moc
     - [x] All spec tests FAIL (red phase)
     - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
 
-- [ ] 2. Rust mock sensors
-  - [ ] 2.1 Vendor kuksa.val.v1 proto files
+- [x] 2. Rust mock sensors
+  - [x] 2.1 Vendor kuksa.val.v1 proto files
     - Copy kuksa.val.v1 proto files into `rhivos/mock-sensors/proto/`
     - Create `build.rs` for tonic-build code generation
     - Add dependencies: `tonic`, `prost`, `tokio`, `clap`
     - _Requirements: 09-REQ-10.1_
 
-  - [ ] 2.2 Implement shared publish_datapoint helper
+  - [x] 2.2 Implement shared publish_datapoint helper
     - Implement `publish_datapoint(broker_addr, path, value)` in `src/lib.rs`
     - Connect to DATA_BROKER via tonic gRPC
     - Call kuksa.val.v1 `Set` RPC with target VSS path and value
     - Support `DatapointValue` enum: Double, Float, Bool
     - _Requirements: 09-REQ-10.2_
 
-  - [ ] 2.3 Implement location-sensor binary
+  - [x] 2.3 Implement location-sensor binary
     - Parse `--lat`, `--lon`, `--broker-addr` with clap
     - Call `publish_datapoint` for Latitude and Longitude
     - Exit 0 on success, stderr + exit 1 on failure
     - _Requirements: 09-REQ-1.1, 09-REQ-1.2, 09-REQ-1.E1, 09-REQ-1.E2_
 
-  - [ ] 2.4 Implement speed-sensor binary
+  - [x] 2.4 Implement speed-sensor binary
     - Parse `--speed`, `--broker-addr` with clap
     - Call `publish_datapoint` for Vehicle.Speed
     - Exit 0 on success, stderr + exit 1 on failure
     - _Requirements: 09-REQ-2.1, 09-REQ-2.2, 09-REQ-2.E1, 09-REQ-2.E2_
 
-  - [ ] 2.5 Implement door-sensor binary
+  - [x] 2.5 Implement door-sensor binary
     - Parse `--open`/`--closed`, `--broker-addr` with clap
     - Call `publish_datapoint` for IsOpen
     - Exit 0 on success, stderr + exit 1 on failure
     - _Requirements: 09-REQ-3.1, 09-REQ-3.2, 09-REQ-3.E1, 09-REQ-3.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All sensor binaries build: `cd rhivos && cargo build -p mock-sensors`
-    - [ ] Argument validation tests pass: `cd rhivos && cargo test -p mock-sensors`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
-    - [ ] _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
+  - [x] 2.V Verify task group 2
+    - [x] All sensor binaries build: `cd rhivos && cargo build -p mock-sensors`
+    - [x] Argument validation tests pass: `cd rhivos && cargo test -p mock-sensors`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p mock-sensors -- -D warnings`
+    - [x] _Test Spec: TS-09-E1, TS-09-E2, TS-09-E3, TS-09-E4_
 
 - [ ] 3. Mock parking-operator server
   - [ ] 3.1 Implement session store
