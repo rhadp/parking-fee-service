@@ -152,36 +152,36 @@ by integration tests and final wiring verification.
   - Verify config, command validation, and telemetry modules are complete.
   - All pure-logic components (no I/O) are fully tested.
 
-- [ ] 7. Implement DATA_BROKER client and main wiring
-  - [ ] 7.1 Implement `BrokerClient::connect()` for gRPC connection to DATA_BROKER
+- [x] 7. Implement DATA_BROKER client and main wiring
+  - [x] 7.1 Implement `BrokerClient::connect()` for gRPC connection to DATA_BROKER
     - Connect via tonic to the configured address
     - Return `BrokerError::ConnectionFailed` on failure
     - _Requirements: 04-REQ-3.1, 04-REQ-3.E1_
 
-  - [ ] 7.2 Implement `BrokerClient::write_command()` and signal subscriptions
+  - [x] 7.2 Implement `BrokerClient::write_command()` and signal subscriptions
     - `write_command()` writes to `Vehicle.Command.Door.Lock`
     - `subscribe_responses()` observes `Vehicle.Command.Door.Response`
     - `subscribe_telemetry()` observes IsLocked, Latitude, Longitude, SessionActive
     - _Requirements: 04-REQ-3.2, 04-REQ-3.3, 04-REQ-6.3_
 
-  - [ ] 7.3 Implement `main()` with startup sequencing
+  - [x] 7.3 Implement `main()` with startup sequencing
     - Sequence: config -> NATS connect -> DATA_BROKER connect -> registration -> spawn loops
     - Exit with code 1 on any startup failure
     - _Requirements: 04-REQ-9.1, 04-REQ-9.2_
 
-  - [ ] 7.4 Implement command processing, response relay, and telemetry loops
+  - [x] 7.4 Implement command processing, response relay, and telemetry loops
     - Command loop: receive from NATS, validate bearer token, validate payload, write to DATA_BROKER
     - Response relay: subscribe DATA_BROKER responses, validate JSON, publish to NATS
     - Telemetry loop: subscribe DATA_BROKER signals, update TelemetryState, publish to NATS
     - _Requirements: 04-REQ-5.2, 04-REQ-6.3, 04-REQ-7.1, 04-REQ-7.2, 04-REQ-7.E1, 04-REQ-8.1, 04-REQ-8.2_
 
-  - [ ] 7.5 Add `tracing-subscriber` initialization and structured logging
+  - [x] 7.5 Add `tracing-subscriber` initialization and structured logging
     - _Requirements: 04-REQ-10.1, 04-REQ-10.2, 04-REQ-10.3, 04-REQ-10.4_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] `cargo build -p cloud-gateway-client` produces a working binary
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+  - [x] 7.V Verify task group 7
+    - [x] `cargo build -p cloud-gateway-client` produces a working binary
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
 
 - [ ] 8. Write and run integration tests
   - [ ] 8.1 Create integration test for end-to-end command flow
