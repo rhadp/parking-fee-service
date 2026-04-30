@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::adapter::AdapterState;
+use crate::adapter::{AdapterEntry, AdapterState};
 use crate::podman::PodmanExecutor;
 use crate::state::StateManager;
 
@@ -9,12 +9,114 @@ use crate::state::StateManager;
 /// Returns the `(job_id, adapter_id, initial_state)` triple immediately.
 /// The actual pull/verify/run operations happen in a spawned async task.
 pub async fn install_adapter(
-    _image_ref: &str,
-    _checksum_sha256: &str,
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
+    image_ref: &str,
+    checksum_sha256: &str,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
 ) -> Result<(String, String, AdapterState), InstallError> {
-    todo!("install_adapter not yet implemented")
+    // Validate inputs.
+    if image_ref.is_empty() {
+        return Err(InstallError::InvalidArgument(
+            "image_ref is required".to_string(),
+        ));
+    }
+    if checksum_sha256.is_empty() {
+        return Err(InstallError::InvalidArgument(
+            "checksum_sha256 is required".to_string(),
+        ));
+    }
+
+    // Derive adapter_id from image_ref.
+    let adapter_id = crate::adapter::derive_adapter_id(image_ref);
+
+    // Generate a unique job ID.
+    let job_id = uuid::Uuid::new_v4().to_string();
+
+    // Single adapter constraint: stop the currently running adapter.
+    if let Some(running) = state_mgr.get_running_adapter() {
+        match podman.stop(&running.adapter_id).await {
+            Ok(()) => {
+                let _ = state_mgr.transition(
+                    &running.adapter_id,
+                    AdapterState::Stopped,
+                    None,
+                );
+            }
+            Err(e) => {
+                let _ = state_mgr.transition(
+                    &running.adapter_id,
+                    AdapterState::Error,
+                    Some(e.message.clone()),
+                );
+            }
+        }
+    }
+
+    // Create adapter entry with UNKNOWN state.
+    let entry = AdapterEntry {
+        adapter_id: adapter_id.clone(),
+        image_ref: image_ref.to_string(),
+        checksum_sha256: checksum_sha256.to_string(),
+        state: AdapterState::Unknown,
+        job_id: job_id.clone(),
+        stopped_at: None,
+        error_message: None,
+    };
+    state_mgr.create_adapter(entry);
+
+    // Transition to DOWNLOADING.
+    let _ = state_mgr.transition(&adapter_id, AdapterState::Downloading, None);
+
+    // Spawn the background pull/verify/run task.
+    let img_ref = image_ref.to_string();
+    let checksum = checksum_sha256.to_string();
+    let sm = state_mgr;
+    let pm = podman;
+    let aid = adapter_id.clone();
+
+    tokio::spawn(async move {
+        // Pull the OCI image.
+        if let Err(e) = pm.pull(&img_ref).await {
+            let _ = sm.transition(&aid, AdapterState::Error, Some(e.message));
+            return;
+        }
+
+        // Verify checksum by inspecting the image digest.
+        match pm.inspect_digest(&img_ref).await {
+            Ok(digest) => {
+                if digest != checksum {
+                    let _ = sm.transition(
+                        &aid,
+                        AdapterState::Error,
+                        Some("checksum_mismatch".to_string()),
+                    );
+                    // Remove the pulled image on mismatch.
+                    let _ = pm.rmi(&img_ref).await;
+                    return;
+                }
+            }
+            Err(e) => {
+                let _ = sm.transition(&aid, AdapterState::Error, Some(e.message));
+                return;
+            }
+        }
+
+        // Transition to INSTALLING.
+        let _ = sm.transition(&aid, AdapterState::Installing, None);
+
+        // Start the container.
+        if let Err(e) = pm.run(&aid, &img_ref).await {
+            let _ = sm.transition(&aid, AdapterState::Error, Some(e.message));
+            return;
+        }
+
+        // Transition to RUNNING.
+        let _ = sm.transition(&aid, AdapterState::Running, None);
+
+        // Container monitor will be spawned here in task group 4.
+    });
+
+    Ok((job_id, adapter_id, AdapterState::Downloading))
 }
 
 /// Error returned from the synchronous part of install_adapter.
@@ -56,11 +158,51 @@ impl std::error::Error for RemoveError {}
 /// Removes an adapter: stops container (if running), removes container
 /// and image, and removes from in-memory state.
 pub async fn remove_adapter(
-    _adapter_id: &str,
-    _state_mgr: Arc<StateManager>,
-    _podman: Arc<dyn PodmanExecutor>,
+    adapter_id: &str,
+    state_mgr: Arc<StateManager>,
+    podman: Arc<dyn PodmanExecutor>,
 ) -> Result<(), RemoveError> {
-    todo!("remove_adapter not yet implemented")
+    // Look up adapter; return NOT_FOUND if missing.
+    let adapter = state_mgr
+        .get_adapter(adapter_id)
+        .ok_or_else(|| RemoveError::NotFound(format!("adapter not found: {adapter_id}")))?;
+
+    // Stop the container if it is currently running.
+    if adapter.state == AdapterState::Running {
+        if let Err(e) = podman.stop(adapter_id).await {
+            let _ = state_mgr.transition(
+                adapter_id,
+                AdapterState::Error,
+                Some(e.message.clone()),
+            );
+            return Err(RemoveError::PodmanFailed(e.message));
+        }
+    }
+
+    // Remove the container.
+    if let Err(e) = podman.rm(adapter_id).await {
+        let _ = state_mgr.transition(
+            adapter_id,
+            AdapterState::Error,
+            Some(e.message.clone()),
+        );
+        return Err(RemoveError::PodmanFailed(e.message));
+    }
+
+    // Remove the image.
+    if let Err(e) = podman.rmi(&adapter.image_ref).await {
+        let _ = state_mgr.transition(
+            adapter_id,
+            AdapterState::Error,
+            Some(e.message.clone()),
+        );
+        return Err(RemoveError::PodmanFailed(e.message));
+    }
+
+    // Remove adapter from in-memory state.
+    let _ = state_mgr.remove_adapter(adapter_id);
+
+    Ok(())
 }
 
 #[cfg(test)]
