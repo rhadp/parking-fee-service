@@ -16,13 +16,15 @@ GO_TEST_MODULES = \
 	./mock/parking-app-cli/... \
 	./mock/parking-operator/... \
 	./tests/databroker/... \
-	./tests/locking-service/...
+	./tests/locking-service/... \
+	./tests/parking-operator-adaptor/...
 
 # All Go modules including generated code (for vet/lint)
 GO_ALL_MODULES = $(GO_BUILD_MODULES) \
 	./gen/... \
 	./tests/databroker/... \
-	./tests/locking-service/...
+	./tests/locking-service/... \
+	./tests/parking-operator-adaptor/...
 
 # Build all components
 build: build-rust build-go

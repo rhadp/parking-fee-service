@@ -166,14 +166,14 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - [x] Property tests pass: `cd rhivos && cargo test -p parking-operator-adaptor -- --include-ignored proptest`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
 
-- [ ] 5. Integration test validation
-  - [ ] 5.1 Create integration test module
+- [x] 5. Integration test validation
+  - [x] 5.1 Create integration test module
     - Create `tests/parking-operator-adaptor/` Go module (or add to existing test structure)
     - Shared helpers: start/stop databroker, start/stop mock operator HTTP server, start/stop adaptor, gRPC client helpers
     - Add `go.work` entry for `./tests/parking-operator-adaptor`
     - _Test Spec: TS-08-15, TS-08-20, TS-08-21, TS-08-E8, TS-08-E12_
 
-  - [ ] 5.2 Write and run integration tests
+  - [x] 5.2 Write and run integration tests
     - `TestInitialSessionActive` — TS-08-15: verify SessionActive=false on startup
     - `TestStartupLogging` — TS-08-20: verify log output
     - `TestGracefulShutdown` — TS-08-21: verify clean exit on SIGTERM
@@ -181,17 +181,17 @@ Ordering: tests first (TDD), then pure-function modules (no external dependencie
     - `TestSessionLostOnRestart` — TS-08-E12: verify session state lost on restart
     - _Test Spec: TS-08-15, TS-08-20, TS-08-21, TS-08-E8, TS-08-E12_
 
-  - [ ] 5.3 Write and run smoke tests
+  - [x] 5.3 Write and run smoke tests
     - `TestLockStartUnlockStopFlow` — TS-08-SMOKE-1: end-to-end autonomous flow
     - `TestManualOverrideFlow` — TS-08-SMOKE-2: manual gRPC start/stop
     - `TestOverrideThenAutonomousResume` — TS-08-SMOKE-3: manual override then autonomous resume
     - _Test Spec: TS-08-SMOKE-1, TS-08-SMOKE-2, TS-08-SMOKE-3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All integration tests pass: `cd tests/parking-operator-adaptor && go test -v ./...`
-    - [ ] All unit tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
-    - [ ] All requirements 08-REQ-1 through 08-REQ-9 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All integration tests pass: `cd tests/parking-operator-adaptor && go test -v ./...`
+    - [x] All unit tests still pass: `cd rhivos && cargo test -p parking-operator-adaptor`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p parking-operator-adaptor -- -D warnings`
+    - [x] All requirements 08-REQ-1 through 08-REQ-9 acceptance criteria met
 
 - [ ] 6. Wiring verification
 
