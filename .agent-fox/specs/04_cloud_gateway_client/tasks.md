@@ -104,22 +104,22 @@ by integration tests and final wiring verification.
     - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
     - [ ] Requirements 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.E1, 04-REQ-5.E2, 04-REQ-6.1, 04-REQ-6.2, 04-REQ-6.E1, 04-REQ-6.E2, 04-REQ-6.E3 acceptance criteria met
 
-- [ ] 4. Implement telemetry state
-  - [ ] 4.1 Implement `TelemetryState::new()` and `TelemetryState::update()` in `src/telemetry.rs`
+- [x] 4. Implement telemetry state
+  - [x] 4.1 Implement `TelemetryState::new()` and `TelemetryState::update()` in `src/telemetry.rs`
     - Maintain optional fields for each signal
     - On update: set the field value, serialize to JSON omitting unset fields, return `Some(json)` if state changed
     - _Requirements: 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3_
 
-  - [ ] 4.2 Implement `RegistrationMessage` serialization
+  - [x] 4.2 Implement `RegistrationMessage` serialization
     - Verify JSON output format matches spec
     - _Requirements: 04-REQ-4.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- test_telemetry`
-    - [ ] Registration message test passes: `cargo test -p cloud-gateway-client -- test_registration`
-    - [ ] All existing tests still pass: `cargo test -p cloud-gateway-client`
-    - [ ] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
-    - [ ] Requirements 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-4.1 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `cargo test -p cloud-gateway-client -- test_telemetry`
+    - [x] Registration message test passes: `cargo test -p cloud-gateway-client -- test_registration`
+    - [x] All existing tests still pass: `cargo test -p cloud-gateway-client`
+    - [x] No linter warnings introduced: `cargo clippy -p cloud-gateway-client -- -D warnings`
+    - [x] Requirements 04-REQ-8.1, 04-REQ-8.2, 04-REQ-8.3, 04-REQ-4.1 acceptance criteria met
 
 - [ ] 5. Implement NATS client
   - [ ] 5.1 Implement `NatsClient::connect()` with exponential backoff retry
