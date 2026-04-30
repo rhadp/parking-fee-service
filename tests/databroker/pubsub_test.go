@@ -30,24 +30,12 @@ func TestSubscriptionViaTCP(t *testing.T) {
 	}
 
 	// Drain any initial current-value notification that Kuksa may send.
-	drainCtx, drainCancel := context.WithTimeout(ctx, 1*time.Second)
-	defer drainCancel()
-	func() {
-		for {
-			select {
-			case <-drainCtx.Done():
-				return
-			default:
-				_, recvErr := stream.Recv()
-				if recvErr != nil {
-					return
-				}
-			}
-		}
-	}()
+	drainStream(stream, 1*time.Second)
 
 	// Publish a new value from a second client.
-	_, err = publisherClient.PublishValue(ctx, &kuksa.PublishValueRequest{
+	pubCtx, pubCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pubCancel()
+	_, err = publisherClient.PublishValue(pubCtx, &kuksa.PublishValueRequest{
 		SignalId: &kuksa.SignalID{Signal: &kuksa.SignalID_Path{
 			Path: "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
 		}},
@@ -58,9 +46,6 @@ func TestSubscriptionViaTCP(t *testing.T) {
 	}
 
 	// Receive the subscription notification.
-	recvCtx, recvCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer recvCancel()
-
 	received := make(chan *kuksa.SubscribeResponse, 1)
 	errCh := make(chan error, 1)
 	go func() {
@@ -82,7 +67,7 @@ func TestSubscriptionViaTCP(t *testing.T) {
 		}
 	case recvErr := <-errCh:
 		t.Fatalf("subscription recv error: %v", recvErr)
-	case <-recvCtx.Done():
+	case <-ctx.Done():
 		t.Fatal("subscription: timed out waiting for notification")
 	}
 }
@@ -109,24 +94,12 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 	}
 
 	// Drain any initial current-value notification.
-	drainCtx, drainCancel := context.WithTimeout(ctx, 1*time.Second)
-	defer drainCancel()
-	func() {
-		for {
-			select {
-			case <-drainCtx.Done():
-				return
-			default:
-				_, recvErr := stream.Recv()
-				if recvErr != nil {
-					return
-				}
-			}
-		}
-	}()
+	drainStream(stream, 1*time.Second)
 
 	// Publish via TCP.
-	_, err = tcpClient.PublishValue(ctx, &kuksa.PublishValueRequest{
+	pubCtx, pubCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pubCancel()
+	_, err = tcpClient.PublishValue(pubCtx, &kuksa.PublishValueRequest{
 		SignalId:  &kuksa.SignalID{Signal: &kuksa.SignalID_Path{Path: "Vehicle.Parking.SessionActive"}},
 		DataPoint: &kuksa.Datapoint{Timestamp: timestamppb.Now(), Value: boolValue(true)},
 	})
@@ -135,9 +108,6 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 	}
 
 	// Receive the cross-transport subscription notification.
-	recvCtx, recvCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer recvCancel()
-
 	received := make(chan *kuksa.SubscribeResponse, 1)
 	errCh := make(chan error, 1)
 	go func() {
@@ -159,7 +129,7 @@ func TestSubscriptionCrossTransport(t *testing.T) {
 		}
 	case recvErr := <-errCh:
 		t.Fatalf("cross-transport subscription recv error: %v", recvErr)
-	case <-recvCtx.Done():
+	case <-ctx.Done():
 		t.Fatal("cross-transport subscription: timed out waiting for notification")
 	}
 }

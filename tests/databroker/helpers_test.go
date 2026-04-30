@@ -174,3 +174,19 @@ func doubleValue(v float64) *kuksa.Value {
 func stringValue(v string) *kuksa.Value {
 	return &kuksa.Value{TypedValue: &kuksa.Value_String_{String_: v}}
 }
+
+// drainStream reads and discards one initial notification from a subscription
+// stream using a goroutine so the caller is not blocked. If no notification
+// arrives within timeout the call returns gracefully. Any leaked goroutine is
+// cleaned up when the stream's parent context is cancelled at test cleanup.
+func drainStream(stream kuksa.VAL_SubscribeClient, timeout time.Duration) {
+	ch := make(chan struct{}, 1)
+	go func() {
+		_, _ = stream.Recv() // discard initial current-value notification
+		ch <- struct{}{}
+	}()
+	select {
+	case <-ch:
+	case <-time.After(timeout):
+	}
+}

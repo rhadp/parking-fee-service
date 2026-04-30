@@ -316,29 +316,12 @@ func TestPropertySubscriptionDelivery(t *testing.T) {
 			}
 
 			// Drain any initial notification.
-			drainCtx, drainCancel := context.WithTimeout(ctx, 1*time.Second)
-			func() {
-				defer drainCancel()
-				for {
-					select {
-					case <-drainCtx.Done():
-						return
-					default:
-						_, recvErr := stream.Recv()
-						if recvErr != nil {
-							return
-						}
-					}
-				}
-			}()
+			drainStream(stream, 1*time.Second)
 
 			// Publish a new value.
 			publishValue(t, pubClient, tc.path, tc.value)
 
 			// Wait for the subscription notification.
-			recvCtx, recvCancel := context.WithTimeout(ctx, 5*time.Second)
-			defer recvCancel()
-
 			received := make(chan *kuksa.SubscribeResponse, 1)
 			errCh := make(chan error, 1)
 			go func() {
@@ -360,7 +343,7 @@ func TestPropertySubscriptionDelivery(t *testing.T) {
 				tc.check(t, entry)
 			case recvErr := <-errCh:
 				t.Fatalf("subscription recv error: %v", recvErr)
-			case <-recvCtx.Done():
+			case <-ctx.Done():
 				t.Fatalf("subscription timed out for %s", tc.path)
 			}
 		})

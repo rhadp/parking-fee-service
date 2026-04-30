@@ -13,6 +13,15 @@ services:
     ports:
       - "55556:55555"
     volumes:
-      - ./vss-overlay.json:/home/kuksa/vss-overlay.json:ro
-    command: ["--vss", "/home/kuksa/vss-overlay.json"]
+      - /tmp/kuksa:/tmp
+      - ./vss-overlay.json:/vss-overlay.json:ro
+    command:
+      - "--address"
+      - "0.0.0.0"
+      - "--port"
+      - "55555"
+      - "--unix-socket"
+      - "/tmp/kuksa-databroker.sock"
+      - "--vss"
+      - "vss_release_5.1.json,/vss-overlay.json"
     restart: unless-stopped

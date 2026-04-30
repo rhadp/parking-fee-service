@@ -15,7 +15,8 @@ GO_TEST_MODULES = \
 	./backend/cloud-gateway \
 	./mock/companion-app-cli/... \
 	./mock/parking-app-cli/... \
-	./mock/parking-operator/...
+	./mock/parking-operator/... \
+	./tests/databroker/...
 
 # All Go modules including generated code (for vet/lint)
 GO_ALL_MODULES = $(GO_BUILD_MODULES) \
