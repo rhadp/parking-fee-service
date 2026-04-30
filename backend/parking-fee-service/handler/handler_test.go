@@ -249,15 +249,18 @@ func TestOperatorResponseFields(t *testing.T) {
 
 	op := rawOps[0]
 
-	// Required fields.
-	if _, ok := op["id"]; !ok {
-		t.Error("missing id field")
+	// Required fields must be present and non-empty strings.
+	idVal, ok := op["id"].(string)
+	if !ok || idVal == "" {
+		t.Error("expected non-empty string id field")
 	}
-	if _, ok := op["name"]; !ok {
-		t.Error("missing name field")
+	nameVal, ok := op["name"].(string)
+	if !ok || nameVal == "" {
+		t.Error("expected non-empty string name field")
 	}
-	if _, ok := op["zone_id"]; !ok {
-		t.Error("missing zone_id field")
+	zoneIDVal, ok := op["zone_id"].(string)
+	if !ok || zoneIDVal == "" {
+		t.Error("expected non-empty string zone_id field")
 	}
 	rate, ok := op["rate"]
 	if !ok {
