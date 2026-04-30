@@ -266,7 +266,12 @@ func TestMakeBuildReportsFailingToolchain(t *testing.T) {
 
 // TS-01-E7: Port conflict on infra-up
 // Requirement: 01-REQ-7.E1
+// Gated behind SETUP_TEST_INFRA=1 because it requires Podman and container images.
 func TestInfraUpPortConflict(t *testing.T) {
+	if os.Getenv("SETUP_TEST_INFRA") != "1" {
+		t.Skip("skipping infrastructure test (set SETUP_TEST_INFRA=1 to enable)")
+	}
+
 	root := repoRoot(t)
 
 	if _, err := exec.LookPath("make"); err != nil {

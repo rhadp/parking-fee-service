@@ -2,6 +2,7 @@ package setup_test
 
 import (
 	"net"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -43,7 +44,12 @@ func TestSmokeBuildTestCycle(t *testing.T) {
 
 // TS-01-SMOKE-2: Infrastructure lifecycle
 // Verifies NATS and Kuksa Databroker containers start, are reachable, and stop cleanly.
+// Gated behind SETUP_TEST_INFRA=1 because it requires Podman and container images.
 func TestSmokeInfrastructureLifecycle(t *testing.T) {
+	if os.Getenv("SETUP_TEST_INFRA") != "1" {
+		t.Skip("skipping infrastructure test (set SETUP_TEST_INFRA=1 to enable)")
+	}
+
 	root := repoRoot(t)
 
 	if _, err := exec.LookPath("make"); err != nil {

@@ -47,4 +47,16 @@ panic; these are excluded until the implementation is complete.
 ### Makefile `test-go` target
 
 Explicitly lists Go test modules, excluding `mock/parking-operator` whose
-server tests belong to spec 09.
+server tests belong to spec 09. Backend modules (`backend/cloud-gateway` and
+`backend/parking-fee-service`) use root-only paths (without `/...`) because
+sub-package tests from specs 05 and 06 are intentionally failing stubs
+awaiting implementation.
+
+### Infrastructure tests gated by `SETUP_TEST_INFRA=1`
+
+Tests that start/stop containers (`TestSmokeInfrastructureLifecycle`,
+`TestPropertyInfrastructureIdempotency`, `TestInfraDownNoContainers`,
+`TestInfraUpPortConflict`) are gated behind the `SETUP_TEST_INFRA=1`
+environment variable. This prevents `make test-setup` from failing in
+environments without Podman or container images, while still allowing
+infrastructure verification when explicitly enabled.

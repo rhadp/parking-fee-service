@@ -1,6 +1,7 @@
 package setup_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -48,7 +49,12 @@ func TestPropertyTestIsolation(t *testing.T) {
 // This test runs two full infra-up/infra-down cycles and verifies that
 // each command exits 0 and that no infrastructure containers remain after
 // the final infra-down.
+// Gated behind SETUP_TEST_INFRA=1 because it requires Podman and container images.
 func TestPropertyInfrastructureIdempotency(t *testing.T) {
+	if os.Getenv("SETUP_TEST_INFRA") != "1" {
+		t.Skip("skipping infrastructure test (set SETUP_TEST_INFRA=1 to enable)")
+	}
+
 	root := repoRoot(t)
 
 	// Verify required toolchains are available
@@ -306,7 +312,12 @@ func TestPropertyProtoConsistency(t *testing.T) {
 
 // TS-01-E8: infra-down with no running containers succeeds
 // Requirement: 01-REQ-7.E2
+// Gated behind SETUP_TEST_INFRA=1 because it requires Podman.
 func TestInfraDownNoContainers(t *testing.T) {
+	if os.Getenv("SETUP_TEST_INFRA") != "1" {
+		t.Skip("skipping infrastructure test (set SETUP_TEST_INFRA=1 to enable)")
+	}
+
 	root := repoRoot(t)
 
 	if _, err := exec.LookPath("make"); err != nil {

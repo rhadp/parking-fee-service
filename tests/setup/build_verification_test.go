@@ -166,8 +166,10 @@ func TestCargoTestPasses(t *testing.T) {
 //
 // Tests each Go module individually, matching the make test-go target.
 // The ./... pattern does not work from the repo root in a Go workspace;
-// individual module paths are used instead. Mock/parking-operator is
-// excluded because its server tests belong to spec 09 (not yet implemented).
+// individual module paths are used instead. Backend modules use root-only
+// paths (not /...) because sub-package tests from specs 05 and 06 are
+// intentionally failing stubs. Mock/parking-operator is excluded because
+// its server tests belong to spec 09 (not yet implemented).
 func TestGoTestPasses(t *testing.T) {
 	root := repoRoot(t)
 
@@ -176,8 +178,8 @@ func TestGoTestPasses(t *testing.T) {
 	}
 
 	modules := []string{
-		"./backend/cloud-gateway/...",
-		"./backend/parking-fee-service/...",
+		"./backend/cloud-gateway",
+		"./backend/parking-fee-service",
 		"./mock/companion-app-cli/...",
 		"./mock/parking-app-cli/...",
 	}
