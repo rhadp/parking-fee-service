@@ -86,6 +86,35 @@ async fn handle_command_payload(
     process_command(broker, &cmd, lock_state).await;
 }
 
+/// Wait for a shutdown signal (SIGINT or SIGTERM).
+///
+/// Resolves when either signal is received. On non-Unix platforms, only
+/// SIGINT (Ctrl+C) is supported. (03-REQ-6.1)
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        let mut sigterm = tokio::signal::unix::signal(
+            tokio::signal::unix::SignalKind::terminate(),
+        )
+        .expect("failed to install SIGTERM handler");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("received SIGINT, exiting gracefully");
+            }
+            _ = sigterm.recv() => {
+                tracing::info!("received SIGTERM, exiting gracefully");
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to listen for Ctrl+C");
+        tracing::info!("received shutdown signal, exiting gracefully");
+    }
+}
+
 /// Run the main service loop: subscribe, process commands, handle shutdown.
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let addr = config::get_databroker_addr();
@@ -117,6 +146,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("locking-service ready");
 
     // Command processing loop with graceful shutdown (03-REQ-6.1, 03-REQ-6.E1).
+    // Pin the shutdown future so it can be polled repeatedly across loop
+    // iterations. The biased select ensures any in-flight command completes
+    // before the shutdown branch is evaluated (03-REQ-6.E1).
+    let shutdown = shutdown_signal();
+    tokio::pin!(shutdown);
+
     let mut lock_state = false;
     let max_resubscribe_attempts: u32 = 3;
     let mut resubscribe_count: u32 = 0;
@@ -161,8 +196,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            _ = tokio::signal::ctrl_c() => {
-                tracing::info!("received shutdown signal, exiting gracefully");
+            _ = &mut shutdown => {
                 break;
             }
         }

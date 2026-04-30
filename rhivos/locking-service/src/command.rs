@@ -70,7 +70,7 @@ pub fn parse_command(json: &str) -> Result<LockCommand, CommandError> {
 
 /// Validate a parsed `LockCommand`.
 ///
-/// Returns `InvalidCommand` if `command_id` is empty.
+/// Returns `InvalidCommand` if `command_id` is empty or `doors` does not contain "driver".
 /// Returns `UnsupportedDoor` if `doors` contains any value other than "driver".
 pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
     if cmd.command_id.is_empty() {
@@ -78,10 +78,17 @@ pub fn validate_command(cmd: &LockCommand) -> Result<(), CommandError> {
             "command_id is empty".to_string(),
         ));
     }
+    // Check for unsupported door values first (03-REQ-2.2).
     for door in &cmd.doors {
         if door != "driver" {
             return Err(CommandError::UnsupportedDoor(door.clone()));
         }
+    }
+    // Verify "driver" is present in the array (03-REQ-2.1).
+    if !cmd.doors.contains(&"driver".to_string()) {
+        return Err(CommandError::InvalidCommand(
+            "doors must contain \"driver\"".to_string(),
+        ));
     }
     Ok(())
 }
@@ -172,5 +179,16 @@ mod tests {
         let result = validate_command(&cmd);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().reason(), "unsupported_door");
+    }
+
+    // 03-REQ-2.1: Verify that an empty doors array is rejected.
+    // The doors field must contain "driver"; an empty array does not satisfy this.
+    #[test]
+    fn test_validate_empty_doors_array() {
+        let json = r#"{"command_id":"x","action":"lock","doors":[]}"#;
+        let cmd = parse_command(json).expect("should parse JSON with empty doors");
+        let result = validate_command(&cmd);
+        assert!(result.is_err(), "empty doors array should be rejected");
+        assert_eq!(result.unwrap_err().reason(), "invalid_command");
     }
 }

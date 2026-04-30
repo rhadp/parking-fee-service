@@ -12,10 +12,16 @@ pub fn get_databroker_addr() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Mutex to serialize config tests that mutate the `DATABROKER_ADDR`
+    /// environment variable. Prevents races when cargo runs tests in parallel.
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     // TS-03-3 Case 1: Verify default address when DATABROKER_ADDR is not set.
     #[test]
     fn test_databroker_addr_default() {
+        let _lock = ENV_MUTEX.lock().unwrap();
         // Remove the env var if set to test the default.
         std::env::remove_var("DATABROKER_ADDR");
         let addr = get_databroker_addr();
@@ -25,6 +31,7 @@ mod tests {
     // TS-03-3 Case 2: Verify custom address from environment variable.
     #[test]
     fn test_databroker_addr_env() {
+        let _lock = ENV_MUTEX.lock().unwrap();
         std::env::set_var("DATABROKER_ADDR", "http://10.0.0.5:55556");
         let addr = get_databroker_addr();
         assert_eq!(addr, "http://10.0.0.5:55556");
