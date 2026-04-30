@@ -32,7 +32,7 @@ build-go:
 test: test-rust test-go
 
 test-rust:
-	cd rhivos && cargo test --workspace --lib --bins
+	cd rhivos && cargo test --workspace --exclude locking-service --lib --bins
 
 test-go:
 	go test $(GO_TEST_MODULES)

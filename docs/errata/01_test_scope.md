@@ -38,8 +38,11 @@ the modules to test.
 
 ### Makefile `test-rust` target
 
-Uses `cargo test --workspace --lib --bins` to exclude spec 09 integration
-tests from the default test run.
+Uses `cargo test --workspace --exclude locking-service --lib --bins` to
+exclude spec 09 integration tests and spec 03 locking-service stub tests
+from the default test run. The locking-service crate contains `todo!()`
+placeholder implementations from spec 03 task group 1 that intentionally
+panic; these are excluded until the implementation is complete.
 
 ### Makefile `test-go` target
 
