@@ -19,35 +19,6 @@ func readOverlay(t *testing.T) []byte {
 	return data
 }
 
-// navigateTree walks the overlay JSON tree to reach a node at the given dot-separated
-// path (e.g. "Vehicle.Parking.SessionActive"). Each segment is looked up inside the
-// parent's "children" map. Returns the node map if found, nil otherwise.
-func navigateTree(tree map[string]any, path string) map[string]any {
-	parts := strings.Split(path, ".")
-	current := tree
-	for _, part := range parts {
-		node, ok := current[part]
-		if !ok {
-			return nil
-		}
-		nodeMap, ok := node.(map[string]any)
-		if !ok {
-			return nil
-		}
-		children, hasChildren := nodeMap["children"]
-		if !hasChildren {
-			// Leaf node -- return it directly.
-			return nodeMap
-		}
-		childMap, ok := children.(map[string]any)
-		if !ok {
-			return nil
-		}
-		current = childMap
-	}
-	return nil
-}
-
 // navigateToLeaf walks the overlay JSON tree and returns the leaf node at the
 // given path. The last segment is the leaf (no children expected).
 func navigateToLeaf(tree map[string]any, path string) map[string]any {
