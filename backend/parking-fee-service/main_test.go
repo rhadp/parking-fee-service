@@ -169,11 +169,37 @@ func TestStartupLogging(t *testing.T) {
 	cmd := exec.Command(binPath)
 	cmd.Env = append(os.Environ(), "CONFIG_PATH="+cfgPath)
 
-	out, err := cmd.CombinedOutput()
-	// Ignore exit error -- the service may exit or we may need to kill it.
-	_ = err
+	// Capture combined stdout/stderr via a buffer instead of CombinedOutput,
+	// which would block forever on a long-running HTTP server.
+	var outBuf strings.Builder
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &outBuf
 
-	output := string(out)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start service: %v", err)
+	}
+
+	// Wait for the service to be ready (or give it time to log startup info).
+	if !waitForReady(port, 5*time.Second) {
+		// Service didn't become ready -- still check whatever was logged.
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		t.Log("service did not become ready, checking partial output")
+	}
+
+	// Send SIGTERM so the server exits cleanly.
+	_ = cmd.Process.Signal(syscall.SIGTERM)
+
+	// Wait for the process to exit with a timeout.
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		_ = cmd.Process.Kill()
+	}
+
+	output := outBuf.String()
 	portStr := fmt.Sprintf("%d", port)
 
 	if !strings.Contains(output, portStr) {
@@ -184,6 +210,14 @@ func TestStartupLogging(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(output), "operator") {
 		t.Errorf("startup logs should mention operators, got:\n%s", output)
+	}
+	// 05-REQ-6.1: Must log the service version.
+	if !strings.Contains(strings.ToLower(output), "version") {
+		t.Errorf("startup logs should mention version, got:\n%s", output)
+	}
+	// 05-REQ-6.1: Must log a ready message.
+	if !strings.Contains(strings.ToLower(output), "ready") {
+		t.Errorf("startup logs should contain a ready message, got:\n%s", output)
 	}
 }
 
