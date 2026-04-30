@@ -19,7 +19,8 @@ GO_TEST_MODULES = \
 
 # All Go modules including generated code (for vet/lint)
 GO_ALL_MODULES = $(GO_BUILD_MODULES) \
-	./gen/...
+	./gen/... \
+	./tests/databroker/...
 
 # Build all components
 build: build-rust build-go
