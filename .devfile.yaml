@@ -1,6 +1,6 @@
 schemaVersion: 2.3.0
 metadata:
-  name: rhas-starter
+  name: parking-fee-service
   tags:
     - rhas
     - jumpstarter
