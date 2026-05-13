@@ -177,3 +177,187 @@ impl proto::update_service_server::UpdateService for UpdateServiceImpl {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use tokio::sync::broadcast;
+    use tokio_stream::StreamExt;
+    use tonic::{Code, Request};
+
+    use super::proto;
+    use super::UpdateServiceImpl;
+    use crate::adapter::{
+        AdapterEntry, AdapterState as InternalState, AdapterStateEvent as InternalEvent,
+    };
+    use crate::podman::testing::MockPodmanExecutor;
+    use crate::state::StateManager;
+
+    /// TS-07-8: WatchAdapterStates gRPC streaming handler delivers events.
+    ///
+    /// This test directly invokes the gRPC handler (no network transport) and
+    /// asserts that state transitions produce events with correct fields,
+    /// covering ≥3 transitions (UNKNOWN→DOWNLOADING, DOWNLOADING→INSTALLING,
+    /// INSTALLING→RUNNING) as specified in the test pseudocode.
+    ///
+    /// Requirements: 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3
+    #[tokio::test]
+    async fn test_grpc_watch_adapter_states_delivers_events() {
+        use proto::update_service_server::UpdateService;
+
+        let (tx, _rx) = broadcast::channel::<InternalEvent>(64);
+        let state_mgr = Arc::new(StateManager::new(tx.clone()));
+        let mock_podman = Arc::new(MockPodmanExecutor::new());
+        let service = UpdateServiceImpl::new(state_mgr.clone(), mock_podman, tx);
+
+        // Subscribe via the gRPC handler — receives only future events (no replay).
+        let response = service
+            .watch_adapter_states(Request::new(proto::WatchAdapterStatesRequest {
+                adapter_id: String::new(),
+            }))
+            .await
+            .expect("watch_adapter_states should succeed");
+        let mut stream = response.into_inner();
+
+        // Create an adapter and drive it through three state transitions.
+        let entry = AdapterEntry {
+            adapter_id: "watch-test-v1".to_string(),
+            image_ref: "example.com/watch-test:v1".to_string(),
+            checksum_sha256: "sha256:abc".to_string(),
+            state: InternalState::Unknown,
+            job_id: "job-1".to_string(),
+            stopped_at: None,
+            error_message: None,
+        };
+        state_mgr.create_adapter(entry);
+
+        // Transition 1: Unknown -> Downloading.
+        state_mgr
+            .transition("watch-test-v1", InternalState::Downloading, None)
+            .expect("transition should succeed");
+
+        let event = tokio::time::timeout(Duration::from_millis(500), stream.next())
+            .await
+            .expect("timed out waiting for event 1")
+            .expect("stream ended")
+            .expect("stream error");
+
+        assert_eq!(event.adapter_id, "watch-test-v1", "adapter_id mismatch");
+        assert_eq!(
+            event.old_state,
+            proto::AdapterState::Unknown as i32,
+            "event 1 old_state should be Unknown"
+        );
+        assert_eq!(
+            event.new_state,
+            proto::AdapterState::Downloading as i32,
+            "event 1 new_state should be Downloading"
+        );
+        assert!(event.timestamp > 0, "timestamp should be a positive Unix epoch");
+
+        // Transition 2: Downloading -> Installing.
+        state_mgr
+            .transition("watch-test-v1", InternalState::Installing, None)
+            .expect("transition should succeed");
+
+        let event2 = tokio::time::timeout(Duration::from_millis(500), stream.next())
+            .await
+            .expect("timed out waiting for event 2")
+            .expect("stream ended")
+            .expect("stream error");
+
+        assert_eq!(
+            event2.old_state,
+            proto::AdapterState::Downloading as i32,
+            "event 2 old_state should be Downloading"
+        );
+        assert_eq!(
+            event2.new_state,
+            proto::AdapterState::Installing as i32,
+            "event 2 new_state should be Installing"
+        );
+
+        // Transition 3: Installing -> Running.
+        state_mgr
+            .transition("watch-test-v1", InternalState::Running, None)
+            .expect("transition should succeed");
+
+        let event3 = tokio::time::timeout(Duration::from_millis(500), stream.next())
+            .await
+            .expect("timed out waiting for event 3")
+            .expect("stream ended")
+            .expect("stream error");
+
+        assert_eq!(
+            event3.old_state,
+            proto::AdapterState::Installing as i32,
+            "event 3 old_state should be Installing"
+        );
+        assert_eq!(
+            event3.new_state,
+            proto::AdapterState::Running as i32,
+            "event 3 new_state should be Running"
+        );
+    }
+
+    /// TS-07-E11: RemoveAdapter gRPC handler returns INTERNAL status when
+    /// podman rm fails.
+    ///
+    /// The install.rs unit test `test_removal_failure_internal` verifies the
+    /// orchestration layer returns an error. This test verifies the gRPC
+    /// handler maps `RemoveError::PodmanFailed` to `Status::internal`,
+    /// satisfying the requirement that the gRPC status code is INTERNAL.
+    ///
+    /// Requirement: 07-REQ-5.E2
+    #[tokio::test]
+    async fn test_grpc_removal_failure_returns_internal() {
+        use proto::update_service_server::UpdateService;
+
+        let (tx, _rx) = broadcast::channel::<InternalEvent>(64);
+        let state_mgr = Arc::new(StateManager::new(tx.clone()));
+        let mock_podman = Arc::new(MockPodmanExecutor::new());
+        // Configure mock to fail on rm.
+        mock_podman.set_rm_result(Err(crate::podman::PodmanError::new("container in use")));
+
+        // Create a STOPPED adapter (no stop call needed during removal).
+        let entry = AdapterEntry {
+            adapter_id: "fail-rm-v1".to_string(),
+            image_ref: "example.com/fail-rm:v1".to_string(),
+            checksum_sha256: "sha256:test".to_string(),
+            state: InternalState::Stopped,
+            job_id: "job-1".to_string(),
+            stopped_at: None,
+            error_message: None,
+        };
+        state_mgr.create_adapter(entry);
+
+        let service = UpdateServiceImpl::new(state_mgr.clone(), mock_podman, tx);
+
+        // Call remove_adapter via the gRPC handler.
+        let result = service
+            .remove_adapter(Request::new(proto::RemoveAdapterRequest {
+                adapter_id: "fail-rm-v1".to_string(),
+            }))
+            .await;
+
+        assert!(result.is_err(), "remove_adapter should fail when podman rm fails");
+        let status = result.unwrap_err();
+        assert_eq!(
+            status.code(),
+            Code::Internal,
+            "expected gRPC INTERNAL status code, got {:?}",
+            status.code()
+        );
+
+        // Adapter should be in ERROR state (not removed from state manager).
+        let adapter = state_mgr
+            .get_adapter("fail-rm-v1")
+            .expect("adapter should still be in state manager after failed removal");
+        assert_eq!(
+            adapter.state,
+            InternalState::Error,
+            "adapter should be in Error state after podman rm failure"
+        );
+    }
+}

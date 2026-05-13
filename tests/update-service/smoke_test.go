@@ -2,8 +2,10 @@ package update_service_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -17,16 +19,22 @@ import (
 // Requirements: 07-REQ-10.1, 07-REQ-7.3
 func TestSmokeStartupLogging(t *testing.T) {
 	skipIfCargoUnavailable(t)
-	// The test validates that the service starts and accepts gRPC connections
-	// on the configured port. startUpdateService waits for the port to be
-	// reachable, which implicitly confirms the service started and logged its
-	// ready message.
-	_ = startUpdateService(t)
+	// Start the service with log capture so we can assert on log content.
+	_, logBuf := startUpdateServiceCaptureLogs(t)
 
-	// Verify the service is accepting gRPC connections.
+	// Assert the captured log output contains the configured port number
+	// and a ready indicator, as required by 07-REQ-10.1.
+	logs := logBuf.String()
+	portStr := fmt.Sprintf("%d", testGRPCPort)
+	if !strings.Contains(logs, portStr) {
+		t.Errorf("expected startup logs to contain port %s, got:\n%s", portStr, logs)
+	}
+	if !strings.Contains(strings.ToLower(logs), "ready") {
+		t.Errorf("expected startup logs to contain 'ready', got:\n%s", logs)
+	}
+
+	// Also verify the service is accepting gRPC connections.
 	_, client := dialUpdateService(t)
-
-	// A basic list call should succeed (returns empty list).
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	resp, err := client.ListAdapters(ctx, &update.ListAdaptersRequest{})
@@ -77,6 +85,86 @@ func TestSmokeGracefulShutdown(t *testing.T) {
 		}
 	case <-time.After(15 * time.Second):
 		t.Fatal("service did not exit within 15 seconds after SIGTERM")
+	}
+}
+
+// TestSmokeForceTerminateWithActiveRPC verifies that when SIGTERM is received
+// while a long-running streaming RPC is in flight, the service drains for the
+// configured 10-second timeout then force-terminates and exits with code 0.
+//
+// This test takes ≥10 seconds because the service always waits 10s before
+// force-terminating, regardless of whether in-flight RPCs complete first.
+//
+// Test Spec: TS-07-E17
+// Requirement: 07-REQ-10.E1
+func TestSmokeForceTerminateWithActiveRPC(t *testing.T) {
+	skipIfCargoUnavailable(t)
+	cmd := startUpdateService(t)
+
+	// Open a WatchAdapterStates stream — an infinite server-streaming RPC
+	// that will remain in-flight until the server closes the connection.
+	// Using a non-cancelled context so the stream stays alive until the
+	// server shuts down.
+	streamCtx, streamCancel := context.WithCancel(context.Background())
+	defer streamCancel()
+
+	_, client := dialUpdateService(t)
+	stream, err := client.WatchAdapterStates(streamCtx, &update.WatchAdapterStatesRequest{})
+	if err != nil {
+		t.Fatalf("WatchAdapterStates failed: %v", err)
+	}
+
+	// Drain the stream in the background so the RPC stays active.
+	go func() {
+		for {
+			_, recvErr := stream.Recv()
+			if recvErr != nil {
+				return
+			}
+		}
+	}()
+
+	// Allow the streaming RPC to be fully established server-side.
+	time.Sleep(200 * time.Millisecond)
+
+	// Send SIGTERM with the streaming RPC in flight.
+	start := time.Now()
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("failed to send SIGTERM: %v", err)
+	}
+
+	// Wait for the service to exit.
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	select {
+	case waitErr := <-done:
+		elapsed := time.Since(start)
+		t.Logf("service exited in %v with active streaming RPC (expected ~10s drain)", elapsed)
+
+		// Exit code must be 0 (or a signal exit on Unix which is acceptable).
+		if waitErr != nil {
+			if exitErr, ok := waitErr.(*exec.ExitError); ok {
+				if exitErr.ExitCode() != 0 {
+					t.Errorf("expected exit code 0, got %d", exitErr.ExitCode())
+				}
+			}
+			// Non-ExitError means the process was killed by a signal — acceptable.
+		}
+
+		// The service should have drained for at least 9s (10s timeout with
+		// a 1-second tolerance for scheduling jitter).
+		const minDrain = 9 * time.Second
+		const maxDrain = 15 * time.Second
+		if elapsed < minDrain {
+			t.Errorf("expected service to drain for >= %v before force-terminating, but exited in %v", minDrain, elapsed)
+		}
+		if elapsed > maxDrain {
+			t.Errorf("expected service to force-terminate within %v, but took %v (too slow)", maxDrain, elapsed)
+		}
+
+	case <-time.After(20 * time.Second):
+		t.Fatal("service did not exit within 20 seconds after SIGTERM — may be stuck")
 	}
 }
 

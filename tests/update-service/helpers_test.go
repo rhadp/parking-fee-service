@@ -1,12 +1,15 @@
 package update_service_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +17,26 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+// syncBuffer is a thread-safe bytes.Buffer suitable for capturing subprocess
+// output from multiple goroutines (the io pipe reader goroutine and the test
+// goroutine that reads the captured content).
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (sb *syncBuffer) Write(p []byte) (n int, err error) {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.buf.Write(p)
+}
+
+func (sb *syncBuffer) String() string {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.buf.String()
+}
 
 const (
 	// defaultGRPCPort is the default port the update-service listens on.
@@ -126,6 +149,66 @@ func startUpdateService(t *testing.T) *exec.Cmd {
 	}
 	t.Fatalf("update-service gRPC port %s not reachable after 10s", testGRPCTarget)
 	return nil
+}
+
+// startUpdateServiceCaptureLogs starts the update-service binary, captures its
+// stdout/stderr into a thread-safe buffer, and returns the cmd and buffer.
+// Use this instead of startUpdateService when you need to assert on log output.
+//
+// The buffer is populated asynchronously as the subprocess writes; by the
+// time this function returns (port reachable), startup logs are captured.
+func startUpdateServiceCaptureLogs(t *testing.T) (*exec.Cmd, *syncBuffer) {
+	t.Helper()
+	skipIfCargoUnavailable(t)
+
+	binaryPath := updateServiceBinaryPath(t)
+
+	configDir := t.TempDir()
+	configPath := filepath.Join(configDir, "config.json")
+	configContent := fmt.Sprintf(
+		`{"grpc_port":%d,"registry_url":"","inactivity_timeout_secs":86400,"container_storage_path":"/tmp/test-adapters/"}`,
+		testGRPCPort,
+	)
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	var logBuf syncBuffer
+	cmd := exec.Command(binaryPath)
+	cmd.Env = append(os.Environ(), "CONFIG_PATH="+configPath)
+	// Capture output to the sync buffer AND forward to os.Stdout for visibility.
+	cmd.Stdout = io.MultiWriter(&logBuf, os.Stdout)
+	cmd.Stderr = io.MultiWriter(&logBuf, os.Stderr)
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start update-service: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = cmd.Process.Signal(os.Interrupt)
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case <-done:
+		case <-time.After(15 * time.Second):
+			_ = cmd.Process.Kill()
+		}
+	})
+
+	// Wait for the gRPC port to become reachable.
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", testGRPCTarget, 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			// Brief pause to allow any remaining startup log lines to be flushed.
+			time.Sleep(50 * time.Millisecond)
+			return cmd, &logBuf
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	t.Fatalf("update-service gRPC port %s not reachable after 10s", testGRPCTarget)
+	return nil, nil
 }
 
 // dialUpdateService establishes a gRPC connection to the update-service.

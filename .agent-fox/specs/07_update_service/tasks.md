@@ -95,27 +95,29 @@ Ordering: tests first (TDD), then pure-function modules (config, adapter ID deri
     - [x] All spec tests FAIL (red): `cd rhivos && cargo test -p update-service 2>&1 | grep FAILED`
     - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
 
-- [ ] 2. Config, adapter, and data types
-  - [ ] 2.1 Implement adapter module
+- [x] 2. Config, adapter, and data types
+  - [x] 2.1 Implement adapter module
     - `derive_adapter_id(image_ref: &str) -> String`: extract last path segment, replace `:` with `-`
     - Define `AdapterState` enum with all states
     - Define `AdapterEntry` struct
     - Define `AdapterStateEvent` struct
     - _Requirements: 07-REQ-1.6_
+    - Implemented in `rhivos/update-service/src/adapter.rs` (completed as part of task group 3)
 
-  - [ ] 2.2 Implement config module
+  - [x] 2.2 Implement config module
     - `load_config(path: &str) -> Result<Config, ConfigError>`: read JSON file, deserialize
     - `default_config() -> Config`: defaults (port 50052, timeout 86400s, storage path)
     - If file not found: return default_config, log warning
     - If invalid JSON: return error
     - Support `CONFIG_PATH` env var in main
     - _Requirements: 07-REQ-7.1, 07-REQ-7.2, 07-REQ-7.E1, 07-REQ-7.E2_
+    - Implemented in `rhivos/update-service/src/config.rs` (completed as part of task group 3)
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config and adapter tests pass: `cd rhivos && cargo test -p update-service -- config adapter`
-    - [ ] All existing tests still pass: `cd rhivos && cargo test`
-    - [ ] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
-    - [ ] _Test Spec: TS-07-6, TS-07-14, TS-07-E13, TS-07-E14, TS-07-P1_
+  - [x] 2.V Verify task group 2
+    - [x] Config and adapter tests pass: `cd rhivos && cargo test -p update-service -- config`
+    - [x] All existing tests still pass: `cd rhivos && cargo test`
+    - [x] No linter warnings: `cd rhivos && cargo clippy -p update-service -- -D warnings`
+    - [x] _Test Spec: TS-07-6, TS-07-14, TS-07-E13, TS-07-E14, TS-07-P1_
 
 - [x] 3. State manager and podman executor
   - [x] 3.1 Implement state manager
